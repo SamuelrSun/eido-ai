@@ -94,8 +94,13 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
         return;
       }
 
+      // Fixed: Add user_id to the insert operation
       const { error } = await supabase.from('api_keys').upsert(
-        { key_name: 'openai', key_value: key },
+        { 
+          key_name: 'openai', 
+          key_value: key,
+          user_id: session.session.user.id // Added user_id
+        },
         { onConflict: 'user_id,key_name' }
       );
 
