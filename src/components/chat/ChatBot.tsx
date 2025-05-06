@@ -85,7 +85,6 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       const { data: session } = await supabase.auth.getSession();
       
       if (!session.session) {
-        // If no session, user needs to sign up/in first
         toast({
           title: "Authentication Required",
           description: "Please sign in first to save your API key.",
@@ -94,12 +93,11 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
         return;
       }
 
-      // Fixed: Add user_id to the insert operation
       const { error } = await supabase.from('api_keys').upsert(
         { 
           key_name: 'openai', 
           key_value: key,
-          user_id: session.session.user.id // Added user_id
+          user_id: session.session.user.id 
         },
         { onConflict: 'user_id,key_name' }
       );
