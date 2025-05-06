@@ -75,26 +75,29 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Error calling OpenAI API");
-      }
-
       const data = await response.json();
       
-      // Fix: Check if data and data.choices exist before accessing the array index
-      if (data && data.choices && data.choices.length > 0) {
-        const aiMessage: Message = {
-          content: data.choices[0].message.content,
-          isUser: false,
-          role: "assistant",
-          timestamp: new Date().toLocaleTimeString(),
-        };
-        
-        setMessages(prev => [...prev, aiMessage]);
-      } else {
-        throw new Error("Invalid response format from OpenAI API");
+      // Check if there was an error returned from our edge function
+      if (data.error) {
+        throw new Error(data.error);
       }
+      
+      // Get content from the response - handle both standard OpenAI format and our custom error format
+      let aiMessageContent = "Sorry, I couldn't generate a response at the moment.";
+      
+      // Check if we have choices available
+      if (data.choices && data.choices.length > 0 && data.choices[0].message) {
+        aiMessageContent = data.choices[0].message.content;
+      }
+      
+      const aiMessage: Message = {
+        content: aiMessageContent,
+        isUser: false,
+        role: "assistant",
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      
+      setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error("Error:", error);
       

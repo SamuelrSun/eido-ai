@@ -52,6 +52,24 @@ serve(async (req) => {
       })
     });
 
+    // Check if the response is OK
+    if (!openAIResponse.ok) {
+      const errorData = await openAIResponse.json();
+      // Format error response for frontend
+      return new Response(JSON.stringify({ 
+        error: errorData.error.message || "Error from OpenAI API",
+        // Include a mock choice so frontend doesn't crash
+        choices: [{ 
+          message: { 
+            content: `Error: ${errorData.error.message || "Failed to get response from AI"}` 
+          } 
+        }]
+      }), {
+        status: 200, // Return 200 to avoid triggering fetch error, but with error data
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
     // Get the response data
     const openAIData = await openAIResponse.json();
     
@@ -61,8 +79,16 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    // Return a formatted response that won't crash the frontend
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      choices: [{ 
+        message: { 
+          content: `Error: ${error.message}` 
+        } 
+      }]
+    }), {
+      status: 200, // Return 200 to avoid triggering fetch error handler
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
