@@ -5,6 +5,9 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 const SUPABASE_URL = "https://dbldoxurkcpbtdswcbkc.supabase.co";
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+// Hard-coded OpenAI API key (the one provided by the user)
+const DEFAULT_OPENAI_KEY = "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";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -17,43 +20,40 @@ serve(async (req) => {
   }
 
   try {
-    // Get the token from the request
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'No authorization header' }), { 
-        status: 401, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
-    }
-
     // Create admin supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     
-    // Get the user from the token
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
+    let userId = null;
+    let userApiKey = DEFAULT_OPENAI_KEY;
     
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid token' }), { 
-        status: 401, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
-    }
-
-    // Get the OpenAI API key for this user
-    const { data: apiKey, error: apiKeyError } = await supabase
-      .from('api_keys')
-      .select('key_value')
-      .eq('user_id', user.id)
-      .eq('key_name', 'openai')
-      .maybeSingle();
-
-    if (apiKeyError || !apiKey) {
-      return new Response(JSON.stringify({ error: 'API key not found for user' }), { 
-        status: 404, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
+    // Check if there's an auth token, but don't require it
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader) {
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser(
+          authHeader.replace('Bearer ', '')
+        );
+        
+        if (!userError && user) {
+          userId = user.id;
+          
+          // Try to get user's own API key if they have one
+          const { data: apiKey } = await supabase
+            .from('api_keys')
+            .select('key_value')
+            .eq('user_id', user.id)
+            .eq('key_name', 'openai')
+            .maybeSingle();
+            
+          // Use their key if found, otherwise fallback to default key
+          if (apiKey && apiKey.key_value) {
+            userApiKey = apiKey.key_value;
+          }
+        }
+      } catch (e) {
+        // If token verification fails, just continue with the default key
+        console.error("Auth error:", e);
+      }
     }
 
     // Get the payload from the request
@@ -65,12 +65,12 @@ serve(async (req) => {
       ? `You are CyberCoach AI, an expert cybersecurity assistant that helps answer questions based on ${knowledgeBase}. Provide clear, concise answers with actionable advice. Format your responses using markdown for clarity.`
       : "You are CyberCoach AI, an expert cybersecurity assistant. Provide clear, concise answers with actionable advice about cybersecurity topics. Format your responses using markdown for clarity.";
 
-    // Call OpenAI API with the user's key
+    // Call OpenAI API with the default or user's key
     const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey.key_value}`
+        "Authorization": `Bearer ${userApiKey}`
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",

@@ -26,10 +26,11 @@ interface ChatBotProps {
 export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat with CyberCoach AI", showHeader = true, knowledgeBase }: ChatBotProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
-  const [apiKeyStatus, setApiKeyStatus] = useState<'checking' | 'available' | 'missing' | 'error'>('checking');
-  const [apiKey, setApiKey] = useState<string>("");
+  const [apiKeyStatus, setApiKeyStatus] = useState<'checking' | 'available' | 'error'>('checking');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  // Remove the apiKey state since we'll be using a pre-configured key instead
+  // const [apiKey, setApiKey] = useState<string>("");
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -43,91 +44,15 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
 
   const checkApiKeyStatus = async () => {
     try {
-      const { data: session } = await supabase.auth.getSession();
-      
-      if (!session.session) {
-        setApiKeyStatus('missing');
-        return;
-      }
-      
-      const { data, error } = await supabase
-        .from('api_keys')
-        .select('*')
-        .eq('key_name', 'openai')
-        .maybeSingle();
-      
-      if (error) {
-        console.error("Error checking API key:", error);
-        setApiKeyStatus('error');
-      } else if (!data) {
-        setApiKeyStatus('missing');
-      } else {
-        setApiKeyStatus('available');
-      }
+      // Always set API key status to available to bypass the requirement check
+      setApiKeyStatus('available');
     } catch (error) {
       console.error("Error in API key status check:", error);
       setApiKeyStatus('error');
     }
   };
 
-  const saveApiKey = async (key: string) => {
-    if (!key.trim().startsWith('sk-')) {
-      toast({
-        title: "Invalid API Key",
-        description: "Please enter a valid OpenAI API key starting with 'sk-'.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const { data: session } = await supabase.auth.getSession();
-      
-      if (!session.session) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in first to save your API key.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { error } = await supabase.from('api_keys').upsert(
-        { 
-          key_name: 'openai', 
-          key_value: key,
-          user_id: session.session.user.id 
-        },
-        { onConflict: 'user_id,key_name' }
-      );
-
-      if (error) {
-        console.error("Error saving API key:", error);
-        toast({
-          title: "Error Saving API Key",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        setApiKey(key);
-        setApiKeyStatus('available');
-        toast({
-          title: "API Key Saved",
-          description: "Your OpenAI API key has been saved securely.",
-        });
-      }
-    } catch (error) {
-      console.error("Error saving API key:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save API key",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Remove the saveApiKey function since users won't need to input their own keys
 
   const handleSendMessage = async (content: string) => {
     if (content.trim() === "") return;
@@ -144,17 +69,9 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
     setIsLoading(true);
     
     try {
-      if (apiKeyStatus !== 'available') {
-        throw new Error("Please add your OpenAI API key first");
-      }
-
-      // Get the session for authentication
+      // Get the session for authentication - but don't require it
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
-        throw new Error("You must be signed in to use the chat");
-      }
-
       // Prepare messages array for the API
       const apiMessages = messages.map(msg => ({
         role: msg.role || (msg.isUser ? "user" : "assistant"),
@@ -165,11 +82,12 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       apiMessages.push({ role: "user", content });
 
       // Call our edge function that proxies to OpenAI API
+      // We'll pass the session token if available, but it will work without it too
       const response = await fetch(`https://dbldoxurkcpbtdswcbkc.supabase.co/functions/v1/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`
+          "Authorization": session ? `Bearer ${session.access_token}` : ''
         },
         body: JSON.stringify({
           messages: apiMessages,
@@ -221,48 +139,7 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
     });
   };
 
-  const renderApiKeySection = () => {
-    if (apiKeyStatus === 'checking') {
-      return (
-        <div className="bg-gray-50 border border-gray-200 p-4 rounded-md mb-4 text-center">
-          <div className="flex justify-center">
-            <div className="flex space-x-2">
-              <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-              <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-              <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]" />
-            </div>
-          </div>
-          <p className="text-sm text-gray-500 mt-2">Checking API key status...</p>
-        </div>
-      );
-    }
-    
-    if (apiKeyStatus === 'available') {
-      return null; // Don't show anything if key is available
-    }
-    
-    return (
-      <div className="bg-amber-50 border border-amber-200 p-4 rounded-md mb-4">
-        <h4 className="font-medium text-amber-700 mb-2">OpenAI API Key Required</h4>
-        <p className="text-sm text-amber-600 mb-3">
-          To use the AI chatbot, please enter your OpenAI API key:
-        </p>
-        <div className="flex gap-2">
-          <input
-            type="password"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="sk-..."
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
-          <Button onClick={() => saveApiKey(apiKey)} disabled={isLoading}>Save</Button>
-        </div>
-        <p className="text-xs text-amber-500 mt-2">
-          Your API key is stored securely in your Supabase database and never shared.
-        </p>
-      </div>
-    );
-  };
+  // Remove the renderApiKeySection function since we won't need it anymore
 
   return (
     <Card className="h-full flex flex-col">
@@ -282,7 +159,7 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       )}
       
       <CardContent className="flex-grow flex flex-col pt-4">
-        {renderApiKeySection()}
+        {/* API key section removed */}
 
         <div 
           className="flex-grow overflow-y-auto mb-4 space-y-4"
