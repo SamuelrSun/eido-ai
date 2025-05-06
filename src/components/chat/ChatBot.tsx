@@ -24,6 +24,9 @@ interface ChatBotProps {
 export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat with CyberCoach AI", showHeader = true, knowledgeBase }: ChatBotProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
+  const [apiKey, setApiKey] = useState<string>(() => {
+    return localStorage.getItem("openai_api_key") || "";
+  });
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -33,7 +36,16 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
     }
   }, [messages]);
 
-  const handleSendMessage = (content: string) => {
+  const saveApiKey = (key: string) => {
+    setApiKey(key);
+    localStorage.setItem("openai_api_key", key);
+    toast({
+      title: "API Key Saved",
+      description: "Your OpenAI API key has been saved locally.",
+    });
+  };
+
+  const handleSendMessage = async (content: string) => {
     if (content.trim() === "") return;
     
     // Add user message
@@ -46,36 +58,70 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
     
-    // Mock AI response (for demo)
-    setTimeout(() => {
-      const aiResponse = getAIResponse(content);
+    try {
+      if (!apiKey) {
+        throw new Error("Please enter your OpenAI API key first");
+      }
+
+      // Create system prompt with cybersecurity context
+      const systemPrompt = knowledgeBase 
+        ? `You are CyberCoach AI, an expert cybersecurity assistant that helps answer questions based on ${knowledgeBase}. Provide clear, concise answers with actionable advice. Format your responses using markdown for clarity.`
+        : "You are CyberCoach AI, an expert cybersecurity assistant. Provide clear, concise answers with actionable advice about cybersecurity topics. Format your responses using markdown for clarity.";
+
+      // Call OpenAI API
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...messages.map(msg => ({
+              role: msg.isUser ? "user" : "assistant",
+              content: msg.content
+            })),
+            { role: "user", content }
+          ],
+          temperature: 0.7,
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || "Error calling OpenAI API");
+      }
+
+      const data = await response.json();
+      
       const aiMessage: Message = {
-        content: aiResponse,
+        content: data.choices[0].message.content,
         isUser: false,
         timestamp: new Date().toLocaleTimeString(),
       };
       
       setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("Error:", error);
+      
+      const errorMessage: Message = {
+        content: `Error: ${error instanceof Error ? error.message : "Failed to get response from AI"}`,
+        isUser: false,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+      
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to get response from AI",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
-  };
-  
-  const getAIResponse = (query: string) => {
-    // Mock AI responses based on query keywords
-    const lowercaseQuery = query.toLowerCase();
-    
-    if (lowercaseQuery.includes("password")) {
-      return "**Password best practices:**\n- Use at least 12 characters\n- Include uppercase, lowercase, numbers, and symbols\n- Don't reuse passwords across services\n- Consider using a password manager like LastPass or 1Password\n\nOur company policy requires changing passwords every 60 days.";
-    } else if (lowercaseQuery.includes("phishing")) {
-      return "**How to identify phishing emails:**\n- Check sender email addresses carefully\n- Be suspicious of urgent requests\n- Hover over links before clicking\n- Don't open unexpected attachments\n- Look for grammar/spelling errors\n\nIf you suspect a phishing attempt, forward it to security@company.com immediately.";
-    } else if (lowercaseQuery.includes("vpn")) {
-      return "**VPN Usage Guidelines:**\n- Always use company VPN when working remotely\n- Connect before accessing any company resources\n- Report connection issues to IT support\n- Don't share VPN credentials with anyone\n\nFor VPN installation instructions, visit [our internal wiki](https://wiki.company.com/vpn).";
-    } else if (lowercaseQuery.includes("zero trust")) {
-      return "**Zero Trust Architecture:**\n\nZero Trust is a security model based on the principle \"never trust, always verify.\" It requires strict identity verification for every person and device trying to access resources on our network, regardless of whether they are inside or outside the network perimeter.\n\nKey components include:\n- Multi-factor authentication\n- Micro-segmentation\n- Least privilege access\n- Device access control\n- Continuous monitoring";
     }
-    
-    // Default response
-    return "Thank you for your question. As a cybersecurity assistant, I can help with topics like password policies, phishing detection, secure remote work practices, and compliance requirements. Could you provide more specific details about your cybersecurity concern?";
   };
   
   const resetChat = () => {
@@ -104,6 +150,28 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       )}
       
       <CardContent className="flex-grow flex flex-col pt-4">
+        {!apiKey && (
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-md mb-4">
+            <h4 className="font-medium text-amber-700 mb-2">OpenAI API Key Required</h4>
+            <p className="text-sm text-amber-600 mb-3">
+              To use the AI chatbot, please enter your OpenAI API key:
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="sk-..."
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+              />
+              <Button onClick={() => saveApiKey(apiKey)}>Save</Button>
+            </div>
+            <p className="text-xs text-amber-500 mt-2">
+              Your API key is stored locally in your browser and never sent to our servers.
+            </p>
+          </div>
+        )}
+
         <div 
           className="flex-grow overflow-y-auto mb-4 space-y-4"
           ref={chatContainerRef}
