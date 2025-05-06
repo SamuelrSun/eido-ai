@@ -23,39 +23,9 @@ serve(async (req) => {
     // Create admin supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     
-    let userId = null;
-    let userApiKey = DEFAULT_OPENAI_KEY;
+    // Always use the default OpenAI key
+    const userApiKey = DEFAULT_OPENAI_KEY;
     
-    // Check if there's an auth token, but don't require it
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
-      try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser(
-          authHeader.replace('Bearer ', '')
-        );
-        
-        if (!userError && user) {
-          userId = user.id;
-          
-          // Try to get user's own API key if they have one
-          const { data: apiKey } = await supabase
-            .from('api_keys')
-            .select('key_value')
-            .eq('user_id', user.id)
-            .eq('key_name', 'openai')
-            .maybeSingle();
-            
-          // Use their key if found, otherwise fallback to default key
-          if (apiKey && apiKey.key_value) {
-            userApiKey = apiKey.key_value;
-          }
-        }
-      } catch (e) {
-        // If token verification fails, just continue with the default key
-        console.error("Auth error:", e);
-      }
-    }
-
     // Get the payload from the request
     const payload = await req.json();
     const { messages, knowledgeBase } = payload;
@@ -65,7 +35,7 @@ serve(async (req) => {
       ? `You are CyberCoach AI, an expert cybersecurity assistant that helps answer questions based on ${knowledgeBase}. Provide clear, concise answers with actionable advice. Format your responses using markdown for clarity.`
       : "You are CyberCoach AI, an expert cybersecurity assistant. Provide clear, concise answers with actionable advice about cybersecurity topics. Format your responses using markdown for clarity.";
 
-    // Call OpenAI API with the default or user's key
+    // Call OpenAI API with the default key
     const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {

@@ -26,33 +26,14 @@ interface ChatBotProps {
 export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat with CyberCoach AI", showHeader = true, knowledgeBase }: ChatBotProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
-  const [apiKeyStatus, setApiKeyStatus] = useState<'checking' | 'available' | 'error'>('checking');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  // Remove the apiKey state since we'll be using a pre-configured key instead
-  // const [apiKey, setApiKey] = useState<string>("");
 
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
-
-  useEffect(() => {
-    checkApiKeyStatus();
-  }, []);
-
-  const checkApiKeyStatus = async () => {
-    try {
-      // Always set API key status to available to bypass the requirement check
-      setApiKeyStatus('available');
-    } catch (error) {
-      console.error("Error in API key status check:", error);
-      setApiKeyStatus('error');
-    }
-  };
-
-  // Remove the saveApiKey function since users won't need to input their own keys
 
   const handleSendMessage = async (content: string) => {
     if (content.trim() === "") return;
@@ -82,7 +63,6 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       apiMessages.push({ role: "user", content });
 
       // Call our edge function that proxies to OpenAI API
-      // We'll pass the session token if available, but it will work without it too
       const response = await fetch(`https://dbldoxurkcpbtdswcbkc.supabase.co/functions/v1/chat`, {
         method: "POST",
         headers: {
@@ -102,14 +82,19 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
 
       const data = await response.json();
       
-      const aiMessage: Message = {
-        content: data.choices[0].message.content,
-        isUser: false,
-        role: "assistant",
-        timestamp: new Date().toLocaleTimeString(),
-      };
-      
-      setMessages(prev => [...prev, aiMessage]);
+      // Fix: Check if data and data.choices exist before accessing the array index
+      if (data && data.choices && data.choices.length > 0) {
+        const aiMessage: Message = {
+          content: data.choices[0].message.content,
+          isUser: false,
+          role: "assistant",
+          timestamp: new Date().toLocaleTimeString(),
+        };
+        
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        throw new Error("Invalid response format from OpenAI API");
+      }
     } catch (error) {
       console.error("Error:", error);
       
@@ -139,8 +124,6 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
     });
   };
 
-  // Remove the renderApiKeySection function since we won't need it anymore
-
   return (
     <Card className="h-full flex flex-col">
       {showHeader && (
@@ -159,8 +142,6 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       )}
       
       <CardContent className="flex-grow flex flex-col pt-4">
-        {/* API key section removed */}
-
         <div 
           className="flex-grow overflow-y-auto mb-4 space-y-4"
           ref={chatContainerRef}
