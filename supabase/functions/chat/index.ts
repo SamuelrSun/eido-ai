@@ -8,6 +8,10 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // Hard-coded OpenAI API key (the one provided by the user)
 const DEFAULT_OPENAI_KEY = "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";
 
+// Vector Store ID and Assistant ID
+const VECTOR_STORE_ID = "vs_681a9a95ea088191b7c66683f0f3b9cf";
+const ASSISTANT_ID = "asst_u7TVc67jaF4bb2qsUzasOWSs";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -30,104 +34,160 @@ serve(async (req) => {
     const payload = await req.json();
     const { messages, knowledgeBase } = payload;
     
-    // Get the last user message for vector search
-    const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
-
-    // Perform vector search if there's a last user message
-    let vectorResults = [];
-    let contextString = '';
-    
-    if (lastUserMessage) {
-      try {
-        // Generate embeddings for the user query
-        const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${userApiKey}`
-          },
-          body: JSON.stringify({
-            model: "text-embedding-3-small",
-            input: lastUserMessage
-          })
-        });
-        
-        const embeddingData = await embeddingResponse.json();
-        
-        if (embeddingResponse.ok && embeddingData.data && embeddingData.data[0]?.embedding) {
-          // Query the vector store using the generated embedding
-          const { data: vectorData, error: vectorError } = await supabase
-            .rpc('match_documents', {
-              query_embedding: embeddingData.data[0].embedding,
-              match_threshold: 0.7,  // Adjust this threshold as needed
-              match_count: 5         // Number of matches to return
-            });
-          
-          if (!vectorError && vectorData && vectorData.length > 0) {
-            vectorResults = vectorData;
-            
-            // Create context string from vector results
-            contextString = "Information from knowledge base:\n\n" + 
-              vectorResults.map(item => `${item.content}`).join("\n\n") +
-              "\n\nPlease use this information to answer the query where applicable.";
-          }
-        }
-      } catch (vectorSearchError) {
-        console.error("Vector search error:", vectorSearchError);
-        // Continue without vector results if there's an error
-      }
-    }
-
-    // Create system prompt with cybersecurity context and vector search results
+    // Create system prompt with cybersecurity context
     let systemPrompt = knowledgeBase 
       ? `You are CyberCoach AI, an expert cybersecurity assistant that helps answer questions based on ${knowledgeBase}. Provide clear, concise answers with actionable advice. Format your responses using markdown for clarity.`
       : "You are CyberCoach AI, an expert cybersecurity assistant. Provide clear, concise answers with actionable advice about cybersecurity topics. Format your responses using markdown for clarity.";
-
-    // Add vector search context if available
-    if (contextString) {
-      systemPrompt += "\n\n" + contextString;
-    }
-
-    // Call OpenAI API with the default key
-    const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    
+    // Start a thread with the Assistant
+    const threadResponse = await fetch("https://api.openai.com/v1/threads", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${userApiKey}`
+        "Authorization": `Bearer ${userApiKey}`,
+        "OpenAI-Beta": "assistants=v1"
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages
-        ],
-        temperature: 0.7,
-      })
+      body: JSON.stringify({})
     });
-
-    // Check if the response is OK
-    if (!openAIResponse.ok) {
-      const errorData = await openAIResponse.json();
-      // Format error response for frontend
-      return new Response(JSON.stringify({ 
-        error: errorData.error.message || "Error from OpenAI API",
-        // Include a mock choice so frontend doesn't crash
-        choices: [{ 
-          message: { 
-            content: `Error: ${errorData.error.message || "Failed to get response from AI"}` 
-          } 
-        }]
-      }), {
-        status: 200, // Return 200 to avoid triggering fetch error, but with error data
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    
+    if (!threadResponse.ok) {
+      const threadError = await threadResponse.json();
+      throw new Error(`Failed to create thread: ${JSON.stringify(threadError)}`);
     }
     
-    // Get the response data
-    const openAIData = await openAIResponse.json();
+    const threadData = await threadResponse.json();
+    const threadId = threadData.id;
     
-    // Return the response data
-    return new Response(JSON.stringify(openAIData), {
+    console.log(`Created thread with ID: ${threadId}`);
+    
+    // Get the last user message
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
+    
+    if (!lastUserMessage) {
+      throw new Error("No user message found");
+    }
+    
+    // Add the user message to the thread
+    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${userApiKey}`,
+        "OpenAI-Beta": "assistants=v1"
+      },
+      body: JSON.stringify({
+        role: "user",
+        content: lastUserMessage
+      })
+    });
+    
+    if (!messageResponse.ok) {
+      const messageError = await messageResponse.json();
+      throw new Error(`Failed to add message: ${JSON.stringify(messageError)}`);
+    }
+    
+    console.log("Added user message to thread");
+    
+    // Run the Assistant on the thread
+    const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${userApiKey}`,
+        "OpenAI-Beta": "assistants=v1"
+      },
+      body: JSON.stringify({
+        assistant_id: ASSISTANT_ID,
+        instructions: systemPrompt,
+        tools: [
+          {
+            type: "retrieval"
+          }
+        ]
+      })
+    });
+    
+    if (!runResponse.ok) {
+      const runError = await runResponse.json();
+      throw new Error(`Failed to run assistant: ${JSON.stringify(runError)}`);
+    }
+    
+    const runData = await runResponse.json();
+    const runId = runData.id;
+    
+    console.log(`Started run with ID: ${runId}`);
+    
+    // Poll for run completion
+    let runStatus = "queued";
+    let maxAttempts = 30;  // Maximum number of attempts (30 * 1s = 30s timeout)
+    let attempts = 0;
+    
+    while (runStatus !== "completed" && runStatus !== "failed" && runStatus !== "expired" && attempts < maxAttempts) {
+      attempts++;
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));  // Wait 1 second between polls
+      
+      const runCheckResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${userApiKey}`,
+          "OpenAI-Beta": "assistants=v1"
+        }
+      });
+      
+      if (!runCheckResponse.ok) {
+        const checkError = await runCheckResponse.json();
+        throw new Error(`Failed to check run status: ${JSON.stringify(checkError)}`);
+      }
+      
+      const runCheckData = await runCheckResponse.json();
+      runStatus = runCheckData.status;
+      
+      console.log(`Run status (attempt ${attempts}): ${runStatus}`);
+    }
+    
+    if (runStatus !== "completed") {
+      throw new Error(`Run did not complete. Final status: ${runStatus}`);
+    }
+    
+    // Get the assistant's response
+    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${userApiKey}`,
+        "OpenAI-Beta": "assistants=v1"
+      }
+    });
+    
+    if (!messagesResponse.ok) {
+      const messagesError = await messagesResponse.json();
+      throw new Error(`Failed to get messages: ${JSON.stringify(messagesError)}`);
+    }
+    
+    const messagesData = await messagesResponse.json();
+    
+    // Find the most recent assistant message
+    const assistantMessages = messagesData.data.filter(m => m.role === "assistant");
+    if (assistantMessages.length === 0) {
+      throw new Error("No assistant response found");
+    }
+    
+    const latestAssistantMessage = assistantMessages[0];
+    const assistantContent = latestAssistantMessage.content[0].text.value;
+    
+    // Format response to match what the frontend expects
+    const formattedResponse = {
+      choices: [
+        {
+          message: {
+            content: assistantContent
+          }
+        }
+      ]
+    };
+    
+    // Return the assistant response
+    return new Response(JSON.stringify(formattedResponse), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

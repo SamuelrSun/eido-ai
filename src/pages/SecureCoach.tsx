@@ -48,7 +48,7 @@ const SecureCoach = () => {
       <div>
         <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">Secure Cybersecurity Coach</h1>
         <p className="text-gray-600 mb-6">
-          Sign in to securely save your API key and access the AI coach from any device.
+          Sign in to securely save your API key and access the AI coach from any device. This coach uses OpenAI's Assistant with knowledge retrieval for accurate cybersecurity guidance.
         </p>
       </div>
 
@@ -65,7 +65,7 @@ const SecureCoach = () => {
             <div className="bg-white p-6 rounded-xl shadow-sm border">
               <ChatBot 
                 suggestions={suggestions} 
-                knowledgeBase="Secure Cross-Device AI Assistant"
+                knowledgeBase="OpenAI Assistant with Vector Knowledge Retrieval"
               />
             </div>
           </div>
