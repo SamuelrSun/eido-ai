@@ -23,17 +23,70 @@ serve(async (req) => {
     // Create admin supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     
-    // Always use the default OpenAI key
+    // Always use the default OpenAI API key
     const userApiKey = DEFAULT_OPENAI_KEY;
     
     // Get the payload from the request
     const payload = await req.json();
     const { messages, knowledgeBase } = payload;
+    
+    // Get the last user message for vector search
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
 
-    // Create system prompt with cybersecurity context
-    const systemPrompt = knowledgeBase 
+    // Perform vector search if there's a last user message
+    let vectorResults = [];
+    let contextString = '';
+    
+    if (lastUserMessage) {
+      try {
+        // Generate embeddings for the user query
+        const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${userApiKey}`
+          },
+          body: JSON.stringify({
+            model: "text-embedding-3-small",
+            input: lastUserMessage
+          })
+        });
+        
+        const embeddingData = await embeddingResponse.json();
+        
+        if (embeddingResponse.ok && embeddingData.data && embeddingData.data[0]?.embedding) {
+          // Query the vector store using the generated embedding
+          const { data: vectorData, error: vectorError } = await supabase
+            .rpc('match_documents', {
+              query_embedding: embeddingData.data[0].embedding,
+              match_threshold: 0.7,  // Adjust this threshold as needed
+              match_count: 5         // Number of matches to return
+            });
+          
+          if (!vectorError && vectorData && vectorData.length > 0) {
+            vectorResults = vectorData;
+            
+            // Create context string from vector results
+            contextString = "Information from knowledge base:\n\n" + 
+              vectorResults.map(item => `${item.content}`).join("\n\n") +
+              "\n\nPlease use this information to answer the query where applicable.";
+          }
+        }
+      } catch (vectorSearchError) {
+        console.error("Vector search error:", vectorSearchError);
+        // Continue without vector results if there's an error
+      }
+    }
+
+    // Create system prompt with cybersecurity context and vector search results
+    let systemPrompt = knowledgeBase 
       ? `You are CyberCoach AI, an expert cybersecurity assistant that helps answer questions based on ${knowledgeBase}. Provide clear, concise answers with actionable advice. Format your responses using markdown for clarity.`
       : "You are CyberCoach AI, an expert cybersecurity assistant. Provide clear, concise answers with actionable advice about cybersecurity topics. Format your responses using markdown for clarity.";
+
+    // Add vector search context if available
+    if (contextString) {
+      systemPrompt += "\n\n" + contextString;
+    }
 
     // Call OpenAI API with the default key
     const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {

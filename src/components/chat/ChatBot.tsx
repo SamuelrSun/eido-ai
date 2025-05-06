@@ -26,6 +26,7 @@ interface ChatBotProps {
 export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat with CyberCoach AI", showHeader = true, knowledgeBase }: ChatBotProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSearchingKnowledgeBase, setIsSearchingKnowledgeBase] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -48,6 +49,7 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
     
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
+    setIsSearchingKnowledgeBase(true);
     
     try {
       // Get the session for authentication - but don't require it
@@ -116,6 +118,7 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       });
     } finally {
       setIsLoading(false);
+      setIsSearchingKnowledgeBase(false);
     }
   };
   
@@ -170,6 +173,9 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
           {isLoading && (
             <div className="flex justify-start">
               <div className="bg-gray-100 rounded-lg p-3">
+                {isSearchingKnowledgeBase && (
+                  <div className="text-xs text-gray-500 mb-2">Searching knowledge base...</div>
+                )}
                 <div className="flex space-x-2">
                   <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
                   <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]" />
