@@ -36,8 +36,8 @@ serve(async (req) => {
     
     // Create system prompt with cybersecurity context
     let systemPrompt = knowledgeBase 
-      ? `You are CyberCoach AI, an expert cybersecurity assistant that helps answer questions based on ${knowledgeBase}. Provide clear, concise answers with actionable advice. Format your responses using markdown for clarity.`
-      : "You are CyberCoach AI, an expert cybersecurity assistant. Provide clear, concise answers with actionable advice about cybersecurity topics. Format your responses using markdown for clarity.";
+      ? `You are CyberCoach AI, an expert cybersecurity assistant that helps answer questions based on ${knowledgeBase}. Provide clear, concise answers with actionable advice. Format your responses using markdown for clarity. Always use the most up-to-date information from the full vector store when answering.`
+      : "You are CyberCoach AI, an expert cybersecurity assistant. Provide clear, concise answers with actionable advice about cybersecurity topics. Format your responses using markdown for clarity. Always use the most up-to-date information from the full vector store when answering.";
     
     console.log("Creating thread with OpenAI Assistants API v2");
     
