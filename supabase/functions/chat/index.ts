@@ -25,16 +25,11 @@ serve(async (req) => {
 
   try {
     console.log("Chat function called");
-    console.log("Request URL:", req.url);
     
     // Create admin supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     
-    // Get authorization header
-    const authHeader = req.headers.get('Authorization');
-    console.log("Auth header present:", authHeader ? "Yes" : "No");
-    
-    // Parse the request body to check the path
+    // Get request body data
     let requestBody;
     try {
       requestBody = await req.json();
@@ -46,12 +41,36 @@ serve(async (req) => {
     
     // Check if this is the secure coach path that requires authentication
     const isSecureCoachPath = requestBody.path?.includes('/secure-coach') || false;
-    console.log("Is secure coach path based on req body:", isSecureCoachPath);
+    console.log("Is secure coach path:", isSecureCoachPath);
     
-    // If secure path and no auth header, return error
-    if (isSecureCoachPath && !authHeader) {
-      console.error("Missing authorization header for secure path");
-      throw new Error("Missing authorization header for secure path");
+    // Get authorization header
+    const authHeader = req.headers.get('Authorization');
+    console.log("Auth header present:", authHeader ? "Yes" : "No");
+    
+    // Only validate auth for secure coach path
+    if (isSecureCoachPath) {
+      if (!authHeader) {
+        console.error("Missing authorization header for secure path");
+        throw new Error("Missing authorization header for secure path");
+      }
+      
+      // Validate JWT token if this is a secure path
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+        
+        if (error || !user) {
+          console.error("Invalid auth token:", error);
+          throw new Error("Invalid authentication token");
+        }
+        
+        console.log("User authenticated:", user.id);
+      } catch (error) {
+        console.error("Auth validation error:", error);
+        throw new Error("Authentication failed");
+      }
+    } else {
+      console.log("Path does not require authentication");
     }
     
     // Always use the default OpenAI API key

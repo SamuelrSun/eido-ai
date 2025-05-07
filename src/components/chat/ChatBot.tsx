@@ -32,9 +32,6 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
   const { toast } = useToast();
   const location = useLocation();
   
-  // Determine if we're on the secure coach page
-  const isSecureCoach = location.pathname.includes('secure-coach');
-
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -57,19 +54,13 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
     setIsSearchingKnowledgeBase(true);
     
     try {
-      let accessToken = null;
+      // Always get the session regardless of the route
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
       
-      // Only get the session if we're on the secure-coach page
-      if (isSecureCoach) {
-        const { data: { session } } = await supabase.auth.getSession();
-        accessToken = session?.access_token;
-        console.log("Secure coach: Getting auth token:", accessToken ? "token found" : "no token");
-      } else {
-        console.log("Public coach: No auth token needed");
-      }
-      
+      // Log the current path and auth status
       console.log("Current path:", location.pathname);
-      console.log("Is secure coach:", isSecureCoach);
+      console.log("Is authenticated:", accessToken ? "Yes" : "No");
       
       // Prepare messages array for the API
       const apiMessages = messages.map(msg => ({
@@ -87,9 +78,11 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
         "Content-Type": "application/json"
       };
       
-      // Only add the auth header if on secure-coach and we have a token
-      if (isSecureCoach && accessToken) {
+      // Always add auth header if available
+      if (accessToken) {
         headers["Authorization"] = `Bearer ${accessToken}`;
+      } else {
+        console.log("No auth token available, proceeding without authorization header");
       }
       
       // Call our edge function that proxies to OpenAI API
@@ -99,7 +92,6 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
         body: JSON.stringify({
           messages: apiMessages,
           knowledgeBase,
-          // Include path info so the edge function knows which route we're on
           path: location.pathname
         })
       });
