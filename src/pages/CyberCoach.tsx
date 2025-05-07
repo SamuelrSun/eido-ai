@@ -35,7 +35,7 @@ const CyberCoach = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <div className="bg-white p-6 rounded-xl shadow-sm border">
         <ChatBot 
           suggestions={suggestions}
           title="Public Cyber Coach" 
@@ -44,6 +44,6 @@ const CyberCoach = () => {
       </div>
     </div>
   );
-}
+};
 
 export default CyberCoach;

@@ -201,7 +201,7 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
   };
 
   return (
-    <Card className="h-full flex flex-col w-screen mx-[-1.5rem]">
+    <Card className="h-full flex flex-col">
       {showHeader && (
         <CardHeader className="flex flex-row items-center justify-between pb-4 border-b">
           <h3 className="font-semibold text-lg">{title}</h3>
