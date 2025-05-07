@@ -25,6 +25,7 @@ serve(async (req) => {
 
   try {
     console.log("Chat function called");
+    console.log("Request URL:", req.url);
     
     // Create admin supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
@@ -33,9 +34,14 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     console.log("Auth header present:", authHeader ? "Yes" : "No");
     
-    // Check authorization header
-    if (!authHeader && req.url.includes('/secure-coach')) {
-      throw new Error("Missing authorization header");
+    // Check if this is the secure coach path that requires authentication
+    const isSecureCoachPath = req.url.includes('/secure-coach');
+    console.log("Is secure coach path:", isSecureCoachPath);
+    
+    // Check authorization header ONLY for secure coach paths
+    if (isSecureCoachPath && !authHeader) {
+      console.error("Missing authorization header for secure path");
+      throw new Error("Missing authorization header for secure path");
     }
     
     // Always use the default OpenAI API key

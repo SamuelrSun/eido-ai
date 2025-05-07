@@ -7,6 +7,7 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useLocation } from 'react-router-dom';
 
 interface Message {
   content: string;
@@ -29,6 +30,10 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
   const [isSearchingKnowledgeBase, setIsSearchingKnowledgeBase] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const location = useLocation();
+  
+  // Determine if we're on the secure coach page
+  const isSecureCoach = location.pathname.includes('secure-coach');
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -52,11 +57,13 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
     setIsSearchingKnowledgeBase(true);
     
     try {
-      // Get the session for authentication
+      // Get the session for authentication (only needed for secure-coach)
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
       
       console.log("Session status:", session ? "authenticated" : "not authenticated");
+      console.log("Current path:", location.pathname);
+      console.log("Is secure coach:", isSecureCoach);
       
       // Prepare messages array for the API
       const apiMessages = messages.map(msg => ({
@@ -74,11 +81,14 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": accessToken ? `Bearer ${accessToken}` : ''
+          // Only add auth header if we have a token
+          ...(accessToken && { "Authorization": `Bearer ${accessToken}` })
         },
         body: JSON.stringify({
           messages: apiMessages,
-          knowledgeBase
+          knowledgeBase,
+          // Include path info so the edge function knows which route we're on
+          path: location.pathname
         })
       });
 

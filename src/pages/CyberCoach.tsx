@@ -11,12 +11,19 @@ const CyberCoach = () => {
     console.log("File uploaded:", file.name);
   };
 
+  const suggestions = [
+    "What are the best practices for password management?",
+    "How can I protect against phishing attacks?",
+    "What is ransomware and how can I prevent it?",
+    "Explain the concept of zero trust security"
+  ];
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">Cyber Coach</h1>
         <p className="text-gray-600 mb-6">
-          Ask questions and get tailored cybersecurity guidance from our AI coach, trained on your organization's training materials.
+          Ask questions and get tailored cybersecurity guidance from our AI coach, trained on general cybersecurity best practices.
         </p>
         
         <div className="my-6">
@@ -29,7 +36,11 @@ const CyberCoach = () => {
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-sm border">
-        <ChatBot />
+        <ChatBot 
+          suggestions={suggestions}
+          title="Public Cyber Coach" 
+          knowledgeBase="General Cybersecurity Knowledge"
+        />
       </div>
     </div>
   );
