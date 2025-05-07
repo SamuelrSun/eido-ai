@@ -5,7 +5,8 @@ import {
   MessageCircle, 
   FileText, 
   Settings,
-  X
+  X,
+  Home
 } from "lucide-react";
 
 interface AppSidebarProps {
@@ -15,10 +16,15 @@ interface AppSidebarProps {
 export function AppSidebar({ onClose }: AppSidebarProps) {
   const navItems = [
     {
-      icon: <MessageCircle className="mr-2 h-5 w-5" />,
-      label: "Cybersecurity Coach",
+      icon: <Home className="mr-2 h-5 w-5" />,
+      label: "Home",
       to: "/",
       exact: true
+    },
+    {
+      icon: <MessageCircle className="mr-2 h-5 w-5" />,
+      label: "Cyber Coach",
+      to: "/cyber-coach"
     },
     {
       icon: <FileText className="mr-2 h-5 w-5" />,
