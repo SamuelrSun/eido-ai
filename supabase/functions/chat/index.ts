@@ -39,13 +39,15 @@ serve(async (req) => {
       ? `You are CyberCoach AI, an expert cybersecurity assistant that helps answer questions based on ${knowledgeBase}. Provide clear, concise answers with actionable advice. Format your responses using markdown for clarity.`
       : "You are CyberCoach AI, an expert cybersecurity assistant. Provide clear, concise answers with actionable advice about cybersecurity topics. Format your responses using markdown for clarity.";
     
-    // Start a thread with the Assistant
+    console.log("Creating thread with OpenAI Assistants API v2");
+    
+    // Start a thread with the Assistant (using v2)
     const threadResponse = await fetch("https://api.openai.com/v1/threads", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${userApiKey}`,
-        "OpenAI-Beta": "assistants=v1"
+        "OpenAI-Beta": "assistants=v2"  // Updated to use v2
       },
       body: JSON.stringify({})
     });
@@ -73,7 +75,7 @@ serve(async (req) => {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${userApiKey}`,
-        "OpenAI-Beta": "assistants=v1"
+        "OpenAI-Beta": "assistants=v2"  // Updated to use v2
       },
       body: JSON.stringify({
         role: "user",
@@ -94,7 +96,7 @@ serve(async (req) => {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${userApiKey}`,
-        "OpenAI-Beta": "assistants=v1"
+        "OpenAI-Beta": "assistants=v2"  // Updated to use v2
       },
       body: JSON.stringify({
         assistant_id: ASSISTANT_ID,
@@ -131,7 +133,7 @@ serve(async (req) => {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${userApiKey}`,
-          "OpenAI-Beta": "assistants=v1"
+          "OpenAI-Beta": "assistants=v2"  // Updated to use v2
         }
       });
       
@@ -155,7 +157,7 @@ serve(async (req) => {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${userApiKey}`,
-        "OpenAI-Beta": "assistants=v1"
+        "OpenAI-Beta": "assistants=v2"  // Updated to use v2
       }
     });
     
