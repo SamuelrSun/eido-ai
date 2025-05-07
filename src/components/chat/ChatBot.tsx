@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ChatMessage } from "./ChatMessage";
@@ -28,6 +28,7 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
   const [isSearchingKnowledgeBase, setIsSearchingKnowledgeBase] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const location = useLocation();
@@ -37,6 +38,21 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Add effect to copy the latest AI response to clipboard
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && !lastMessage.isUser && !isLoading) {
+      navigator.clipboard.writeText(lastMessage.content)
+        .then(() => {
+          setIsCopied(true);
+          setTimeout(() => setIsCopied(false), 2000);
+        })
+        .catch(err => {
+          console.error('Failed to copy text: ', err);
+        });
+    }
+  }, [messages, isLoading]);
 
   const handleSendMessage = async (content: string) => {
     if (content.trim() === "") return;
@@ -157,6 +173,33 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
     });
   };
 
+  const copyLastAIMessage = () => {
+    // Find the last AI message
+    const lastAIMessage = [...messages].reverse().find(msg => !msg.isUser);
+    
+    if (lastAIMessage) {
+      navigator.clipboard.writeText(lastAIMessage.content)
+        .then(() => {
+          setIsCopied(true);
+          setTimeout(() => setIsCopied(false), 2000);
+          
+          toast({
+            title: "Copied to clipboard",
+            description: "The AI response has been copied to your clipboard.",
+          });
+        })
+        .catch(err => {
+          console.error('Failed to copy text: ', err);
+          
+          toast({
+            title: "Copy failed",
+            description: "Failed to copy text to clipboard.",
+            variant: "destructive",
+          });
+        });
+    }
+  };
+
   return (
     <Card className="h-full flex flex-col">
       {showHeader && (
@@ -175,6 +218,15 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       )}
       
       <CardContent className="flex-grow flex flex-col pt-4">
+        {/* Input at the top */}
+        <div className="mb-4">
+          <ChatInput 
+            onSend={handleSendMessage} 
+            suggestions={suggestions}
+            isLoading={isLoading}
+          />
+        </div>
+        
         <div 
           className="flex-grow overflow-y-auto mb-4 space-y-4"
           ref={chatContainerRef}
@@ -193,6 +245,8 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
                 content={message.content}
                 isUser={message.isUser}
                 timestamp={message.timestamp}
+                onCopy={!message.isUser ? copyLastAIMessage : undefined}
+                isCopied={!message.isUser && isCopied && index === messages.length - 1}
               />
             ))
           )}
@@ -211,14 +265,6 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
               </div>
             </div>
           )}
-        </div>
-        
-        <div className="mt-auto">
-          <ChatInput 
-            onSend={handleSendMessage} 
-            suggestions={suggestions}
-            isLoading={isLoading}
-          />
         </div>
       </CardContent>
     </Card>
