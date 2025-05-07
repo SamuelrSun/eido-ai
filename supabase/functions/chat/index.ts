@@ -97,8 +97,8 @@ serve(async (req) => {
     
     // Create system prompt with cybersecurity context and instructions to not include source citations
     let systemPrompt = knowledgeBase 
-      ? `You are CyberCoach AI, an expert cybersecurity assistant that helps answer questions based on ${knowledgeBase}. Provide clear, concise answers with actionable advice. Format your responses using markdown for clarity. Do not include source citations or references like "【source】" at the end of your responses. Always use the most up-to-date information from the full vector store when answering.`
-      : "You are CyberCoach AI, an expert cybersecurity assistant. Provide clear, concise answers with actionable advice about cybersecurity topics. Format your responses using markdown for clarity. Do not include source citations or references like "【source】" at the end of your responses. Always use the most up-to-date information from the full vector store when answering.";
+      ? `You are CyberCoach AI, an expert cybersecurity assistant that helps answer questions based on ${knowledgeBase}. Provide clear, concise answers with actionable advice. Format your responses using markdown for clarity. Do not include source citations or references like [[source]] at the end of your responses. Always use the most up-to-date information from the full vector store when answering.`
+      : "You are CyberCoach AI, an expert cybersecurity assistant. Provide clear, concise answers with actionable advice about cybersecurity topics. Format your responses using markdown for clarity. Do not include source citations or references like [[source]] at the end of your responses. Always use the most up-to-date information from the full vector store when answering.";
     
     console.log("Creating thread with OpenAI Assistants API v2");
     
