@@ -52,8 +52,11 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
     setIsSearchingKnowledgeBase(true);
     
     try {
-      // Get the session for authentication - but don't require it
+      // Get the session for authentication
       const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      
+      console.log("Session status:", session ? "authenticated" : "not authenticated");
       
       // Prepare messages array for the API
       const apiMessages = messages.map(msg => ({
@@ -71,7 +74,7 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": session ? `Bearer ${session.access_token}` : ''
+          "Authorization": accessToken ? `Bearer ${accessToken}` : ''
         },
         body: JSON.stringify({
           messages: apiMessages,

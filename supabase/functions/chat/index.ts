@@ -29,6 +29,15 @@ serve(async (req) => {
     // Create admin supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     
+    // Get authorization header
+    const authHeader = req.headers.get('Authorization');
+    console.log("Auth header present:", authHeader ? "Yes" : "No");
+    
+    // Check authorization header
+    if (!authHeader && req.url.includes('/secure-coach')) {
+      throw new Error("Missing authorization header");
+    }
+    
     // Always use the default OpenAI API key
     const userApiKey = DEFAULT_OPENAI_KEY;
     
