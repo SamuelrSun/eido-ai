@@ -30,9 +30,17 @@ serve(async (req) => {
     // Always use the default OpenAI API key
     const userApiKey = DEFAULT_OPENAI_KEY;
     
+    if (!userApiKey) {
+      throw new Error("OpenAI API key is missing");
+    }
+    
     // Get the payload from the request
     const payload = await req.json();
     const { messages, knowledgeBase } = payload;
+    
+    if (!messages || !Array.isArray(messages)) {
+      throw new Error("Messages must be provided as an array");
+    }
     
     // Create system prompt with cybersecurity context
     let systemPrompt = knowledgeBase 
@@ -54,6 +62,7 @@ serve(async (req) => {
     
     if (!threadResponse.ok) {
       const threadError = await threadResponse.json();
+      console.error("Thread creation error:", threadError);
       throw new Error(`Failed to create thread: ${JSON.stringify(threadError)}`);
     }
     
@@ -85,6 +94,7 @@ serve(async (req) => {
     
     if (!messageResponse.ok) {
       const messageError = await messageResponse.json();
+      console.error("Message error:", messageError);
       throw new Error(`Failed to add message: ${JSON.stringify(messageError)}`);
     }
     
@@ -103,7 +113,7 @@ serve(async (req) => {
         instructions: systemPrompt,
         tools: [
           {
-            type: "file_search"  // Changed from 'retrieval' to 'file_search' for v2
+            type: "file_search"  // Using file_search for v2
           }
         ]
       })
@@ -111,6 +121,7 @@ serve(async (req) => {
     
     if (!runResponse.ok) {
       const runError = await runResponse.json();
+      console.error("Run error:", runError);
       throw new Error(`Failed to run assistant: ${JSON.stringify(runError)}`);
     }
     
@@ -121,7 +132,7 @@ serve(async (req) => {
     
     // Poll for run completion
     let runStatus = "queued";
-    let maxAttempts = 30;  // Maximum number of attempts (30 * 1s = 30s timeout)
+    let maxAttempts = 60;  // Increased timeout - 60 * 1s = 60s timeout
     let attempts = 0;
     
     while (runStatus !== "completed" && runStatus !== "failed" && runStatus !== "expired" && attempts < maxAttempts) {
@@ -139,6 +150,7 @@ serve(async (req) => {
       
       if (!runCheckResponse.ok) {
         const checkError = await runCheckResponse.json();
+        console.error("Run check error:", checkError);
         throw new Error(`Failed to check run status: ${JSON.stringify(checkError)}`);
       }
       
@@ -149,6 +161,7 @@ serve(async (req) => {
     }
     
     if (runStatus !== "completed") {
+      console.error(`Run did not complete. Final status: ${runStatus}`);
       throw new Error(`Run did not complete. Final status: ${runStatus}`);
     }
     
@@ -163,6 +176,7 @@ serve(async (req) => {
     
     if (!messagesResponse.ok) {
       const messagesError = await messagesResponse.json();
+      console.error("Messages retrieval error:", messagesError);
       throw new Error(`Failed to get messages: ${JSON.stringify(messagesError)}`);
     }
     
@@ -175,7 +189,21 @@ serve(async (req) => {
     }
     
     const latestAssistantMessage = assistantMessages[0];
-    const assistantContent = latestAssistantMessage.content[0].text.value;
+    
+    // Check if the content array exists and has items
+    if (!latestAssistantMessage.content || !Array.isArray(latestAssistantMessage.content) || latestAssistantMessage.content.length === 0) {
+      console.error("Invalid assistant message structure:", latestAssistantMessage);
+      throw new Error("Invalid assistant message structure");
+    }
+    
+    // Get the text value from the first content item of type "text"
+    const textContent = latestAssistantMessage.content.find(c => c.type === "text");
+    if (!textContent || !textContent.text || !textContent.text.value) {
+      console.error("No text content found in assistant message:", latestAssistantMessage.content);
+      throw new Error("No text content found in assistant message");
+    }
+    
+    const assistantContent = textContent.text.value;
     
     // Format response to match what the frontend expects
     const formattedResponse = {
@@ -188,6 +216,8 @@ serve(async (req) => {
       ]
     };
     
+    console.log("Successfully retrieved assistant response");
+    
     // Return the assistant response
     return new Response(JSON.stringify(formattedResponse), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -199,7 +229,7 @@ serve(async (req) => {
       error: error.message,
       choices: [{ 
         message: { 
-          content: `Error: ${error.message}` 
+          content: `Sorry, I couldn't generate a response. Error: ${error.message}` 
         } 
       }]
     }), {

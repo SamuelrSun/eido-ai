@@ -65,6 +65,7 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       apiMessages.push({ role: "user", content });
 
       // Call our edge function that proxies to OpenAI API
+      console.log("Sending request to chat function");
       const response = await fetch(`https://dbldoxurkcpbtdswcbkc.supabase.co/functions/v1/chat`, {
         method: "POST",
         headers: {
@@ -78,9 +79,11 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       });
 
       const data = await response.json();
+      console.log("Received response:", data);
       
       // Check if there was an error returned from our edge function
       if (data.error) {
+        console.error("Edge function error:", data.error);
         throw new Error(data.error);
       }
       
@@ -89,7 +92,7 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       
       // Check if we have choices available
       if (data.choices && data.choices.length > 0 && data.choices[0].message) {
-        aiMessageContent = data.choices[0].message.content;
+        aiMessageContent = data.choices[0].message.content || aiMessageContent;
       }
       
       const aiMessage: Message = {
