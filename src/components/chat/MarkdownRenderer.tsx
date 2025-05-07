@@ -17,9 +17,33 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     // Replace links
     rendered = rendered.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cybercoach-teal underline">$1</a>');
     
-    // Replace bullet lists
-    rendered = rendered.replace(/^\s*-\s+(.+)$/gm, '<li>$1</li>');
-    rendered = rendered.replace(/<li>(.+)<\/li>/g, '<ul class="list-disc pl-5 my-2">$&</ul>');
+    // Handle bullet lists properly
+    rendered = rendered.replace(
+      /(?:^\s*-\s+(.+)$\n?)+/gm, 
+      function(match) {
+        // Extract each list item
+        const items = match.split('\n')
+          .filter(line => line.trim().match(/^\s*-\s+/))
+          .map(line => `<li>${line.replace(/^\s*-\s+/, '')}</li>`)
+          .join('');
+        
+        return `<ul class="list-disc pl-5 my-2 space-y-0.5">${items}</ul>`;
+      }
+    );
+    
+    // Handle numbered lists (already working well, but adding for completeness)
+    rendered = rendered.replace(
+      /(?:^\s*\d+\.\s+(.+)$\n?)+/gm,
+      function(match) {
+        // Extract each list item
+        const items = match.split('\n')
+          .filter(line => line.trim().match(/^\s*\d+\.\s+/))
+          .map(line => `<li>${line.replace(/^\s*\d+\.\s+/, '')}</li>`)
+          .join('');
+        
+        return `<ol class="list-decimal pl-5 my-2 space-y-0.5">${items}</ol>`;
+      }
+    );
     
     // Replace code blocks
     rendered = rendered.replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 rounded">$1</code>');
