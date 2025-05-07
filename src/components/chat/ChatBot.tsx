@@ -64,8 +64,9 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       // Add the new user message
       apiMessages.push({ role: "user", content });
 
+      console.log("Sending request to chat function with", apiMessages.length, "messages");
+      
       // Call our edge function that proxies to OpenAI API
-      console.log("Sending request to chat function");
       const response = await fetch(`https://dbldoxurkcpbtdswcbkc.supabase.co/functions/v1/chat`, {
         method: "POST",
         headers: {
@@ -77,6 +78,12 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
           knowledgeBase
         })
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("HTTP error:", response.status, errorText);
+        throw new Error(`HTTP error: ${response.status} - ${errorText}`);
+      }
 
       const data = await response.json();
       console.log("Received response:", data);
@@ -104,7 +111,7 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error in handleSendMessage:", error);
       
       const errorMessage: Message = {
         content: `Error: ${error instanceof Error ? error.message : "Failed to get response from AI"}`,

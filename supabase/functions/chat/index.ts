@@ -24,6 +24,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Chat function called");
+    
     // Create admin supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     
@@ -31,6 +33,7 @@ serve(async (req) => {
     const userApiKey = DEFAULT_OPENAI_KEY;
     
     if (!userApiKey) {
+      console.error("OpenAI API key is missing");
       throw new Error("OpenAI API key is missing");
     }
     
@@ -38,7 +41,13 @@ serve(async (req) => {
     const payload = await req.json();
     const { messages, knowledgeBase } = payload;
     
+    console.log("Request payload received:", JSON.stringify({
+      messageCount: messages?.length || 0,
+      knowledgeBase: knowledgeBase || "none",
+    }));
+    
     if (!messages || !Array.isArray(messages)) {
+      console.error("Invalid messages format:", messages);
       throw new Error("Messages must be provided as an array");
     }
     
@@ -55,14 +64,13 @@ serve(async (req) => {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${userApiKey}`,
-        "OpenAI-Beta": "assistants=v2"  // Updated to use v2
-      },
-      body: JSON.stringify({})
+        "OpenAI-Beta": "assistants=v2"
+      }
     });
     
     if (!threadResponse.ok) {
       const threadError = await threadResponse.json();
-      console.error("Thread creation error:", threadError);
+      console.error("Thread creation error:", JSON.stringify(threadError));
       throw new Error(`Failed to create thread: ${JSON.stringify(threadError)}`);
     }
     
@@ -75,8 +83,11 @@ serve(async (req) => {
     const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
     
     if (!lastUserMessage) {
+      console.error("No user message found in:", messages);
       throw new Error("No user message found");
     }
+    
+    console.log("Last user message:", lastUserMessage.substring(0, 50) + (lastUserMessage.length > 50 ? "..." : ""));
     
     // Add the user message to the thread
     const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
@@ -84,7 +95,7 @@ serve(async (req) => {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${userApiKey}`,
-        "OpenAI-Beta": "assistants=v2"  // Updated to use v2
+        "OpenAI-Beta": "assistants=v2"
       },
       body: JSON.stringify({
         role: "user",
@@ -94,7 +105,7 @@ serve(async (req) => {
     
     if (!messageResponse.ok) {
       const messageError = await messageResponse.json();
-      console.error("Message error:", messageError);
+      console.error("Message error:", JSON.stringify(messageError));
       throw new Error(`Failed to add message: ${JSON.stringify(messageError)}`);
     }
     
@@ -106,14 +117,14 @@ serve(async (req) => {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${userApiKey}`,
-        "OpenAI-Beta": "assistants=v2"  // Updated to use v2
+        "OpenAI-Beta": "assistants=v2"
       },
       body: JSON.stringify({
         assistant_id: ASSISTANT_ID,
         instructions: systemPrompt,
         tools: [
           {
-            type: "file_search"  // Using file_search for v2
+            type: "file_search"
           }
         ]
       })
@@ -121,7 +132,7 @@ serve(async (req) => {
     
     if (!runResponse.ok) {
       const runError = await runResponse.json();
-      console.error("Run error:", runError);
+      console.error("Run error:", JSON.stringify(runError));
       throw new Error(`Failed to run assistant: ${JSON.stringify(runError)}`);
     }
     
@@ -132,7 +143,7 @@ serve(async (req) => {
     
     // Poll for run completion
     let runStatus = "queued";
-    let maxAttempts = 60;  // Increased timeout - 60 * 1s = 60s timeout
+    let maxAttempts = 120;  // 2 minutes timeout (120s)
     let attempts = 0;
     
     while (runStatus !== "completed" && runStatus !== "failed" && runStatus !== "expired" && attempts < maxAttempts) {
@@ -144,24 +155,34 @@ serve(async (req) => {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${userApiKey}`,
-          "OpenAI-Beta": "assistants=v2"  // Updated to use v2
+          "OpenAI-Beta": "assistants=v2"
         }
       });
       
       if (!runCheckResponse.ok) {
         const checkError = await runCheckResponse.json();
-        console.error("Run check error:", checkError);
+        console.error("Run check error:", JSON.stringify(checkError));
         throw new Error(`Failed to check run status: ${JSON.stringify(checkError)}`);
       }
       
       const runCheckData = await runCheckResponse.json();
       runStatus = runCheckData.status;
       
-      console.log(`Run status (attempt ${attempts}): ${runStatus}`);
+      // Only log every 10 attempts to avoid too much noise
+      if (attempts % 10 === 0 || runStatus !== "in_progress") {
+        console.log(`Run status (attempt ${attempts}): ${runStatus}`);
+      }
+      
+      // If run requires action (for tool calls), handle it
+      if (runStatus === "requires_action") {
+        console.log("Run requires action:", JSON.stringify(runCheckData.required_action));
+        // Handle tool calls if needed in the future
+        break;
+      }
     }
     
     if (runStatus !== "completed") {
-      console.error(`Run did not complete. Final status: ${runStatus}`);
+      console.error(`Run did not complete. Final status: ${runStatus} after ${attempts} attempts.`);
       throw new Error(`Run did not complete. Final status: ${runStatus}`);
     }
     
@@ -170,40 +191,47 @@ serve(async (req) => {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${userApiKey}`,
-        "OpenAI-Beta": "assistants=v2"  // Updated to use v2
+        "OpenAI-Beta": "assistants=v2"
       }
     });
     
     if (!messagesResponse.ok) {
       const messagesError = await messagesResponse.json();
-      console.error("Messages retrieval error:", messagesError);
+      console.error("Messages retrieval error:", JSON.stringify(messagesError));
       throw new Error(`Failed to get messages: ${JSON.stringify(messagesError)}`);
     }
     
     const messagesData = await messagesResponse.json();
+    console.log("Retrieved messages:", JSON.stringify({
+      messageCount: messagesData.data?.length || 0,
+      hasData: !!messagesData.data
+    }));
     
     // Find the most recent assistant message
-    const assistantMessages = messagesData.data.filter(m => m.role === "assistant");
+    const assistantMessages = messagesData.data?.filter(m => m.role === "assistant") || [];
     if (assistantMessages.length === 0) {
+      console.error("No assistant messages found in response:", JSON.stringify(messagesData));
       throw new Error("No assistant response found");
     }
     
     const latestAssistantMessage = assistantMessages[0];
+    console.log("Latest assistant message ID:", latestAssistantMessage.id);
     
     // Check if the content array exists and has items
     if (!latestAssistantMessage.content || !Array.isArray(latestAssistantMessage.content) || latestAssistantMessage.content.length === 0) {
-      console.error("Invalid assistant message structure:", latestAssistantMessage);
+      console.error("Invalid assistant message structure:", JSON.stringify(latestAssistantMessage));
       throw new Error("Invalid assistant message structure");
     }
     
     // Get the text value from the first content item of type "text"
     const textContent = latestAssistantMessage.content.find(c => c.type === "text");
     if (!textContent || !textContent.text || !textContent.text.value) {
-      console.error("No text content found in assistant message:", latestAssistantMessage.content);
+      console.error("No text content found in assistant message:", JSON.stringify(latestAssistantMessage.content));
       throw new Error("No text content found in assistant message");
     }
     
     const assistantContent = textContent.text.value;
+    console.log("Assistant response length:", assistantContent.length);
     
     // Format response to match what the frontend expects
     const formattedResponse = {
@@ -223,7 +251,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error in chat function:', error);
     // Return a formatted response that won't crash the frontend
     return new Response(JSON.stringify({ 
       error: error.message,
