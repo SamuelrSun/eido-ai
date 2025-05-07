@@ -57,11 +57,17 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
     setIsSearchingKnowledgeBase(true);
     
     try {
-      // Get the session for authentication (only needed for secure-coach)
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
+      let accessToken = null;
       
-      console.log("Session status:", session ? "authenticated" : "not authenticated");
+      // Only get the session if we're on the secure-coach page
+      if (isSecureCoach) {
+        const { data: { session } } = await supabase.auth.getSession();
+        accessToken = session?.access_token;
+        console.log("Secure coach: Getting auth token:", accessToken ? "token found" : "no token");
+      } else {
+        console.log("Public coach: No auth token needed");
+      }
+      
       console.log("Current path:", location.pathname);
       console.log("Is secure coach:", isSecureCoach);
       
@@ -76,14 +82,20 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
 
       console.log("Sending request to chat function with", apiMessages.length, "messages");
       
+      // Headers for the request
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      
+      // Only add the auth header if on secure-coach and we have a token
+      if (isSecureCoach && accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
+      
       // Call our edge function that proxies to OpenAI API
       const response = await fetch(`https://dbldoxurkcpbtdswcbkc.supabase.co/functions/v1/chat`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Only add auth header if we have a token
-          ...(accessToken && { "Authorization": `Bearer ${accessToken}` })
-        },
+        headers,
         body: JSON.stringify({
           messages: apiMessages,
           knowledgeBase,

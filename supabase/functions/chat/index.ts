@@ -34,11 +34,21 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     console.log("Auth header present:", authHeader ? "Yes" : "No");
     
-    // Check if this is the secure coach path that requires authentication
-    const isSecureCoachPath = req.url.includes('/secure-coach');
-    console.log("Is secure coach path:", isSecureCoachPath);
+    // Parse the request body to check the path
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log("Request path:", requestBody.path || "not specified");
+    } catch (error) {
+      console.error("Error parsing request body:", error);
+      throw new Error("Invalid request format");
+    }
     
-    // Check authorization header ONLY for secure coach paths
+    // Check if this is the secure coach path that requires authentication
+    const isSecureCoachPath = requestBody.path?.includes('/secure-coach') || false;
+    console.log("Is secure coach path based on req body:", isSecureCoachPath);
+    
+    // If secure path and no auth header, return error
     if (isSecureCoachPath && !authHeader) {
       console.error("Missing authorization header for secure path");
       throw new Error("Missing authorization header for secure path");
@@ -52,13 +62,13 @@ serve(async (req) => {
       throw new Error("OpenAI API key is missing");
     }
     
-    // Get the payload from the request
-    const payload = await req.json();
-    const { messages, knowledgeBase } = payload;
+    // Get messages from the request body
+    const { messages, knowledgeBase } = requestBody;
     
     console.log("Request payload received:", JSON.stringify({
       messageCount: messages?.length || 0,
       knowledgeBase: knowledgeBase || "none",
+      path: requestBody.path || "not specified"
     }));
     
     if (!messages || !Array.isArray(messages)) {
