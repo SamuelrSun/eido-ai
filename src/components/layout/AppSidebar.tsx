@@ -21,11 +21,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       exact: true
     },
     {
-      icon: <MessageCircle className="mr-2 h-5 w-5" />,
-      label: "Coach (Static)",
-      to: "/static-coach"
-    },
-    {
       icon: <FileText className="mr-2 h-5 w-5" />,
       label: "Policy Center",
       to: "/policy-center"
