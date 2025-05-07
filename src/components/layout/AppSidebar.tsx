@@ -1,20 +1,47 @@
 
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
   MessageCircle, 
   FileText, 
   Settings,
   X,
-  Home
+  Home,
+  UserCircle,
+  LogIn
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AppSidebarProps {
   onClose: () => void;
 }
 
 export function AppSidebar({ onClose }: AppSidebarProps) {
-  const navItems = [
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        setUser(data.session?.user || null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUser();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const mainNavItems = [
     {
       icon: <Home className="mr-2 h-5 w-5" />,
       label: "Home",
@@ -30,6 +57,14 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       icon: <FileText className="mr-2 h-5 w-5" />,
       label: "Policy Center",
       to: "/policy-center"
+    }
+  ];
+  
+  const accountNavItems = [
+    {
+      icon: <UserCircle className="mr-2 h-5 w-5" />,
+      label: "My Account",
+      to: "/account"
     },
     {
       icon: <Settings className="mr-2 h-5 w-5" />,
@@ -59,7 +94,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       
       <nav className="flex-1 overflow-auto py-4">
         <ul className="space-y-2 px-2">
-          {navItems.map((item) => (
+          {mainNavItems.map((item) => (
             <li key={item.to}>
               <NavLink
                 to={item.to}
@@ -78,19 +113,64 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             </li>
           ))}
         </ul>
+        
+        <div className="mt-6 pt-6 border-t border-sidebar-border/50 px-2">
+          <p className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/70 uppercase">
+            Account
+          </p>
+          <ul className="space-y-2">
+            {!loading && !user && (
+              <li>
+                <NavLink
+                  to="/auth"
+                  className={({ isActive }) => 
+                    `flex items-center px-4 py-2 rounded-md transition-colors ${
+                      isActive 
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                    }`
+                  }
+                >
+                  <LogIn className="mr-2 h-5 w-5" />
+                  <span>Sign In</span>
+                </NavLink>
+              </li>
+            )}
+            
+            {!loading && user && accountNavItems.map((item) => (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) => 
+                    `flex items-center px-4 py-2 rounded-md transition-colors ${
+                      isActive 
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                    }`
+                  }
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
       </nav>
       
-      <div className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center">
-          <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
-            <span className="text-xs font-medium">UN</span>
-          </div>
-          <div className="ml-2">
-            <p className="font-medium">User Name</p>
-            <p className="text-xs opacity-70">Security Admin</p>
+      {!loading && user && (
+        <div className="p-4 border-t border-sidebar-border">
+          <div className="flex items-center">
+            <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
+              <span className="text-xs font-medium">{user.email?.charAt(0).toUpperCase() || "U"}</span>
+            </div>
+            <div className="ml-2 overflow-hidden">
+              <p className="font-medium truncate">{user.email}</p>
+              <p className="text-xs opacity-70 truncate">Signed In</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

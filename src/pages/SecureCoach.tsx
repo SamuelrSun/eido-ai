@@ -1,13 +1,16 @@
 
 import { useState, useEffect } from "react";
-import { Auth } from "@/components/auth/Auth";
-import { UserProfile } from "@/components/auth/UserProfile";
+import { useNavigate } from "react-router-dom";
 import { ChatBot } from "@/components/chat/ChatBot";
 import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const SecureCoach = () => {
   const [session, setSession] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const suggestions = [
     "What are the latest phishing techniques?",
@@ -17,28 +20,80 @@ const SecureCoach = () => {
   ];
 
   useEffect(() => {
-    const fetchSession = async () => {
+    const fetchSessionAndProfile = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        setSession(data.session);
+        const { data: sessionData } = await supabase.auth.getSession();
+        setSession(sessionData.session);
+
+        if (sessionData.session?.user) {
+          // Fetch user profile from the profiles table
+          const { data: profileData, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', sessionData.session.user.id)
+            .single();
+          
+          if (error) {
+            console.error("Error fetching profile:", error);
+          } else {
+            setProfile(profileData);
+          }
+        } else {
+          // If not authenticated, redirect to auth page
+          navigate("/auth");
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSession();
+    fetchSessionAndProfile();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
+      
+      if (!session) {
+        // If logged out, redirect to auth page
+        navigate("/auth");
+      } else {
+        // Fetch profile when auth state changes
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (error) {
+          console.error("Error fetching profile on auth change:", error);
+        } else {
+          setProfile(data);
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        <Loader2 className="h-12 w-12 animate-spin text-cybercoach-blue" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">Secure Cybersecurity Coach</h1>
+          <p className="text-gray-600 mb-6">
+            Sign in to securely access the AI coach with advanced cybersecurity guidance.
+          </p>
+          <Button onClick={() => navigate("/auth")}>
+            Sign In to Access
+          </Button>
+        </div>
       </div>
     );
   }
@@ -48,29 +103,16 @@ const SecureCoach = () => {
       <div>
         <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">Secure Cybersecurity Coach</h1>
         <p className="text-gray-600 mb-6">
-          Sign in to securely save your API key and access the AI coach from any device. This coach uses OpenAI's Assistant with knowledge retrieval for accurate cybersecurity guidance.
+          Welcome, {profile?.full_name || session.user.email}! This coach uses OpenAI's Assistant with knowledge retrieval for accurate cybersecurity guidance.
         </p>
       </div>
 
-      {!session ? (
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <Auth />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="md:col-span-1">
-            <UserProfile />
-          </div>
-          <div className="md:col-span-3">
-            <div className="bg-white p-6 rounded-xl shadow-sm border">
-              <ChatBot 
-                suggestions={suggestions} 
-                knowledgeBase="OpenAI Assistant with Vector Knowledge Retrieval"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="bg-white p-6 rounded-xl shadow-sm border">
+        <ChatBot 
+          suggestions={suggestions} 
+          knowledgeBase="OpenAI Assistant with Vector Knowledge Retrieval"
+        />
+      </div>
     </div>
   );
 };

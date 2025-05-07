@@ -9,6 +9,8 @@ import HomePage from "./pages/HomePage";
 import CyberCoach from "./pages/CyberCoach";
 import SecureCoach from "./pages/SecureCoach";
 import PolicyCenter from "./pages/PolicyCenter";
+import AuthPage from "./pages/AuthPage";
+import AccountPage from "./pages/AccountPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,8 @@ const App = () => (
             <Route path="secure-coach" element={<SecureCoach />} />
             <Route path="policy-center" element={<PolicyCenter />} />
             <Route path="admin" element={<div className="p-8">Admin Panel Coming Soon</div>} />
+            <Route path="auth" element={<AuthPage />} />
+            <Route path="account" element={<AccountPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
