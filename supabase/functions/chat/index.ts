@@ -103,7 +103,7 @@ serve(async (req) => {
         instructions: systemPrompt,
         tools: [
           {
-            type: "retrieval"
+            type: "file_search"  // Changed from 'retrieval' to 'file_search' for v2
           }
         ]
       })
