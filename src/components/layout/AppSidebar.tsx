@@ -1,3 +1,4 @@
+
 import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -10,7 +11,8 @@ import {
   LogIn,
   Search,
   GraduationCap,
-  Upload
+  Upload,
+  BookOpen
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +61,11 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       icon: <Upload className="mr-2 h-5 w-5" />,
       label: "Upload Materials",
       to: "/upload"
+    },
+    {
+      icon: <BookOpen className="mr-2 h-5 w-5" />,
+      label: "Flashcards",
+      to: "/flashcards"
     },
     {
       icon: <FileText className="mr-2 h-5 w-5" />,
