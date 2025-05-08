@@ -1,3 +1,4 @@
+
 import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -10,7 +11,8 @@ import {
   GraduationCap,
   Upload,
   BookOpen,
-  SquareCheck
+  SquareCheck,
+  Calendar
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,6 +71,11 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       icon: <SquareCheck className="mr-2 h-5 w-5" />,
       label: "Quizzes",
       to: "/quizzes"
+    },
+    {
+      icon: <Calendar className="mr-2 h-5 w-5" />,
+      label: "Calendar",
+      to: "/calendar"
     }
   ];
   
