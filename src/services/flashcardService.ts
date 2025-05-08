@@ -55,19 +55,17 @@ export const flashcardService = {
    */
   saveDeck: async (deck: Omit<Deck, 'id' | 'updatedAt'>): Promise<Deck> => {
     // Convert from application camelCase to database snake_case naming
-    const dbDeck = {
-      title: deck.title,
-      description: deck.description,
-      color: deck.color,
-      card_count: deck.cardCount,
-      due_cards: deck.dueCards,
-      new_cards: deck.newCards,
-      user_id: deck.userId
-    };
-    
     const { data, error } = await supabase
       .from('decks')
-      .insert(dbDeck)
+      .insert({
+        title: deck.title,
+        description: deck.description,
+        color: deck.color,
+        card_count: deck.cardCount,
+        due_cards: deck.dueCards,
+        new_cards: deck.newCards,
+        user_id: deck.userId
+      })
       .select()
       .single();
 
