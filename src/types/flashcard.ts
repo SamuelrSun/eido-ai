@@ -29,7 +29,7 @@ export interface Deck {
   title: string;
   description: string;
   userId?: string;
-  createdAt: Date;
+  createdAt?: Date;
   updatedAt: Date;
   color: string;
   cardCount: number;

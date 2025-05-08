@@ -25,27 +25,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { flashcardService } from "@/services/flashcardService";
 import { Deck, Flashcard, FlashcardContent } from "@/types/flashcard";
 
-// Define types for our flashcards and decks
-interface Flashcard {
-  id: string;
-  front: string;
-  back: string;
-  deckId: string;
-  difficulty: string;
-  nextReview: Date;
-}
-
-interface Deck {
-  id: string;
-  title: string;
-  description: string;
-  cardCount: number;
-  dueCards: number;
-  newCards: number;
-  color: string;
-  cards?: Flashcard[];
-}
-
 // Form schema for deck generation
 const deckGenerationSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -184,7 +163,6 @@ const FlashcardsPage = () => {
         newCards: flashcards.length,
         color: getRandomDeckColor(),
         cards: flashcards,
-        createdAt: new Date(),
         updatedAt: new Date()
       };
 
