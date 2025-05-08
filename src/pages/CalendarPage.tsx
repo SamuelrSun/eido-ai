@@ -1,86 +1,142 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar } from "@/components/calendar/CalendarDisplay";
 import { EventModal } from "@/components/calendar/EventModal";
 import { SyllabusUploader } from "@/components/calendar/SyllabusUploader";
 import { ClassFilter, CLASS_COLORS } from "@/components/calendar/ClassFilter";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { CalendarEvent } from "@/types/calendar";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 const CalendarPage = () => {
-  const [events, setEvents] = useState<CalendarEvent[]>([
-    {
-      id: "1",
-      title: "Midterm Exam",
-      description: "ITP457 Network Security midterm",
-      date: new Date(2025, 4, 15),
-      className: "ITP457: Advanced Network Security",
-      color: CLASS_COLORS["ITP457: Advanced Network Security"]
-    },
-    {
-      id: "2",
-      title: "Final Project Due",
-      description: "Python data analysis project",
-      date: new Date(2025, 4, 25),
-      className: "ITP216: Applied Python Concepts",
-      color: CLASS_COLORS["ITP216: Applied Python Concepts"]
-    },
-    {
-      id: "3",
-      title: "Essay Deadline",
-      description: "5-page analysis of global trade policies",
-      date: new Date(2025, 4, 10),
-      className: "IR330: Politics of the World Economy",
-      color: CLASS_COLORS["IR330: Politics of the World Economy"]
-    },
-    {
-      id: "4",
-      title: "Web Project Due",
-      description: "Personal portfolio website",
-      date: new Date(2025, 4, 18),
-      className: "ITP104: Intro to Web Development",
-      color: CLASS_COLORS["ITP104: Intro to Web Development"]
-    },
-    {
-      id: "5",
-      title: "Business Pitch",
-      description: "Present startup idea to class",
-      date: new Date(2025, 4, 20),
-      className: "BAEP470: The Entrepreneurial Mindset",
-      color: CLASS_COLORS["BAEP470: The Entrepreneurial Mindset"]
-    },
-    {
-      id: "6",
-      title: "Lab Report Due",
-      description: "Genetics experiment analysis",
-      date: new Date(2025, 4, 12),
-      className: "BISC110: Good Genes, Bad Genes",
-      color: CLASS_COLORS["BISC110: Good Genes, Bad Genes"]
-    }
-  ]);
-
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
   const [visibleClasses, setVisibleClasses] = useState<string[]>(Object.keys(CLASS_COLORS));
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentEvent, setCurrentEvent] = useState<CalendarEvent | null>(null);
-
-  const handleAddEvent = (event: CalendarEvent) => {
-    if (currentEvent) {
-      // Update existing event
-      setEvents(events.map(e => e.id === event.id ? event : e));
-    } else {
-      // Add new event
-      setEvents([...events, { ...event, id: crypto.randomUUID() }]);
+  
+  // Fetch events from Supabase when component mounts
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('calendar_events')
+          .select('*');
+          
+        if (error) {
+          console.error("Error fetching events:", error);
+          toast.error("Failed to load calendar events");
+          return;
+        }
+        
+        // Transform the data to match our CalendarEvent type
+        const calendarEvents: CalendarEvent[] = data.map(item => ({
+          id: item.id,
+          title: item.title,
+          description: item.description || "",
+          date: new Date(item.date),
+          className: item.class_name,
+          color: item.color
+        }));
+        
+        setEvents(calendarEvents);
+      } catch (error) {
+        console.error("Error in fetchEvents:", error);
+        toast.error("Failed to load calendar events");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchEvents();
+  }, []);
+  
+  const handleAddEvent = async (event: CalendarEvent) => {
+    try {
+      if (currentEvent) {
+        // Update existing event in Supabase
+        const { error } = await supabase
+          .from('calendar_events')
+          .update({
+            title: event.title,
+            description: event.description,
+            date: event.date.toISOString().split('T')[0],
+            class_name: event.className,
+            color: event.color
+          })
+          .eq('id', event.id);
+          
+        if (error) {
+          console.error("Error updating event:", error);
+          toast.error("Failed to update event");
+          return;
+        }
+        
+        // Update local state
+        setEvents(events.map(e => e.id === event.id ? event : e));
+        toast.success("Event updated successfully");
+      } else {
+        // Add new event to Supabase
+        const { data, error } = await supabase
+          .from('calendar_events')
+          .insert({
+            title: event.title,
+            description: event.description,
+            date: event.date.toISOString().split('T')[0],
+            class_name: event.className,
+            color: event.color
+          })
+          .select('id')
+          .single();
+          
+        if (error) {
+          console.error("Error adding event:", error);
+          toast.error("Failed to add event");
+          return;
+        }
+        
+        // Add to local state with the returned ID
+        setEvents([...events, { ...event, id: data.id }]);
+        toast.success("Event added successfully");
+      }
+    } catch (error) {
+      console.error("Error in handleAddEvent:", error);
+      toast.error("An error occurred while saving the event");
+    } finally {
+      setIsModalOpen(false);
+      setCurrentEvent(null);
     }
-    setIsModalOpen(false);
-    setCurrentEvent(null);
   };
-
-  const handleDeleteEvent = (id: string) => {
-    setEvents(events.filter(event => event.id !== id));
-    setIsModalOpen(false);
-    setCurrentEvent(null);
+  
+  const handleDeleteEvent = async (id: string) => {
+    try {
+      // Delete from Supabase
+      const { error } = await supabase
+        .from('calendar_events')
+        .delete()
+        .eq('id', id);
+        
+      if (error) {
+        console.error("Error deleting event:", error);
+        toast.error("Failed to delete event");
+        return;
+      }
+      
+      // Update local state
+      setEvents(events.filter(event => event.id !== id));
+      toast.success("Event deleted successfully");
+    } catch (error) {
+      console.error("Error in handleDeleteEvent:", error);
+      toast.error("An error occurred while deleting the event");
+    } finally {
+      setIsModalOpen(false);
+      setCurrentEvent(null);
+    }
   };
 
   const handleEditEvent = (event: CalendarEvent) => {
@@ -123,30 +179,36 @@ const CalendarPage = () => {
                 </Button>
               </div>
               
-              <div className="space-y-1 overflow-y-auto max-h-[280px]">
-                {filteredEvents.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No events scheduled</p>
-                ) : (
-                  filteredEvents
-                    .sort((a, b) => a.date.getTime() - b.date.getTime())
-                    .map(event => (
-                      <div
-                        key={event.id}
-                        onClick={() => handleEditEvent(event)}
-                        className="p-1 rounded cursor-pointer hover:bg-gray-50 border-l-4 text-sm"
-                        style={{ borderLeftColor: event.color }}
-                      >
-                        <div className="font-medium">{event.title}</div>
-                        <div className="text-xs text-gray-500">
-                          {event.date.toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric' 
-                          })} • {event.className.split(":")[0]}
+              {loading ? (
+                <div className="flex items-center justify-center h-48">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+              ) : (
+                <div className="space-y-1 overflow-y-auto max-h-[280px]">
+                  {filteredEvents.length === 0 ? (
+                    <p className="text-gray-500 text-sm">No events scheduled</p>
+                  ) : (
+                    filteredEvents
+                      .sort((a, b) => a.date.getTime() - b.date.getTime())
+                      .map(event => (
+                        <div
+                          key={event.id}
+                          onClick={() => handleEditEvent(event)}
+                          className="p-1 rounded cursor-pointer hover:bg-gray-50 border-l-4 text-sm"
+                          style={{ borderLeftColor: event.color }}
+                        >
+                          <div className="font-medium">{event.title}</div>
+                          <div className="text-xs text-gray-500">
+                            {event.date.toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })} • {event.className.split(":")[0]}
+                          </div>
                         </div>
-                      </div>
-                    ))
-                )}
-              </div>
+                      ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
           
@@ -166,10 +228,16 @@ const CalendarPage = () => {
         {/* Full width calendar with increased height */}
         <div className="w-full">
           <div className="bg-white rounded-lg shadow p-4 min-h-[70vh]">
-            <Calendar 
-              events={filteredEvents} 
-              onEventClick={handleEditEvent} 
-            />
+            {loading ? (
+              <div className="flex items-center justify-center h-48">
+                <Loader2 className="h-12 w-12 animate-spin text-gray-400" />
+              </div>
+            ) : (
+              <Calendar 
+                events={filteredEvents} 
+                onEventClick={handleEditEvent} 
+              />
+            )}
           </div>
         </div>
       </div>

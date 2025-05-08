@@ -36,6 +36,39 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_events: {
+        Row: {
+          class_name: string
+          color: string
+          created_at: string
+          date: string
+          description: string | null
+          id: string
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          class_name: string
+          color: string
+          created_at?: string
+          date: string
+          description?: string | null
+          id?: string
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          class_name?: string
+          color?: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          id?: string
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       decks: {
         Row: {
           card_count: number

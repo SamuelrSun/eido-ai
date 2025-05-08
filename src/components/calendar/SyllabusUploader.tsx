@@ -6,6 +6,7 @@ import { FileUpload } from "@/components/chat/FileUpload";
 import { CalendarEvent } from "@/types/calendar";
 import { toast } from "sonner";
 import { CLASS_COLORS } from "./ClassFilter";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SyllabusUploaderProps {
   onEventsAdded: (events: CalendarEvent[]) => void;
@@ -67,8 +68,11 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
         return;
       }
       
-      // Convert the extracted events to the CalendarEvent format
-      const extractedEvents: CalendarEvent[] = data.events.map((event: any) => {
+      // Convert the extracted events to the CalendarEvent format and save to database
+      const extractedEvents: CalendarEvent[] = [];
+      const supabaseInserts = [];
+      
+      for (const event of data.events) {
         // Ensure date is valid
         let eventDate: Date;
         try {
@@ -86,19 +90,42 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
           eventDate = new Date();
         }
         
-        return {
-          id: crypto.randomUUID(),
+        const color = CLASS_COLORS[className as keyof typeof CLASS_COLORS] || "#9b87f5";
+        
+        // Prepare data for Supabase insert
+        supabaseInserts.push({
           title: event.title || "Untitled Event",
           description: event.description || `From ${file.name}`,
-          date: eventDate,
-          className,
-          color: CLASS_COLORS[className as keyof typeof CLASS_COLORS] || "#9b87f5"
-        };
-      });
+          date: eventDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+          class_name: className,
+          color: color
+        });
+      }
       
-      console.log(`Successfully extracted ${extractedEvents.length} events from syllabus`);
-      onEventsAdded(extractedEvents);
-      toast.success(`Successfully extracted ${extractedEvents.length} events from syllabus`);
+      // Batch insert events into Supabase
+      const { data: insertedEvents, error } = await supabase
+        .from('calendar_events')
+        .insert(supabaseInserts)
+        .select('*');
+        
+      if (error) {
+        console.error("Error inserting events into database:", error);
+        throw new Error('Failed to save events to database');
+      }
+      
+      // Convert inserted events to CalendarEvent format
+      const savedEvents: CalendarEvent[] = (insertedEvents || []).map(item => ({
+        id: item.id,
+        title: item.title,
+        description: item.description || "",
+        date: new Date(item.date),
+        className: item.class_name,
+        color: item.color
+      }));
+      
+      console.log(`Successfully extracted and saved ${savedEvents.length} events from syllabus`);
+      onEventsAdded(savedEvents);
+      toast.success(`Successfully extracted ${savedEvents.length} events from syllabus`);
       
       // Reset
       setFile(null);
