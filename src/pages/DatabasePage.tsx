@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   Search, 
   FolderPlus,
@@ -61,6 +62,7 @@ interface FileType {
   progress: number;
   url?: string;
   folder_id: string | null;
+  user_id?: string;
 }
 
 interface UserStorage {
@@ -98,6 +100,7 @@ const DatabasePage = () => {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const navigate = useNavigate();
   
   // Fetch current user
   useEffect(() => {
@@ -174,13 +177,15 @@ const DatabasePage = () => {
         
         setFolders(folderData || []);
         
-        // Add progress property to files (needed for UI)
+        // Add progress property to files (needed for UI) and ensure status is a valid value
         const filesWithProgress = (fileData || []).map(file => ({
           ...file,
-          progress: 100
+          progress: 100,
+          status: (file.status as 'uploading' | 'processing' | 'complete' | 'error') || 'complete',
+          tags: file.tags || []
         }));
         
-        setFiles(filesWithProgress);
+        setFiles(filesWithProgress as FileType[]);
       } catch (error: any) {
         console.error("Error fetching folders and files:", error);
         toast({
@@ -250,7 +255,7 @@ const DatabasePage = () => {
       const selectedFiles = Array.from(e.target.files);
       
       // Create temporary file entries for UI
-      const newFiles = selectedFiles.map(file => ({
+      const newFiles: FileType[] = selectedFiles.map(file => ({
         id: Math.random().toString(36).substring(2, 9),
         name: file.name,
         size: file.size,
@@ -287,17 +292,20 @@ const DatabasePage = () => {
           // Generate a unique file path
           const filePath = `${user.id}/${currentFolderId || 'root'}/${Date.now()}_${file.name}`;
           
-          // 1. Upload to storage
+          // 1. Upload to storage using uploadFile function with the progress callback
           const { data: storageData, error: storageError } = await supabase.storage
             .from('file_storage')
             .upload(filePath, file, {
-              onUploadProgress: (progress) => {
-                const percent = Math.round((progress.loaded / progress.total) * 100);
-                updateProgress(percent);
-              }
+              cacheControl: '3600'
             });
+
+          // Manual progress updates since onUploadProgress isn't available
+          updateProgress(50); // Show 50% progress after upload starts
           
           if (storageError) throw storageError;
+          
+          // Update progress to 75% after successful upload
+          updateProgress(75);
           
           // 2. Get the URL
           const { data: urlData } = supabase.storage
@@ -317,6 +325,7 @@ const DatabasePage = () => {
                 url: urlData.publicUrl,
                 last_modified: new Date().toISOString(),
                 category: 'other',
+                status: 'complete'
               }
             ])
             .select()
@@ -324,16 +333,18 @@ const DatabasePage = () => {
           
           if (insertError) throw insertError;
           
-          // 4. Update the file entry in state
+          // 4. Update the file entry in state to complete (100%)
+          updateProgress(100);
+          
           setFiles(prevFiles => 
             prevFiles.map(f => 
               f.id === newFileId ? { 
                 ...fileRecord, 
                 progress: 100,
-                status: 'complete',
+                status: 'complete' as const,
                 tags: fileRecord.tags || []
               } : f
-            )
+            ) as FileType[]
           );
           
         } catch (error: any) {
@@ -342,7 +353,7 @@ const DatabasePage = () => {
           // Update file status to error
           setFiles(prevFiles => 
             prevFiles.map(f => 
-              f.id === newFileId ? { ...f, status: 'error' } : f
+              f.id === newFileId ? { ...f, status: 'error' as const } : f
             )
           );
           
@@ -376,7 +387,7 @@ const DatabasePage = () => {
       const droppedFiles = Array.from(e.dataTransfer.files);
       
       // Create temporary file entries for UI
-      const newFiles = droppedFiles.map(file => ({
+      const newFiles: FileType[] = droppedFiles.map(file => ({
         id: Math.random().toString(36).substring(2, 9),
         name: file.name,
         size: file.size,
@@ -417,13 +428,15 @@ const DatabasePage = () => {
           const { data: storageData, error: storageError } = await supabase.storage
             .from('file_storage')
             .upload(filePath, file, {
-              onUploadProgress: (progress) => {
-                const percent = Math.round((progress.loaded / progress.total) * 100);
-                updateProgress(percent);
-              }
+              cacheControl: '3600'
             });
+
+          // Manual progress updates
+          updateProgress(50);
           
           if (storageError) throw storageError;
+          
+          updateProgress(75);
           
           // 2. Get the URL
           const { data: urlData } = supabase.storage
@@ -443,6 +456,7 @@ const DatabasePage = () => {
                 url: urlData.publicUrl,
                 last_modified: new Date().toISOString(),
                 category: 'other',
+                status: 'complete'
               }
             ])
             .select()
@@ -451,15 +465,16 @@ const DatabasePage = () => {
           if (insertError) throw insertError;
           
           // 4. Update the file entry in state
+          updateProgress(100);
           setFiles(prevFiles => 
             prevFiles.map(f => 
               f.id === newFileId ? { 
                 ...fileRecord, 
                 progress: 100,
-                status: 'complete',
+                status: 'complete' as const,
                 tags: fileRecord.tags || []
               } : f
-            )
+            ) as FileType[]
           );
         } catch (error: any) {
           console.error("Error uploading file:", error);
@@ -467,7 +482,7 @@ const DatabasePage = () => {
           // Update file status to error
           setFiles(prevFiles => 
             prevFiles.map(f => 
-              f.id === newFileId ? { ...f, status: 'error' } : f
+              f.id === newFileId ? { ...f, status: 'error' as const } : f
             )
           );
           
