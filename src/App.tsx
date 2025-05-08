@@ -3,8 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
+import { AuthGuard } from "./components/auth/AuthGuard";
 import HomePage from "./pages/HomePage";
 import SuperStu from "./pages/SuperStu";
 import SecureCoach from "./pages/SecureCoach";
@@ -19,6 +20,22 @@ import QuizzesPage from "./pages/QuizzesPage";
 
 const queryClient = new QueryClient();
 
+// Protected layout component
+const ProtectedLayout = () => (
+  <AuthGuard>
+    <AppLayout>
+      <Outlet />
+    </AppLayout>
+  </AuthGuard>
+);
+
+// Public layout component
+const PublicLayout = () => (
+  <AppLayout>
+    <Outlet />
+  </AppLayout>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -26,8 +43,14 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<AppLayout />}>
-            <Route index element={<HomePage />} />
+          {/* Public routes */}
+          <Route path="/auth" element={<PublicLayout />}>
+            <Route index element={<AuthPage />} />
+          </Route>
+          
+          {/* Protected routes */}
+          <Route element={<ProtectedLayout />}>
+            <Route path="/" element={<HomePage />} />
             <Route path="super-stu" element={<SuperStu />} />
             <Route path="secure-coach" element={<SecureCoach />} />
             <Route path="static-coach" element={<StaticCoach />} />
@@ -36,9 +59,9 @@ const App = () => (
             <Route path="flashcards" element={<FlashcardsPage />} />
             <Route path="quizzes" element={<QuizzesPage />} />
             <Route path="admin" element={<div className="p-8">Admin Panel Coming Soon</div>} />
-            <Route path="auth" element={<AuthPage />} />
             <Route path="account" element={<AccountPage />} />
           </Route>
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
