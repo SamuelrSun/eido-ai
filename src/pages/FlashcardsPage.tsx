@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import { Progress } from "@/components/ui/progress";
 const FlashcardsPage = () => {
   const [activeTab, setActiveTab] = useState("study");
   const [isFlipped, setIsFlipped] = useState(false);
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
 
   // Sample decks data
   const decks = [
@@ -51,15 +52,35 @@ const FlashcardsPage = () => {
     },
   ];
 
-  // Sample card being studied
-  const currentCard = {
-    id: 1,
-    front: "What is the primary purpose of a firewall in network security?",
-    back: "A firewall monitors and filters incoming and outgoing network traffic based on predetermined security rules. Its primary purpose is to establish a barrier between a trusted internal network and untrusted external networks.",
-    deckId: 1,
-    difficulty: "medium",
-    nextReview: new Date(),
-  };
+  // Sample cards being studied
+  const cards = [
+    {
+      id: 1,
+      front: "What is the primary purpose of a firewall in network security?",
+      back: "A firewall monitors and filters incoming and outgoing network traffic based on predetermined security rules. Its primary purpose is to establish a barrier between a trusted internal network and untrusted external networks.",
+      deckId: 1,
+      difficulty: "medium",
+      nextReview: new Date(),
+    },
+    {
+      id: 2,
+      front: "What is the difference between symmetric and asymmetric encryption?",
+      back: "Symmetric encryption uses the same key for encryption and decryption, while asymmetric encryption uses a pair of keys (public and private). Symmetric is faster but requires secure key exchange, while asymmetric is slower but more secure for key distribution.",
+      deckId: 1,
+      difficulty: "hard",
+      nextReview: new Date(),
+    },
+    {
+      id: 3,
+      front: "What is a Man-in-the-Middle (MitM) attack?",
+      back: "A Man-in-the-Middle attack is a type of cybersecurity attack where an attacker secretly relays and possibly alters the communication between two parties who believe they are directly communicating with each other.",
+      deckId: 1,
+      difficulty: "medium",
+      nextReview: new Date(),
+    },
+  ];
+
+  const currentCard = cards[currentCardIndex];
 
   // Sample study statistics
   const studyStats = {
@@ -79,8 +100,42 @@ const FlashcardsPage = () => {
     console.log(`Card rated: ${rating}`);
     // Here we would update the SRS algorithm with the rating
     setIsFlipped(false);
-    // And move to the next card
+    handleNextCard();
   };
+
+  const handlePrevCard = () => {
+    if (currentCardIndex > 0) {
+      setCurrentCardIndex(currentCardIndex - 1);
+      setIsFlipped(false);
+    }
+  };
+
+  const handleNextCard = () => {
+    if (currentCardIndex < cards.length - 1) {
+      setCurrentCardIndex(currentCardIndex + 1);
+      setIsFlipped(false);
+    }
+  };
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        handleFlip();
+      } else if (e.code === "ArrowRight") {
+        handleNextCard();
+      } else if (e.code === "ArrowLeft") {
+        handlePrevCard();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    
+    // Clean up event listener
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [currentCardIndex, isFlipped]);
 
   return (
     <div className="space-y-6">
@@ -122,24 +177,44 @@ const FlashcardsPage = () => {
                 Network Security Basics
               </Badge>
               <div className="text-sm text-muted-foreground">
-                Card 7 of 42
+                Card {currentCardIndex + 1} of {cards.length}
               </div>
             </div>
             
             <div className="relative h-64 perspective-1000">
               <div 
                 className={`absolute w-full h-full transition-all duration-500 transform ${
-                  isFlipped ? "rotate-y-180" : ""
+                  isFlipped ? "rotate-x-180" : ""
                 } cursor-pointer border rounded-xl overflow-hidden`}
                 onClick={handleFlip}
+                style={{ 
+                  transformStyle: 'preserve-3d',
+                  backfaceVisibility: 'hidden',
+                }}
               >
                 {/* Front of card */}
-                <div className={`absolute w-full h-full bg-card p-6 ${isFlipped ? "invisible" : ""} flex items-center justify-center`}>
+                <div 
+                  className={`absolute w-full h-full bg-card p-6 flex items-center justify-center`}
+                  style={{ 
+                    backfaceVisibility: 'hidden',
+                    transform: isFlipped ? 'rotateX(180deg)' : 'rotateX(0deg)',
+                    opacity: isFlipped ? 0 : 1,
+                    transition: 'transform 0.6s, opacity 0.6s'
+                  }}
+                >
                   <p className="text-xl font-medium text-center">{currentCard.front}</p>
                 </div>
                 
                 {/* Back of card */}
-                <div className={`absolute w-full h-full bg-card p-6 ${isFlipped ? "" : "invisible"} flex items-center justify-center rotate-y-180`}>
+                <div 
+                  className={`absolute w-full h-full bg-card p-6 flex items-center justify-center`}
+                  style={{ 
+                    backfaceVisibility: 'hidden',
+                    transform: isFlipped ? 'rotateX(0deg)' : 'rotateX(-180deg)',
+                    opacity: isFlipped ? 1 : 0,
+                    transition: 'transform 0.6s, opacity 0.6s'
+                  }}
+                >
                   <p className="text-lg">{currentCard.back}</p>
                 </div>
               </div>
@@ -147,7 +222,7 @@ const FlashcardsPage = () => {
             
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground mb-4">
-                {isFlipped ? "How well did you know this?" : "Click the card to reveal answer"}
+                {isFlipped ? "How well did you know this?" : "Click the card to reveal answer (or press Space)"}
               </p>
               
               {isFlipped && (
@@ -185,14 +260,24 @@ const FlashcardsPage = () => {
               
               {!isFlipped && (
                 <div className="flex justify-center gap-4">
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handlePrevCard}
+                    disabled={currentCardIndex === 0}
+                  >
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Previous
                   </Button>
                   <Button variant="outline" size="sm">
                     Skip
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleNextCard}
+                    disabled={currentCardIndex === cards.length - 1}
+                  >
                     Next
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
