@@ -24,3 +24,7 @@ verify_jwt = true
 
 [functions.generate-quiz]
 verify_jwt = true
+
+[functions.process-syllabus]
+verify_jwt = false
+

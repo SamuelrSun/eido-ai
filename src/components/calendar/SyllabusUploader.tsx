@@ -21,47 +21,55 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
   };
 
   const handleProcessSyllabus = async () => {
-    if (!file) return;
+    if (!file || !className) {
+      toast.error("Please select both a file and a class");
+      return;
+    }
 
     setIsProcessing(true);
     
     try {
-      // In a real implementation, we would send the file to an API endpoint
-      // that would process the syllabus using OpenAI and return events
+      // Create form data to send to our edge function
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('className', className);
       
-      // For now, we'll simulate this with a timeout and mock data
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Mock extracted events
-      const mockEvents: CalendarEvent[] = [
+      // Call our edge function to process the syllabus
+      const response = await fetch(
+        `https://uzdtqomtbrccinrkhzme.functions.supabase.co/process-syllabus`, 
         {
-          id: crypto.randomUUID(),
-          title: "Reading Assignment: Chapter 5",
-          description: `From ${file.name}`,
-          date: new Date(2025, 4, 18),
-          className,
-          color: CLASS_COLORS[className as keyof typeof CLASS_COLORS]
-        },
-        {
-          id: crypto.randomUUID(),
-          title: "Quiz 2",
-          description: `From ${file.name}`,
-          date: new Date(2025, 4, 22),
-          className,
-          color: CLASS_COLORS[className as keyof typeof CLASS_COLORS]
-        },
-        {
-          id: crypto.randomUUID(),
-          title: "Final Paper Submission",
-          description: `From ${file.name}`,
-          date: new Date(2025, 5, 5),
-          className,
-          color: CLASS_COLORS[className as keyof typeof CLASS_COLORS]
+          method: 'POST',
+          body: formData,
         }
-      ];
+      );
       
-      onEventsAdded(mockEvents);
-      toast.success(`Successfully extracted ${mockEvents.length} events from syllabus`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to process syllabus');
+      }
+      
+      const data = await response.json();
+      
+      if (!data.events || !Array.isArray(data.events)) {
+        throw new Error('Invalid response from syllabus processing');
+      }
+      
+      // Convert the extracted events to the CalendarEvent format
+      const extractedEvents: CalendarEvent[] = data.events.map((event: any) => ({
+        id: crypto.randomUUID(),
+        title: event.title,
+        description: event.description || `From ${file.name}`,
+        date: new Date(event.date), // Parse the date string from the API
+        className,
+        color: CLASS_COLORS[className as keyof typeof CLASS_COLORS] || "#9b87f5"
+      }));
+      
+      if (extractedEvents.length === 0) {
+        toast.warning("No events found in the syllabus");
+      } else {
+        onEventsAdded(extractedEvents);
+        toast.success(`Successfully extracted ${extractedEvents.length} events from syllabus`);
+      }
       
       // Reset
       setFile(null);
