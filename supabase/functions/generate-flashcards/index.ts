@@ -6,8 +6,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.2"
 import { corsHeaders } from "../_shared/cors.ts"
 
-// Using the provided OpenAI API key
-const openaiApiKey = Deno.env.get('OPENAI_API_KEY') || "";
+// Set the API key directly (you can update this later through Supabase Secrets)
+const openaiApiKey = "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";
 
 // Vector store ID and assistant ID
 const vectorStoreId = "vs_681a9a95ea088191b7c66683f0f3b9cf";
@@ -45,23 +45,6 @@ serve(async (req) => {
     const { title, cardCount }: GenerateFlashcardsParams = await req.json()
     console.log(`Generating ${cardCount} flashcards for deck: ${title}`);
     
-    // Fetch OpenAI API key from the database if not available in environment
-    if (!openaiApiKey || openaiApiKey.trim() === '') {
-      console.log("OpenAI API key not found in environment, fetching from database...");
-      const { data: apiKeyData, error: apiKeyError } = await supabaseClient
-        .from('api_keys')
-        .select('key_value')
-        .eq('key_name', 'OPENAI_API_KEY')
-        .maybeSingle();
-      
-      if (apiKeyError || !apiKeyData) {
-        console.error('Error fetching OpenAI API key from database:', apiKeyError?.message || "No API key found");
-        throw new Error('OpenAI API key is not configured. Please contact an administrator.');
-      }
-      
-      console.log("Successfully retrieved API key from database");
-    }
-    
     // Get content from the embeddings table as context
     let contextPrompt = "";
     try {
@@ -93,19 +76,12 @@ serve(async (req) => {
     
     console.log("Context prompt length:", contextPrompt.length);
     
-    // Use the API key from environment or database
-    const apiKey = openaiApiKey || (await supabaseClient
-      .from('api_keys')
-      .select('key_value')
-      .eq('key_name', 'OPENAI_API_KEY')
-      .single()).data.key_value;
-    
     // Call OpenAI API to generate flashcards based on the context
     console.log("Calling OpenAI API to generate flashcards...");
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
