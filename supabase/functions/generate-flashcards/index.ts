@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.2"
 import { corsHeaders } from "../_shared/cors.ts"
 
 // Using the provided OpenAI API key
-const openaiApiKey = "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";
+const openaiApiKey = Deno.env.get('OPENAI_API_KEY') || "";
 
 // Vector store ID and assistant ID
 const vectorStoreId = "vs_681a9a95ea088191b7c66683f0f3b9cf";
@@ -45,55 +45,67 @@ serve(async (req) => {
     const { title, cardCount }: GenerateFlashcardsParams = await req.json()
     console.log(`Generating ${cardCount} flashcards for deck: ${title}`);
     
-    // Check if OpenAI API key is available
-    if (!openaiApiKey) {
-      console.error('OPENAI_API_KEY is not available');
-      return new Response(
-        JSON.stringify({
-          error: 'OpenAI API key is not configured. Please contact an administrator.'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
-        },
-      )
-    }
-    
-    // Get random content from the embeddings table as context
-    const { data: sampleDocs, error } = await supabaseClient
-      .from('embeddings')
-      .select('content')
-      .limit(20) // Get a larger random sample for better context
-    
-    if (error) {
-      console.error(`Error fetching sample documents: ${error.message}`);
-      throw error;
-    }
-    
-    let matchQuery = "";
-    
-    if (!sampleDocs || sampleDocs.length === 0) {
-      // If no embeddings are available, use the title as the context
-      console.log("No content found in embeddings table, using title as context");
-      matchQuery = `Create educational flashcards about: ${title}`;
-    } else {
-      // Combine the content from random documents
-      matchQuery = sampleDocs
-        .map((doc: any) => doc.content)
-        .join('\n\n');
+    // Fetch OpenAI API key from the database if not available in environment
+    if (!openaiApiKey || openaiApiKey.trim() === '') {
+      console.log("OpenAI API key not found in environment, fetching from database...");
+      const { data: apiKeyData, error: apiKeyError } = await supabaseClient
+        .from('api_keys')
+        .select('key_value')
+        .eq('key_name', 'OPENAI_API_KEY')
+        .maybeSingle();
       
-      if (!matchQuery || matchQuery.trim() === '') {
-        console.log("Empty content from vector store, using title as context");
-        matchQuery = `Create educational flashcards about: ${title}`;
+      if (apiKeyError || !apiKeyData) {
+        console.error('Error fetching OpenAI API key from database:', apiKeyError?.message || "No API key found");
+        throw new Error('OpenAI API key is not configured. Please contact an administrator.');
       }
+      
+      console.log("Successfully retrieved API key from database");
     }
+    
+    // Get content from the embeddings table as context
+    let contextPrompt = "";
+    try {
+      const { data: sampleDocs, error } = await supabaseClient
+        .from('embeddings')
+        .select('content')
+        .limit(20);
+      
+      if (error) {
+        console.error(`Error fetching sample documents: ${error.message}`);
+        // Continue with default prompt if we can't get embeddings
+      }
+      
+      if (sampleDocs && sampleDocs.length > 0) {
+        // Combine the content from documents
+        contextPrompt = sampleDocs
+          .map((doc: any) => doc.content)
+          .join('\n\n');
+      }
+    } catch (error) {
+      console.warn("Error accessing embeddings table, using title as context instead:", error);
+      // Fall back to using the title if we can't access embeddings
+    }
+    
+    if (!contextPrompt || contextPrompt.trim() === '') {
+      console.log("Using title as context because no embeddings content was found or accessible");
+      contextPrompt = `Create educational flashcards about: ${title}`;
+    }
+    
+    console.log("Context prompt length:", contextPrompt.length);
+    
+    // Use the API key from environment or database
+    const apiKey = openaiApiKey || (await supabaseClient
+      .from('api_keys')
+      .select('key_value')
+      .eq('key_name', 'OPENAI_API_KEY')
+      .single()).data.key_value;
     
     // Call OpenAI API to generate flashcards based on the context
     console.log("Calling OpenAI API to generate flashcards...");
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -108,7 +120,7 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: `Create exactly ${cardCount} flashcards based on the following content. Each flashcard should have a 'front' with a question and a 'back' with the answer:\n\n${matchQuery}`
+            content: `Create exactly ${cardCount} flashcards based on the following content. Each flashcard should have a 'front' with a question and a 'back' with the answer:\n\n${contextPrompt}`
           }
         ],
         temperature: 0.7,
