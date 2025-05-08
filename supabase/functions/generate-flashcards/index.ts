@@ -45,8 +45,28 @@ serve(async (req) => {
     const { title, cardCount }: GenerateFlashcardsParams = await req.json()
     console.log(`Generating ${cardCount} flashcards for deck: ${title} using Assistant API`);
     
-    // Create a proper prompt that focuses on the title subject
+    // First, query the content from the embeddings table to understand what data is available
+    const { data: embeddingData, error: embeddingError } = await supabaseClient
+      .from('embeddings')
+      .select('content')
+      .order('created_at', { ascending: false })
+      .limit(5);
+      
+    if (embeddingError) {
+      console.error("Error fetching embeddings:", embeddingError);
+      throw new Error(`Failed to fetch embeddings: ${embeddingError.message}`);
+    }
+    
+    // Extract topics from the available embeddings to guide the flashcard generation
+    const availableContent = embeddingData?.map(e => e.content).join(' ').substring(0, 500) || '';
+    
+    console.log("Available content sample:", availableContent.substring(0, 100) + "...");
+    
+    // Create a better prompt that uses the embedding content and focuses on the title subject
     const prompt = `Create ${cardCount} educational flashcards about "${title}". 
+    Base your flashcards on the following content from our knowledge base:
+    ${availableContent}...
+    
     Each flashcard should have a clear question on the front and a comprehensive answer on the back.
     The flashcards should cover key concepts, definitions, and important facts about ${title}.
     Format your response as a valid JSON object with a "flashcards" array containing exactly ${cardCount} flashcard objects.
@@ -101,8 +121,9 @@ serve(async (req) => {
     
     // Create system instruction specifically for flashcard generation
     const systemPrompt = `You are a flashcard generation assistant that creates educational content.
-    Generate exactly ${cardCount} flashcards about the requested topic.
+    Generate exactly ${cardCount} flashcards about the requested topic: "${title}".
     Use knowledge from the vector store to create accurate, relevant flashcards.
+    Make each flashcard unique and different from the others.
     Each flashcard should have a clear question on the front and a detailed answer on the back.
     Format your response as valid JSON with a "flashcards" array.
     Each item in the array must have "front" and "back" properties.

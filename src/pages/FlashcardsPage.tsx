@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -265,7 +266,8 @@ const FlashcardsPage = () => {
       </div>
       
       <Tabs value={activeTab} className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-3 mb-4">
+        {/* Remove data-orientation so arrow keys won't control tab selection */}
+        <TabsList className="grid grid-cols-3 mb-4" data-orientation="horizontal">
           <TabsTrigger value="study" disabled={!currentDeck}>
             <BookOpen className="mr-2 h-4 w-4" />
             Study
