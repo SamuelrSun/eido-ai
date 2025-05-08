@@ -11,7 +11,8 @@ import {
   Edit,
   Plus,
   ArrowUp,
-  Loader2
+  Loader2,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -91,7 +92,7 @@ const DatabasePage = () => {
     storage_limit: 1024 * 1024 * 1024 // Default 1GB
   });
   const [breadcrumbs, setBreadcrumbs] = useState<{id: string | null, name: string}[]>([
-    { id: null, name: 'Root' }
+    { id: null, name: 'Main' } // Changed from 'Root' to 'Main'
   ]);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
@@ -231,7 +232,7 @@ const DatabasePage = () => {
     if (folderId === null) {
       // Navigate to root
       setCurrentFolderId(null);
-      setBreadcrumbs([{ id: null, name: 'Root' }]);
+      setBreadcrumbs([{ id: null, name: 'Main' }]); // Changed from 'Root' to 'Main'
       return;
     }
     
@@ -302,23 +303,22 @@ const DatabasePage = () => {
         };
         
         try {
-          // Generate a unique file path - Fix: Use unique file path format
+          // Generate a unique file path - Fix: Use simpler file path without nested folders
           const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
           const filePath = `${fileName}`;
           
-          // 1. Upload to storage using uploadFile function with the progress callback
+          // 1. Upload to storage
           const { data: storageData, error: storageError } = await supabase.storage
             .from('file_storage')
             .upload(filePath, file, {
               cacheControl: '3600'
             });
 
-          // Manual progress updates since onUploadProgress isn't available
-          updateProgress(50); // Show 50% progress after upload starts
+          // Manual progress updates
+          updateProgress(50);
           
           if (storageError) throw storageError;
           
-          // Update progress to 75% after successful upload
           updateProgress(75);
           
           // 2. Get the URL - Fix: Use the correct method to get public URL
@@ -347,9 +347,8 @@ const DatabasePage = () => {
           
           if (insertError) throw insertError;
           
-          // 4. Update the file entry in state to complete (100%)
+          // 4. Update the file entry in state
           updateProgress(100);
-          
           setFiles(prevFiles => 
             prevFiles.map(f => 
               f.id === newFileId ? { 
@@ -360,7 +359,6 @@ const DatabasePage = () => {
               } : f
             ) as FileType[]
           );
-          
         } catch (error: any) {
           console.error("Error uploading file:", error);
           
@@ -750,26 +748,26 @@ const DatabasePage = () => {
             </Button>
           </div>
           
-          {/* Breadcrumbs Navigation */}
-          <Breadcrumb className="mb-4">
-            <BreadcrumbList>
-              {breadcrumbs.map((crumb, index) => (
-                <BreadcrumbItem key={index}>
-                  {index > 0 && <BreadcrumbSeparator />}
-                  <BreadcrumbLink 
-                    onClick={() => navigateToFolder(crumb.id, crumb.name)}
-                    className={`${
-                      index === breadcrumbs.length - 1 
-                        ? 'font-semibold text-purple-700 cursor-default' 
-                        : 'text-gray-600 hover:text-purple-600 cursor-pointer'
-                    }`}
-                  >
-                    {crumb.name}
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-              ))}
-            </BreadcrumbList>
-          </Breadcrumb>
+          {/* Breadcrumbs Navigation - Updated to be larger with bubble style */}
+          <div className="flex flex-wrap items-center mb-6 text-lg">
+            {breadcrumbs.map((crumb, index) => (
+              <div key={index} className="flex items-center">
+                {index > 0 && (
+                  <ChevronRight className="h-5 w-5 mx-2 text-gray-400" />
+                )}
+                <button
+                  onClick={() => navigateToFolder(crumb.id, crumb.name)}
+                  className={`px-4 py-2 rounded-full transition-all ${
+                    index === breadcrumbs.length - 1 
+                      ? 'bg-blue-100 text-blue-700 font-medium' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {crumb.name}
+                </button>
+              </div>
+            ))}
+          </div>
           
           {/* File/Folder Drop Area */}
           <div 
