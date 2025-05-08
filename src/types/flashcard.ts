@@ -1,5 +1,13 @@
 
 /**
+ * Single flashcard content (front and back)
+ */
+export interface FlashcardContent {
+  front: string;
+  back: string;
+}
+
+/**
  * Flashcard schema for database and application use
  */
 export interface Flashcard {
@@ -7,7 +15,7 @@ export interface Flashcard {
   front: string;
   back: string;
   deckId: string;
-  difficulty: 'easy' | 'medium' | 'hard';
+  difficulty: string;
   nextReview: Date;
   lastReviewed?: Date;
   reviewCount?: number;
@@ -31,10 +39,10 @@ export interface Deck {
 }
 
 /**
- * Form input for generating a new deck
+ * Parameters for generating a new deck
  */
-export interface GenerateDeckInput {
+export interface GenerateDeckParams {
   title: string;
-  cardCount: number;
   topic: string;
+  cardCount: number;
 }

@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -23,6 +22,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { flashcardService } from "@/services/flashcardService";
+import { Deck, Flashcard, FlashcardContent } from "@/types/flashcard";
 
 // Define types for our flashcards and decks
 interface Flashcard {
@@ -106,20 +107,19 @@ const FlashcardsPage = () => {
 
   const fetchAvailableTopics = async () => {
     try {
-      // In a real implementation, this would analyze the vector database
-      // For demonstration, we'll use sample topics that might be in an educational database
-      const sampleTopics = [
+      const topics = await flashcardService.getAvailableTopics();
+      setAvailableTopics(topics);
+    } catch (error) {
+      console.error("Error fetching topics:", error);
+      toast.error("Failed to load available topics");
+      // Fall back to sample topics if API fails
+      setAvailableTopics([
         "Network Security",
         "Encryption",
         "Security Protocols",
         "Cybersecurity Basics",
         "All Topics"
-      ];
-      
-      setAvailableTopics(sampleTopics);
-    } catch (error) {
-      console.error("Error fetching topics:", error);
-      toast.error("Failed to load available topics");
+      ]);
     }
   };
 
@@ -152,34 +152,40 @@ const FlashcardsPage = () => {
     setIsGenerating(true);
     
     try {
-      // In a real implementation, this would call a Supabase function to generate cards using OpenAI
       toast.info("Generating flashcard deck...");
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Create a sample deck with AI-generated content for demonstration
+      // Call the service to generate flashcards
+      const generatedFlashcards = await flashcardService.generateDeck({
+        title: data.title,
+        topic: data.topic,
+        cardCount: data.cardCount
+      });
+      
       const newDeckId = Math.random().toString(36).substring(2, 9);
-      const sampleCards = Array.from({ length: data.cardCount }).map((_, idx) => {
+      
+      // Convert the generated content to flashcard objects
+      const flashcards = generatedFlashcards.map((card, idx) => {
         return {
           id: `card-${newDeckId}-${idx}`,
-          front: `Sample question ${idx + 1} about ${data.topic}?`,
-          back: `Sample answer ${idx + 1} about ${data.topic}.`,
+          front: card.front,
+          back: card.back,
           deckId: newDeckId,
           difficulty: "medium",
           nextReview: new Date(),
-        };
+        } as Flashcard;
       });
 
       const newDeck: Deck = {
         id: newDeckId,
         title: data.title,
         description: `AI-generated flashcards about ${data.topic}`,
-        cardCount: data.cardCount,
-        dueCards: data.cardCount,
-        newCards: data.cardCount,
+        cardCount: flashcards.length,
+        dueCards: flashcards.length,
+        newCards: flashcards.length,
         color: getRandomDeckColor(),
-        cards: sampleCards,
+        cards: flashcards,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       // Add the new deck to our state

@@ -46,17 +46,17 @@ serve(async (req) => {
     let matchQuery = ''
     if (topic && topic !== 'All Topics') {
       // Use the topic to find relevant content in the embeddings
-      const response = await supabaseClient.rpc('match_documents', {
-        query_embedding: `Topic: ${topic}`, // This is simplified and would need a proper embedding in real implementation
+      const { data: matchData, error: matchError } = await supabaseClient.rpc('match_documents', {
+        query_embedding: topic,
         match_threshold: 0.5,
         match_count: 10
       })
       
-      if (response.error) {
-        throw new Error(`Error matching documents: ${response.error.message}`)
+      if (matchError) {
+        throw new Error(`Error matching documents: ${matchError.message}`)
       }
       
-      matchQuery = response.data
+      matchQuery = matchData
         .map((doc: any) => doc.content)
         .join('\n\n')
     } else {

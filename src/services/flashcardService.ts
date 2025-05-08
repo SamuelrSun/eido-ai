@@ -1,16 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-
-export interface FlashcardContent {
-  front: string;
-  back: string;
-}
-
-export interface GenerateDeckParams {
-  title: string;
-  topic: string;
-  cardCount: number;
-}
+import { FlashcardContent, GenerateDeckParams } from "@/types/flashcard";
 
 /**
  * Service to handle flashcard-related operations
@@ -55,13 +45,7 @@ export const flashcardService = {
         throw new Error("Failed to fetch available topics");
       }
 
-      return data.topics || [
-        "Network Security",
-        "Encryption",
-        "Security Protocols",
-        "Cybersecurity Basics",
-        "All Topics"
-      ];
+      return data.topics || [];
     } catch (error) {
       console.error("Error fetching topics:", error);
       throw new Error("Failed to fetch available topics");

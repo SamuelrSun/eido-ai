@@ -23,13 +23,7 @@ serve(async (req) => {
       }
     )
     
-    // In a real implementation, we would analyze the embeddings table
-    // to extract distinct topics or categories. For simplicity,
-    // we're starting with a predefined set plus "All Topics"
-    
     // Get metadata from embeddings to extract potential topics
-    // This is a simplified approach - in a real implementation,
-    // you might use clustering or other NLP techniques
     const { data: embeddingsData, error } = await supabaseClient
       .from('embeddings')
       .select('metadata')
@@ -42,7 +36,7 @@ serve(async (req) => {
     // Extract topics from metadata (assuming metadata contains a 'topic' field)
     const topicsSet = new Set<string>()
     
-    embeddingsData.forEach((item: any) => {
+    embeddingsData?.forEach((item: any) => {
       if (item?.metadata?.topic) {
         topicsSet.add(item.metadata.topic)
       }
@@ -50,7 +44,7 @@ serve(async (req) => {
     
     const extractedTopics = Array.from(topicsSet)
     
-    // Default topics if none are found in the embeddings
+    // Include default topics if none are found in the embeddings
     const topics = extractedTopics.length > 0 
       ? [...extractedTopics, "All Topics"]
       : [
