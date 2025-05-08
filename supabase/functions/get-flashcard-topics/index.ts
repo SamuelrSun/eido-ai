@@ -6,14 +6,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.2"
 import { corsHeaders } from "../_shared/cors.ts"
 
-const FALLBACK_TOPICS = [
-  "Network Security",
-  "Encryption",
-  "Security Protocols", 
-  "Cybersecurity Basics",
-  "All Topics"
-];
-
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -35,38 +27,39 @@ serve(async (req) => {
     
     let topics = [];
     
-    try {
-      // Get metadata from embeddings to extract potential topics
-      const { data: embeddingsData, error } = await supabaseClient
-        .from('embeddings')
-        .select('metadata')
-        .limit(100)
-      
-      if (error) {
-        console.error(`Error fetching embeddings metadata: ${error.message}`);
-        throw error;
-      }
-      
-      // Extract topics from metadata (assuming metadata contains a 'topic' field)
-      const topicsSet = new Set<string>()
-      
-      embeddingsData?.forEach((item: any) => {
-        if (item?.metadata?.topic) {
-          topicsSet.add(item.metadata.topic)
-        }
-      })
-      
-      topics = Array.from(topicsSet);
-    } catch (dbError) {
-      console.error("Database error:", dbError);
-      // Continue execution with fallback topics
+    // Get metadata from embeddings to extract potential topics
+    const { data: embeddingsData, error } = await supabaseClient
+      .from('embeddings')
+      .select('metadata')
+      .limit(100)
+    
+    if (error) {
+      console.error(`Error fetching embeddings metadata: ${error.message}`);
+      throw error;
     }
     
-    // Include default topics if none are found in the embeddings
-    if (topics.length === 0) {
-      topics = FALLBACK_TOPICS;
-    } else if (!topics.includes("All Topics")) {
+    if (!embeddingsData || embeddingsData.length === 0) {
+      throw new Error('No embeddings found in the database');
+    }
+    
+    // Extract topics from metadata (assuming metadata contains a 'topic' field)
+    const topicsSet = new Set<string>()
+    
+    embeddingsData?.forEach((item: any) => {
+      if (item?.metadata?.topic) {
+        topicsSet.add(item.metadata.topic)
+      }
+    })
+    
+    topics = Array.from(topicsSet);
+    
+    // Always include "All Topics" option
+    if (!topics.includes("All Topics")) {
       topics.push("All Topics");
+    }
+    
+    if (topics.length <= 1) {
+      throw new Error('No specific topics found in embeddings metadata');
     }
     
     console.log("Returning topics:", topics);
@@ -84,12 +77,11 @@ serve(async (req) => {
     console.error('Error:', error)
     return new Response(
       JSON.stringify({ 
-        topics: FALLBACK_TOPICS,
         error: error.message 
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // Return 200 with fallback data instead of 500
+        status: 500,
       },
     )
   }

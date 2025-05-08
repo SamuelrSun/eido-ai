@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +11,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Loader,
+  Eye
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -23,7 +25,33 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { flashcardService } from "@/services/flashcardService";
-import { Deck, Flashcard, FlashcardContent } from "@/types/flashcard";
+import { FlashcardContent } from "@/types/flashcard";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+// Types imported from flashcard.ts
+interface Flashcard {
+  id: string;
+  front: string;
+  back: string;
+  deckId: string;
+  difficulty: string;
+  nextReview: Date;
+  lastReviewed?: Date;
+  reviewCount?: number;
+}
+
+interface Deck {
+  id: string;
+  title: string;
+  description: string;
+  userId?: string;
+  updatedAt: Date;
+  color: string;
+  cardCount: number;
+  dueCards: number;
+  newCards: number;
+  cards?: Flashcard[];
+}
 
 // Form schema for deck generation
 const deckGenerationSchema = z.object({
@@ -39,11 +67,14 @@ const FlashcardsPage = () => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [openGenerateDialog, setOpenGenerateDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
+  const [viewingDeck, setViewingDeck] = useState<Deck | null>(null);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [currentDeck, setCurrentDeck] = useState<Deck | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingTopics, setIsLoadingTopics] = useState(true);
+  const [isLoadingDecks, setIsLoadingDecks] = useState(true);
 
   const form = useForm<DeckGenerationFormValues>({
     resolver: zodResolver(deckGenerationSchema),
@@ -71,34 +102,30 @@ const FlashcardsPage = () => {
   }, []);
 
   const fetchDecks = async () => {
-    setIsLoading(true);
+    setIsLoadingDecks(true);
     try {
       // In a real implementation, this would fetch from Supabase
       // For now, we'll set an empty array as we'll be generating decks
       setDecks([]);
-      setIsLoading(false);
+      setIsLoadingDecks(false);
     } catch (error) {
       console.error("Error fetching decks:", error);
       toast.error("Failed to load flashcard decks");
-      setIsLoading(false);
+      setIsLoadingDecks(false);
     }
   };
 
   const fetchAvailableTopics = async () => {
+    setIsLoadingTopics(true);
     try {
       const topics = await flashcardService.getAvailableTopics();
       setAvailableTopics(topics);
+      setIsLoadingTopics(false);
     } catch (error) {
       console.error("Error fetching topics:", error);
-      toast.error("Failed to load available topics");
-      // Fall back to sample topics if API fails
-      setAvailableTopics([
-        "Network Security",
-        "Encryption",
-        "Security Protocols",
-        "Cybersecurity Basics",
-        "All Topics"
-      ]);
+      toast.error("Failed to load available topics: " + (error as Error).message);
+      setIsLoadingTopics(false);
+      setAvailableTopics([]);
     }
   };
 
@@ -131,7 +158,7 @@ const FlashcardsPage = () => {
     setIsGenerating(true);
     
     try {
-      toast.info("Generating flashcard deck...");
+      toast.info(`Generating ${data.cardCount} flashcards about ${data.topic}...`);
       
       // Call the service to generate flashcards
       const generatedFlashcards = await flashcardService.generateDeck({
@@ -168,13 +195,13 @@ const FlashcardsPage = () => {
 
       // Add the new deck to our state
       setDecks([...decks, newDeck]);
-      toast.success("Deck generated successfully!");
+      toast.success(`Successfully generated ${flashcards.length} flashcards!`);
       
       setOpenGenerateDialog(false);
       form.reset();
     } catch (error) {
       console.error("Error generating deck:", error);
-      toast.error("Failed to generate flashcard deck");
+      toast.error(`Failed to generate flashcard deck: ${(error as Error).message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -187,6 +214,14 @@ const FlashcardsPage = () => {
       setCurrentCardIndex(0);
       setIsFlipped(false);
       setActiveTab("study");
+    }
+  };
+
+  const viewDeck = (deckId: string) => {
+    const selectedDeck = decks.find(deck => deck.id === deckId);
+    if (selectedDeck) {
+      setViewingDeck(selectedDeck);
+      setOpenViewDialog(true);
     }
   };
 
@@ -254,6 +289,7 @@ const FlashcardsPage = () => {
           </TabsTrigger>
         </TabsList>
         
+        {/* Study Tab */}
         <TabsContent value="study" className="space-y-8">
           {currentDeck && currentDeck.cards && currentDeck.cards.length > 0 ? (
             <div className="mx-auto max-w-2xl">
@@ -266,6 +302,7 @@ const FlashcardsPage = () => {
                 </div>
               </div>
               
+              {/* Flashcard display */}
               <div className="relative h-64 perspective-1000">
                 <div 
                   className={`absolute w-full h-full transition-all duration-500 transform ${
@@ -305,6 +342,7 @@ const FlashcardsPage = () => {
                 </div>
               </div>
               
+              {/* Card navigation and rating controls */}
               <div className="mt-6 text-center">
                 <p className="text-sm text-muted-foreground mb-4">
                   {isFlipped ? "How well did you know this?" : "Click the card to reveal answer (or press Space)"}
@@ -382,9 +420,10 @@ const FlashcardsPage = () => {
           )}
         </TabsContent>
         
+        {/* Browse Tab */}
         <TabsContent value="browse" className="space-y-4">
           {/* Deck Browser */}
-          {isLoading ? (
+          {isLoadingDecks ? (
             <div className="flex justify-center items-center py-12">
               <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
@@ -405,7 +444,14 @@ const FlashcardsPage = () => {
                     <Progress value={(deck.cardCount - deck.dueCards) / deck.cardCount * 100} className="h-1 mb-4" />
                     
                     <div className="flex justify-between">
-                      <Button variant="outline" size="sm">Edit</Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => viewDeck(deck.id)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        View
+                      </Button>
                       <Button 
                         size="sm"
                         onClick={() => startStudyingDeck(deck.id)}
@@ -417,6 +463,7 @@ const FlashcardsPage = () => {
                 </Card>
               ))}
               
+              {/* Create New Deck Card */}
               <Card 
                 className="border-dashed flex items-center justify-center h-[180px] cursor-pointer hover:bg-accent/50 transition-colors"
                 onClick={() => setOpenGenerateDialog(true)}
@@ -430,6 +477,7 @@ const FlashcardsPage = () => {
           )}
         </TabsContent>
         
+        {/* Stats Tab */}
         <TabsContent value="stats" className="space-y-6">
           {/* Study Statistics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -535,18 +583,25 @@ const FlashcardsPage = () => {
                       onValueChange={field.onChange} 
                       value={field.value} 
                       defaultValue={field.value}
+                      disabled={isLoadingTopics}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a topic" />
+                          <SelectValue placeholder={isLoadingTopics ? "Loading topics..." : "Select a topic"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {availableTopics.map(topic => (
-                          <SelectItem key={topic} value={topic}>
-                            {topic}
+                        {availableTopics.length > 0 ? (
+                          availableTopics.map(topic => (
+                            <SelectItem key={topic} value={topic}>
+                              {topic}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-topics" disabled>
+                            No topics available
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
                     <FormDescription>
@@ -566,7 +621,7 @@ const FlashcardsPage = () => {
                 </Button>
                 <Button 
                   type="submit"
-                  disabled={isGenerating}
+                  disabled={isGenerating || isLoadingTopics || availableTopics.length === 0}
                 >
                   {isGenerating ? (
                     <>
@@ -580,6 +635,63 @@ const FlashcardsPage = () => {
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Deck Dialog with Flashcards Table */}
+      <Dialog open={openViewDialog} onOpenChange={setOpenViewDialog}>
+        <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewingDeck?.title}</DialogTitle>
+            <DialogDescription>
+              {viewingDeck?.description}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="mt-4">
+            {viewingDeck?.cards?.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">#</TableHead>
+                    <TableHead>Question</TableHead>
+                    <TableHead>Answer</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {viewingDeck.cards.map((card, index) => (
+                    <TableRow key={card.id}>
+                      <TableCell className="font-medium">{index + 1}</TableCell>
+                      <TableCell>{card.front}</TableCell>
+                      <TableCell>{card.back}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex justify-center items-center py-8">
+                <p className="text-muted-foreground">No flashcards in this deck</p>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-end gap-3 mt-4">
+            <Button 
+              onClick={() => setOpenViewDialog(false)}
+            >
+              Close
+            </Button>
+            {viewingDeck && (
+              <Button 
+                onClick={() => {
+                  setOpenViewDialog(false);
+                  startStudyingDeck(viewingDeck.id);
+                }}
+              >
+                Study Now
+              </Button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
