@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { 
   Upload, 
@@ -22,6 +21,7 @@ import { toast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 type FileCategory = 'lecture_notes' | 'readings' | 'slides' | 'assignments' | 'other';
 type FileViewMode = 'grid' | 'list';
@@ -275,31 +275,10 @@ const UploadPage = () => {
   
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-purple-700 flex items-center gap-2">
-          <Upload className="h-7 w-7" />
-          Upload Materials
-        </h1>
-        
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setViewMode('grid')}
-            className={viewMode === 'grid' ? 'bg-purple-100' : ''}
-          >
-            <Grid2X2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setViewMode('list')}
-            className={viewMode === 'list' ? 'bg-purple-100' : ''}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <PageHeader 
+        title="Upload Materials"
+        description="Upload and manage your learning materials, lecture notes, and assignments."
+      />
       
       <div className="bg-white p-6 rounded-xl shadow-sm border">
         <div className="mb-6">
