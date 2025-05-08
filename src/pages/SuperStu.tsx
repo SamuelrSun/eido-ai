@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ChatBot } from "@/components/chat/ChatBot";
 import { FileUpload } from "@/components/chat/FileUpload";
 
-const CyberCoach = () => {
+const SuperStu = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   const handleFileUpload = (file: File) => {
@@ -21,7 +21,7 @@ const CyberCoach = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">Cyber Coach</h1>
+        <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">SuperStu</h1>
         <p className="text-gray-600 mb-6">
           Ask questions and get tailored cybersecurity guidance from our AI coach, trained on general cybersecurity best practices.
         </p>
@@ -46,4 +46,4 @@ const CyberCoach = () => {
   );
 };
 
-export default CyberCoach;
+export default SuperStu;

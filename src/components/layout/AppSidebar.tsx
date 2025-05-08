@@ -8,7 +8,8 @@ import {
   X,
   Home,
   UserCircle,
-  LogIn
+  LogIn,
+  Search
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,9 +50,9 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       exact: true
     },
     {
-      icon: <MessageCircle className="mr-2 h-5 w-5" />,
-      label: "Cyber Coach",
-      to: "/cyber-coach"
+      icon: <Search className="mr-2 h-5 w-5" />,
+      label: "Search",
+      to: "/super-stu"
     },
     {
       icon: <FileText className="mr-2 h-5 w-5" />,

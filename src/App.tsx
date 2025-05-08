@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import HomePage from "./pages/HomePage";
-import CyberCoach from "./pages/CyberCoach";
+import SuperStu from "./pages/SuperStu";
 import SecureCoach from "./pages/SecureCoach";
 import PolicyCenter from "./pages/PolicyCenter";
 import AuthPage from "./pages/AuthPage";
@@ -24,7 +24,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<AppLayout />}>
             <Route index element={<HomePage />} />
-            <Route path="cyber-coach" element={<CyberCoach />} />
+            <Route path="super-stu" element={<SuperStu />} />
             <Route path="secure-coach" element={<SecureCoach />} />
             <Route path="policy-center" element={<PolicyCenter />} />
             <Route path="admin" element={<div className="p-8">Admin Panel Coming Soon</div>} />

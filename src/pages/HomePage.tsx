@@ -7,10 +7,10 @@ import { Link } from "react-router-dom";
 const HomePage = () => {
   const features = [
     {
-      title: "Cyber Coach",
+      title: "Search",
       description: "Get personalized cybersecurity guidance from our AI coach",
       icon: "🤖",
-      link: "/cyber-coach",
+      link: "/super-stu",
     },
     {
       title: "Policy Center",
@@ -44,9 +44,9 @@ const HomePage = () => {
           Your all-in-one platform for cybersecurity guidance, policy management, and compliance.
         </p>
         <div className="pt-4">
-          <Link to="/cyber-coach">
+          <Link to="/super-stu">
             <Button size="lg" className="mx-2">
-              Get Started with Cyber Coach
+              Get Started with SuperStu
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
@@ -98,9 +98,9 @@ const HomePage = () => {
         <p className="mb-6 text-gray-200">
           Our AI-driven platform helps you identify and address security risks before they become threats.
         </p>
-        <Link to="/cyber-coach">
+        <Link to="/super-stu">
           <Button size="lg" variant="secondary">
-            Talk to Cyber Coach Now
+            Talk to SuperStu Now
           </Button>
         </Link>
       </div>
