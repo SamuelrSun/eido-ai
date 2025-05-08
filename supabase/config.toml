@@ -27,4 +27,3 @@ verify_jwt = true
 
 [functions.process-syllabus]
 verify_jwt = false
-

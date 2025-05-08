@@ -3,7 +3,8 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+// Use the provided API key directly
+const OPENAI_API_KEY = "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";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -29,14 +30,6 @@ serve(async (req) => {
       );
     }
 
-    if (!OPENAI_API_KEY) {
-      console.error("OpenAI API key not configured");
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     // Read file content as ArrayBuffer
     const fileBuffer = await file.arrayBuffer();
     console.log("File size:", fileBuffer.byteLength, "bytes");
@@ -45,8 +38,8 @@ serve(async (req) => {
     const fileBase64 = btoa(
       new Uint8Array(fileBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
     );
-
-    console.log("Sending request to OpenAI");
+    
+    console.log("Sending request to OpenAI with API key:", OPENAI_API_KEY ? "API key is set" : "API key is missing");
 
     // Call OpenAI API
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -102,10 +95,10 @@ serve(async (req) => {
     });
 
     if (!openAIResponse.ok) {
-      const errorData = await openAIResponse.text();
-      console.error("OpenAI API error:", openAIResponse.status, errorData);
+      const errorText = await openAIResponse.text();
+      console.error("OpenAI API error:", openAIResponse.status, errorText);
       return new Response(
-        JSON.stringify({ error: `OpenAI API error: ${openAIResponse.status}` }),
+        JSON.stringify({ error: `OpenAI API error (${openAIResponse.status}): ${errorText}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
