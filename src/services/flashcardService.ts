@@ -37,7 +37,7 @@ export const flashcardService = {
 
       console.log("Flashcards generated successfully:", data);
       return data.flashcards;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating flashcards:", error);
       
       // Check specifically for connection issues

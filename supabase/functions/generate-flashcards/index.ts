@@ -6,7 +6,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.2"
 import { corsHeaders } from "../_shared/cors.ts"
 
-const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+// Using the provided OpenAI API key
+const openaiApiKey = "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";
+
+// Vector store ID and assistant ID
+const vectorStoreId = "vs_681a9a95ea088191b7c66683f0f3b9cf";
+const assistantId = "asst_u7TVc67jaF4bb2qsUzasOWSs";
 
 interface FlashcardContent {
   front: string;
@@ -42,7 +47,7 @@ serve(async (req) => {
     
     // Check if OpenAI API key is available
     if (!openaiApiKey) {
-      console.error('OPENAI_API_KEY is not set');
+      console.error('OPENAI_API_KEY is not available');
       return new Response(
         JSON.stringify({
           error: 'OpenAI API key is not configured. Please contact an administrator.'
@@ -65,20 +70,25 @@ serve(async (req) => {
       throw error;
     }
     
+    let matchQuery = "";
+    
     if (!sampleDocs || sampleDocs.length === 0) {
-      throw new Error('No content found in embeddings table');
+      // If no embeddings are available, use the title as the context
+      console.log("No content found in embeddings table, using title as context");
+      matchQuery = `Create educational flashcards about: ${title}`;
+    } else {
+      // Combine the content from random documents
+      matchQuery = sampleDocs
+        .map((doc: any) => doc.content)
+        .join('\n\n');
+      
+      if (!matchQuery || matchQuery.trim() === '') {
+        console.log("Empty content from vector store, using title as context");
+        matchQuery = `Create educational flashcards about: ${title}`;
+      }
     }
     
-    // Combine the content from random documents
-    const matchQuery = sampleDocs
-      .map((doc: any) => doc.content)
-      .join('\n\n')
-    
-    if (!matchQuery || matchQuery.trim() === '') {
-      throw new Error(`No content found from vector store`);
-    }
-    
-    // Call OpenAI API to generate flashcards based on the random context
+    // Call OpenAI API to generate flashcards based on the context
     console.log("Calling OpenAI API to generate flashcards...");
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -104,16 +114,20 @@ serve(async (req) => {
         temperature: 0.7,
         response_format: { type: 'json_object' }
       })
-    })
+    });
 
+    console.log("OpenAI API response status:", openaiResponse.status);
+    
     if (!openaiResponse.ok) {
-      const errorData = await openaiResponse.json()
-      console.error(`OpenAI API error: ${JSON.stringify(errorData)}`);
-      throw new Error(`OpenAI API error: ${JSON.stringify(errorData)}`);
+      const errorData = await openaiResponse.text();
+      console.error(`OpenAI API error: ${errorData}`);
+      throw new Error(`OpenAI API error: ${errorData}`);
     }
 
-    const openaiData = await openaiResponse.json()
-    const flashcardsContent = JSON.parse(openaiData.choices[0].message.content)
+    const openaiData = await openaiResponse.json();
+    console.log("OpenAI response received successfully");
+    
+    const flashcardsContent = JSON.parse(openaiData.choices[0].message.content);
     
     // Validate that we got the correct number of flashcards
     if (!flashcardsContent.flashcards || flashcardsContent.flashcards.length === 0) {
@@ -138,7 +152,7 @@ serve(async (req) => {
     console.error('Error generating flashcards:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message 
+        error: error.message || 'An unknown error occurred while generating flashcards'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
