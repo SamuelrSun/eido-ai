@@ -6,12 +6,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.2"
 import { corsHeaders } from "../_shared/cors.ts"
 
-// OpenAI API key from environment variable
-const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
-
-if (!openaiApiKey) {
-  console.error("OPENAI_API_KEY environment variable is not set");
-}
+// Set the OpenAI API key directly - matching the approach in the flashcards function
+const openaiApiKey = "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";
 
 // Vector store ID and assistant ID are reused from the flashcards function
 const vectorStoreId = "vs_681a9a95ea088191b7c66683f0f3b9cf";
@@ -40,9 +36,9 @@ serve(async (req) => {
   }
 
   try {
-    // Check if OpenAI API key is available
+    // Check if OpenAI API key is available - using the hardcoded key instead of env variable
     if (!openaiApiKey) {
-      throw new Error("OPENAI_API_KEY is not configured. Please add it to your Supabase secrets.");
+      throw new Error("OpenAI API key is not configured. Please check the key in the function.");
     }
 
     const supabaseClient = createClient(
