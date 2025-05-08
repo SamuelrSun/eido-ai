@@ -45,38 +45,16 @@ serve(async (req) => {
     const { title, cardCount }: GenerateFlashcardsParams = await req.json()
     console.log(`Generating ${cardCount} flashcards for deck: ${title}`);
     
-    // Get content from the embeddings table as context
-    let contextPrompt = "";
-    try {
-      const { data: sampleDocs, error } = await supabaseClient
-        .from('embeddings')
-        .select('content')
-        .limit(20);
-      
-      if (error) {
-        console.error(`Error fetching sample documents: ${error.message}`);
-        // Continue with default prompt if we can't get embeddings
-      }
-      
-      if (sampleDocs && sampleDocs.length > 0) {
-        // Combine the content from documents
-        contextPrompt = sampleDocs
-          .map((doc: any) => doc.content)
-          .join('\n\n');
-      }
-    } catch (error) {
-      console.warn("Error accessing embeddings table, using title as context instead:", error);
-      // Fall back to using the title if we can't access embeddings
-    }
+    // Create a proper prompt that focuses on the title subject
+    const prompt = `Create ${cardCount} educational flashcards about "${title}". 
+    Each flashcard should have a clear question on the front and a comprehensive answer on the back.
+    The flashcards should cover key concepts, definitions, and important facts about ${title}.
+    Make the content accurate, educational, and helpful for someone studying this topic.
+    Format the response as a JSON array with 'front' and 'back' properties for each card.`;
     
-    if (!contextPrompt || contextPrompt.trim() === '') {
-      console.log("Using title as context because no embeddings content was found or accessible");
-      contextPrompt = `Create educational flashcards about: ${title}`;
-    }
+    console.log("Sending prompt to OpenAI:", prompt.substring(0, 100) + "...");
     
-    console.log("Context prompt length:", contextPrompt.length);
-    
-    // Call OpenAI API to generate flashcards based on the context
+    // Call OpenAI API to generate flashcards based on the prompt
     console.log("Calling OpenAI API to generate flashcards...");
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -90,13 +68,13 @@ serve(async (req) => {
           {
             role: 'system',
             content: `You are a helpful assistant that creates educational flashcards. 
-                     Generate exactly ${cardCount} flashcards using the provided content as reference. 
+                     Generate exactly ${cardCount} flashcards about "${title}". 
                      Make each flashcard concise but informative, with a clear question on the front and a comprehensive answer on the back.
-                     Format your response as a JSON array containing exactly ${cardCount} flashcards.`
+                     Format your response as a JSON object with a "flashcards" array containing exactly ${cardCount} flashcard objects.`
           },
           {
             role: 'user',
-            content: `Create exactly ${cardCount} flashcards based on the following content. Each flashcard should have a 'front' with a question and a 'back' with the answer:\n\n${contextPrompt}`
+            content: prompt
           }
         ],
         temperature: 0.7,
@@ -115,10 +93,20 @@ serve(async (req) => {
     const openaiData = await openaiResponse.json();
     console.log("OpenAI response received successfully");
     
-    const flashcardsContent = JSON.parse(openaiData.choices[0].message.content);
+    // Parse the JSON response from OpenAI
+    let flashcardsContent;
+    try {
+      flashcardsContent = JSON.parse(openaiData.choices[0].message.content);
+    } catch (e) {
+      console.error("Failed to parse OpenAI response:", e);
+      console.log("Raw response:", openaiData.choices[0].message.content.substring(0, 500));
+      throw new Error("Failed to parse flashcards response from OpenAI");
+    }
     
     // Validate that we got the correct number of flashcards
     if (!flashcardsContent.flashcards || flashcardsContent.flashcards.length === 0) {
+      console.error("No flashcards were found in the response");
+      console.log("Raw response:", openaiData.choices[0].message.content.substring(0, 500));
       throw new Error('No flashcards were generated in the response');
     }
     
