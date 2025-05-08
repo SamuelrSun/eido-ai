@@ -303,15 +303,22 @@ const DatabasePage = () => {
         };
         
         try {
-          // Generate a unique file path - Fix: Use simpler file path without nested folders
+          // Check for authentication
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (!sessionData.session) {
+            throw new Error("Authentication required");
+          }
+
+          // Generate a unique file path
           const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
           const filePath = `${fileName}`;
           
-          // 1. Upload to storage
+          // 1. Upload to storage with authentication
           const { data: storageData, error: storageError } = await supabase.storage
             .from('file_storage')
             .upload(filePath, file, {
-              cacheControl: '3600'
+              cacheControl: '3600',
+              upsert: false // Set to false to avoid overwriting
             });
 
           // Manual progress updates
@@ -321,7 +328,7 @@ const DatabasePage = () => {
           
           updateProgress(75);
           
-          // 2. Get the URL - Fix: Use the correct method to get public URL
+          // 2. Get the URL
           const { data: urlData } = supabase.storage
             .from('file_storage')
             .getPublicUrl(filePath);
@@ -433,15 +440,22 @@ const DatabasePage = () => {
         };
         
         try {
-          // Generate a unique file path - Fix: Use simpler file path without nested folders
+          // Check for authentication
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (!sessionData.session) {
+            throw new Error("Authentication required");
+          }
+
+          // Generate a unique file path
           const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
           const filePath = `${fileName}`;
           
-          // 1. Upload to storage
+          // 1. Upload to storage with authentication
           const { data: storageData, error: storageError } = await supabase.storage
             .from('file_storage')
             .upload(filePath, file, {
-              cacheControl: '3600'
+              cacheControl: '3600',
+              upsert: false // Set to false to avoid overwriting
             });
 
           // Manual progress updates
@@ -451,7 +465,7 @@ const DatabasePage = () => {
           
           updateProgress(75);
           
-          // 2. Get the URL - Fix: Use the correct method to get public URL
+          // 2. Get the URL
           const { data: urlData } = supabase.storage
             .from('file_storage')
             .getPublicUrl(filePath);
