@@ -82,30 +82,30 @@ const CalendarPage = () => {
         {/* Upcoming Events and Syllabus Uploader side by side */}
         <div className="flex flex-col md:flex-row gap-6">
           <div className="w-full md:w-1/2">
-            <div className="bg-white rounded-lg shadow p-4 h-full">
-              <div className="flex justify-between items-center mb-4">
+            <div className="bg-white rounded-lg shadow p-4 h-32 overflow-auto">
+              <div className="flex justify-between items-center mb-2">
                 <h2 className="text-lg font-semibold">Upcoming Events</h2>
                 <Button onClick={handleAddNewEvent} size="sm">
                   <Plus className="h-4 w-4 mr-1" /> Add Event
                 </Button>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {events.length === 0 ? (
                   <p className="text-gray-500 text-sm">No events scheduled</p>
                 ) : (
                   events
                     .sort((a, b) => a.date.getTime() - b.date.getTime())
-                    .slice(0, 5)
+                    .slice(0, 3)
                     .map(event => (
                       <div
                         key={event.id}
                         onClick={() => handleEditEvent(event)}
-                        className="p-2 rounded cursor-pointer hover:bg-gray-50 border-l-4"
+                        className="p-1 rounded cursor-pointer hover:bg-gray-50 border-l-4 text-sm"
                         style={{ borderLeftColor: event.color }}
                       >
                         <div className="font-medium">{event.title}</div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-xs text-gray-500">
                           {event.date.toLocaleDateString('en-US', { 
                             month: 'short', 
                             day: 'numeric' 
@@ -115,9 +115,9 @@ const CalendarPage = () => {
                     ))
                 )}
                 
-                {events.length > 5 && (
-                  <div className="text-center mt-2">
-                    <Button variant="link" className="text-sm">
+                {events.length > 3 && (
+                  <div className="text-center mt-1">
+                    <Button variant="link" className="text-xs p-0 h-auto">
                       View all ({events.length})
                     </Button>
                   </div>
@@ -127,13 +127,15 @@ const CalendarPage = () => {
           </div>
           
           <div className="w-full md:w-1/2">
-            <SyllabusUploader onEventsAdded={handleSyllabusEvents} />
+            <div className="h-32 overflow-auto">
+              <SyllabusUploader onEventsAdded={handleSyllabusEvents} />
+            </div>
           </div>
         </div>
         
-        {/* Full width calendar */}
+        {/* Full width calendar with increased height */}
         <div className="w-full">
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white rounded-lg shadow p-4 min-h-[70vh]">
             <Calendar 
               events={events} 
               onEventClick={handleEditEvent} 

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Upload } from "lucide-react";
@@ -79,18 +78,13 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-4">
-      <h2 className="text-lg font-semibold mb-2">Upload Syllabus</h2>
-      <p className="text-sm text-gray-500 mb-4">
-        Upload a syllabus to automatically extract assignment due dates and test dates
-      </p>
-      
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Select Class</label>
+    <div className="bg-white rounded-lg shadow p-3">
+      <h2 className="text-lg font-semibold mb-1">Upload Syllabus</h2>
+      <div className="flex items-center space-x-2 mb-1">
         <select
           value={className}
           onChange={(e) => setClassName(e.target.value)}
-          className="w-full rounded-md border border-gray-300 p-2"
+          className="w-full rounded-md border border-gray-300 p-1 text-sm"
         >
           <option value="ITP457: Advanced Network Security">
             ITP457: Advanced Network Security
@@ -104,25 +98,29 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
         </select>
       </div>
       
-      <FileUpload onFileUpload={handleFileUpload} />
-      
-      <Button
-        onClick={handleProcessSyllabus}
-        disabled={!file || isProcessing}
-        className="w-full"
-      >
-        {isProcessing ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Processing...
-          </>
-        ) : (
-          <>
-            <Upload className="h-4 w-4 mr-2" />
-            Process Syllabus
-          </>
-        )}
-      </Button>
+      <div className="flex gap-2 items-center">
+        <div className="flex-1">
+          <FileUpload onFileUpload={handleFileUpload} />
+        </div>
+        
+        <Button
+          onClick={handleProcessSyllabus}
+          disabled={!file || isProcessing}
+          size="sm"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <Upload className="h-3 w-3 mr-1" />
+              Process
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
