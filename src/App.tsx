@@ -14,6 +14,7 @@ import AccountPage from "./pages/AccountPage";
 import NotFound from "./pages/NotFound";
 import UploadPage from "./pages/UploadPage";
 import FlashcardsPage from "./pages/FlashcardsPage";
+import QuizzesPage from "./pages/QuizzesPage";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="policy-center" element={<PolicyCenter />} />
             <Route path="upload" element={<UploadPage />} />
             <Route path="flashcards" element={<FlashcardsPage />} />
+            <Route path="quizzes" element={<QuizzesPage />} />
             <Route path="admin" element={<div className="p-8">Admin Panel Coming Soon</div>} />
             <Route path="auth" element={<AuthPage />} />
             <Route path="account" element={<AccountPage />} />

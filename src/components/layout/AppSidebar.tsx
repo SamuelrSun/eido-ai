@@ -12,7 +12,8 @@ import {
   Search,
   GraduationCap,
   Upload,
-  BookOpen
+  BookOpen,
+  SquareCheck
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,6 +67,11 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       icon: <BookOpen className="mr-2 h-5 w-5" />,
       label: "Flashcards",
       to: "/flashcards"
+    },
+    {
+      icon: <SquareCheck className="mr-2 h-5 w-5" />,
+      label: "Quizzes",
+      to: "/quizzes"
     },
     {
       icon: <FileText className="mr-2 h-5 w-5" />,
