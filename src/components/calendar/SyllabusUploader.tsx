@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Upload } from "lucide-react";
@@ -78,13 +79,13 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-3">
-      <h2 className="text-lg font-semibold mb-1">Upload Syllabus</h2>
-      <div className="flex items-center space-x-2 mb-1">
+    <div className="bg-white rounded-lg shadow p-4 h-full">
+      <h2 className="text-lg font-semibold mb-3">Upload Syllabus</h2>
+      <div className="mb-3">
         <select
           value={className}
           onChange={(e) => setClassName(e.target.value)}
-          className="w-full rounded-md border border-gray-300 p-1 text-sm"
+          className="w-full rounded-md border border-gray-300 p-2 text-sm"
         >
           <option value="ITP457: Advanced Network Security">
             ITP457: Advanced Network Security

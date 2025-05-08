@@ -82,7 +82,7 @@ const CalendarPage = () => {
         {/* Upcoming Events and Syllabus Uploader side by side */}
         <div className="flex flex-col md:flex-row gap-6">
           <div className="w-full md:w-1/2">
-            <div className="bg-white rounded-lg shadow p-4 h-32 overflow-auto">
+            <div className="bg-white rounded-lg shadow p-4 h-40">
               <div className="flex justify-between items-center mb-2">
                 <h2 className="text-lg font-semibold">Upcoming Events</h2>
                 <Button onClick={handleAddNewEvent} size="sm">
@@ -90,7 +90,7 @@ const CalendarPage = () => {
                 </Button>
               </div>
               
-              <div className="space-y-1">
+              <div className="space-y-1 overflow-y-auto max-h-[110px]">
                 {events.length === 0 ? (
                   <p className="text-gray-500 text-sm">No events scheduled</p>
                 ) : (
@@ -127,7 +127,7 @@ const CalendarPage = () => {
           </div>
           
           <div className="w-full md:w-1/2">
-            <div className="h-32 overflow-auto">
+            <div className="h-40">
               <SyllabusUploader onEventsAdded={handleSyllabusEvents} />
             </div>
           </div>
@@ -135,7 +135,7 @@ const CalendarPage = () => {
         
         {/* Full width calendar with increased height */}
         <div className="w-full">
-          <div className="bg-white rounded-lg shadow p-4 min-h-[70vh]">
+          <div className="bg-white rounded-lg shadow p-4 min-h-[75vh]">
             <Calendar 
               events={events} 
               onEventClick={handleEditEvent} 
