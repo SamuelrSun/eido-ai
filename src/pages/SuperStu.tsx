@@ -27,6 +27,7 @@ const SuperStu = () => {
           suggestions={suggestions}
           title="Class Assistant" 
           knowledgeBase="Network Security Concepts"
+          inputAtBottom={true}
         />
       </div>
     </div>

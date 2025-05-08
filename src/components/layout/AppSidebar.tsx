@@ -133,64 +133,65 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             </li>
           ))}
         </ul>
-        
-        <div className="mt-6 pt-6 border-t border-sidebar-border/50 px-2">
-          <p className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/70 uppercase">
-            Account
-          </p>
-          <ul className="space-y-2">
-            {!loading && !user && (
-              <li>
-                <NavLink
-                  to="/auth"
-                  className={({ isActive }) => 
-                    `flex items-center px-4 py-2 rounded-md transition-colors ${
-                      isActive 
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                    }`
-                  }
-                >
-                  <LogIn className="mr-2 h-5 w-5" />
-                  <span>Sign In</span>
-                </NavLink>
-              </li>
-            )}
-            
-            {!loading && user && accountNavItems.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) => 
-                    `flex items-center px-4 py-2 rounded-md transition-colors ${
-                      isActive 
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                    }`
-                  }
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </div>
       </nav>
       
-      {!loading && user && (
-        <div className="p-4 border-t border-sidebar-border">
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
-              <span className="text-xs font-medium">{user.email?.charAt(0).toUpperCase() || "U"}</span>
+      {/* Account section moved to the bottom */}
+      <div className="mt-auto border-t border-sidebar-border/50 px-2 py-4">
+        {!loading && !user && (
+          <NavLink
+            to="/auth"
+            className={({ isActive }) => 
+              `flex items-center px-4 py-2 rounded-md transition-colors ${
+                isActive 
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+              }`
+            }
+          >
+            <LogIn className="mr-2 h-5 w-5" />
+            <span>Sign In</span>
+          </NavLink>
+        )}
+        
+        {!loading && user && (
+          <>
+            <p className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/70 uppercase">
+              Account
+            </p>
+            <ul className="space-y-2">
+              {accountNavItems.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) => 
+                      `flex items-center px-4 py-2 rounded-md transition-colors ${
+                        isActive 
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                      }`
+                    }
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+            
+            <div className="mt-4 p-2 border-t border-sidebar-border/50">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
+                  <span className="text-xs font-medium">{user.email?.charAt(0).toUpperCase() || "U"}</span>
+                </div>
+                <div className="ml-2 overflow-hidden">
+                  <p className="font-medium truncate">{user.email}</p>
+                  <p className="text-xs opacity-70 truncate">Signed In</p>
+                </div>
+              </div>
             </div>
-            <div className="ml-2 overflow-hidden">
-              <p className="font-medium truncate">{user.email}</p>
-              <p className="text-xs opacity-70 truncate">Signed In</p>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
