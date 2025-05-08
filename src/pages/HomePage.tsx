@@ -1,74 +1,113 @@
 
-import { ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, BookOpen, Search, MessageSquare, SquareCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { supabase } from "@/integrations/supabase/client";
 
 const HomePage = () => {
-  const features = [
+  const [userName, setUserName] = useState<string>("Student");
+  const [recentlyViewed, setRecentlyViewed] = useState([
+    { title: "OSI Model", path: "/super-stu" },
+    { title: "Network Security", path: "/super-stu" },
+    { title: "VPN Concepts", path: "/super-stu" }
+  ]);
+  
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+            
+          if (profile?.full_name) {
+            setUserName(profile.full_name.split(' ')[0]); // Get first name
+          } else {
+            // Fallback to email if no name is available
+            setUserName(user.email?.split('@')[0] || "Student");
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  const studyOptions = [
     {
-      title: "Search",
-      description: "Get personalized cybersecurity guidance from our AI coach",
-      icon: "🤖",
+      title: "Ask SuperStu",
+      description: "Get instant help with any subject or concept",
+      icon: <MessageSquare className="h-8 w-8 text-purple-500" />,
       link: "/super-stu",
     },
     {
       title: "Flashcards",
-      description: "Review concepts with interactive flashcards",
-      icon: "📚",
+      description: "Review key concepts with spaced repetition",
+      icon: <BookOpen className="h-8 w-8 text-blue-500" />,
       link: "/flashcards",
     },
     {
       title: "Quizzes",
-      description: "Test your knowledge with quizzes",
-      icon: "✅",
+      description: "Test your knowledge and track your progress",
+      icon: <SquareCheck className="h-8 w-8 text-green-500" />,
       link: "/quizzes",
     }
   ];
 
-  const stats = [
-    { label: "Protected Endpoints", value: "1,200+" },
-    { label: "Security Incidents Prevented", value: "350+" },
-    { label: "Compliance Score", value: "98%" },
-    { label: "Time Saved", value: "32 hrs/week" },
-  ];
-
   return (
-    <div className="space-y-12 pb-8">
-      {/* Hero Section */}
+    <div className="space-y-8 pb-8">
+      {/* Hero Section with personalized greeting */}
       <PageHeader 
-        title="Welcome to CyberCoach"
-        description="Your all-in-one platform for cybersecurity guidance, policy management, and compliance."
+        title={`Hello, ${userName}`}
+        description="How would you like to study today?"
       />
 
-      {/* Stats Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-cybercoach-blue/5 py-6 px-4 rounded-xl">
-        {stats.map((stat, index) => (
-          <div key={index} className="text-center">
-            <div className="text-2xl md:text-3xl font-bold text-cybercoach-blue">{stat.value}</div>
-            <div className="text-gray-600 text-sm md:text-base">{stat.label}</div>
-          </div>
+      {/* Study Options */}
+      <div className="grid md:grid-cols-3 gap-6">
+        {studyOptions.map((option, index) => (
+          <Link to={option.link} key={index} className="block">
+            <Card className="h-full transition-all hover:shadow-md hover:border-purple-200">
+              <CardHeader>
+                <div className="mb-4 p-2 bg-purple-50 rounded-lg w-fit">
+                  {option.icon}
+                </div>
+                <CardTitle>{option.title}</CardTitle>
+                <CardDescription>{option.description}</CardDescription>
+              </CardHeader>
+              <CardFooter>
+                <Button variant="ghost" className="group">
+                  Start now
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </CardFooter>
+            </Card>
+          </Link>
         ))}
       </div>
 
-      {/* Features */}
+      {/* Recently Viewed Topics */}
       <div>
-        <h2 className="text-2xl font-bold text-center mb-8">Powerful Security Tools</h2>
-        <div className="grid md:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
-            <Link to={feature.link} key={index} className="block">
-              <Card className="h-full transition-all hover:shadow-md">
-                <CardHeader>
-                  <div className="text-3xl mb-2">{feature.icon}</div>
-                  <CardTitle>{feature.title}</CardTitle>
-                  <CardDescription>{feature.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="ghost" className="group">
-                    Learn more
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </Button>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Recently Viewed Topics</h2>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/super-stu">View All</Link>
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {recentlyViewed.map((item, index) => (
+            <Link to={item.path} key={index}>
+              <Card className="hover:bg-gray-50">
+                <CardContent className="flex justify-between items-center p-4">
+                  <span className="font-medium">{item.title}</span>
+                  <ArrowRight className="h-4 w-4" />
                 </CardContent>
               </Card>
             </Link>
@@ -76,15 +115,62 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* CTA Section */}
-      <div className="bg-cybercoach-blue-dark text-white p-8 rounded-xl text-center">
-        <h2 className="text-2xl md:text-3xl font-bold mb-4">Ready to strengthen your security posture?</h2>
-        <p className="mb-6 text-gray-200">
-          Our AI-driven platform helps you identify and address security risks before they become threats.
+      {/* Quick Actions */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Link to="/upload">
+            <Card className="hover:bg-gray-50 text-center p-6">
+              <div className="flex flex-col items-center space-y-2">
+                <div className="p-2 bg-blue-50 rounded-full">
+                  <Search className="h-6 w-6 text-blue-500" />
+                </div>
+                <span className="font-medium">Upload Materials</span>
+              </div>
+            </Card>
+          </Link>
+          <Link to="/account">
+            <Card className="hover:bg-gray-50 text-center p-6">
+              <div className="flex flex-col items-center space-y-2">
+                <div className="p-2 bg-green-50 rounded-full">
+                  <BookOpen className="h-6 w-6 text-green-500" />
+                </div>
+                <span className="font-medium">My Progress</span>
+              </div>
+            </Card>
+          </Link>
+          <Link to="/flashcards">
+            <Card className="hover:bg-gray-50 text-center p-6">
+              <div className="flex flex-col items-center space-y-2">
+                <div className="p-2 bg-purple-50 rounded-full">
+                  <BookOpen className="h-6 w-6 text-purple-500" />
+                </div>
+                <span className="font-medium">Create Flashcards</span>
+              </div>
+            </Card>
+          </Link>
+          <Link to="/quizzes">
+            <Card className="hover:bg-gray-50 text-center p-6">
+              <div className="flex flex-col items-center space-y-2">
+                <div className="p-2 bg-amber-50 rounded-full">
+                  <SquareCheck className="h-6 w-6 text-amber-500" />
+                </div>
+                <span className="font-medium">Take a Quiz</span>
+              </div>
+            </Card>
+          </Link>
+        </div>
+      </div>
+
+      {/* Help CTA */}
+      <div className="bg-purple-50 p-6 rounded-xl text-center">
+        <h2 className="text-2xl font-bold mb-2 text-purple-800">Need help with your studies?</h2>
+        <p className="mb-6 text-gray-700">
+          SuperStu's AI assistant can explain complex topics, help with assignments, and quiz you on key concepts.
         </p>
         <Link to="/super-stu">
-          <Button size="lg" variant="secondary">
-            Talk to SuperStu Now
+          <Button size="lg">
+            Ask SuperStu Now
           </Button>
         </Link>
       </div>
