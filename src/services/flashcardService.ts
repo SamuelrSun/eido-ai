@@ -54,18 +54,20 @@ export const flashcardService = {
    * Save a new deck to the database
    */
   saveDeck: async (deck: Omit<Deck, 'id' | 'updatedAt'>): Promise<Deck> => {
-    // Map from camelCase to snake_case for the database
+    // Convert from application camelCase to database snake_case naming
+    const dbDeck = {
+      title: deck.title,
+      description: deck.description,
+      color: deck.color,
+      card_count: deck.cardCount,
+      due_cards: deck.dueCards,
+      new_cards: deck.newCards,
+      user_id: deck.userId
+    };
+    
     const { data, error } = await supabase
       .from('decks')
-      .insert({
-        title: deck.title,
-        description: deck.description,
-        color: deck.color,
-        card_count: deck.cardCount,
-        due_cards: deck.dueCards,
-        new_cards: deck.newCards,
-        user_id: deck.userId
-      })
+      .insert(dbDeck)
       .select()
       .single();
 
@@ -94,7 +96,7 @@ export const flashcardService = {
    * Save flashcards to the database for a deck
    */
   saveFlashcards: async (deckId: string, flashcards: FlashcardContent[]): Promise<void> => {
-    // Map from camelCase to snake_case for the database
+    // Convert from application model to database model (camelCase to snake_case)
     const flashcardsToInsert = flashcards.map(card => ({
       deck_id: deckId,
       front: card.front,
