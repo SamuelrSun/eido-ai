@@ -24,7 +24,7 @@ const SuperStu = () => {
       <div>
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-2 text-purple-700">
           <GraduationCap className="h-7 w-7" />
-          ITP457: Advanced Network Security
+          Search
         </h1>
         <p className="text-gray-600 mb-6">
           Upload your class materials and use AI-powered tools to help you understand complex concepts and answer your questions.
