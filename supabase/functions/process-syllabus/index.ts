@@ -1,12 +1,7 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
@@ -29,9 +24,12 @@ serve(async (req) => {
       );
     }
 
-    // Convert file to base64 for OpenAI API
+    // Read file content as ArrayBuffer
     const fileBuffer = await file.arrayBuffer();
-    const fileBase64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
+    // Convert ArrayBuffer to Base64
+    const fileBase64 = btoa(
+      new Uint8Array(fileBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+    );
 
     // Call OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -59,21 +57,23 @@ serve(async (req) => {
                 - date: The due date in YYYY-MM-DD format
                 
                 Example format:
-                [
-                  {
-                    "title": "Midterm Exam",
-                    "description": "In-class examination covering chapters 1-5",
-                    "date": "2025-03-15"
-                  },
-                  ...
-                ]
+                {
+                  "events": [
+                    {
+                      "title": "Midterm Exam",
+                      "description": "In-class examination covering chapters 1-5",
+                      "date": "2025-03-15"
+                    },
+                    ...
+                  ]
+                }
                 
                 Only include events with clear dates. If a date range is provided, use the due date or end date.`
               },
               {
-                type: 'file_content',
-                file_id: {
-                  file_data: fileBase64
+                type: 'image_url',
+                image_url: {
+                  url: `data:${file.type};base64,${fileBase64}`
                 }
               }
             ]
@@ -96,11 +96,11 @@ serve(async (req) => {
       );
     }
 
-    let events;
+    let eventsData;
     try {
       // Parse the JSON response from OpenAI
       const parsedContent = JSON.parse(content);
-      events = Array.isArray(parsedContent.events) ? parsedContent.events : parsedContent;
+      eventsData = parsedContent.events || [];
     } catch (error) {
       console.error('Error parsing OpenAI response:', error);
       console.log('Raw content:', content);
@@ -112,7 +112,7 @@ serve(async (req) => {
     
     // Return the extracted events
     return new Response(
-      JSON.stringify({ events, className }),
+      JSON.stringify({ events: eventsData, className }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
