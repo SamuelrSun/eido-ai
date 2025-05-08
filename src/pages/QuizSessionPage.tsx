@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { quizService, Quiz, QuizQuestion } from "@/services/quiz";
-import { Clock, CheckSquare, ArrowLeft, ArrowRight, AlertCircle, Check, Timer, Play, Stop } from "lucide-react";
+import { Clock, CheckSquare, ArrowLeft, ArrowRight, AlertCircle, Check, Timer, Play, CircleStop } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 
