@@ -36,26 +36,11 @@ const HomePage = () => {
   return (
     <div className="space-y-12 pb-8">
       {/* Hero Section */}
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl md:text-5xl font-bold text-cybercoach-blue-dark">
-          Welcome to CyberCoach
-        </h1>
-        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+      <div>
+        <h1 className="text-3xl font-bold mb-2">Welcome to CyberCoach</h1>
+        <p className="text-muted-foreground mt-1">
           Your all-in-one platform for cybersecurity guidance, policy management, and compliance.
         </p>
-        <div className="pt-4">
-          <Link to="/super-stu">
-            <Button size="lg" className="mx-2">
-              Get Started with SuperStu
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
-          <Link to="/policy-center">
-            <Button size="lg" variant="outline" className="mx-2">
-              View Policy Center
-            </Button>
-          </Link>
-        </div>
       </div>
 
       {/* Stats Bar */}

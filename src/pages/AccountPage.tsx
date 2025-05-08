@@ -77,8 +77,8 @@ const AccountPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">My Account</h1>
-        <p className="text-gray-600 mb-6">
+        <h1 className="text-3xl font-bold mb-2">My Account</h1>
+        <p className="text-muted-foreground mt-1">
           Manage your profile and account settings
         </p>
       </div>

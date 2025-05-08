@@ -50,8 +50,8 @@ const AuthPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">Account Access</h1>
-        <p className="text-gray-600 mb-6">
+        <h1 className="text-3xl font-bold mb-2">Account Access</h1>
+        <p className="text-muted-foreground mt-1">
           Sign in to save your chat history, preferences, and access personalized security recommendations.
         </p>
       </div>

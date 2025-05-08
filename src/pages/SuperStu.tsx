@@ -13,11 +13,8 @@ const SuperStu = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2 flex items-center gap-2 text-purple-700">
-          <GraduationCap className="h-7 w-7" />
-          Search
-        </h1>
-        <p className="text-gray-600 mb-6">
+        <h1 className="text-3xl font-bold mb-2">Search</h1>
+        <p className="text-muted-foreground mt-1">
           Upload your class materials and use AI-powered tools to help you understand complex concepts and answer your questions.
         </p>
       </div>
@@ -27,7 +24,6 @@ const SuperStu = () => {
           suggestions={suggestions}
           title="Class Assistant" 
           knowledgeBase="Network Security Concepts"
-          inputAtBottom={true}
         />
       </div>
     </div>

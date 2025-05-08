@@ -86,11 +86,11 @@ const SecureCoach = () => {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">Secure Cybersecurity Coach</h1>
-          <p className="text-gray-600 mb-6">
+          <h1 className="text-3xl font-bold mb-2">Secure Cybersecurity Coach</h1>
+          <p className="text-muted-foreground mt-1">
             Sign in to securely access the AI coach with advanced cybersecurity guidance.
           </p>
-          <Button onClick={() => navigate("/auth")}>
+          <Button onClick={() => navigate("/auth")} className="mt-4">
             Sign In to Access
           </Button>
         </div>
@@ -101,9 +101,9 @@ const SecureCoach = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">Secure Cybersecurity Coach</h1>
-        <p className="text-gray-600 mb-6">
-          Welcome, {profile?.full_name || session.user.email}! This coach uses OpenAI's Assistant with knowledge retrieval for accurate cybersecurity guidance.
+        <h1 className="text-3xl font-bold mb-2">Secure Cybersecurity Coach</h1>
+        <p className="text-muted-foreground mt-1">
+          Advanced AI assistant with personalized cybersecurity guidance and knowledge retrieval.
         </p>
       </div>
 
