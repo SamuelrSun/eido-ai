@@ -15,6 +15,7 @@ import AuthPage from "./pages/AuthPage";
 import AccountPage from "./pages/AccountPage";
 import NotFound from "./pages/NotFound";
 import DatabasePage from "./pages/DatabasePage";
+import UploadPage from "./pages/UploadPage";
 import FlashcardsPage from "./pages/FlashcardsPage";
 import QuizzesPage from "./pages/QuizzesPage";
 import QuizSessionPage from "./pages/QuizSessionPage";
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="secure-coach" element={<SecureCoach />} />
               <Route path="static-coach" element={<StaticCoach />} />
               <Route path="database" element={<DatabasePage />} />
+              <Route path="upload" element={<UploadPage />} />
               <Route path="flashcards" element={<FlashcardsPage />} />
               <Route path="quizzes" element={<QuizzesPage />} />
               <Route path="quizzes/:quizId" element={<QuizSessionPage />} />

@@ -10,12 +10,13 @@ import {
   Trash,
   Edit,
   Plus,
-  ArrowUp
+  ArrowUp,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   DropdownMenu,
@@ -32,15 +33,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-type FileCategory = 'lecture_notes' | 'readings' | 'slides' | 'assignments' | 'other';
-type ViewMode = 'grid' | 'list';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FolderType {
   id: string;
   name: string;
-  parentId: string | null;
-  createdAt: number;
+  parent_id: string | null;
+  created_at: string;
 }
 
 interface FileType {
@@ -48,13 +54,18 @@ interface FileType {
   name: string;
   size: number;
   type: string;
-  lastModified: number;
-  category: FileCategory;
+  last_modified: string;
+  category: string;
   tags: string[];
-  progress: number;
   status: 'uploading' | 'processing' | 'complete' | 'error';
-  preview?: string;
-  parentId: string | null;
+  progress: number;
+  url?: string;
+  folder_id: string | null;
+}
+
+interface UserStorage {
+  storage_used: number;
+  storage_limit: number;
 }
 
 const formatFileSize = (bytes: number) => {
@@ -74,8 +85,10 @@ const DatabasePage = () => {
   const [folders, setFolders] = useState<FolderType[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [storageUsed, setStorageUsed] = useState(0);
-  const storageLimit = 1024 * 1024 * 1024; // 1GB for demo
+  const [userStorage, setUserStorage] = useState<UserStorage>({ 
+    storage_used: 0, 
+    storage_limit: 1024 * 1024 * 1024 // Default 1GB
+  });
   const [breadcrumbs, setBreadcrumbs] = useState<{id: string | null, name: string}[]>([
     { id: null, name: 'Root' }
   ]);
@@ -83,22 +96,120 @@ const DatabasePage = () => {
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [dragging, setDragging] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
   
-  // Filter files/folders based on current folder and search query
+  // Fetch current user
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user || null);
+    };
+    
+    fetchUser();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
+  
+  // Fetch user storage info
+  useEffect(() => {
+    const fetchUserStorage = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('user_storage')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (data) {
+        setUserStorage({
+          storage_used: data.storage_used,
+          storage_limit: data.storage_limit
+        });
+      } else if (error && error.code !== 'PGRST116') { // Not found error
+        console.error("Error fetching storage info:", error);
+        toast({
+          title: "Error fetching storage info",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    };
+    
+    if (user) {
+      fetchUserStorage();
+    }
+  }, [user]);
+  
+  // Fetch folders and files for current folder
+  useEffect(() => {
+    const fetchFoldersAndFiles = async () => {
+      if (!user) return;
+      
+      setLoading(true);
+      
+      try {
+        // Fetch folders
+        const { data: folderData, error: folderError } = await supabase
+          .from('file_folders')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('parent_id', currentFolderId || null);
+        
+        if (folderError) throw folderError;
+        
+        // Fetch files
+        const { data: fileData, error: fileError } = await supabase
+          .from('files')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('folder_id', currentFolderId || null);
+        
+        if (fileError) throw fileError;
+        
+        setFolders(folderData || []);
+        
+        // Add progress property to files (needed for UI)
+        const filesWithProgress = (fileData || []).map(file => ({
+          ...file,
+          progress: 100
+        }));
+        
+        setFiles(filesWithProgress);
+      } catch (error: any) {
+        console.error("Error fetching folders and files:", error);
+        toast({
+          title: "Error loading data",
+          description: error.message,
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (user) {
+      fetchFoldersAndFiles();
+    }
+  }, [currentFolderId, user]);
+  
+  // Filter files/folders based on search query
   const currentFolderItems = {
     files: files.filter(file => 
-      file.parentId === currentFolderId && 
       file.name.toLowerCase().includes(searchQuery.toLowerCase())
     ),
     folders: folders.filter(folder => 
-      folder.parentId === currentFolderId && 
       folder.name.toLowerCase().includes(searchQuery.toLowerCase())
     )
   };
 
   // Navigate to a folder
-  const navigateToFolder = (folderId: string | null, folderName: string) => {
+  const navigateToFolder = async (folderId: string | null, folderName: string) => {
     if (folderId === null) {
       // Navigate to root
       setCurrentFolderId(null);
@@ -106,89 +217,280 @@ const DatabasePage = () => {
       return;
     }
     
-    const folder = folders.find(f => f.id === folderId);
-    if (!folder) return;
-    
     setCurrentFolderId(folderId);
     
     // Update breadcrumbs
-    const newBreadcrumbs = [...breadcrumbs];
-    const existingIndex = newBreadcrumbs.findIndex(b => b.id === folderId);
-    
+    if (folderId === breadcrumbs[breadcrumbs.length - 1].id) {
+      // Already at this folder
+      return;
+    }
+
+    // Check if folder exists in current breadcrumb
+    const existingIndex = breadcrumbs.findIndex(b => b.id === folderId);
     if (existingIndex !== -1) {
       // If folder exists in breadcrumb, truncate to that point
-      setBreadcrumbs(newBreadcrumbs.slice(0, existingIndex + 1));
+      setBreadcrumbs(breadcrumbs.slice(0, existingIndex + 1));
     } else {
       // Add new folder to breadcrumbs
-      setBreadcrumbs([...newBreadcrumbs, { id: folderId, name: folderName }]);
+      setBreadcrumbs([...breadcrumbs, { id: folderId, name: folderName }]);
     }
   };
   
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to upload files",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (e.target.files && e.target.files.length > 0) {
       const selectedFiles = Array.from(e.target.files);
+      
+      // Create temporary file entries for UI
       const newFiles = selectedFiles.map(file => ({
         id: Math.random().toString(36).substring(2, 9),
         name: file.name,
         size: file.size,
         type: file.type,
-        lastModified: file.lastModified,
-        category: 'other' as FileCategory,
+        last_modified: new Date(file.lastModified).toISOString(),
+        category: 'other',
         tags: [],
         progress: 0,
         status: 'uploading' as const,
-        parentId: currentFolderId,
-        preview: file.type.includes('image') ? URL.createObjectURL(file) : undefined
+        folder_id: currentFolderId,
       }));
       
       setFiles(prevFiles => [...prevFiles, ...newFiles]);
-      simulateUpload(newFiles);
       
       toast({
         title: `${newFiles.length} ${newFiles.length === 1 ? 'file' : 'files'} uploading`,
         description: "Your files will be processed shortly.",
       });
       
-      const newStorageUsed = newFiles.reduce((acc, file) => acc + file.size, storageUsed);
-      setStorageUsed(newStorageUsed);
+      // Upload each file to Supabase storage
+      for (const [index, file] of selectedFiles.entries()) {
+        const newFileId = newFiles[index].id;
+        
+        // Update progress for this file
+        const updateProgress = (progress: number) => {
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === newFileId ? { ...f, progress } : f
+            )
+          );
+        };
+        
+        try {
+          // Generate a unique file path
+          const filePath = `${user.id}/${currentFolderId || 'root'}/${Date.now()}_${file.name}`;
+          
+          // 1. Upload to storage
+          const { data: storageData, error: storageError } = await supabase.storage
+            .from('file_storage')
+            .upload(filePath, file, {
+              onUploadProgress: (progress) => {
+                const percent = Math.round((progress.loaded / progress.total) * 100);
+                updateProgress(percent);
+              }
+            });
+          
+          if (storageError) throw storageError;
+          
+          // 2. Get the URL
+          const { data: urlData } = supabase.storage
+            .from('file_storage')
+            .getPublicUrl(filePath);
+          
+          // 3. Create record in files table
+          const { data: fileRecord, error: insertError } = await supabase
+            .from('files')
+            .insert([
+              {
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                folder_id: currentFolderId,
+                user_id: user.id,
+                url: urlData.publicUrl,
+                last_modified: new Date().toISOString(),
+                category: 'other',
+              }
+            ])
+            .select()
+            .single();
+          
+          if (insertError) throw insertError;
+          
+          // 4. Update the file entry in state
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === newFileId ? { 
+                ...fileRecord, 
+                progress: 100,
+                status: 'complete',
+                tags: fileRecord.tags || []
+              } : f
+            )
+          );
+          
+        } catch (error: any) {
+          console.error("Error uploading file:", error);
+          
+          // Update file status to error
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === newFileId ? { ...f, status: 'error' } : f
+            )
+          );
+          
+          toast({
+            title: `Failed to upload ${file.name}`,
+            description: error.message,
+            variant: "destructive"
+          });
+        }
+      }
+      
+      // Close the upload dialog
       setIsUploadDialogOpen(false);
     }
   };
   
-  const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragging(false);
+    
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to upload files",
+        variant: "destructive"
+      });
+      return;
+    }
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = Array.from(e.dataTransfer.files);
+      
+      // Create temporary file entries for UI
       const newFiles = droppedFiles.map(file => ({
         id: Math.random().toString(36).substring(2, 9),
         name: file.name,
         size: file.size,
         type: file.type,
-        lastModified: file.lastModified,
-        category: 'other' as FileCategory,
+        last_modified: new Date(file.lastModified).toISOString(),
+        category: 'other',
         tags: [],
         progress: 0,
         status: 'uploading' as const,
-        parentId: currentFolderId,
-        preview: file.type.includes('image') ? URL.createObjectURL(file) : undefined
+        folder_id: currentFolderId,
       }));
       
       setFiles(prevFiles => [...prevFiles, ...newFiles]);
-      simulateUpload(newFiles);
       
       toast({
         title: `${newFiles.length} ${newFiles.length === 1 ? 'file' : 'files'} uploading`,
         description: "Your files will be processed shortly.",
       });
       
-      const newStorageUsed = newFiles.reduce((acc, file) => acc + file.size, storageUsed);
-      setStorageUsed(newStorageUsed);
+      // Upload each file to Supabase storage
+      for (const [index, file] of droppedFiles.entries()) {
+        const newFileId = newFiles[index].id;
+        
+        // Update progress for this file
+        const updateProgress = (progress: number) => {
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === newFileId ? { ...f, progress } : f
+            )
+          );
+        };
+        
+        try {
+          // Generate a unique file path
+          const filePath = `${user.id}/${currentFolderId || 'root'}/${Date.now()}_${file.name}`;
+          
+          // 1. Upload to storage
+          const { data: storageData, error: storageError } = await supabase.storage
+            .from('file_storage')
+            .upload(filePath, file, {
+              onUploadProgress: (progress) => {
+                const percent = Math.round((progress.loaded / progress.total) * 100);
+                updateProgress(percent);
+              }
+            });
+          
+          if (storageError) throw storageError;
+          
+          // 2. Get the URL
+          const { data: urlData } = supabase.storage
+            .from('file_storage')
+            .getPublicUrl(filePath);
+          
+          // 3. Create record in files table
+          const { data: fileRecord, error: insertError } = await supabase
+            .from('files')
+            .insert([
+              {
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                folder_id: currentFolderId,
+                user_id: user.id,
+                url: urlData.publicUrl,
+                last_modified: new Date().toISOString(),
+                category: 'other',
+              }
+            ])
+            .select()
+            .single();
+          
+          if (insertError) throw insertError;
+          
+          // 4. Update the file entry in state
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === newFileId ? { 
+                ...fileRecord, 
+                progress: 100,
+                status: 'complete',
+                tags: fileRecord.tags || []
+              } : f
+            )
+          );
+        } catch (error: any) {
+          console.error("Error uploading file:", error);
+          
+          // Update file status to error
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === newFileId ? { ...f, status: 'error' } : f
+            )
+          );
+          
+          toast({
+            title: `Failed to upload ${file.name}`,
+            description: error.message,
+            variant: "destructive"
+          });
+        }
+      }
     }
   };
   
-  const createNewFolder = () => {
+  const createNewFolder = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to create folders",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (!newFolderName.trim()) {
       toast({
         title: "Folder name required",
@@ -198,106 +500,168 @@ const DatabasePage = () => {
       return;
     }
     
-    const newFolder: FolderType = {
-      id: Math.random().toString(36).substring(2, 9),
-      name: newFolderName.trim(),
-      parentId: currentFolderId,
-      createdAt: Date.now()
-    };
-    
-    setFolders(prev => [...prev, newFolder]);
-    setIsNewFolderDialogOpen(false);
-    setNewFolderName('');
-    
-    toast({
-      title: "Folder created",
-      description: `"${newFolderName}" has been created successfully.`
-    });
-  };
-  
-  const deleteItem = (id: string, isFolder: boolean) => {
-    if (isFolder) {
-      // Delete folder and all its contents recursively
-      const deleteFolder = (folderId: string) => {
-        // Delete all files in this folder
-        setFiles(prevFiles => prevFiles.filter(file => file.parentId !== folderId));
-        
-        // Find all subfolders
-        const subFolders = folders.filter(folder => folder.parentId === folderId);
-        
-        // Delete all subfolders recursively
-        subFolders.forEach(folder => {
-          deleteFolder(folder.id);
-        });
-        
-        // Delete the folder itself
-        setFolders(prevFolders => prevFolders.filter(folder => folder.id !== folderId));
-      };
+    try {
+      const { data, error } = await supabase
+        .from('file_folders')
+        .insert([
+          {
+            name: newFolderName.trim(),
+            parent_id: currentFolderId,
+            user_id: user.id
+          }
+        ])
+        .select()
+        .single();
       
-      deleteFolder(id);
+      if (error) throw error;
+      
+      setFolders(prev => [...prev, data]);
+      setIsNewFolderDialogOpen(false);
+      setNewFolderName('');
       
       toast({
-        title: "Folder deleted",
-        description: "The folder and all its contents have been removed."
+        title: "Folder created",
+        description: `"${newFolderName}" has been created successfully.`
       });
-    } else {
-      // Delete single file
-      const fileToDelete = files.find(file => file.id === id);
-      if (fileToDelete) {
-        setFiles(prevFiles => prevFiles.filter(file => file.id !== id));
-        setStorageUsed(prevStorageUsed => prevStorageUsed - (fileToDelete?.size || 0));
-        
-        toast({
-          title: "File deleted",
-          description: `"${fileToDelete.name}" has been removed.`
-        });
-      }
+    } catch (error: any) {
+      console.error("Error creating folder:", error);
+      toast({
+        title: "Error creating folder",
+        description: error.message,
+        variant: "destructive"
+      });
     }
   };
   
-  const simulateUpload = (newFiles: FileType[]) => {
-    const intervals = newFiles.map((file) => {
-      let progress = 0;
-      
-      const interval = setInterval(() => {
-        progress += Math.floor(Math.random() * 10) + 5;
-        
-        if (progress >= 100) {
-          progress = 100;
-          clearInterval(interval);
-          
-          // Update file status to processing
-          setFiles(prevFiles => 
-            prevFiles.map(f => 
-              f.id === file.id ? { ...f, progress: 100, status: 'processing' } : f
-            )
-          );
-          
-          // Simulate processing time
-          setTimeout(() => {
-            setFiles(prevFiles => 
-              prevFiles.map(f => 
-                f.id === file.id ? { ...f, status: 'complete' } : f
-              )
-            );
-          }, 1500);
-        } else {
-          setFiles(prevFiles => 
-            prevFiles.map(f => 
-              f.id === file.id ? { ...f, progress } : f
-            )
-          );
-        }
-      }, 200);
-      
-      return interval;
-    });
+  const deleteItem = async (id: string, isFolder: boolean) => {
+    if (!user) return;
     
-    // Clean up intervals
-    return () => {
-      intervals.forEach(clearInterval);
-    };
+    try {
+      if (isFolder) {
+        // Delete folder and all its contents recursively
+        const deleteFolder = async (folderId: string) => {
+          // Get all files in the folder
+          const { data: folderFiles, error: filesError } = await supabase
+            .from('files')
+            .select('*')
+            .eq('folder_id', folderId);
+          
+          if (filesError) throw filesError;
+          
+          // Delete each file from storage
+          for (const file of folderFiles || []) {
+            // Extract path from URL and delete from storage
+            if (file.url) {
+              const filePath = file.url.split('/').pop();
+              if (filePath) {
+                await supabase.storage
+                  .from('file_storage')
+                  .remove([`${user.id}/${folderId || 'root'}/${filePath}`]);
+              }
+            }
+          }
+          
+          // Delete files from database
+          if (folderFiles && folderFiles.length > 0) {
+            const { error: deleteFilesError } = await supabase
+              .from('files')
+              .delete()
+              .eq('folder_id', folderId);
+            
+            if (deleteFilesError) throw deleteFilesError;
+          }
+          
+          // Find all subfolders
+          const { data: subfolders, error: subfoldersError } = await supabase
+            .from('file_folders')
+            .select('*')
+            .eq('parent_id', folderId);
+          
+          if (subfoldersError) throw subfoldersError;
+          
+          // Delete all subfolders recursively
+          for (const folder of subfolders || []) {
+            await deleteFolder(folder.id);
+          }
+          
+          // Delete the folder itself
+          const { error: deleteFolderError } = await supabase
+            .from('file_folders')
+            .delete()
+            .eq('id', folderId);
+          
+          if (deleteFolderError) throw deleteFolderError;
+          
+          // Update UI state
+          setFolders(prevFolders => prevFolders.filter(folder => folder.id !== folderId));
+        };
+        
+        await deleteFolder(id);
+        
+        toast({
+          title: "Folder deleted",
+          description: "The folder and all its contents have been removed."
+        });
+      } else {
+        // Get file info
+        const fileToDelete = files.find(file => file.id === id);
+        
+        if (fileToDelete) {
+          // Delete file from storage if it has a URL
+          if (fileToDelete.url) {
+            // Try to extract filename from URL
+            const parts = fileToDelete.url.split('/');
+            const filename = parts[parts.length - 1];
+            
+            if (filename) {
+              await supabase.storage
+                .from('file_storage')
+                .remove([`${user.id}/${fileToDelete.folder_id || 'root'}/${filename}`]);
+            }
+          }
+          
+          // Delete from database
+          const { error } = await supabase
+            .from('files')
+            .delete()
+            .eq('id', id);
+          
+          if (error) throw error;
+          
+          // Update UI state
+          setFiles(prevFiles => prevFiles.filter(file => file.id !== id));
+          
+          toast({
+            title: "File deleted",
+            description: `"${fileToDelete.name}" has been removed.`
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error("Error deleting item:", error);
+      toast({
+        title: "Error deleting item",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
+  
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <PageHeader 
+          title="Database"
+          description="You need to sign in to access your files and folders."
+        />
+        <div className="bg-white p-6 rounded-xl shadow-sm border text-center py-12">
+          <h3 className="text-lg font-medium text-gray-700 mb-4">Authentication Required</h3>
+          <p className="text-gray-500 mb-6">Please sign in to access your database and files.</p>
+          <Button onClick={() => navigate('/auth')}>Sign In</Button>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="space-y-6">
@@ -323,12 +687,12 @@ const DatabasePage = () => {
           <div className="mt-2">
             <div className="flex justify-between items-center text-sm mb-1">
               <span>Storage usage</span>
-              <span>{((storageUsed / storageLimit) * 100).toFixed(1)}% used</span>
+              <span>{((userStorage.storage_used / userStorage.storage_limit) * 100).toFixed(1)}% used</span>
             </div>
-            <Progress value={(storageUsed / storageLimit) * 100} className="h-2" />
+            <Progress value={(userStorage.storage_used / userStorage.storage_limit) * 100} className="h-2" />
             <div className="flex justify-end mt-1">
               <span className="text-xs text-gray-500">
-                {formatFileSize(storageUsed)} of {formatFileSize(storageLimit)}
+                {formatFileSize(userStorage.storage_used)} of {formatFileSize(userStorage.storage_limit)}
               </span>
             </div>
           </div>
@@ -347,23 +711,25 @@ const DatabasePage = () => {
         </div>
         
         {/* Breadcrumbs Navigation */}
-        <div className="flex items-center text-sm mb-4 overflow-x-auto">
-          {breadcrumbs.map((crumb, index) => (
-            <div key={index} className="flex items-center">
-              {index > 0 && <span className="mx-2 text-gray-400">/</span>}
-              <button
-                onClick={() => navigateToFolder(crumb.id, crumb.name)}
-                className={`hover:text-purple-600 ${
-                  index === breadcrumbs.length - 1 
-                    ? 'font-semibold text-purple-700' 
-                    : 'text-gray-600'
-                }`}
-              >
-                {crumb.name}
-              </button>
-            </div>
-          ))}
-        </div>
+        <Breadcrumb className="mb-4">
+          <BreadcrumbList>
+            {breadcrumbs.map((crumb, index) => (
+              <BreadcrumbItem key={index}>
+                {index > 0 && <BreadcrumbSeparator />}
+                <BreadcrumbLink 
+                  onClick={() => navigateToFolder(crumb.id, crumb.name)}
+                  className={`${
+                    index === breadcrumbs.length - 1 
+                      ? 'font-semibold text-purple-700 cursor-default' 
+                      : 'text-gray-600 hover:text-purple-600 cursor-pointer'
+                  }`}
+                >
+                  {crumb.name}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+            ))}
+          </BreadcrumbList>
+        </Breadcrumb>
         
         {/* File/Folder Drop Area */}
         <div 
@@ -377,8 +743,16 @@ const DatabasePage = () => {
           onDragLeave={() => setDragging(false)}
           onDrop={handleFileDrop}
         >
-          {/* If current folder is empty */}
-          {currentFolderItems.folders.length === 0 && currentFolderItems.files.length === 0 ? (
+          {/* Loading state */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center h-full py-10">
+              <Loader2 className="h-10 w-10 text-purple-500 animate-spin mb-4" />
+              <p className="text-gray-500">Loading your files and folders...</p>
+            </div>
+          )}
+          
+          {/* Empty state */}
+          {!loading && currentFolderItems.folders.length === 0 && currentFolderItems.files.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-10">
               <FolderPlus className="h-16 w-16 text-gray-300 mb-4" />
               <h3 className="text-lg font-medium text-gray-700">This folder is empty</h3>
@@ -399,7 +773,7 @@ const DatabasePage = () => {
           ) : (
             <ScrollArea className="h-[500px] pr-4">
               {/* Folders Section */}
-              {currentFolderItems.folders.length > 0 && (
+              {!loading && currentFolderItems.folders.length > 0 && (
                 <div className="mb-8">
                   <h3 className="font-medium text-gray-700 mb-2">Folders</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -437,7 +811,7 @@ const DatabasePage = () => {
                           </DropdownMenu>
                         </div>
                         <div className="text-xs text-gray-500">
-                          {new Date(folder.createdAt).toLocaleDateString()}
+                          {new Date(folder.created_at).toLocaleDateString()}
                         </div>
                       </div>
                     ))}
@@ -446,7 +820,7 @@ const DatabasePage = () => {
               )}
               
               {/* Files Section */}
-              {currentFolderItems.files.length > 0 && (
+              {!loading && currentFolderItems.files.length > 0 && (
                 <div>
                   <h3 className="font-medium text-gray-700 mb-2">Files</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -469,6 +843,14 @@ const DatabasePage = () => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {file.url && (
+                                <DropdownMenuItem
+                                  onClick={() => window.open(file.url, '_blank')}
+                                >
+                                  <File className="h-4 w-4 mr-2" />
+                                  Open
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem 
                                 className="text-red-600 cursor-pointer"
                                 onClick={() => deleteItem(file.id, false)}
@@ -486,7 +868,9 @@ const DatabasePage = () => {
                               <span>
                                 {file.status === 'uploading' 
                                   ? `Uploading (${file.progress}%)` 
-                                  : 'Processing...'}
+                                  : file.status === 'processing'
+                                    ? 'Processing...'
+                                    : 'Error uploading'}
                               </span>
                             </div>
                             <Progress value={file.progress} className="h-1" />
@@ -497,7 +881,7 @@ const DatabasePage = () => {
                               {formatFileSize(file.size)}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {new Date(file.lastModified).toLocaleDateString()}
+                              {new Date(file.last_modified).toLocaleDateString()}
                             </div>
                           </>
                         )}

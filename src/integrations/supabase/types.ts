@@ -132,6 +132,91 @@ export type Database = {
         }
         Relationships: []
       }
+      file_folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          parent_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          parent_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          parent_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "file_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      files: {
+        Row: {
+          category: string | null
+          created_at: string
+          folder_id: string | null
+          id: string
+          last_modified: string
+          name: string
+          size: number
+          status: string | null
+          tags: string[] | null
+          type: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          last_modified?: string
+          name: string
+          size: number
+          status?: string | null
+          tags?: string[] | null
+          type: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          last_modified?: string
+          name?: string
+          size?: number
+          status?: string | null
+          tags?: string[] | null
+          type?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "files_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "file_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       flashcards: {
         Row: {
           back: string
@@ -277,6 +362,24 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_storage: {
+        Row: {
+          storage_limit: number
+          storage_used: number
+          user_id: string
+        }
+        Insert: {
+          storage_limit?: number
+          storage_used?: number
+          user_id: string
+        }
+        Update: {
+          storage_limit?: number
+          storage_used?: number
+          user_id?: string
         }
         Relationships: []
       }
