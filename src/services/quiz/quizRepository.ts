@@ -1,54 +1,15 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Quiz, QuizQuestion } from "./types";
 
-export interface QuizQuestion {
-  question: string;
-  options: string[];
-  correctAnswerIndex: number;
-  explanation: string;
-}
-
-export interface Quiz {
-  id: string;
-  title: string;
-  description: string;
-  questions: QuizQuestion[];
-  questionCount: number;
-  timeEstimate: number; // in minutes
-  difficulty: string;
-  coverage: string;
-  createdAt: string;
-  updatedAt: string;
-  userId?: string;
-}
-
-export interface QuizGenerationParams {
-  title: string;
-  questionCount: number;
-  difficulty: string; 
-  coverage: string;
-}
-
-// Create a service to interact with quizzes
-export const quizService = {
-  // Generate a quiz using OpenAI
-  generateQuiz: async (params: QuizGenerationParams): Promise<{questions: QuizQuestion[], timeEstimate: number}> => {
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-quiz', {
-        body: params
-      });
-
-      if (error) throw new Error(error.message || 'Failed to generate quiz');
-      
-      return data;
-    } catch (error) {
-      console.error('Error generating quiz:', error);
-      throw error;
-    }
-  },
-  
-  // Save a quiz to the database
+/**
+ * Service for quiz database operations
+ */
+export const quizRepository = {
+  /**
+   * Save a quiz to the database
+   */
   saveQuiz: async (quiz: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>): Promise<Quiz> => {
     try {
       // Get the current authenticated user to set user_id
@@ -108,7 +69,9 @@ export const quizService = {
     }
   },
   
-  // Fetch all quizzes for the current user
+  /**
+   * Fetch all quizzes for the current user
+   */
   fetchQuizzes: async (): Promise<Quiz[]> => {
     try {
       // Get the current authenticated user
@@ -167,7 +130,9 @@ export const quizService = {
     }
   },
   
-  // Fetch a single quiz by ID with questions
+  /**
+   * Fetch a single quiz by ID with questions
+   */
   fetchQuiz: async (quizId: string): Promise<Quiz | null> => {
     try {
       // Fetch the quiz
@@ -215,7 +180,9 @@ export const quizService = {
     }
   },
   
-  // Delete a quiz
+  /**
+   * Delete a quiz
+   */
   deleteQuiz: async (quizId: string): Promise<void> => {
     try {
       // Delete the questions first (due to foreign key constraint)

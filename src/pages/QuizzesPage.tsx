@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { quizService, QuizQuestion, Quiz } from "@/services/quizService";
+import { quizService, Quiz, QuizQuestion } from "@/services/quiz";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 // Form schema for quiz generation
