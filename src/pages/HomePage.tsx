@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { ArrowRight, BookOpen, Search, MessageSquare, SquareCheck } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Link } from "react-router-dom";
@@ -45,19 +45,19 @@ const HomePage = () => {
     {
       title: "Ask SuperStu",
       description: "Get instant help with any subject or concept",
-      icon: <MessageSquare className="h-8 w-8 text-purple-500" />,
+      emoji: "💬",
       link: "/super-stu",
     },
     {
       title: "Flashcards",
       description: "Review key concepts with spaced repetition",
-      icon: <BookOpen className="h-8 w-8 text-blue-500" />,
+      emoji: "📚",
       link: "/flashcards",
     },
     {
       title: "Quizzes",
       description: "Test your knowledge and track your progress",
-      icon: <SquareCheck className="h-8 w-8 text-green-500" />,
+      emoji: "✅",
       link: "/quizzes",
     }
   ];
@@ -74,16 +74,16 @@ const HomePage = () => {
       <div className="grid md:grid-cols-3 gap-6">
         {studyOptions.map((option, index) => (
           <Link to={option.link} key={index} className="block">
-            <Card className="h-full transition-all hover:shadow-md hover:border-purple-200">
+            <Card className="h-full transition-all hover:shadow-md hover:border-blue-200">
               <CardHeader>
-                <div className="mb-4 p-2 bg-purple-50 rounded-lg w-fit">
-                  {option.icon}
+                <div className="mb-4 p-2 bg-blue-50 rounded-lg w-fit">
+                  <span className="text-4xl">{option.emoji}</span>
                 </div>
                 <CardTitle>{option.title}</CardTitle>
                 <CardDescription>{option.description}</CardDescription>
               </CardHeader>
               <CardFooter>
-                <Button variant="ghost" className="group">
+                <Button variant="ghost" className="group text-blue-600">
                   Start now
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Button>
@@ -123,7 +123,7 @@ const HomePage = () => {
             <Card className="hover:bg-gray-50 text-center p-6">
               <div className="flex flex-col items-center space-y-2">
                 <div className="p-2 bg-blue-50 rounded-full">
-                  <Search className="h-6 w-6 text-blue-500" />
+                  <span className="text-2xl">📤</span>
                 </div>
                 <span className="font-medium">Upload Materials</span>
               </div>
@@ -132,8 +132,8 @@ const HomePage = () => {
           <Link to="/account">
             <Card className="hover:bg-gray-50 text-center p-6">
               <div className="flex flex-col items-center space-y-2">
-                <div className="p-2 bg-green-50 rounded-full">
-                  <BookOpen className="h-6 w-6 text-green-500" />
+                <div className="p-2 bg-blue-50 rounded-full">
+                  <span className="text-2xl">📊</span>
                 </div>
                 <span className="font-medium">My Progress</span>
               </div>
@@ -142,8 +142,8 @@ const HomePage = () => {
           <Link to="/flashcards">
             <Card className="hover:bg-gray-50 text-center p-6">
               <div className="flex flex-col items-center space-y-2">
-                <div className="p-2 bg-purple-50 rounded-full">
-                  <BookOpen className="h-6 w-6 text-purple-500" />
+                <div className="p-2 bg-blue-50 rounded-full">
+                  <span className="text-2xl">🔖</span>
                 </div>
                 <span className="font-medium">Create Flashcards</span>
               </div>
@@ -152,8 +152,8 @@ const HomePage = () => {
           <Link to="/quizzes">
             <Card className="hover:bg-gray-50 text-center p-6">
               <div className="flex flex-col items-center space-y-2">
-                <div className="p-2 bg-amber-50 rounded-full">
-                  <SquareCheck className="h-6 w-6 text-amber-500" />
+                <div className="p-2 bg-blue-50 rounded-full">
+                  <span className="text-2xl">📝</span>
                 </div>
                 <span className="font-medium">Take a Quiz</span>
               </div>
@@ -163,14 +163,14 @@ const HomePage = () => {
       </div>
 
       {/* Help CTA */}
-      <div className="bg-purple-50 p-6 rounded-xl text-center">
-        <h2 className="text-2xl font-bold mb-2 text-purple-800">Need help with your studies?</h2>
-        <p className="mb-6 text-gray-700">
+      <div className="bg-cybercoach-blue-dark text-white p-6 rounded-xl text-center">
+        <h2 className="text-2xl font-bold mb-2">Need help with your studies?</h2>
+        <p className="mb-6 text-blue-100">
           SuperStu's AI assistant can explain complex topics, help with assignments, and quiz you on key concepts.
         </p>
         <Link to="/super-stu">
-          <Button size="lg">
-            Ask SuperStu Now
+          <Button size="lg" className="bg-cybercoach-blue-light hover:bg-cybercoach-blue text-white">
+            Talk to SuperStu Now
           </Button>
         </Link>
       </div>
