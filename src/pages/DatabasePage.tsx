@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -157,21 +156,35 @@ const DatabasePage = () => {
       setLoading(true);
       
       try {
-        // Fetch folders
-        const { data: folderData, error: folderError } = await supabase
+        // Fetch folders - Fix: Use IS NULL check instead of eq with null
+        let folderQuery = supabase
           .from('file_folders')
           .select('*')
-          .eq('user_id', user.id)
-          .eq('parent_id', currentFolderId || null);
+          .eq('user_id', user.id);
+          
+        if (currentFolderId === null) {
+          folderQuery = folderQuery.is('parent_id', null);
+        } else {
+          folderQuery = folderQuery.eq('parent_id', currentFolderId);
+        }
+        
+        const { data: folderData, error: folderError } = await folderQuery;
         
         if (folderError) throw folderError;
         
-        // Fetch files
-        const { data: fileData, error: fileError } = await supabase
+        // Fetch files - Fix: Use IS NULL check for null folder_id
+        let fileQuery = supabase
           .from('files')
           .select('*')
-          .eq('user_id', user.id)
-          .eq('folder_id', currentFolderId || null);
+          .eq('user_id', user.id);
+          
+        if (currentFolderId === null) {
+          fileQuery = fileQuery.is('folder_id', null);
+        } else {
+          fileQuery = fileQuery.eq('folder_id', currentFolderId);
+        }
+        
+        const { data: fileData, error: fileError } = await fileQuery;
         
         if (fileError) throw fileError;
         
@@ -685,230 +698,238 @@ const DatabasePage = () => {
         description="Store, organize, and access your files and learning materials."
       />
       
-      <div className="bg-white p-6 rounded-xl shadow-sm border">
-        {/* Top Section: Search and Storage */}
-        <div className="mb-6 space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              type="search"
-              placeholder="Search files and folders..."
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          
-          <div className="mt-2">
-            <div className="flex justify-between items-center text-sm mb-1">
-              <span>Storage usage</span>
-              <span>{((userStorage.storage_used / userStorage.storage_limit) * 100).toFixed(1)}% used</span>
-            </div>
-            <Progress value={(userStorage.storage_used / userStorage.storage_limit) * 100} className="h-2" />
-            <div className="flex justify-end mt-1">
-              <span className="text-xs text-gray-500">
-                {formatFileSize(userStorage.storage_used)} of {formatFileSize(userStorage.storage_limit)}
-              </span>
-            </div>
-          </div>
+      {!user ? (
+        <div className="bg-white p-6 rounded-xl shadow-sm border text-center py-12">
+          <h3 className="text-lg font-medium text-gray-700 mb-4">Authentication Required</h3>
+          <p className="text-gray-500 mb-6">Please sign in to access your database and files.</p>
+          <Button onClick={() => navigate('/auth')}>Sign In</Button>
         </div>
-        
-        {/* Action Buttons */}
-        <div className="flex gap-2 mb-4">
-          <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Files
-          </Button>
-          <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)}>
-            <FolderPlus className="h-4 w-4 mr-2" />
-            New Folder
-          </Button>
-        </div>
-        
-        {/* Breadcrumbs Navigation */}
-        <Breadcrumb className="mb-4">
-          <BreadcrumbList>
-            {breadcrumbs.map((crumb, index) => (
-              <BreadcrumbItem key={index}>
-                {index > 0 && <BreadcrumbSeparator />}
-                <BreadcrumbLink 
-                  onClick={() => navigateToFolder(crumb.id, crumb.name)}
-                  className={`${
-                    index === breadcrumbs.length - 1 
-                      ? 'font-semibold text-purple-700 cursor-default' 
-                      : 'text-gray-600 hover:text-purple-600 cursor-pointer'
-                  }`}
-                >
-                  {crumb.name}
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-            ))}
-          </BreadcrumbList>
-        </Breadcrumb>
-        
-        {/* File/Folder Drop Area */}
-        <div 
-          className={`min-h-[400px] border-2 border-dashed rounded-lg p-4 ${
-            dragging ? "border-purple-500 bg-purple-50" : "border-gray-200"
-          }`}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={handleFileDrop}
-        >
-          {/* Loading state */}
-          {loading && (
-            <div className="flex flex-col items-center justify-center h-full py-10">
-              <Loader2 className="h-10 w-10 text-purple-500 animate-spin mb-4" />
-              <p className="text-gray-500">Loading your files and folders...</p>
+      ) : (
+        <div className="bg-white p-6 rounded-xl shadow-sm border">
+          {/* Top Section: Search and Storage */}
+          <div className="mb-6 space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="search"
+                placeholder="Search files and folders..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-          )}
-          
-          {/* Empty state */}
-          {!loading && currentFolderItems.folders.length === 0 && currentFolderItems.files.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center py-10">
-              <FolderPlus className="h-16 w-16 text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-700">This folder is empty</h3>
-              <p className="text-gray-500 mb-4">
-                Upload files or create folders to get started
-              </p>
-              <div className="flex gap-3">
-                <Button onClick={() => setIsUploadDialogOpen(true)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Files
-                </Button>
-                <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)}>
-                  <FolderPlus className="h-4 w-4 mr-2" />
-                  New Folder
-                </Button>
+            
+            <div className="mt-2">
+              <div className="flex justify-between items-center text-sm mb-1">
+                <span>Storage usage</span>
+                <span>{((userStorage.storage_used / userStorage.storage_limit) * 100).toFixed(1)}% used</span>
+              </div>
+              <Progress value={(userStorage.storage_used / userStorage.storage_limit) * 100} className="h-2" />
+              <div className="flex justify-end mt-1">
+                <span className="text-xs text-gray-500">
+                  {formatFileSize(userStorage.storage_used)} of {formatFileSize(userStorage.storage_limit)}
+                </span>
               </div>
             </div>
-          ) : (
-            <ScrollArea className="h-[500px] pr-4">
-              {/* Folders Section */}
-              {!loading && currentFolderItems.folders.length > 0 && (
-                <div className="mb-8">
-                  <h3 className="font-medium text-gray-700 mb-2">Folders</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {currentFolderItems.folders.map(folder => (
-                      <div 
-                        key={folder.id}
-                        className="border rounded-lg p-3 flex flex-col hover:shadow-md transition-all cursor-pointer"
-                        onClick={() => navigateToFolder(folder.id, folder.name)}
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center">
-                            <Folder className="h-8 w-8 text-yellow-500 mr-2" />
-                            <h4 className="font-medium truncate" title={folder.name}>
-                              {folder.name}
-                            </h4>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem 
-                                className="text-red-600 cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteItem(folder.id, true);
-                                }}
-                              >
-                                <Trash className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(folder.created_at).toLocaleDateString()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex gap-2 mb-4">
+            <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Files
+            </Button>
+            <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)}>
+              <FolderPlus className="h-4 w-4 mr-2" />
+              New Folder
+            </Button>
+          </div>
+          
+          {/* Breadcrumbs Navigation */}
+          <Breadcrumb className="mb-4">
+            <BreadcrumbList>
+              {breadcrumbs.map((crumb, index) => (
+                <BreadcrumbItem key={index}>
+                  {index > 0 && <BreadcrumbSeparator />}
+                  <BreadcrumbLink 
+                    onClick={() => navigateToFolder(crumb.id, crumb.name)}
+                    className={`${
+                      index === breadcrumbs.length - 1 
+                        ? 'font-semibold text-purple-700 cursor-default' 
+                        : 'text-gray-600 hover:text-purple-600 cursor-pointer'
+                    }`}
+                  >
+                    {crumb.name}
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+              ))}
+            </BreadcrumbList>
+          </Breadcrumb>
+          
+          {/* File/Folder Drop Area */}
+          <div 
+            className={`min-h-[400px] border-2 border-dashed rounded-lg p-4 ${
+              dragging ? "border-purple-500 bg-purple-50" : "border-gray-200"
+            }`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleFileDrop}
+          >
+            {/* Loading state */}
+            {loading && (
+              <div className="flex flex-col items-center justify-center h-full py-10">
+                <Loader2 className="h-10 w-10 text-purple-500 animate-spin mb-4" />
+                <p className="text-gray-500">Loading your files and folders...</p>
+              </div>
+            )}
+            
+            {/* Empty state */}
+            {!loading && currentFolderItems.folders.length === 0 && currentFolderItems.files.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                <FolderPlus className="h-16 w-16 text-gray-300 mb-4" />
+                <h3 className="text-lg font-medium text-gray-700">This folder is empty</h3>
+                <p className="text-gray-500 mb-4">
+                  Upload files or create folders to get started
+                </p>
+                <div className="flex gap-3">
+                  <Button onClick={() => setIsUploadDialogOpen(true)}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Files
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)}>
+                    <FolderPlus className="h-4 w-4 mr-2" />
+                    New Folder
+                  </Button>
                 </div>
-              )}
-              
-              {/* Files Section */}
-              {!loading && currentFolderItems.files.length > 0 && (
-                <div>
-                  <h3 className="font-medium text-gray-700 mb-2">Files</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {currentFolderItems.files.map(file => (
-                      <div 
-                        key={file.id}
-                        className="border rounded-lg p-3 hover:shadow-md transition-all"
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center">
-                            {getFileIcon(file.type)}
-                            <h4 className="font-medium truncate ml-2" title={file.name}>
-                              {file.name}
-                            </h4>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {file.url && (
-                                <DropdownMenuItem
-                                  onClick={() => window.open(file.url, '_blank')}
+              </div>
+            ) : (
+              <ScrollArea className="h-[500px] pr-4">
+                {/* Folders Section */}
+                {!loading && currentFolderItems.folders.length > 0 && (
+                  <div className="mb-8">
+                    <h3 className="font-medium text-gray-700 mb-2">Folders</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {currentFolderItems.folders.map(folder => (
+                        <div 
+                          key={folder.id}
+                          className="border rounded-lg p-3 flex flex-col hover:shadow-md transition-all cursor-pointer"
+                          onClick={() => navigateToFolder(folder.id, folder.name)}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center">
+                              <Folder className="h-8 w-8 text-yellow-500 mr-2" />
+                              <h4 className="font-medium truncate" title={folder.name}>
+                                {folder.name}
+                              </h4>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem 
+                                  className="text-red-600 cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteItem(folder.id, true);
+                                  }}
                                 >
-                                  <File className="h-4 w-4 mr-2" />
-                                  Open
+                                  <Trash className="h-4 w-4 mr-2" />
+                                  Delete
                                 </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem 
-                                className="text-red-600 cursor-pointer"
-                                onClick={() => deleteItem(file.id, false)}
-                              >
-                                <Trash className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                        
-                        {file.status !== 'complete' ? (
-                          <div className="mt-2">
-                            <div className="flex justify-between text-xs mb-1">
-                              <span>
-                                {file.status === 'uploading' 
-                                  ? `Uploading (${file.progress}%)` 
-                                  : file.status === 'processing'
-                                    ? 'Processing...'
-                                    : 'Error uploading'}
-                              </span>
-                            </div>
-                            <Progress value={file.progress} className="h-1" />
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
-                        ) : (
-                          <>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {formatFileSize(file.size)}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {new Date(file.last_modified).toLocaleDateString()}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                          <div className="text-xs text-gray-500">
+                            {new Date(folder.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </ScrollArea>
-          )}
+                )}
+                
+                {/* Files Section */}
+                {!loading && currentFolderItems.files.length > 0 && (
+                  <div>
+                    <h3 className="font-medium text-gray-700 mb-2">Files</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {currentFolderItems.files.map(file => (
+                        <div 
+                          key={file.id}
+                          className="border rounded-lg p-3 hover:shadow-md transition-all"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center">
+                              {getFileIcon(file.type)}
+                              <h4 className="font-medium truncate ml-2" title={file.name}>
+                                {file.name}
+                              </h4>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {file.url && (
+                                  <DropdownMenuItem
+                                    onClick={() => window.open(file.url, '_blank')}
+                                  >
+                                    <File className="h-4 w-4 mr-2" />
+                                    Open
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem 
+                                  className="text-red-600 cursor-pointer"
+                                  onClick={() => deleteItem(file.id, false)}
+                                >
+                                  <Trash className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          
+                          {file.status !== 'complete' ? (
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs mb-1">
+                                <span>
+                                  {file.status === 'uploading' 
+                                    ? `Uploading (${file.progress}%)` 
+                                    : file.status === 'processing'
+                                      ? 'Processing...'
+                                      : 'Error uploading'}
+                                </span>
+                              </div>
+                              <Progress value={file.progress} className="h-1" />
+                            </div>
+                          ) : (
+                            <>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {formatFileSize(file.size)}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(file.last_modified).toLocaleDateString()}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </ScrollArea>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Upload Dialog */}
       <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
