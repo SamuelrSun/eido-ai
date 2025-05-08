@@ -20,7 +20,7 @@ const SuperStu = () => {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Search"
+        title="Super Tutor"
         description="Upload your class materials and use AI-powered tools to help you understand complex concepts and answer your questions."
       />
 

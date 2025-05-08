@@ -48,7 +48,7 @@ const HomePage = () => {
 
   const studyOptions = [
     {
-      title: "Ask SuperStu",
+      title: "Ask Super Tutor",
       description: "Get instant help with any subject or concept",
       emoji: "💬",
       link: "/super-stu",
@@ -171,11 +171,11 @@ const HomePage = () => {
       <div className="bg-cybercoach-blue-dark text-white p-6 rounded-xl text-center">
         <h2 className="text-2xl font-bold mb-2">Need help with your studies?</h2>
         <p className="mb-6 text-blue-100">
-          SuperStu's AI assistant can explain complex topics, help with assignments, and quiz you on key concepts.
+          Super Tutor's AI assistant can explain complex topics, help with assignments, and quiz you on key concepts.
         </p>
         <Link to="/super-stu">
           <Button size="lg" className="bg-cybercoach-blue-light hover:bg-cybercoach-blue text-white">
-            Talk to SuperStu Now
+            Talk to Super Tutor Now
           </Button>
         </Link>
       </div>
