@@ -3,7 +3,16 @@ import { ReactNode, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+import { 
+  Menu,
+  ChevronDown
+} from "lucide-react";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 
 interface AppLayoutProps {
   children?: ReactNode;
@@ -11,6 +20,13 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [currentClass, setCurrentClass] = useState("ITP457: Advanced Network Security");
+
+  const classes = [
+    "ITP457: Advanced Network Security",
+    "ITP216: Applied Python Concepts",
+    "IR330: Politics of the World Economy"
+  ];
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -31,7 +47,27 @@ export function AppLayout({ children }: AppLayoutProps) {
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle sidebar</span>
           </Button>
-          <h1 className="text-lg font-semibold">ITP457: Advanced Network Security</h1>
+          
+          {/* Class dropdown menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="px-2 gap-1">
+                <h1 className="text-lg font-semibold">{currentClass}</h1>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-full min-w-[250px] bg-white">
+              {classes.map((className) => (
+                <DropdownMenuItem 
+                  key={className}
+                  onClick={() => setCurrentClass(className)}
+                  className="cursor-pointer"
+                >
+                  {className}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
         
         <main className="container mx-auto py-6 px-4 md:px-6">
