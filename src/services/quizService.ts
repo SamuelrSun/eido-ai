@@ -51,6 +51,12 @@ export const quizService = {
   // Save a quiz to the database
   saveQuiz: async (quiz: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>): Promise<Quiz> => {
     try {
+      // Get the current authenticated user to set user_id
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("You must be logged in to save a quiz");
+      }
+      
       // Insert the quiz into the quizzes table
       const { data, error } = await supabase
         .from('quizzes')
@@ -60,7 +66,8 @@ export const quizService = {
           question_count: quiz.questionCount,
           time_estimate: quiz.timeEstimate,
           difficulty: quiz.difficulty,
-          coverage: quiz.coverage
+          coverage: quiz.coverage,
+          user_id: session.user.id // Set the user_id to the current user's ID
         })
         .select()
         .single();
@@ -104,9 +111,17 @@ export const quizService = {
   // Fetch all quizzes for the current user
   fetchQuizzes: async (): Promise<Quiz[]> => {
     try {
+      // Get the current authenticated user
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.log("No active session found when fetching quizzes");
+        return [];
+      }
+
       const { data: quizzes, error } = await supabase
         .from('quizzes')
         .select('*')
+        .eq('user_id', session.user.id) // Only fetch quizzes for the current user
         .order('created_at', { ascending: false });
 
       if (error) throw error;
