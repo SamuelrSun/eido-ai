@@ -9,7 +9,131 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(
+// Create a custom type that extends Database to include additional tables
+interface CustomDatabase extends Database {
+  public: Database['public'] & {
+    Tables: Database['public']['Tables'] & {
+      flashcards: {
+        Row: {
+          id: string;
+          front: string;
+          back: string;
+          deckId: string;
+          difficulty: string;
+          nextReview: Date;
+          lastReviewed?: Date;
+          reviewCount?: number;
+        };
+        Insert: {
+          id?: string;
+          front: string;
+          back: string;
+          deckId: string;
+          difficulty: string;
+          nextReview: Date;
+          lastReviewed?: Date;
+          reviewCount?: number;
+        };
+        Update: {
+          id?: string;
+          front?: string;
+          back?: string;
+          deckId?: string;
+          difficulty?: string;
+          nextReview?: Date;
+          lastReviewed?: Date;
+          reviewCount?: number;
+        };
+      };
+      decks: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          userId?: string;
+          updatedAt: Date;
+          color: string;
+          cardCount: number;
+          dueCards: number;
+          newCards: number;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description: string;
+          userId?: string;
+          updatedAt?: Date;
+          color: string;
+          cardCount: number;
+          dueCards: number;
+          newCards: number;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          description?: string;
+          userId?: string;
+          updatedAt?: Date;
+          color?: string;
+          cardCount?: number;
+          dueCards?: number;
+          newCards?: number;
+        };
+      };
+      api_keys: {
+        Row: {
+          id: string;
+          key_name: string;
+          key_value: string;
+          user_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          key_name: string;
+          key_value: string;
+          user_id: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          key_name?: string;
+          key_value?: string;
+          user_id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      embeddings: {
+        Row: {
+          id: string;
+          content: string;
+          embedding: any;
+          user_id?: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          content: string;
+          embedding: any;
+          user_id?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          content?: string;
+          embedding?: any;
+          user_id?: string;
+          created_at?: string;
+        };
+      };
+    };
+  };
+}
+
+export const supabase = createClient<CustomDatabase>(
   SUPABASE_URL, 
   SUPABASE_PUBLISHABLE_KEY,
   {
