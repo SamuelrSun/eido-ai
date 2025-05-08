@@ -6,6 +6,8 @@ import { SyllabusUploader } from "@/components/calendar/SyllabusUploader";
 import { ClassFilter, CLASS_COLORS } from "@/components/calendar/ClassFilter";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Loader2 } from "lucide-react";
 import { CalendarEvent } from "@/types/calendar";
 import { supabase } from "@/integrations/supabase/client";
@@ -188,45 +190,50 @@ const CalendarPage = () => {
         {/* Upcoming Events and Syllabus Uploader side by side */}
         <div className="flex flex-col md:flex-row gap-6">
           <div className="w-full md:w-1/3">
-            <div className="bg-white rounded-lg shadow p-4 h-80">
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-lg font-semibold">Upcoming Events</h2>
-                <Button onClick={handleAddNewEvent} size="sm">
-                  <Plus className="h-4 w-4 mr-1" /> Add Event
-                </Button>
-              </div>
-              
-              {loading ? (
-                <div className="flex items-center justify-center h-48">
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Card className="h-80">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg font-semibold">Upcoming Events</CardTitle>
+                  <Button onClick={handleAddNewEvent} size="sm">
+                    <Plus className="h-4 w-4 mr-1" /> Add Event
+                  </Button>
                 </div>
-              ) : (
-                <div className="space-y-1 overflow-y-auto max-h-[280px]">
-                  {filteredEvents.length === 0 ? (
-                    <p className="text-gray-500 text-sm">No events scheduled</p>
-                  ) : (
-                    filteredEvents
-                      .sort((a, b) => a.date.getTime() - b.date.getTime())
-                      .map(event => (
-                        <div
-                          key={event.id}
-                          onClick={() => handleEditEvent(event)}
-                          className="p-1 rounded cursor-pointer hover:bg-gray-50 border-l-4 text-sm"
-                          style={{ borderLeftColor: event.color }}
-                        >
-                          <div className="font-medium">{event.title}</div>
-                          <div className="text-xs text-gray-500">
-                            {event.date.toLocaleDateString('en-US', { 
-                              month: 'short', 
-                              day: 'numeric' 
-                            })} • {event.className.split(":")[0]}
-                          </div>
-                        </div>
-                      ))
-                  )}
-                </div>
-              )}
-            </div>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex items-center justify-center h-48">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[210px] pr-4">
+                    <div className="space-y-1">
+                      {filteredEvents.length === 0 ? (
+                        <p className="text-gray-500 text-sm">No events scheduled</p>
+                      ) : (
+                        filteredEvents
+                          .sort((a, b) => a.date.getTime() - b.date.getTime())
+                          .map(event => (
+                            <div
+                              key={event.id}
+                              onClick={() => handleEditEvent(event)}
+                              className="p-2 rounded cursor-pointer hover:bg-gray-50 border-l-4 text-sm mb-2"
+                              style={{ borderLeftColor: event.color }}
+                            >
+                              <div className="font-medium">{event.title}</div>
+                              <div className="text-xs text-gray-500">
+                                {event.date.toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })} • {event.className.split(":")[0]}
+                              </div>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
           </div>
           
           <div className="w-full md:w-1/3">
