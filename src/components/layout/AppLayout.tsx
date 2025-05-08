@@ -1,11 +1,15 @@
 
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 
-export function AppLayout() {
+interface AppLayoutProps {
+  children?: ReactNode;
+}
+
+export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
@@ -31,7 +35,7 @@ export function AppLayout() {
         </header>
         
         <main className="container mx-auto py-6 px-4 md:px-6">
-          <Outlet />
+          {children || <Outlet />}
         </main>
       </div>
     </div>

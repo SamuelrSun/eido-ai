@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AuthGuard } from "./components/auth/AuthGuard";
 import HomePage from "./pages/HomePage";
@@ -20,22 +20,6 @@ import QuizzesPage from "./pages/QuizzesPage";
 
 const queryClient = new QueryClient();
 
-// Protected layout component
-const ProtectedLayout = () => (
-  <AuthGuard>
-    <AppLayout>
-      <Outlet />
-    </AppLayout>
-  </AuthGuard>
-);
-
-// Public layout component
-const PublicLayout = () => (
-  <AppLayout>
-    <Outlet />
-  </AppLayout>
-);
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -44,12 +28,10 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           {/* Public routes */}
-          <Route path="/auth" element={<PublicLayout />}>
-            <Route index element={<AuthPage />} />
-          </Route>
+          <Route path="/auth" element={<AppLayout><AuthPage /></AppLayout>} />
           
           {/* Protected routes */}
-          <Route element={<ProtectedLayout />}>
+          <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
             <Route path="/" element={<HomePage />} />
             <Route path="super-stu" element={<SuperStu />} />
             <Route path="secure-coach" element={<SecureCoach />} />
