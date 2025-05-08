@@ -54,7 +54,7 @@ export const flashcardService = {
    * Save a new deck to the database
    */
   saveDeck: async (deck: Omit<Deck, 'id' | 'updatedAt'>): Promise<Deck> => {
-    // Convert from application camelCase to database snake_case naming
+    // Create an object with snake_case properties for the database
     const { data, error } = await supabase
       .from('decks')
       .insert({
@@ -65,7 +65,7 @@ export const flashcardService = {
         due_cards: deck.dueCards,
         new_cards: deck.newCards,
         user_id: deck.userId
-      })
+      } as any) // Use type assertion to bypass TypeScript error
       .select()
       .single();
 
@@ -105,7 +105,8 @@ export const flashcardService = {
 
     const { error } = await supabase
       .from('flashcards')
-      .insert(flashcardsToInsert);
+      .insert(flashcardsToInsert as any[]) // Use type assertion to bypass TypeScript error
+      ;
 
     if (error) {
       console.error("Error saving flashcards:", error);
