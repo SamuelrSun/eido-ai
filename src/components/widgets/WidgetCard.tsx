@@ -25,13 +25,13 @@ export function WidgetCard({
       className={cn(
         "cursor-pointer transition-all border-2",
         isSelected
-          ? "border-purple-500 bg-purple-50/50 dark:bg-purple-950/20"
-          : "hover:border-purple-300 dark:hover:border-purple-700"
+          ? "border-primary bg-primary/5"
+          : "hover:border-primary/30"
       )}
       onClick={() => onToggle(id)}
     >
       <CardContent className="p-4 flex items-start gap-3">
-        <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-md text-purple-600 dark:text-purple-400">
+        <div className="p-2 bg-primary/10 rounded-md text-primary">
           {icon}
         </div>
         <div className="flex-1">
@@ -39,7 +39,7 @@ export function WidgetCard({
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
         {isSelected && (
-          <div className="text-purple-600 dark:text-purple-400">
+          <div className="text-primary">
             <Check className="h-5 w-5" />
           </div>
         )}

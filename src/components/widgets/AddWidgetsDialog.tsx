@@ -121,10 +121,7 @@ export function AddWidgetsDialog({ open, onOpenChange }: AddWidgetsDialogProps) 
           <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button 
-            className="bg-purple-600 hover:bg-purple-700 text-white" 
-            onClick={handleSaveWidgets}
-          >
+          <Button onClick={handleSaveWidgets}>
             Add Selected Widgets
           </Button>
         </DialogFooter>

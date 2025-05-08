@@ -1,11 +1,13 @@
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight, BookPlus, PlusCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
+import { CreateClassDialog, ClassData } from "@/components/class/CreateClassDialog";
+import { useToast } from "@/hooks/use-toast";
 
 const HomePage = () => {
   const [userName, setUserName] = useState<string>("Student");
@@ -14,7 +16,54 @@ const HomePage = () => {
     { title: "Network Security", path: "/super-stu" },
     { title: "VPN Concepts", path: "/super-stu" }
   ]);
+  const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
+  const { toast } = useToast();
   
+  const [classOptions, setClassOptions] = useState([
+    {
+      title: "ITP457: Advanced Network Security",
+      description: "Learn about network vulnerabilities, encryption, and security protocols",
+      emoji: "🔒",
+      link: "/calendar",
+      color: "blue-500"
+    },
+    {
+      title: "ITP216: Applied Python Concepts",
+      description: "Master Python programming with practical applications and projects",
+      emoji: "🐍",
+      link: "/calendar",
+      color: "green-500"
+    },
+    {
+      title: "IR330: Politics of the World Economy",
+      description: "Explore global economic systems, international trade, and policy analysis",
+      emoji: "🌐",
+      link: "/calendar",
+      color: "red-500"
+    },
+    {
+      title: "ITP104: Intro to Web Development",
+      description: "Learn HTML, CSS, and JavaScript fundamentals for web development",
+      emoji: "🌐",
+      link: "/calendar",
+      color: "yellow-500"
+    },
+    {
+      title: "BAEP470: The Entrepreneurial Mindset",
+      description: "Develop strategies for innovation and business development",
+      emoji: "💼",
+      link: "/calendar",
+      color: "purple-500"
+    },
+    {
+      title: "BISC110: Good Genes, Bad Genes",
+      description: "Explore genetics principles and their impact on health and society",
+      emoji: "🧬",
+      link: "/calendar",
+      color: "pink-500"
+    }
+  ]);
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -35,8 +84,6 @@ const HomePage = () => {
             const emailName = user.email?.split('@')[0] || "Student";
             setUserName(emailName);
           }
-          
-          console.log("Profile data:", profile);
         }
       } catch (error) {
         console.error("Error fetching user:", error);
@@ -46,67 +93,58 @@ const HomePage = () => {
     fetchUserProfile();
   }, []);
 
-  const classOptions = [
-    {
-      title: "ITP457: Advanced Network Security",
-      description: "Learn about network vulnerabilities, encryption, and security protocols",
-      emoji: "🔒",
+  const handleCreateClass = (classData: ClassData) => {
+    // Get an appropriate emoji for the class
+    const emojis = ["📚", "🎓", "✏️", "📝", "🔬", "🎨", "🧮", "🔍", "📊", "💡"];
+    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+    
+    const newClass = {
+      title: classData.title,
+      description: classData.description,
+      emoji: randomEmoji,
       link: "/calendar",
-    },
-    {
-      title: "ITP216: Applied Python Concepts",
-      description: "Master Python programming with practical applications and projects",
-      emoji: "🐍",
-      link: "/calendar",
-    },
-    {
-      title: "IR330: Politics of the World Economy",
-      description: "Explore global economic systems, international trade, and policy analysis",
-      emoji: "🌐",
-      link: "/calendar",
-    },
-    {
-      title: "ITP104: Intro to Web Development",
-      description: "Learn HTML, CSS, and JavaScript fundamentals for web development",
-      emoji: "🌐",
-      link: "/calendar",
-    },
-    {
-      title: "BAEP470: The Entrepreneurial Mindset",
-      description: "Develop strategies for innovation and business development",
-      emoji: "💼",
-      link: "/calendar",
-    },
-    {
-      title: "BISC110: Good Genes, Bad Genes",
-      description: "Explore genetics principles and their impact on health and society",
-      emoji: "🧬",
-      link: "/calendar",
-    }
-  ];
+      color: classData.color
+    };
+    
+    setClassOptions(prev => [newClass, ...prev]);
+    
+    toast({
+      title: "Class created!",
+      description: `${classData.title} has been added to your dashboard.`
+    });
+  };
 
   return (
     <div className="space-y-8 pb-8">
       {/* Hero Section with personalized greeting */}
-      <PageHeader 
-        title={`Hello, ${userName}!`}
-        description="Which class would you like to study today?"
-      />
+      <div className="flex justify-between items-center">
+        <PageHeader 
+          title={`Hello, ${userName}!`}
+          description="Which class would you like to study today?"
+        />
+        <Button 
+          onClick={() => setIsCreateClassOpen(true)}
+          className="flex items-center gap-2"
+        >
+          <PlusCircle className="h-4 w-4" />
+          Add Class
+        </Button>
+      </div>
 
       {/* Class Options */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {classOptions.map((option, index) => (
           <Link to={option.link} key={index} className="block">
-            <Card className="h-full transition-all hover:shadow-md hover:border-blue-200">
+            <Card className={`h-full transition-all hover:shadow-md hover:border-${option.color}`}>
               <CardHeader>
-                <div className="mb-4 p-2 bg-blue-50 rounded-lg w-fit">
+                <div className={`mb-4 p-2 bg-${option.color}/10 rounded-lg w-fit`}>
                   <span className="text-4xl">{option.emoji}</span>
                 </div>
                 <CardTitle>{option.title}</CardTitle>
                 <CardDescription>{option.description}</CardDescription>
               </CardHeader>
               <CardFooter>
-                <Button variant="ghost" className="group text-blue-600">
+                <Button variant="ghost" className={`group text-${option.color}`}>
                   Enter class
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Button>
@@ -197,6 +235,13 @@ const HomePage = () => {
           </Button>
         </Link>
       </div>
+
+      {/* Create Class Dialog */}
+      <CreateClassDialog 
+        open={isCreateClassOpen}
+        onOpenChange={setIsCreateClassOpen}
+        onClassCreate={handleCreateClass}
+      />
     </div>
   );
 };
