@@ -170,6 +170,83 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_questions: {
+        Row: {
+          correct_answer_index: number
+          created_at: string
+          explanation: string
+          id: string
+          options: string[]
+          question_text: string
+          quiz_id: string
+        }
+        Insert: {
+          correct_answer_index: number
+          created_at?: string
+          explanation: string
+          id?: string
+          options: string[]
+          question_text: string
+          quiz_id: string
+        }
+        Update: {
+          correct_answer_index?: number
+          created_at?: string
+          explanation?: string
+          id?: string
+          options?: string[]
+          question_text?: string
+          quiz_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          coverage: string
+          created_at: string
+          description: string
+          difficulty: string
+          id: string
+          question_count: number
+          time_estimate: number
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          coverage: string
+          created_at?: string
+          description: string
+          difficulty?: string
+          id?: string
+          question_count?: number
+          time_estimate?: number
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          coverage?: string
+          created_at?: string
+          description?: string
+          difficulty?: string
+          id?: string
+          question_count?: number
+          time_estimate?: number
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

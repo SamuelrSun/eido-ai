@@ -51,6 +51,7 @@ export const quizService = {
   // Save a quiz to the database
   saveQuiz: async (quiz: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>): Promise<Quiz> => {
     try {
+      // Insert the quiz into the quizzes table
       const { data, error } = await supabase
         .from('quizzes')
         .insert({
