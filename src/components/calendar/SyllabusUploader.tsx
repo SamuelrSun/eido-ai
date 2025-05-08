@@ -79,7 +79,7 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 h-full">
+    <div className="bg-white rounded-lg shadow p-4 h-full flex flex-col">
       <h2 className="text-lg font-semibold mb-3">Upload Syllabus</h2>
       <div className="mb-3">
         <select
@@ -99,7 +99,7 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
         </select>
       </div>
       
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-2 items-center mt-auto">
         <div className="flex-1">
           <FileUpload onFileUpload={handleFileUpload} />
         </div>
