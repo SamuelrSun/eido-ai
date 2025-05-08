@@ -29,7 +29,6 @@ export interface Deck {
   title: string;
   description: string;
   userId?: string;
-  createdAt?: Date;
   updatedAt: Date;
   color: string;
   cardCount: number;
@@ -43,6 +42,5 @@ export interface Deck {
  */
 export interface GenerateDeckParams {
   title: string;
-  topic: string;
   cardCount: number;
 }

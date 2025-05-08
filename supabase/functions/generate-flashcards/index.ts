@@ -15,7 +15,6 @@ interface FlashcardContent {
 
 interface GenerateFlashcardsParams {
   title: string;
-  topic: string;
   cardCount: number;
 }
 
@@ -38,8 +37,8 @@ serve(async (req) => {
       }
     )
     
-    const { title, topic, cardCount }: GenerateFlashcardsParams = await req.json()
-    console.log(`Generating ${cardCount} flashcards about ${topic} for deck: ${title}`);
+    const { title, cardCount }: GenerateFlashcardsParams = await req.json()
+    console.log(`Generating ${cardCount} flashcards for deck: ${title}`);
     
     // Check if OpenAI API key is available
     if (!openaiApiKey) {
@@ -55,55 +54,31 @@ serve(async (req) => {
       )
     }
     
-    let matchQuery = '';
+    // Get random content from the embeddings table as context
+    const { data: sampleDocs, error } = await supabaseClient
+      .from('embeddings')
+      .select('content')
+      .limit(20) // Get a larger random sample for better context
     
-    // Get relevant context from the embeddings table based on the topic
-    if (topic && topic !== 'All Topics') {
-      // Use the topic to find relevant content in the embeddings
-      const { data: matchData, error: matchError } = await supabaseClient.rpc('match_documents', {
-        query_embedding: topic,
-        match_threshold: 0.5,
-        match_count: 15 // Increased to get more context
-      })
-      
-      if (matchError) {
-        console.error(`Error matching documents: ${matchError.message}`);
-        throw matchError;
-      }
-      
-      if (!matchData || matchData.length === 0) {
-        throw new Error(`No relevant content found for topic: ${topic}`);
-      }
-      
-      matchQuery = matchData
-        .map((doc: any) => doc.content)
-        .join('\n\n')
-    } else {
-      // Get a sample of documents for "All Topics"
-      const { data: sampleDocs, error } = await supabaseClient
-        .from('embeddings')
-        .select('content')
-        .limit(15) // Increased to get more context
-      
-      if (error) {
-        console.error(`Error fetching sample documents: ${error.message}`);
-        throw error;
-      }
-      
-      if (!sampleDocs || sampleDocs.length === 0) {
-        throw new Error('No content found in embeddings table');
-      }
-      
-      matchQuery = sampleDocs
-        .map((doc: any) => doc.content)
-        .join('\n\n')
+    if (error) {
+      console.error(`Error fetching sample documents: ${error.message}`);
+      throw error;
     }
+    
+    if (!sampleDocs || sampleDocs.length === 0) {
+      throw new Error('No content found in embeddings table');
+    }
+    
+    // Combine the content from random documents
+    const matchQuery = sampleDocs
+      .map((doc: any) => doc.content)
+      .join('\n\n')
     
     if (!matchQuery || matchQuery.trim() === '') {
-      throw new Error(`No content found for topic: ${topic}`);
+      throw new Error(`No content found from vector store`);
     }
     
-    // Call OpenAI API to generate flashcards based on the context
+    // Call OpenAI API to generate flashcards based on the random context
     console.log("Calling OpenAI API to generate flashcards...");
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -117,13 +92,13 @@ serve(async (req) => {
           {
             role: 'system',
             content: `You are a helpful assistant that creates educational flashcards. 
-                     Generate exactly ${cardCount} flashcards about the provided topic, using the provided content as reference. 
+                     Generate exactly ${cardCount} flashcards using the provided content as reference. 
                      Make each flashcard concise but informative, with a clear question on the front and a comprehensive answer on the back.
                      Format your response as a JSON array containing exactly ${cardCount} flashcards.`
           },
           {
             role: 'user',
-            content: `Create exactly ${cardCount} flashcards about ${topic} based on the following content. Each flashcard should have a 'front' with a question and a 'back' with the answer:\n\n${matchQuery}`
+            content: `Create exactly ${cardCount} flashcards based on the following content. Each flashcard should have a 'front' with a question and a 'back' with the answer:\n\n${matchQuery}`
           }
         ],
         temperature: 0.7,

@@ -16,7 +16,6 @@ export const flashcardService = {
     const { data, error } = await supabase.functions.invoke('generate-flashcards', {
       body: {
         title: params.title,
-        topic: params.topic,
         cardCount: params.cardCount
       }
     });
@@ -32,27 +31,5 @@ export const flashcardService = {
 
     console.log("Flashcards generated successfully:", data);
     return data.flashcards;
-  },
-  
-  /**
-   * Get all available topics from the vector database
-   */
-  getAvailableTopics: async (): Promise<string[]> => {
-    console.log("Attempting to fetch flashcard topics");
-    
-    // Call Supabase to get distinct topics from embeddings
-    const { data, error } = await supabase.functions.invoke('get-flashcard-topics');
-
-    if (error) {
-      console.error("Error calling get-flashcard-topics function:", error);
-      throw new Error(`Failed to fetch topics: ${error.message}`);
-    }
-
-    if (!data || !data.topics || data.topics.length === 0) {
-      throw new Error("No topics were found in the database.");
-    }
-
-    console.log("Topics fetched successfully:", data);
-    return data.topics;
   }
 };

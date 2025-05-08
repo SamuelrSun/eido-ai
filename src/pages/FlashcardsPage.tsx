@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,7 +19,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from "sonner";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -57,7 +55,6 @@ interface Deck {
 const deckGenerationSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   cardCount: z.coerce.number().min(3).max(20),
-  topic: z.string().min(1, "Please select a topic"),
 });
 
 type DeckGenerationFormValues = z.infer<typeof deckGenerationSchema>;
@@ -72,8 +69,6 @@ const FlashcardsPage = () => {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [currentDeck, setCurrentDeck] = useState<Deck | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [availableTopics, setAvailableTopics] = useState<string[]>([]);
-  const [isLoadingTopics, setIsLoadingTopics] = useState(true);
   const [isLoadingDecks, setIsLoadingDecks] = useState(true);
 
   const form = useForm<DeckGenerationFormValues>({
@@ -81,7 +76,6 @@ const FlashcardsPage = () => {
     defaultValues: {
       title: "",
       cardCount: 10,
-      topic: "",
     },
   });
 
@@ -98,7 +92,6 @@ const FlashcardsPage = () => {
   // Fetch decks on component mount
   useEffect(() => {
     fetchDecks();
-    fetchAvailableTopics();
   }, []);
 
   const fetchDecks = async () => {
@@ -112,20 +105,6 @@ const FlashcardsPage = () => {
       console.error("Error fetching decks:", error);
       toast.error("Failed to load flashcard decks");
       setIsLoadingDecks(false);
-    }
-  };
-
-  const fetchAvailableTopics = async () => {
-    setIsLoadingTopics(true);
-    try {
-      const topics = await flashcardService.getAvailableTopics();
-      setAvailableTopics(topics);
-      setIsLoadingTopics(false);
-    } catch (error) {
-      console.error("Error fetching topics:", error);
-      toast.error("Failed to load available topics: " + (error as Error).message);
-      setIsLoadingTopics(false);
-      setAvailableTopics([]);
     }
   };
 
@@ -158,12 +137,11 @@ const FlashcardsPage = () => {
     setIsGenerating(true);
     
     try {
-      toast.info(`Generating ${data.cardCount} flashcards about ${data.topic}...`);
+      toast.info(`Generating ${data.cardCount} flashcards...`);
       
       // Call the service to generate flashcards
       const generatedFlashcards = await flashcardService.generateDeck({
         title: data.title,
-        topic: data.topic,
         cardCount: data.cardCount
       });
       
@@ -184,7 +162,7 @@ const FlashcardsPage = () => {
       const newDeck: Deck = {
         id: newDeckId,
         title: data.title,
-        description: `AI-generated flashcards about ${data.topic}`,
+        description: `AI-generated flashcards`,
         cardCount: flashcards.length,
         dueCards: flashcards.length,
         newCards: flashcards.length,
@@ -529,7 +507,7 @@ const FlashcardsPage = () => {
           <DialogHeader>
             <DialogTitle>Generate New Flashcard Deck</DialogTitle>
             <DialogDescription>
-              Create AI-generated flashcards based on topics in your vector database
+              Create AI-generated flashcards from random content in your vector database
             </DialogDescription>
           </DialogHeader>
           
@@ -573,44 +551,6 @@ const FlashcardsPage = () => {
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="topic"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Topic</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value} 
-                      defaultValue={field.value}
-                      disabled={isLoadingTopics}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={isLoadingTopics ? "Loading topics..." : "Select a topic"} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {availableTopics.length > 0 ? (
-                          availableTopics.map(topic => (
-                            <SelectItem key={topic} value={topic}>
-                              {topic}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="no-topics" disabled>
-                            No topics available
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Choose a topic from your knowledge base
-                    </FormDescription>
-                  </FormItem>
-                )}
-              />
-              
               <div className="flex justify-end gap-3 pt-4">
                 <Button 
                   type="button" 
@@ -621,7 +561,7 @@ const FlashcardsPage = () => {
                 </Button>
                 <Button 
                   type="submit"
-                  disabled={isGenerating || isLoadingTopics || availableTopics.length === 0}
+                  disabled={isGenerating}
                 >
                   {isGenerating ? (
                     <>
