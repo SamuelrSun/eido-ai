@@ -27,11 +27,16 @@ const HomePage = () => {
             .single();
             
           if (profile?.full_name) {
-            setUserName(profile.full_name.split(' ')[0]); // Get first name
+            // Get the first name from the full name
+            const firstName = profile.full_name.split(' ')[0];
+            setUserName(firstName);
           } else {
             // Fallback to email if no name is available
-            setUserName(user.email?.split('@')[0] || "Student");
+            const emailName = user.email?.split('@')[0] || "Student";
+            setUserName(emailName);
           }
+          
+          console.log("Profile data:", profile);
         }
       } catch (error) {
         console.error("Error fetching user:", error);
@@ -66,7 +71,7 @@ const HomePage = () => {
     <div className="space-y-8 pb-8">
       {/* Hero Section with personalized greeting */}
       <PageHeader 
-        title={`Hello, ${userName}`}
+        title={`Hello, ${userName}!`}
         description="How would you like to study today?"
       />
 
