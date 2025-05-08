@@ -156,7 +156,7 @@ const DatabasePage = () => {
       setLoading(true);
       
       try {
-        // Fetch folders - Fix: Use IS NULL check instead of eq with null
+        // Fetch folders - Use IS NULL check instead of eq with null
         let folderQuery = supabase
           .from('file_folders')
           .select('*')
@@ -172,7 +172,7 @@ const DatabasePage = () => {
         
         if (folderError) throw folderError;
         
-        // Fetch files - Fix: Use IS NULL check for null folder_id
+        // Fetch files - Use IS NULL check for null folder_id
         let fileQuery = supabase
           .from('files')
           .select('*')
@@ -302,8 +302,9 @@ const DatabasePage = () => {
         };
         
         try {
-          // Generate a unique file path
-          const filePath = `${user.id}/${currentFolderId || 'root'}/${Date.now()}_${file.name}`;
+          // Generate a unique file path - Fix: Use unique file path format
+          const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+          const filePath = `${fileName}`;
           
           // 1. Upload to storage using uploadFile function with the progress callback
           const { data: storageData, error: storageError } = await supabase.storage
@@ -320,7 +321,7 @@ const DatabasePage = () => {
           // Update progress to 75% after successful upload
           updateProgress(75);
           
-          // 2. Get the URL
+          // 2. Get the URL - Fix: Use the correct method to get public URL
           const { data: urlData } = supabase.storage
             .from('file_storage')
             .getPublicUrl(filePath);
@@ -434,8 +435,9 @@ const DatabasePage = () => {
         };
         
         try {
-          // Generate a unique file path
-          const filePath = `${user.id}/${currentFolderId || 'root'}/${Date.now()}_${file.name}`;
+          // Generate a unique file path - Fix: Use simpler file path without nested folders
+          const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+          const filePath = `${fileName}`;
           
           // 1. Upload to storage
           const { data: storageData, error: storageError } = await supabase.storage
@@ -451,7 +453,7 @@ const DatabasePage = () => {
           
           updateProgress(75);
           
-          // 2. Get the URL
+          // 2. Get the URL - Fix: Use the correct method to get public URL
           const { data: urlData } = supabase.storage
             .from('file_storage')
             .getPublicUrl(filePath);
@@ -580,11 +582,14 @@ const DatabasePage = () => {
           for (const file of folderFiles || []) {
             // Extract path from URL and delete from storage
             if (file.url) {
-              const filePath = file.url.split('/').pop();
-              if (filePath) {
+              // Fix: Extract just the filename from the URL
+              const urlParts = file.url.split('/');
+              const fileName = urlParts[urlParts.length - 1];
+              
+              if (fileName) {
                 await supabase.storage
                   .from('file_storage')
-                  .remove([`${user.id}/${folderId || 'root'}/${filePath}`]);
+                  .remove([fileName]);
               }
             }
           }
@@ -637,14 +642,14 @@ const DatabasePage = () => {
         if (fileToDelete) {
           // Delete file from storage if it has a URL
           if (fileToDelete.url) {
-            // Try to extract filename from URL
-            const parts = fileToDelete.url.split('/');
-            const filename = parts[parts.length - 1];
+            // Fix: Extract just the filename from the URL
+            const urlParts = fileToDelete.url.split('/');
+            const fileName = urlParts[urlParts.length - 1];
             
-            if (filename) {
+            if (fileName) {
               await supabase.storage
                 .from('file_storage')
-                .remove([`${user.id}/${fileToDelete.folder_id || 'root'}/${filename}`]);
+                .remove([fileName]);
             }
           }
           
