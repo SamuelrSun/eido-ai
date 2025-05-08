@@ -2,6 +2,7 @@
 import { ReactNode, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
+import { Button } from "@/components/ui/button";
 import { 
   Menu,
   ChevronDown
