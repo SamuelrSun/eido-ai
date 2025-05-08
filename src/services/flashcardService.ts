@@ -21,28 +21,21 @@ export const flashcardService = {
    */
   generateDeck: async (params: GenerateDeckParams): Promise<FlashcardContent[]> => {
     try {
-      // This would call a Supabase Edge Function that interfaces with OpenAI
-      // For now, we'll simulate the response with placeholder data
-      
-      // In a real implementation, we would:
-      // 1. Query the vector database for relevant content about the topic
-      // 2. Send that content to OpenAI to generate flashcards
-      // 3. Format and return the flashcards
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Create sample flashcards
-      const flashcards: FlashcardContent[] = [];
-      
-      for (let i = 0; i < params.cardCount; i++) {
-        flashcards.push({
-          front: `Question ${i + 1} about ${params.topic}?`,
-          back: `Answer ${i + 1} about ${params.topic} with detailed information.`,
-        });
+      // Call the Supabase Edge Function to generate flashcards
+      const { data, error } = await supabase.functions.invoke('generate-flashcards', {
+        body: {
+          title: params.title,
+          topic: params.topic,
+          cardCount: params.cardCount
+        }
+      });
+
+      if (error) {
+        console.error("Error calling generate-flashcards function:", error);
+        throw new Error("Failed to generate flashcards");
       }
-      
-      return flashcards;
+
+      return data.flashcards || [];
     } catch (error) {
       console.error("Error generating flashcards:", error);
       throw new Error("Failed to generate flashcards");
@@ -54,14 +47,15 @@ export const flashcardService = {
    */
   getAvailableTopics: async (): Promise<string[]> => {
     try {
-      // This would analyze the vector database to extract common topics
-      // For now, we'll return placeholder topics
-      
-      // In a real implementation, we would:
-      // 1. Query the vector database for distinct topics or categories
-      // 2. Process and return these topics as options
-      
-      return [
+      // Call Supabase to get distinct topics from embeddings
+      const { data, error } = await supabase.functions.invoke('get-flashcard-topics');
+
+      if (error) {
+        console.error("Error calling get-flashcard-topics function:", error);
+        throw new Error("Failed to fetch available topics");
+      }
+
+      return data.topics || [
         "Network Security",
         "Encryption",
         "Security Protocols",
