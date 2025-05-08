@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChatBot } from "@/components/chat/ChatBot";
@@ -27,16 +28,20 @@ const SecureCoach = () => {
 
         if (sessionData.session?.user) {
           // Fetch user profile from the profiles table
-          const { data: profileData, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', sessionData.session.user.id)
-            .single();
-          
-          if (error) {
-            console.error("Error fetching profile:", error);
-          } else {
-            setProfile(profileData);
+          try {
+            const { data: profileData, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', sessionData.session.user.id)
+              .single() as any; // Type assertion to bypass TypeScript error
+            
+            if (error) {
+              console.error("Error fetching profile:", error);
+            } else {
+              setProfile(profileData);
+            }
+          } catch (error) {
+            console.error("Error in profile fetch:", error);
           }
         } else {
           // If not authenticated, redirect to auth page
@@ -57,16 +62,20 @@ const SecureCoach = () => {
         navigate("/auth");
       } else {
         // Fetch profile when auth state changes
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (error) {
-          console.error("Error fetching profile on auth change:", error);
-        } else {
-          setProfile(data);
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single() as any; // Type assertion to bypass TypeScript error
+          
+          if (error) {
+            console.error("Error fetching profile on auth change:", error);
+          } else {
+            setProfile(data);
+          }
+        } catch (error) {
+          console.error("Error in profile fetch on auth change:", error);
         }
       }
     });

@@ -8,6 +8,7 @@ import { AppLayout } from "./components/layout/AppLayout";
 import HomePage from "./pages/HomePage";
 import SuperStu from "./pages/SuperStu";
 import SecureCoach from "./pages/SecureCoach";
+import StaticCoach from "./pages/StaticCoach";
 import PolicyCenter from "./pages/PolicyCenter";
 import AuthPage from "./pages/AuthPage";
 import AccountPage from "./pages/AccountPage";
@@ -29,6 +30,7 @@ const App = () => (
             <Route index element={<HomePage />} />
             <Route path="super-stu" element={<SuperStu />} />
             <Route path="secure-coach" element={<SecureCoach />} />
+            <Route path="static-coach" element={<StaticCoach />} />
             <Route path="policy-center" element={<PolicyCenter />} />
             <Route path="upload" element={<UploadPage />} />
             <Route path="flashcards" element={<FlashcardsPage />} />

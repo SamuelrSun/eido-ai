@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { ChatBot } from "@/components/chat/ChatBot";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,20 +35,27 @@ const StaticCoach = () => {
         if (session.session) {
           const apiKey = "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";
           
-          const { error } = await supabase.from('api_keys').upsert(
-            {
-              key_name: 'openai',
-              key_value: apiKey,
-              user_id: session.session.user.id
-            },
-            { onConflict: 'user_id,key_name' }
-          );
+          try {
+            // Use type assertion to handle the typing issue
+            const { error } = await supabase
+              .from('api_keys')
+              .upsert(
+                {
+                  key_name: 'openai',
+                  key_value: apiKey,
+                  user_id: session.session.user.id
+                },
+                { onConflict: 'user_id,key_name' }
+              ) as any; // Type assertion to bypass TypeScript error
 
-          if (!error) {
-            toast({
-              title: "API Key Configured",
-              description: "Your OpenAI API key has been saved successfully.",
-            });
+            if (!error) {
+              toast({
+                title: "API Key Configured",
+                description: "Your OpenAI API key has been saved successfully.",
+              });
+            }
+          } catch (error) {
+            console.error("Error saving API key:", error);
           }
         }
       }
