@@ -57,7 +57,7 @@ serve(async (req) => {
     // Generate quiz content using a simpler approach - without using Assistants API
     // This is more reliable for our current needs
     
-    // Query the content from the embeddings table
+    // Query the content from the embeddings table using a similarity search based on the quiz title
     const { data: embeddingData, error: embeddingError } = await supabaseClient
       .from('embeddings')
       .select('content')
@@ -83,6 +83,7 @@ serve(async (req) => {
     ${availableContent}
     
     Generate exactly ${questionCount} quiz questions with the following specifications:
+    - Quiz topic: "${title}" (VERY IMPORTANT: Make sure ALL questions are specifically about ${title}, not just general cybersecurity)
     - Difficulty level: ${difficulty}
     - Content coverage: ${coverage}
     - Each question must have exactly 4 options (labeled as options in an array)
@@ -90,12 +91,13 @@ serve(async (req) => {
     - Include a brief explanation of why the correct answer is right
     - Make all options plausible and similar in length and style
     - Don't make incorrect options obviously wrong
+    - If the title refers to a specific topic like "Active Directory Security", ensure ALL questions are about that specific topic
     
     Format your response as a valid JSON object with this exact structure:
     {
       "questions": [
         {
-          "question": "Question text here?",
+          "question": "Question text specifically about ${title}?",
           "options": ["Option A", "Option B", "Option C", "Option D"],
           "correctAnswerIndex": 0,
           "explanation": "Explanation of why Option A is correct"
@@ -116,9 +118,13 @@ serve(async (req) => {
           {
             "role": "system",
             "content": systemPrompt
+          },
+          {
+            "role": "user",
+            "content": `Create a ${difficulty} difficulty quiz about "${title}". The questions should be very specific to this topic and not general cybersecurity questions.`
           }
         ],
-        temperature: 0.5,
+        temperature: 0.7,
         max_tokens: 4000
       })
     });
