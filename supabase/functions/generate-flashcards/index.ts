@@ -50,7 +50,8 @@ serve(async (req) => {
     Each flashcard should have a clear question on the front and a comprehensive answer on the back.
     The flashcards should cover key concepts, definitions, and important facts about ${title}.
     Format your response as a valid JSON object with a "flashcards" array containing exactly ${cardCount} flashcard objects.
-    Each flashcard object should have "front" and "back" properties.
+    Each flashcard object should have "front" and "back" properties with proper JSON formatting.
+    Remember to use double quotes for property names and ensure all commas are properly placed.
     Remember to only use knowledge that's available in the linked vector store.`;
     
     console.log("Creating thread with OpenAI Assistants API");
@@ -103,8 +104,9 @@ serve(async (req) => {
     Generate exactly ${cardCount} flashcards about the requested topic.
     Use knowledge from the vector store to create accurate, relevant flashcards.
     Each flashcard should have a clear question on the front and a detailed answer on the back.
-    Format your response as a valid JSON object with a "flashcards" array.
-    Each item in the array should have "front" and "back" properties.
+    Format your response as valid JSON with a "flashcards" array.
+    Each item in the array must have "front" and "back" properties.
+    Make sure all JSON is properly formatted with no trailing commas and double quotes for property names.
     Do not include any text explanations outside of the JSON structure.`;
     
     // Run the Assistant on the thread
@@ -228,7 +230,13 @@ serve(async (req) => {
       // Find JSON content in the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        flashcardsContent = JSON.parse(jsonMatch[0]);
+        // Clean the JSON string to fix any formatting issues
+        let jsonStr = jsonMatch[0];
+        
+        // Fix trailing commas in objects/arrays which are invalid in JSON
+        jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
+        
+        flashcardsContent = JSON.parse(jsonStr);
       } else {
         throw new Error("No JSON object found in response");
       }
