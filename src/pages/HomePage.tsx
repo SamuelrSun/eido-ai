@@ -46,24 +46,24 @@ const HomePage = () => {
     fetchUserProfile();
   }, []);
 
-  const studyOptions = [
+  const classOptions = [
     {
-      title: "Ask Super Tutor",
-      description: "Get instant help with any subject or concept",
-      emoji: "💬",
+      title: "ITP457: Advanced Network Security",
+      description: "Learn about network vulnerabilities, encryption, and security protocols",
+      emoji: "🔒",
       link: "/super-stu",
     },
     {
-      title: "Flashcards",
-      description: "Review key concepts with spaced repetition",
-      emoji: "📚",
-      link: "/flashcards",
+      title: "ITP216: Applied Python Concepts",
+      description: "Master Python programming with practical applications and projects",
+      emoji: "🐍",
+      link: "/super-stu",
     },
     {
-      title: "Quizzes",
-      description: "Test your knowledge and track your progress",
-      emoji: "✅",
-      link: "/quizzes",
+      title: "IR330: Politics of the World Economy",
+      description: "Explore global economic systems, international trade, and policy analysis",
+      emoji: "🌐",
+      link: "/super-stu",
     }
   ];
 
@@ -72,12 +72,12 @@ const HomePage = () => {
       {/* Hero Section with personalized greeting */}
       <PageHeader 
         title={`Hello, ${userName}!`}
-        description="How would you like to study today?"
+        description="Which class would you like to study today?"
       />
 
-      {/* Study Options */}
+      {/* Class Options */}
       <div className="grid md:grid-cols-3 gap-6">
-        {studyOptions.map((option, index) => (
+        {classOptions.map((option, index) => (
           <Link to={option.link} key={index} className="block">
             <Card className="h-full transition-all hover:shadow-md hover:border-blue-200">
               <CardHeader>
@@ -89,7 +89,7 @@ const HomePage = () => {
               </CardHeader>
               <CardFooter>
                 <Button variant="ghost" className="group text-blue-600">
-                  Start now
+                  Enter class
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Button>
               </CardFooter>
