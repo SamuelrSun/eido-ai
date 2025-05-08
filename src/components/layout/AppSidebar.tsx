@@ -3,8 +3,6 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
   MessageCircle, 
-  FileText, 
-  Settings,
   X,
   Home,
   UserCircle,
@@ -72,11 +70,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       icon: <SquareCheck className="mr-2 h-5 w-5" />,
       label: "Quizzes",
       to: "/quizzes"
-    },
-    {
-      icon: <FileText className="mr-2 h-5 w-5" />,
-      label: "Policy Center",
-      to: "/policy-center"
     }
   ];
   
@@ -85,11 +78,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       icon: <UserCircle className="mr-2 h-5 w-5" />,
       label: "My Account",
       to: "/account"
-    },
-    {
-      icon: <Settings className="mr-2 h-5 w-5" />,
-      label: "Admin Panel",
-      to: "/admin"
     }
   ];
 

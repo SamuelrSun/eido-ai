@@ -1,3 +1,4 @@
+
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,16 +14,16 @@ const HomePage = () => {
       link: "/super-stu",
     },
     {
-      title: "Policy Center",
-      description: "Access and manage your organization's security policies",
-      icon: "📝",
-      link: "/policy-center",
+      title: "Flashcards",
+      description: "Review concepts with interactive flashcards",
+      icon: "📚",
+      link: "/flashcards",
     },
     {
-      title: "Admin Panel",
-      description: "Manage users, settings and customize your experience",
-      icon: "⚙️",
-      link: "/admin",
+      title: "Quizzes",
+      description: "Test your knowledge with quizzes",
+      icon: "✅",
+      link: "/quizzes",
     }
   ];
 

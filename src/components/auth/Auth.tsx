@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
 
 export function Auth() {
   const [email, setEmail] = useState('');
@@ -15,6 +16,7 @@ export function Auth() {
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +48,9 @@ export function Auth() {
           title: "Welcome back!",
           description: "You have been signed in successfully.",
         });
+        
+        // Redirect to home page after successful sign in
+        navigate('/');
       }
     } catch (error) {
       console.error('Auth error:', error);
