@@ -12,10 +12,13 @@ import {
   Upload,
   BookOpen,
   SquareCheck,
-  Calendar
+  Calendar,
+  LayoutGrid
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useWidgets } from "@/hooks/use-widgets";
+import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
 
 interface AppSidebarProps {
   onClose: () => void;
@@ -24,7 +27,9 @@ interface AppSidebarProps {
 export function AppSidebar({ onClose }: AppSidebarProps) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isWidgetsDialogOpen, setIsWidgetsDialogOpen] = useState(false);
   const navigate = useNavigate();
+  const { enabledWidgets } = useWidgets();
   
   useEffect(() => {
     const fetchUser = async () => {
@@ -45,7 +50,8 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const mainNavItems = [
+  // Define all navigation items - widgets and core features
+  const coreNavItems = [
     {
       icon: <Home className="mr-2 h-5 w-5" />,
       label: "Home",
@@ -61,23 +67,34 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       icon: <Upload className="mr-2 h-5 w-5" />,
       label: "Upload Materials",
       to: "/upload"
-    },
+    }
+  ];
+  
+  const widgetNavItems = [
     {
       icon: <BookOpen className="mr-2 h-5 w-5" />,
       label: "Flashcards",
-      to: "/flashcards"
+      to: "/flashcards",
+      widgetId: "flashcards"
     },
     {
       icon: <SquareCheck className="mr-2 h-5 w-5" />,
       label: "Quizzes",
-      to: "/quizzes"
+      to: "/quizzes",
+      widgetId: "quizzes"
     },
     {
       icon: <Calendar className="mr-2 h-5 w-5" />,
       label: "Calendar",
-      to: "/calendar"
+      to: "/calendar",
+      widgetId: "calendar"
     }
   ];
+  
+  // Filter widget nav items by enabled widgets
+  const visibleWidgetNavItems = widgetNavItems.filter(item => 
+    enabledWidgets.includes(item.widgetId)
+  );
   
   const accountNavItems = [
     {
@@ -107,8 +124,19 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       </div>
       
       <nav className="flex-1 overflow-auto py-4">
+        <div className="px-4 mb-2">
+          <Button 
+            onClick={() => setIsWidgetsDialogOpen(true)}
+            variant="outline" 
+            className="w-full justify-start gap-2"
+          >
+            <LayoutGrid className="h-4 w-4" />
+            Add Widgets
+          </Button>
+        </div>
+        
         <ul className="space-y-2 px-2">
-          {mainNavItems.map((item) => (
+          {coreNavItems.map((item) => (
             <li key={item.to}>
               <NavLink
                 to={item.to}
@@ -126,6 +154,31 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
               </NavLink>
             </li>
           ))}
+          
+          {visibleWidgetNavItems.length > 0 && (
+            <>
+              <div className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/70 uppercase">
+                Widgets
+              </div>
+              {visibleWidgetNavItems.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) => 
+                      `flex items-center px-4 py-2 rounded-md transition-colors ${
+                        isActive 
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                      }`
+                    }
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </NavLink>
+                </li>
+              ))}
+            </>
+          )}
         </ul>
       </nav>
       
@@ -186,6 +239,12 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
           </>
         )}
       </div>
+      
+      {/* Add Widgets Dialog */}
+      <AddWidgetsDialog 
+        open={isWidgetsDialogOpen} 
+        onOpenChange={setIsWidgetsDialogOpen} 
+      />
     </div>
   );
 }

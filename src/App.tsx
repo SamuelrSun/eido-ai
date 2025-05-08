@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AuthGuard } from "./components/auth/AuthGuard";
+import { WidgetsProvider } from "./hooks/use-widgets";
 import HomePage from "./pages/HomePage";
 import SuperStu from "./pages/SuperStu";
 import SecureCoach from "./pages/SecureCoach";
@@ -26,28 +27,30 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/auth" element={<AppLayout><AuthPage /></AppLayout>} />
-          
-          {/* Protected routes */}
-          <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="super-stu" element={<SuperStu />} />
-            <Route path="secure-coach" element={<SecureCoach />} />
-            <Route path="static-coach" element={<StaticCoach />} />
-            <Route path="upload" element={<UploadPage />} />
-            <Route path="flashcards" element={<FlashcardsPage />} />
-            <Route path="quizzes" element={<QuizzesPage />} />
-            <Route path="quizzes/:quizId" element={<QuizSessionPage />} />
-            <Route path="calendar" element={<CalendarPage />} />
-            <Route path="account" element={<AccountPage />} />
-          </Route>
-          
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <WidgetsProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/auth" element={<AppLayout><AuthPage /></AppLayout>} />
+            
+            {/* Protected routes */}
+            <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="super-stu" element={<SuperStu />} />
+              <Route path="secure-coach" element={<SecureCoach />} />
+              <Route path="static-coach" element={<StaticCoach />} />
+              <Route path="upload" element={<UploadPage />} />
+              <Route path="flashcards" element={<FlashcardsPage />} />
+              <Route path="quizzes" element={<QuizzesPage />} />
+              <Route path="quizzes/:quizId" element={<QuizSessionPage />} />
+              <Route path="calendar" element={<CalendarPage />} />
+              <Route path="account" element={<AccountPage />} />
+            </Route>
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </WidgetsProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
