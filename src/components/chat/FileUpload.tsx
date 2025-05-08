@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
+  compact?: boolean;
 }
 
-export function FileUpload({ onFileUpload }: FileUploadProps) {
+export function FileUpload({ onFileUpload, compact = false }: FileUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -42,6 +43,54 @@ export function FileUpload({ onFileUpload }: FileUploadProps) {
   const removeFile = () => {
     setFile(null);
   };
+
+  if (compact) {
+    return (
+      <div>
+        {!file ? (
+          <div
+            className={`border-2 border-dashed rounded-lg p-2 text-center ${
+              isDragOver ? "border-cybercoach-teal bg-cybercoach-teal/5" : "border-gray-300"
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleFileDrop}
+          >
+            <p className="text-xs text-gray-500">
+              <span className="font-semibold">Drop file</span> or 
+              <label htmlFor="compact-file-upload" className="text-cybercoach-teal cursor-pointer ml-1">
+                browse
+              </label>
+            </p>
+            <input
+              type="file"
+              className="hidden"
+              id="compact-file-upload"
+              accept=".pdf,.docx,.pptx,.txt"
+              onChange={handleFileSelect}
+            />
+          </div>
+        ) : (
+          <div className="flex items-center justify-between bg-cybercoach-teal/10 p-2 rounded-lg">
+            <div className="flex items-center overflow-hidden">
+              <FileUp className="h-4 w-4 text-cybercoach-teal flex-shrink-0 mr-2" />
+              <span className="text-xs font-medium truncate max-w-[120px]">
+                {file.name}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={removeFile}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mb-6">

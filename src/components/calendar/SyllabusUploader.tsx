@@ -101,7 +101,7 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
       
       <div className="flex gap-2 items-center mt-auto">
         <div className="flex-1">
-          <FileUpload onFileUpload={handleFileUpload} />
+          <FileUpload onFileUpload={handleFileUpload} compact />
         </div>
         
         <Button
