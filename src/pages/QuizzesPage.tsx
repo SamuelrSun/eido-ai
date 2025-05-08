@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { 
   Card, 
@@ -163,11 +162,11 @@ const QuizzesPage = () => {
   };
 
   const startQuiz = () => {
-    // In a real app, this would navigate to the quiz taking interface
-    console.log(`Starting quiz: ${selectedQuiz?.title}`);
-    // Close dialog by setting selected quiz to null
-    setSelectedQuiz(null);
-    toast.success("Quiz started! This would navigate to the quiz interface in a full implementation.");
+    if (selectedQuiz) {
+      // Navigate to the quiz session page with the quiz ID
+      navigate(`/quizzes/${selectedQuiz.id}`);
+      setSelectedQuiz(null);
+    }
   };
 
   const viewQuiz = async (quizId: string) => {
