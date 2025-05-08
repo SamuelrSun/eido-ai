@@ -218,15 +218,6 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
       )}
       
       <CardContent className="flex-grow flex flex-col pt-4">
-        {/* Input at the top */}
-        <div className="mb-4">
-          <ChatInput 
-            onSend={handleSendMessage} 
-            suggestions={suggestions}
-            isLoading={isLoading}
-          />
-        </div>
-        
         <div 
           className="flex-grow overflow-y-auto mb-4 space-y-4"
           ref={chatContainerRef}
@@ -265,6 +256,15 @@ export function ChatBot({ initialMessages = [], suggestions = [], title = "Chat 
               </div>
             </div>
           )}
+        </div>
+
+        {/* Chat input at the bottom */}
+        <div className="mt-auto">
+          <ChatInput 
+            onSend={handleSendMessage} 
+            suggestions={suggestions}
+            isLoading={isLoading}
+          />
         </div>
       </CardContent>
     </Card>
