@@ -1,8 +1,8 @@
-
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const HomePage = () => {
   const features = [
@@ -36,12 +36,10 @@ const HomePage = () => {
   return (
     <div className="space-y-12 pb-8">
       {/* Hero Section */}
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Welcome to CyberCoach</h1>
-        <p className="text-muted-foreground mt-1">
-          Your all-in-one platform for cybersecurity guidance, policy management, and compliance.
-        </p>
-      </div>
+      <PageHeader 
+        title="Welcome to CyberCoach"
+        description="Your all-in-one platform for cybersecurity guidance, policy management, and compliance."
+      />
 
       {/* Stats Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-cybercoach-blue/5 py-6 px-4 rounded-xl">

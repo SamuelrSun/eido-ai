@@ -1,6 +1,6 @@
 
 import { ChatBot } from "@/components/chat/ChatBot";
-import { GraduationCap } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const SuperStu = () => {
   const suggestions = [
@@ -12,12 +12,10 @@ const SuperStu = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Search</h1>
-        <p className="text-muted-foreground mt-1">
-          Upload your class materials and use AI-powered tools to help you understand complex concepts and answer your questions.
-        </p>
-      </div>
+      <PageHeader 
+        title="Search"
+        description="Upload your class materials and use AI-powered tools to help you understand complex concepts and answer your questions."
+      />
 
       <div className="bg-white p-6 rounded-xl shadow-sm border">
         <ChatBot 

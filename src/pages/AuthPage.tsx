@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Auth } from "@/components/auth/Auth";
 import { UserProfile } from "@/components/auth/UserProfile";
 import { supabase } from "@/integrations/supabase/client";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const AuthPage = () => {
   const [session, setSession] = useState<any>(null);
@@ -49,12 +49,10 @@ const AuthPage = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Account Access</h1>
-        <p className="text-muted-foreground mt-1">
-          Sign in to save your chat history, preferences, and access personalized security recommendations.
-        </p>
-      </div>
+      <PageHeader 
+        title="Account Access"
+        description="Sign in to save your chat history, preferences, and access personalized security recommendations."
+      />
 
       <div className="bg-white p-6 rounded-xl shadow-sm border">
         <Auth />

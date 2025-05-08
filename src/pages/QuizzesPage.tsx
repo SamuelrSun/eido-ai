@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { 
   Card, 
@@ -27,6 +26,7 @@ import {
   ChartBar 
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 // Sample quiz data
 const quizzes = [
@@ -100,13 +100,10 @@ const QuizzesPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Quizzes</h1>
-          <p className="text-muted-foreground mt-1">Test your knowledge with practice quizzes</p>
-        </div>
-        <Button onClick={createNewQuiz}>Create Quiz</Button>
-      </div>
+      <PageHeader 
+        title="Quizzes"
+        description="Test your knowledge with practice quizzes"
+      />
 
       {/* Quiz Type Selection */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

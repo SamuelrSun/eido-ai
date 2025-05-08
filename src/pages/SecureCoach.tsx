@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChatBot } from "@/components/chat/ChatBot";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const SecureCoach = () => {
   const [session, setSession] = useState<any>(null);
@@ -85,27 +85,23 @@ const SecureCoach = () => {
   if (!session) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Secure Cybersecurity Coach</h1>
-          <p className="text-muted-foreground mt-1">
-            Sign in to securely access the AI coach with advanced cybersecurity guidance.
-          </p>
-          <Button onClick={() => navigate("/auth")} className="mt-4">
-            Sign In to Access
-          </Button>
-        </div>
+        <PageHeader 
+          title="Secure Cybersecurity Coach"
+          description="Sign in to securely access the AI coach with advanced cybersecurity guidance."
+        />
+        <Button onClick={() => navigate("/auth")} className="mt-4">
+          Sign In to Access
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Secure Cybersecurity Coach</h1>
-        <p className="text-muted-foreground mt-1">
-          Advanced AI assistant with personalized cybersecurity guidance and knowledge retrieval.
-        </p>
-      </div>
+      <PageHeader 
+        title="Secure Cybersecurity Coach"
+        description="Advanced AI assistant with personalized cybersecurity guidance and knowledge retrieval."
+      />
 
       <div className="bg-white p-6 rounded-xl shadow-sm border">
         <ChatBot 

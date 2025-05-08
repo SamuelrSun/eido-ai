@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +14,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const FlashcardsPage = () => {
   const [activeTab, setActiveTab] = useState("study");
@@ -140,7 +140,10 @@ const FlashcardsPage = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Flashcards</h1>
+        <PageHeader 
+          title="Flashcards"
+          description="Enhance your learning with interactive flashcards"
+        />
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
             <FileUp className="mr-2 h-4 w-4" />

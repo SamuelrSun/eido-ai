@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserProfile } from "@/components/auth/UserProfile";
@@ -7,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const AccountPage = () => {
   const [session, setSession] = useState<any>(null);
@@ -76,12 +76,10 @@ const AccountPage = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">My Account</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage your profile and account settings
-        </p>
-      </div>
+      <PageHeader 
+        title="My Account"
+        description="Manage your profile and account settings"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="md:col-span-1">

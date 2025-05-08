@@ -1,10 +1,10 @@
-
 import { useEffect, useState } from "react";
 import { ChatBot } from "@/components/chat/ChatBot";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const StaticCoach = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -64,23 +64,21 @@ const StaticCoach = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">Cybersecurity Coach</h1>
-        <p className="text-gray-600 mb-6">
-          Ask the AI Coach anything about cybersecurity best practices, policies, or hacker tactics—powered by OpenAI's models.
-        </p>
-        
-        {isAuthenticated === false && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-blue-800 mb-3">
-              To use your API key across all your devices, sign in to save it securely.
-            </p>
-            <Button onClick={handleGoToSecureCoach} variant="outline">
-              Go to Secure Coach
-            </Button>
-          </div>
-        )}
-      </div>
+      <PageHeader 
+        title="Cybersecurity Coach"
+        description="Ask the AI Coach anything about cybersecurity best practices, policies, or hacker tactics—powered by OpenAI's models."
+      />
+      
+      {isAuthenticated === false && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-blue-800 mb-3">
+            To use your API key across all your devices, sign in to save it securely.
+          </p>
+          <Button onClick={handleGoToSecureCoach} variant="outline">
+            Go to Secure Coach
+          </Button>
+        </div>
+      )}
 
       <div className="bg-white p-6 rounded-xl shadow-sm border">
         <ChatBot 
