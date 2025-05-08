@@ -12,27 +12,44 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Received syllabus processing request");
+    
     // Get the file data from the request
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const className = formData.get('className') as string;
 
+    console.log("File received:", file?.name, "Class name:", className);
+
     if (!file || !className) {
+      console.error("Missing required parameters:", { file: !!file, className: !!className });
       return new Response(
         JSON.stringify({ error: 'File and className are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    if (!OPENAI_API_KEY) {
+      console.error("OpenAI API key not configured");
+      return new Response(
+        JSON.stringify({ error: 'OpenAI API key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Read file content as ArrayBuffer
     const fileBuffer = await file.arrayBuffer();
+    console.log("File size:", fileBuffer.byteLength, "bytes");
+    
     // Convert ArrayBuffer to Base64
     const fileBase64 = btoa(
       new Uint8Array(fileBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
     );
 
+    console.log("Sending request to OpenAI");
+
     // Call OpenAI API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
@@ -84,23 +101,37 @@ serve(async (req) => {
       }),
     });
 
-    const data = await response.json();
+    if (!openAIResponse.ok) {
+      const errorData = await openAIResponse.text();
+      console.error("OpenAI API error:", openAIResponse.status, errorData);
+      return new Response(
+        JSON.stringify({ error: `OpenAI API error: ${openAIResponse.status}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const data = await openAIResponse.json();
+    console.log("OpenAI response received");
     
     // Extract the generated content
     const content = data.choices?.[0]?.message?.content;
     
     if (!content) {
+      console.error("No content in OpenAI response:", data);
       return new Response(
         JSON.stringify({ error: 'Failed to extract events from syllabus' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log("OpenAI content:", content.substring(0, 200) + "...");
+
     let eventsData;
     try {
       // Parse the JSON response from OpenAI
       const parsedContent = JSON.parse(content);
       eventsData = parsedContent.events || [];
+      console.log(`Successfully extracted ${eventsData.length} events`);
     } catch (error) {
       console.error('Error parsing OpenAI response:', error);
       console.log('Raw content:', content);

@@ -18,6 +18,7 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
 
   const handleFileUpload = (uploadedFile: File) => {
     setFile(uploadedFile);
+    console.log("File selected:", uploadedFile.name, uploadedFile.type, uploadedFile.size);
   };
 
   const handleProcessSyllabus = async () => {
@@ -27,12 +28,15 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
     }
 
     setIsProcessing(true);
+    console.log(`Processing syllabus: ${file.name} for class: ${className}`);
     
     try {
       // Create form data to send to our edge function
       const formData = new FormData();
       formData.append('file', file);
       formData.append('className', className);
+      
+      console.log("Sending request to process-syllabus edge function");
       
       // Call our edge function to process the syllabus
       const response = await fetch(
@@ -45,37 +49,62 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process syllabus');
+        console.error("Error response from edge function:", response.status, errorData);
+        throw new Error(errorData.error || `Failed to process syllabus (Status: ${response.status})`);
       }
       
       const data = await response.json();
+      console.log("Response from edge function:", data);
       
       if (!data.events || !Array.isArray(data.events)) {
+        console.error("Invalid events data structure:", data);
         throw new Error('Invalid response from syllabus processing');
       }
       
-      // Convert the extracted events to the CalendarEvent format
-      const extractedEvents: CalendarEvent[] = data.events.map((event: any) => ({
-        id: crypto.randomUUID(),
-        title: event.title,
-        description: event.description || `From ${file.name}`,
-        date: new Date(event.date), // Parse the date string from the API
-        className,
-        color: CLASS_COLORS[className as keyof typeof CLASS_COLORS] || "#9b87f5"
-      }));
-      
-      if (extractedEvents.length === 0) {
+      if (data.events.length === 0) {
         toast.warning("No events found in the syllabus");
-      } else {
-        onEventsAdded(extractedEvents);
-        toast.success(`Successfully extracted ${extractedEvents.length} events from syllabus`);
+        setFile(null);
+        return;
       }
+      
+      // Convert the extracted events to the CalendarEvent format
+      const extractedEvents: CalendarEvent[] = data.events.map((event: any) => {
+        // Ensure date is valid
+        let eventDate: Date;
+        try {
+          eventDate = new Date(event.date);
+          
+          // Check if date is valid
+          if (isNaN(eventDate.getTime())) {
+            console.warn("Invalid date detected:", event.date);
+            // Fallback to current date
+            eventDate = new Date();
+          }
+        } catch (error) {
+          console.error("Error parsing date:", error, event);
+          // Fallback to current date
+          eventDate = new Date();
+        }
+        
+        return {
+          id: crypto.randomUUID(),
+          title: event.title || "Untitled Event",
+          description: event.description || `From ${file.name}`,
+          date: eventDate,
+          className,
+          color: CLASS_COLORS[className as keyof typeof CLASS_COLORS] || "#9b87f5"
+        };
+      });
+      
+      console.log(`Successfully extracted ${extractedEvents.length} events from syllabus`);
+      onEventsAdded(extractedEvents);
+      toast.success(`Successfully extracted ${extractedEvents.length} events from syllabus`);
       
       // Reset
       setFile(null);
     } catch (error) {
       console.error("Error processing syllabus:", error);
-      toast.error("Failed to process syllabus. Please try again.");
+      toast.error(error instanceof Error ? error.message : "Failed to process syllabus. Please try again.");
     } finally {
       setIsProcessing(false);
     }
