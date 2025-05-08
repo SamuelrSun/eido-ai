@@ -43,70 +43,205 @@ serve(async (req) => {
     )
     
     const { title, cardCount }: GenerateFlashcardsParams = await req.json()
-    console.log(`Generating ${cardCount} flashcards for deck: ${title}`);
+    console.log(`Generating ${cardCount} flashcards for deck: ${title} using Assistant API`);
     
     // Create a proper prompt that focuses on the title subject
     const prompt = `Create ${cardCount} educational flashcards about "${title}". 
     Each flashcard should have a clear question on the front and a comprehensive answer on the back.
     The flashcards should cover key concepts, definitions, and important facts about ${title}.
-    Make the content accurate, educational, and helpful for someone studying this topic.
-    Format the response as a JSON array with 'front' and 'back' properties for each card.`;
+    Format your response as a valid JSON object with a "flashcards" array containing exactly ${cardCount} flashcard objects.
+    Each flashcard object should have "front" and "back" properties.
+    Remember to only use knowledge that's available in the linked vector store.`;
     
-    console.log("Sending prompt to OpenAI:", prompt.substring(0, 100) + "...");
+    console.log("Creating thread with OpenAI Assistants API");
     
-    // Call OpenAI API to generate flashcards based on the prompt
-    console.log("Calling OpenAI API to generate flashcards...");
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
+    // Start a thread with the Assistant (using v2)
+    const threadResponse = await fetch("https://api.openai.com/v1/threads", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openaiApiKey}`,
+        "OpenAI-Beta": "assistants=v2"
+      }
+    });
+    
+    if (!threadResponse.ok) {
+      const threadError = await threadResponse.json();
+      console.error("Thread creation error:", JSON.stringify(threadError));
+      throw new Error(`Failed to create thread: ${JSON.stringify(threadError)}`);
+    }
+    
+    const threadData = await threadResponse.json();
+    const threadId = threadData.id;
+    
+    console.log(`Created thread with ID: ${threadId}`);
+    
+    // Add the user message to the thread
+    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openaiApiKey}`,
+        "OpenAI-Beta": "assistants=v2"
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a helpful assistant that creates educational flashcards. 
-                     Generate exactly ${cardCount} flashcards about "${title}". 
-                     Make each flashcard concise but informative, with a clear question on the front and a comprehensive answer on the back.
-                     Format your response as a JSON object with a "flashcards" array containing exactly ${cardCount} flashcard objects.`
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        response_format: { type: 'json_object' }
+        role: "user",
+        content: prompt
       })
     });
-
-    console.log("OpenAI API response status:", openaiResponse.status);
     
-    if (!openaiResponse.ok) {
-      const errorData = await openaiResponse.text();
-      console.error(`OpenAI API error: ${errorData}`);
-      throw new Error(`OpenAI API error: ${errorData}`);
+    if (!messageResponse.ok) {
+      const messageError = await messageResponse.json();
+      console.error("Message error:", JSON.stringify(messageError));
+      throw new Error(`Failed to add message: ${JSON.stringify(messageError)}`);
     }
-
-    const openaiData = await openaiResponse.json();
-    console.log("OpenAI response received successfully");
     
-    // Parse the JSON response from OpenAI
+    console.log("Added user message to thread");
+    
+    // Create system instruction specifically for flashcard generation
+    const systemPrompt = `You are a flashcard generation assistant that creates educational content.
+    Generate exactly ${cardCount} flashcards about the requested topic.
+    Use knowledge from the vector store to create accurate, relevant flashcards.
+    Each flashcard should have a clear question on the front and a detailed answer on the back.
+    Format your response as a valid JSON object with a "flashcards" array.
+    Each item in the array should have "front" and "back" properties.
+    Do not include any text explanations outside of the JSON structure.`;
+    
+    // Run the Assistant on the thread
+    const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openaiApiKey}`,
+        "OpenAI-Beta": "assistants=v2"
+      },
+      body: JSON.stringify({
+        assistant_id: assistantId,
+        instructions: systemPrompt,
+        tools: [
+          {
+            type: "file_search"
+          }
+        ]
+      })
+    });
+    
+    if (!runResponse.ok) {
+      const runError = await runResponse.json();
+      console.error("Run error:", JSON.stringify(runError));
+      throw new Error(`Failed to run assistant: ${JSON.stringify(runError)}`);
+    }
+    
+    const runData = await runResponse.json();
+    const runId = runData.id;
+    
+    console.log(`Started run with ID: ${runId}`);
+    
+    // Poll for run completion
+    let runStatus = "queued";
+    let maxAttempts = 120;  // 2 minutes timeout (120s)
+    let attempts = 0;
+    
+    while (runStatus !== "completed" && runStatus !== "failed" && runStatus !== "expired" && attempts < maxAttempts) {
+      attempts++;
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));  // Wait 1 second between polls
+      
+      const runCheckResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${openaiApiKey}`,
+          "OpenAI-Beta": "assistants=v2"
+        }
+      });
+      
+      if (!runCheckResponse.ok) {
+        const checkError = await runCheckResponse.json();
+        console.error("Run check error:", JSON.stringify(checkError));
+        throw new Error(`Failed to check run status: ${JSON.stringify(checkError)}`);
+      }
+      
+      const runCheckData = await runCheckResponse.json();
+      runStatus = runCheckData.status;
+      
+      // Log status every 10 seconds or if status changes
+      if (attempts % 10 === 0 || runStatus !== "in_progress") {
+        console.log(`Run status (attempt ${attempts}): ${runStatus}`);
+      }
+    }
+    
+    if (runStatus !== "completed") {
+      console.error(`Run did not complete. Final status: ${runStatus} after ${attempts} attempts.`);
+      throw new Error(`Run did not complete. Final status: ${runStatus}`);
+    }
+    
+    // Get the assistant's response
+    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${openaiApiKey}`,
+        "OpenAI-Beta": "assistants=v2"
+      }
+    });
+    
+    if (!messagesResponse.ok) {
+      const messagesError = await messagesResponse.json();
+      console.error("Messages retrieval error:", JSON.stringify(messagesError));
+      throw new Error(`Failed to get messages: ${JSON.stringify(messagesError)}`);
+    }
+    
+    const messagesData = await messagesResponse.json();
+    console.log("Retrieved messages:", JSON.stringify({
+      messageCount: messagesData.data?.length || 0,
+      hasData: !!messagesData.data
+    }));
+    
+    // Find the most recent assistant message
+    const assistantMessages = messagesData.data?.filter(m => m.role === "assistant") || [];
+    if (assistantMessages.length === 0) {
+      console.error("No assistant messages found in response:", JSON.stringify(messagesData));
+      throw new Error("No assistant response found");
+    }
+    
+    const latestAssistantMessage = assistantMessages[0];
+    console.log("Latest assistant message ID:", latestAssistantMessage.id);
+    
+    // Check if the content array exists and has items
+    if (!latestAssistantMessage.content || !Array.isArray(latestAssistantMessage.content) || latestAssistantMessage.content.length === 0) {
+      console.error("Invalid assistant message structure:", JSON.stringify(latestAssistantMessage));
+      throw new Error("Invalid assistant message structure");
+    }
+    
+    // Get the text value from the first content item of type "text"
+    const textContent = latestAssistantMessage.content.find(c => c.type === "text");
+    if (!textContent || !textContent.text || !textContent.text.value) {
+      console.error("No text content found in assistant message:", JSON.stringify(latestAssistantMessage.content));
+      throw new Error("No text content found in assistant message");
+    }
+    
+    const responseText = textContent.text.value;
+    console.log("Assistant response length:", responseText.length);
+    
+    // Extract JSON content containing flashcards
     let flashcardsContent;
     try {
-      flashcardsContent = JSON.parse(openaiData.choices[0].message.content);
+      // Find JSON content in the response
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        flashcardsContent = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error("No JSON object found in response");
+      }
     } catch (e) {
-      console.error("Failed to parse OpenAI response:", e);
-      console.log("Raw response:", openaiData.choices[0].message.content.substring(0, 500));
-      throw new Error("Failed to parse flashcards response from OpenAI");
+      console.error("Failed to parse JSON from response:", e);
+      console.log("Raw response (truncated):", responseText.substring(0, 500));
+      throw new Error("Failed to parse flashcards from response");
     }
     
     // Validate that we got the correct number of flashcards
     if (!flashcardsContent.flashcards || flashcardsContent.flashcards.length === 0) {
       console.error("No flashcards were found in the response");
-      console.log("Raw response:", openaiData.choices[0].message.content.substring(0, 500));
+      console.log("Raw response (truncated):", responseText.substring(0, 500));
       throw new Error('No flashcards were generated in the response');
     }
     
