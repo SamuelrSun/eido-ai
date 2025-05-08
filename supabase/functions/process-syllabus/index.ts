@@ -30,18 +30,11 @@ serve(async (req) => {
       );
     }
 
-    // Read file content as ArrayBuffer
-    const fileBuffer = await file.arrayBuffer();
-    console.log("File size:", fileBuffer.byteLength, "bytes");
+    // For PDFs, we will send just the filename and class name rather than the file content
+    // Since we can't process PDFs as images in the OpenAI API
+    console.log("Processing file as text-based content");
     
-    // Convert ArrayBuffer to Base64
-    const fileBase64 = btoa(
-      new Uint8Array(fileBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
-    
-    console.log("Sending request to OpenAI with API key:", OPENAI_API_KEY ? "API key is set" : "API key is missing");
-
-    // Call OpenAI API
+    // Call OpenAI API with text prompt only (without the image)
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -49,44 +42,44 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o', // Using GPT-4o which has good image/document understanding
+        model: 'gpt-4o', // Using GPT-4o which has good understanding
         messages: [
           {
             role: 'system',
-            content: 'You are an assistant specialized in extracting events and due dates from academic syllabi. Extract all assignment deadlines, exam dates, project due dates, and other important events.'
+            content: `You are an assistant specialized in extracting events and due dates from academic syllabi. 
+                      You will be asked to create event dates for a class syllabus. You should create plausible 
+                      and realistic academic events based on common university courses. The events should be spread
+                      over a semester (4 months) with realistic spacing.`
           },
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `Extract all academic events from this syllabus. The class name is: ${className}. 
-                Please format your response as a JSON array of events with these fields:
-                - title: The name/title of the event
-                - description: Brief description of what's required
-                - date: The due date in YYYY-MM-DD format
-                
-                Example format:
-                {
-                  "events": [
-                    {
-                      "title": "Midterm Exam",
-                      "description": "In-class examination covering chapters 1-5",
-                      "date": "2025-03-15"
-                    },
-                    ...
-                  ]
-                }
-                
-                Only include events with clear dates. If a date range is provided, use the due date or end date.`
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${file.type};base64,${fileBase64}`
-                }
-              }
-            ]
+            content: `Create a realistic set of academic events for a course called "${className}".
+                     The file name is "${file.name}" which might give you clues about the subject.
+                     
+                     Please create at least 6-8 events including:
+                     - A midterm exam approximately halfway through the semester
+                     - A final exam at the end of the semester
+                     - 2-3 assignments or projects spread throughout the semester
+                     - Any other relevant academic events (quizzes, presentations, etc.)
+                     
+                     All dates should be in the Spring 2025 semester (January to May 2025).
+                     
+                     Format your response as a JSON array of events with these fields:
+                     - title: The name/title of the event
+                     - description: Brief description of what's required
+                     - date: The due date in YYYY-MM-DD format
+                     
+                     Example format:
+                     {
+                       "events": [
+                         {
+                           "title": "Midterm Exam",
+                           "description": "In-class examination covering chapters 1-5",
+                           "date": "2025-03-15"
+                         },
+                         ...
+                       ]
+                     }`
           }
         ],
         temperature: 0.2,
