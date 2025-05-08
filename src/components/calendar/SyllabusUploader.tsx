@@ -32,6 +32,15 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
     console.log(`Processing syllabus: ${file.name} for class: ${className}`);
     
     try {
+      // First check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error("User is not authenticated");
+        toast.error("You must be signed in to upload a syllabus");
+        setIsProcessing(false);
+        return;
+      }
+      
       // Create form data to send to our edge function
       const formData = new FormData();
       formData.append('file', file);
@@ -92,13 +101,14 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
         
         const color = CLASS_COLORS[className as keyof typeof CLASS_COLORS] || "#9b87f5";
         
-        // Prepare data for Supabase insert
+        // Prepare data for Supabase insert with user_id included
         supabaseInserts.push({
           title: event.title || "Untitled Event",
           description: event.description || `From ${file.name}`,
           date: eventDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
           class_name: className,
-          color: color
+          color: color,
+          user_id: user.id // This is the important addition
         });
       }
       

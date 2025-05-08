@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import { CalendarEvent } from "@/types/calendar";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
 import { toast } from "sonner";
 
 const CalendarPage = () => {
@@ -24,6 +23,16 @@ const CalendarPage = () => {
     const fetchEvents = async () => {
       try {
         setLoading(true);
+        
+        // First check if user is authenticated
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.log("User is not authenticated, showing no events");
+          setEvents([]);
+          setLoading(false);
+          return;
+        }
+        
         const { data, error } = await supabase
           .from('calendar_events')
           .select('*');
@@ -58,6 +67,13 @@ const CalendarPage = () => {
   
   const handleAddEvent = async (event: CalendarEvent) => {
     try {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("You must be signed in to add events");
+        return;
+      }
+      
       if (currentEvent) {
         // Update existing event in Supabase
         const { error } = await supabase
@@ -89,7 +105,8 @@ const CalendarPage = () => {
             description: event.description,
             date: event.date.toISOString().split('T')[0],
             class_name: event.className,
-            color: event.color
+            color: event.color,
+            user_id: user.id
           })
           .select('id')
           .single();
