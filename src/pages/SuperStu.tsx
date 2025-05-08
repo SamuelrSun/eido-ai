@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { ChatBot } from "@/components/chat/ChatBot";
 import { FileUpload } from "@/components/chat/FileUpload";
+import { Book, GraduationCap } from "lucide-react";
 
 const SuperStu = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -12,24 +13,30 @@ const SuperStu = () => {
   };
 
   const suggestions = [
-    "What are the best practices for password management?",
-    "How can I protect against phishing attacks?",
-    "What is ransomware and how can I prevent it?",
-    "Explain the concept of zero trust security"
+    "Explain the OSI model layers and their functions",
+    "What are the best practices for network segmentation?",
+    "How do VPNs work and what security features should I look for?",
+    "Explain the concept of zero trust security architecture"
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2 text-cybercoach-blue-dark">SuperStu</h1>
+        <h1 className="text-3xl font-bold mb-2 flex items-center gap-2 text-purple-700">
+          <GraduationCap className="h-7 w-7" />
+          ITP457: Advanced Network Security
+        </h1>
         <p className="text-gray-600 mb-6">
-          Ask questions and get tailored cybersecurity guidance from our AI coach, trained on general cybersecurity best practices.
+          Upload your class materials and use AI-powered tools to help you understand complex concepts and answer your questions.
         </p>
         
         <div className="my-6">
-          <h2 className="text-lg font-medium mb-2 text-cybercoach-blue">Upload Training Materials</h2>
+          <h2 className="text-lg font-medium mb-2 text-purple-600 flex items-center gap-2">
+            <Book className="h-5 w-5" />
+            Upload Class Materials
+          </h2>
           <p className="text-sm text-gray-500 mb-2">
-            Upload your organization's cybersecurity training materials to personalize the AI responses.
+            Upload your lecture notes, readings, or assignments to personalize the AI responses to your specific course content.
           </p>
           <FileUpload onFileUpload={handleFileUpload} />
         </div>
@@ -38,8 +45,8 @@ const SuperStu = () => {
       <div className="bg-white p-6 rounded-xl shadow-sm border">
         <ChatBot 
           suggestions={suggestions}
-          title="Public Cyber Coach" 
-          knowledgeBase="General Cybersecurity Knowledge"
+          title="Class Assistant" 
+          knowledgeBase="Network Security Concepts"
         />
       </div>
     </div>

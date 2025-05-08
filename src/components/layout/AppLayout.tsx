@@ -27,7 +27,7 @@ export function AppLayout() {
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle sidebar</span>
           </Button>
-          <h1 className="text-lg font-semibold">CyberCoach</h1>
+          <h1 className="text-lg font-semibold">SuperStu</h1>
         </header>
         
         <main className="container mx-auto py-6 px-4 md:px-6">

@@ -9,7 +9,8 @@ import {
   Home,
   UserCircle,
   LogIn,
-  Search
+  Search,
+  GraduationCap
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -78,10 +79,10 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     <div className="flex flex-col h-screen w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
         <div className="flex items-center">
-          <div className="w-8 h-8 rounded-md bg-cybercoach-teal flex items-center justify-center mr-2">
-            <span className="font-bold text-white">CB</span>
+          <div className="w-8 h-8 rounded-md bg-purple-500 flex items-center justify-center mr-2">
+            <GraduationCap className="h-5 w-5 text-white" />
           </div>
-          <span className="font-semibold text-xl">CyberCoach</span>
+          <span className="font-semibold text-xl">SuperStu</span>
         </div>
         <Button 
           variant="ghost" 
