@@ -23,33 +23,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { flashcardService } from "@/services/flashcardService";
-import { FlashcardContent } from "@/types/flashcard";
+import { Deck, FlashcardContent } from "@/types/flashcard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-// Types imported from flashcard.ts
-interface Flashcard {
-  id: string;
-  front: string;
-  back: string;
-  deckId: string;
-  difficulty: string;
-  nextReview: Date;
-  lastReviewed?: Date;
-  reviewCount?: number;
-}
-
-interface Deck {
-  id: string;
-  title: string;
-  description: string;
-  userId?: string;
-  updatedAt: Date;
-  color: string;
-  cardCount: number;
-  dueCards: number;
-  newCards: number;
-  cards?: Flashcard[];
-}
 
 // Form schema for deck generation
 const deckGenerationSchema = z.object({
@@ -97,13 +72,12 @@ const FlashcardsPage = () => {
   const fetchDecks = async () => {
     setIsLoadingDecks(true);
     try {
-      // In a real implementation, this would fetch from Supabase
-      // For now, we'll set an empty array as we'll be generating decks
-      setDecks([]);
-      setIsLoadingDecks(false);
+      const fetchedDecks = await flashcardService.fetchDecks();
+      setDecks(fetchedDecks);
     } catch (error) {
       console.error("Error fetching decks:", error);
       toast.error("Failed to load flashcard decks");
+    } finally {
       setIsLoadingDecks(false);
     }
   };
@@ -145,38 +119,46 @@ const FlashcardsPage = () => {
         cardCount: data.cardCount
       });
       
-      const newDeckId = Math.random().toString(36).substring(2, 9);
-      
-      // Convert the generated content to flashcard objects
-      const flashcards = generatedFlashcards.map((card, idx) => {
-        return {
-          id: `card-${newDeckId}-${idx}`,
-          front: card.front,
-          back: card.back,
-          deckId: newDeckId,
-          difficulty: "medium",
-          nextReview: new Date(),
-        } as Flashcard;
-      });
-
-      const newDeck: Deck = {
-        id: newDeckId,
+      // First create the deck in the database
+      const newDeck = await flashcardService.saveDeck({
         title: data.title,
         description: `AI-generated flashcards`,
-        cardCount: flashcards.length,
-        dueCards: flashcards.length,
-        newCards: flashcards.length,
-        color: getRandomDeckColor(),
-        cards: flashcards,
-        updatedAt: new Date()
+        cardCount: generatedFlashcards.length,
+        dueCards: generatedFlashcards.length,
+        newCards: generatedFlashcards.length,
+        color: getRandomDeckColor()
+      });
+      
+      // Then save the flashcards
+      await flashcardService.saveFlashcards(newDeck.id, generatedFlashcards);
+      
+      // Fetch the flashcards for the deck
+      const savedFlashcards = await flashcardService.fetchFlashcards(newDeck.id);
+      
+      // Create a complete deck with cards
+      const completeNewDeck = {
+        ...newDeck,
+        cards: savedFlashcards
       };
-
+      
       // Add the new deck to our state
-      setDecks([...decks, newDeck]);
-      toast.success(`Successfully generated ${flashcards.length} flashcards!`);
+      setDecks(prevDecks => [completeNewDeck, ...prevDecks]);
+      
+      // Set this as the current deck for studying
+      setCurrentDeck(completeNewDeck);
+      
+      // Reset for studying
+      setCurrentCardIndex(0);
+      setIsFlipped(false);
+      
+      toast.success(`Successfully generated ${savedFlashcards.length} flashcards!`);
       
       setOpenGenerateDialog(false);
       form.reset();
+      
+      // Switch to study tab automatically after generating
+      setActiveTab("study");
+      
     } catch (error) {
       console.error("Error generating deck:", error);
       toast.error(`Failed to generate flashcard deck: ${(error as Error).message}`);
@@ -185,21 +167,47 @@ const FlashcardsPage = () => {
     }
   };
 
-  const startStudyingDeck = (deckId: string) => {
-    const selectedDeck = decks.find(deck => deck.id === deckId);
-    if (selectedDeck) {
-      setCurrentDeck(selectedDeck);
-      setCurrentCardIndex(0);
-      setIsFlipped(false);
-      setActiveTab("study");
+  const startStudyingDeck = async (deckId: string) => {
+    try {
+      // Find the selected deck
+      let selectedDeck = decks.find(deck => deck.id === deckId);
+      
+      // If the deck doesn't have cards yet, fetch them
+      if (selectedDeck && (!selectedDeck.cards || selectedDeck.cards.length === 0)) {
+        const fetchedCards = await flashcardService.fetchFlashcards(deckId);
+        selectedDeck = { ...selectedDeck, cards: fetchedCards };
+      }
+      
+      if (selectedDeck) {
+        setCurrentDeck(selectedDeck);
+        setCurrentCardIndex(0);
+        setIsFlipped(false);
+        setActiveTab("study");
+      }
+    } catch (error) {
+      console.error("Error loading flashcards:", error);
+      toast.error(`Failed to load flashcards: ${(error as Error).message}`);
     }
   };
 
-  const viewDeck = (deckId: string) => {
-    const selectedDeck = decks.find(deck => deck.id === deckId);
-    if (selectedDeck) {
-      setViewingDeck(selectedDeck);
-      setOpenViewDialog(true);
+  const viewDeck = async (deckId: string) => {
+    try {
+      // Find the selected deck
+      let selectedDeck = decks.find(deck => deck.id === deckId);
+      
+      // If the deck doesn't have cards yet, fetch them
+      if (selectedDeck && (!selectedDeck.cards || selectedDeck.cards.length === 0)) {
+        const fetchedCards = await flashcardService.fetchFlashcards(deckId);
+        selectedDeck = { ...selectedDeck, cards: fetchedCards };
+      }
+      
+      if (selectedDeck) {
+        setViewingDeck(selectedDeck);
+        setOpenViewDialog(true);
+      }
+    } catch (error) {
+      console.error("Error loading flashcards for viewing:", error);
+      toast.error(`Failed to load flashcards: ${(error as Error).message}`);
     }
   };
 
@@ -215,15 +223,20 @@ const FlashcardsPage = () => {
     return colors[Math.floor(Math.random() * colors.length)];
   };
 
-  // Effect for keyboard navigation
+  // Effect for keyboard navigation - only for flashcards, not tabs
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeTab === "study" && currentDeck?.cards) {
+      // Only handle keys when in study mode and not during form inputs
+      if (activeTab === "study" && currentDeck?.cards && 
+          !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName || '')) {
         if (e.code === "Space") {
+          e.preventDefault(); // Prevent scrolling
           handleFlip();
         } else if (e.code === "ArrowRight") {
+          e.preventDefault();
           handleNextCard();
         } else if (e.code === "ArrowLeft") {
+          e.preventDefault();
           handlePrevCard();
         }
       }
@@ -251,7 +264,7 @@ const FlashcardsPage = () => {
         </div>
       </div>
       
-      <Tabs defaultValue={activeTab} className="w-full" onValueChange={setActiveTab}>
+      <Tabs value={activeTab} className="w-full" onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-3 mb-4">
           <TabsTrigger value="study" disabled={!currentDeck}>
             <BookOpen className="mr-2 h-4 w-4" />

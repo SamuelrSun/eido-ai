@@ -36,6 +36,45 @@ export type Database = {
         }
         Relationships: []
       }
+      decks: {
+        Row: {
+          card_count: number
+          color: string
+          created_at: string
+          description: string
+          due_cards: number
+          id: string
+          new_cards: number
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          card_count?: number
+          color: string
+          created_at?: string
+          description: string
+          due_cards?: number
+          id?: string
+          new_cards?: number
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          card_count?: number
+          color?: string
+          created_at?: string
+          description?: string
+          due_cards?: number
+          id?: string
+          new_cards?: number
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       embeddings: {
         Row: {
           content: string
@@ -59,6 +98,53 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      flashcards: {
+        Row: {
+          back: string
+          created_at: string
+          deck_id: string
+          difficulty: string
+          front: string
+          id: string
+          last_reviewed: string | null
+          next_review: string
+          review_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          back: string
+          created_at?: string
+          deck_id: string
+          difficulty?: string
+          front: string
+          id?: string
+          last_reviewed?: string | null
+          next_review?: string
+          review_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          back?: string
+          created_at?: string
+          deck_id?: string
+          difficulty?: string
+          front?: string
+          id?: string
+          last_reviewed?: string | null
+          next_review?: string
+          review_count?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flashcards_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "decks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
