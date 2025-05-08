@@ -9,7 +9,7 @@ import {
   LogIn,
   Search,
   GraduationCap,
-  Upload,
+  File,
   BookOpen,
   SquareCheck,
   Calendar,
@@ -64,9 +64,9 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       to: "/super-stu"
     },
     {
-      icon: <Upload className="mr-2 h-5 w-5" />,
-      label: "Upload Materials",
-      to: "/upload"
+      icon: <File className="mr-2 h-5 w-5" />,
+      label: "Database",
+      to: "/database"
     }
   ];
   
