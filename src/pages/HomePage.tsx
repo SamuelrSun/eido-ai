@@ -51,19 +51,37 @@ const HomePage = () => {
       title: "ITP457: Advanced Network Security",
       description: "Learn about network vulnerabilities, encryption, and security protocols",
       emoji: "🔒",
-      link: "/super-stu",
+      link: "/calendar",
     },
     {
       title: "ITP216: Applied Python Concepts",
       description: "Master Python programming with practical applications and projects",
       emoji: "🐍",
-      link: "/super-stu",
+      link: "/calendar",
     },
     {
       title: "IR330: Politics of the World Economy",
       description: "Explore global economic systems, international trade, and policy analysis",
       emoji: "🌐",
-      link: "/super-stu",
+      link: "/calendar",
+    },
+    {
+      title: "ITP104: Intro to Web Development",
+      description: "Learn HTML, CSS, and JavaScript fundamentals for web development",
+      emoji: "🌐",
+      link: "/calendar",
+    },
+    {
+      title: "BAEP470: The Entrepreneurial Mindset",
+      description: "Develop strategies for innovation and business development",
+      emoji: "💼",
+      link: "/calendar",
+    },
+    {
+      title: "BISC110: Good Genes, Bad Genes",
+      description: "Explore genetics principles and their impact on health and society",
+      emoji: "🧬",
+      link: "/calendar",
     }
   ];
 
@@ -76,7 +94,7 @@ const HomePage = () => {
       />
 
       {/* Class Options */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {classOptions.map((option, index) => (
           <Link to={option.link} key={index} className="block">
             <Card className="h-full transition-all hover:shadow-md hover:border-blue-200">

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Calendar } from "@/components/calendar/CalendarDisplay";
 import { EventModal } from "@/components/calendar/EventModal";
 import { SyllabusUploader } from "@/components/calendar/SyllabusUploader";
+import { ClassFilter, CLASS_COLORS } from "@/components/calendar/ClassFilter";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -16,7 +17,7 @@ const CalendarPage = () => {
       description: "ITP457 Network Security midterm",
       date: new Date(2025, 4, 15),
       className: "ITP457: Advanced Network Security",
-      color: "#9b87f5" // Purple
+      color: CLASS_COLORS["ITP457: Advanced Network Security"]
     },
     {
       id: "2",
@@ -24,7 +25,7 @@ const CalendarPage = () => {
       description: "Python data analysis project",
       date: new Date(2025, 4, 25),
       className: "ITP216: Applied Python Concepts",
-      color: "#0EA5E9" // Blue
+      color: CLASS_COLORS["ITP216: Applied Python Concepts"]
     },
     {
       id: "3",
@@ -32,10 +33,35 @@ const CalendarPage = () => {
       description: "5-page analysis of global trade policies",
       date: new Date(2025, 4, 10),
       className: "IR330: Politics of the World Economy",
-      color: "#F97316" // Orange
+      color: CLASS_COLORS["IR330: Politics of the World Economy"]
+    },
+    {
+      id: "4",
+      title: "Web Project Due",
+      description: "Personal portfolio website",
+      date: new Date(2025, 4, 18),
+      className: "ITP104: Intro to Web Development",
+      color: CLASS_COLORS["ITP104: Intro to Web Development"]
+    },
+    {
+      id: "5",
+      title: "Business Pitch",
+      description: "Present startup idea to class",
+      date: new Date(2025, 4, 20),
+      className: "BAEP470: The Entrepreneurial Mindset",
+      color: CLASS_COLORS["BAEP470: The Entrepreneurial Mindset"]
+    },
+    {
+      id: "6",
+      title: "Lab Report Due",
+      description: "Genetics experiment analysis",
+      date: new Date(2025, 4, 12),
+      className: "BISC110: Good Genes, Bad Genes",
+      color: CLASS_COLORS["BISC110: Good Genes, Bad Genes"]
     }
   ]);
 
+  const [visibleClasses, setVisibleClasses] = useState<string[]>(Object.keys(CLASS_COLORS));
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentEvent, setCurrentEvent] = useState<CalendarEvent | null>(null);
 
@@ -71,6 +97,13 @@ const CalendarPage = () => {
     setEvents([...events, ...newEvents]);
   };
 
+  const handleFilterChange = (selectedClasses: string[]) => {
+    setVisibleClasses(selectedClasses);
+  };
+
+  // Filter events based on visible classes
+  const filteredEvents = events.filter(event => visibleClasses.includes(event.className));
+
   return (
     <div className="space-y-6">
       <PageHeader 
@@ -81,8 +114,8 @@ const CalendarPage = () => {
       <div className="flex flex-col space-y-6">
         {/* Upcoming Events and Syllabus Uploader side by side */}
         <div className="flex flex-col md:flex-row gap-6">
-          <div className="w-full md:w-1/2">
-            <div className="bg-white rounded-lg shadow p-4 h-52">
+          <div className="w-full md:w-1/3">
+            <div className="bg-white rounded-lg shadow p-4 h-80">
               <div className="flex justify-between items-center mb-2">
                 <h2 className="text-lg font-semibold">Upcoming Events</h2>
                 <Button onClick={handleAddNewEvent} size="sm">
@@ -90,13 +123,12 @@ const CalendarPage = () => {
                 </Button>
               </div>
               
-              <div className="space-y-1 overflow-y-auto max-h-[160px]">
-                {events.length === 0 ? (
+              <div className="space-y-1 overflow-y-auto max-h-[280px]">
+                {filteredEvents.length === 0 ? (
                   <p className="text-gray-500 text-sm">No events scheduled</p>
                 ) : (
-                  events
+                  filteredEvents
                     .sort((a, b) => a.date.getTime() - b.date.getTime())
-                    .slice(0, 3)
                     .map(event => (
                       <div
                         key={event.id}
@@ -109,25 +141,23 @@ const CalendarPage = () => {
                           {event.date.toLocaleDateString('en-US', { 
                             month: 'short', 
                             day: 'numeric' 
-                          })}
+                          })} • {event.className.split(":")[0]}
                         </div>
                       </div>
                     ))
-                )}
-                
-                {events.length > 3 && (
-                  <div className="text-center mt-1">
-                    <Button variant="link" className="text-xs p-0 h-auto">
-                      View all ({events.length})
-                    </Button>
-                  </div>
                 )}
               </div>
             </div>
           </div>
           
-          <div className="w-full md:w-1/2">
-            <div className="h-52">
+          <div className="w-full md:w-1/3">
+            <div className="h-80">
+              <ClassFilter onFilterChange={handleFilterChange} />
+            </div>
+          </div>
+          
+          <div className="w-full md:w-1/3">
+            <div className="h-80">
               <SyllabusUploader onEventsAdded={handleSyllabusEvents} />
             </div>
           </div>
@@ -137,7 +167,7 @@ const CalendarPage = () => {
         <div className="w-full">
           <div className="bg-white rounded-lg shadow p-4 min-h-[70vh]">
             <Calendar 
-              events={events} 
+              events={filteredEvents} 
               onEventClick={handleEditEvent} 
             />
           </div>

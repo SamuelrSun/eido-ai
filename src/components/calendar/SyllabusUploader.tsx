@@ -5,12 +5,7 @@ import { Loader2, Upload } from "lucide-react";
 import { FileUpload } from "@/components/chat/FileUpload";
 import { CalendarEvent } from "@/types/calendar";
 import { toast } from "sonner";
-
-const CLASS_COLORS = {
-  "ITP457: Advanced Network Security": "#9b87f5",
-  "ITP216: Applied Python Concepts": "#0EA5E9",
-  "IR330: Politics of the World Economy": "#F97316"
-};
+import { CLASS_COLORS } from "./ClassFilter";
 
 interface SyllabusUploaderProps {
   onEventsAdded: (events: CalendarEvent[]) => void;
@@ -87,15 +82,11 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
           onChange={(e) => setClassName(e.target.value)}
           className="w-full rounded-md border border-gray-300 p-2 text-sm"
         >
-          <option value="ITP457: Advanced Network Security">
-            ITP457: Advanced Network Security
-          </option>
-          <option value="ITP216: Applied Python Concepts">
-            ITP216: Applied Python Concepts
-          </option>
-          <option value="IR330: Politics of the World Economy">
-            IR330: Politics of the World Economy
-          </option>
+          {Object.keys(CLASS_COLORS).map(name => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
         </select>
       </div>
       
