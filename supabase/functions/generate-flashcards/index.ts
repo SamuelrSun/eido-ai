@@ -19,14 +19,14 @@ interface GenerateFlashcardsParams {
 }
 
 serve(async (req) => {
-  // Handle CORS
+  console.log("Function invoked: generate-flashcards");
+  
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    console.log("Function invoked: generate-flashcards");
-    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
