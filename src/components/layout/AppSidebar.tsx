@@ -124,17 +124,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       </div>
       
       <nav className="flex-1 overflow-auto py-4">
-        <div className="px-4 mb-2">
-          <Button 
-            onClick={() => setIsWidgetsDialogOpen(true)}
-            variant="outline" 
-            className="w-full justify-start gap-2"
-          >
-            <LayoutGrid className="h-4 w-4" />
-            Add Widgets
-          </Button>
-        </div>
-        
         <ul className="space-y-2 px-2">
           {coreNavItems.map((item) => (
             <li key={item.to}>
@@ -155,12 +144,25 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             </li>
           ))}
           
-          {visibleWidgetNavItems.length > 0 && (
-            <>
-              <div className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/70 uppercase">
+          {/* Widgets section with heading and add button */}
+          <div className="pt-4">
+            <div className="px-4 py-2 flex justify-between items-center">
+              <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
                 Widgets
-              </div>
-              {visibleWidgetNavItems.map((item) => (
+              </h3>
+              <Button 
+                onClick={() => setIsWidgetsDialogOpen(true)}
+                variant="ghost"
+                size="sm"
+                className="flex items-center gap-1 h-7 text-sidebar-foreground hover:text-primary hover:bg-sidebar-accent/80"
+              >
+                <LayoutGrid className="h-4 w-4" />
+                <span>Add</span>
+              </Button>
+            </div>
+            
+            {visibleWidgetNavItems.length > 0 ? (
+              visibleWidgetNavItems.map((item) => (
                 <li key={item.to}>
                   <NavLink
                     to={item.to}
@@ -176,13 +178,17 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
                     <span>{item.label}</span>
                   </NavLink>
                 </li>
-              ))}
-            </>
-          )}
+              ))
+            ) : (
+              <p className="text-xs text-muted-foreground px-4 py-2">
+                No widgets added yet
+              </p>
+            )}
+          </div>
         </ul>
       </nav>
       
-      {/* Account section moved to the bottom */}
+      {/* Account section */}
       <div className="mt-auto border-t border-sidebar-border/50 px-2 py-4">
         {!loading && !user && (
           <NavLink
