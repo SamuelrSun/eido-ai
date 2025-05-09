@@ -88,16 +88,19 @@ serve(async (req) => {
           body: formData,
         });
         
+        // Get response as text first to ensure we can debug any issues
+        const uploadResponseText = await uploadResponse.text();
+        
         let uploadData;
         try {
-          uploadData = await uploadResponse.json();
+          uploadData = JSON.parse(uploadResponseText);
         } catch (parseError) {
-          const responseText = await uploadResponse.text();
-          throw new Error(`Failed to parse OpenAI upload response: ${responseText.substring(0, 200)}`);
+          console.error("Failed to parse OpenAI upload response:", uploadResponseText.substring(0, 200));
+          throw new Error(`Failed to parse OpenAI upload response: ${uploadResponseText.substring(0, 200)}`);
         }
         
         if (!uploadResponse.ok) {
-          throw new Error(uploadData.error?.message || 'File upload failed');
+          throw new Error(uploadData.error?.message || `File upload failed: ${uploadResponse.status}`);
         }
         
         console.log(`File uploaded to OpenAI: ${uploadData.id}`);
@@ -116,16 +119,19 @@ serve(async (req) => {
           }),
         });
         
+        // Get response as text first for debugging
+        const vectorStoreResponseText = await addToVectorStoreResponse.text();
+        
         let vectorStoreData;
         try {
-          vectorStoreData = await addToVectorStoreResponse.json();
+          vectorStoreData = JSON.parse(vectorStoreResponseText);
         } catch (parseError) {
-          const responseText = await addToVectorStoreResponse.text();
-          throw new Error(`Failed to parse vector store response: ${responseText.substring(0, 200)}`);
+          console.error("Failed to parse vector store response:", vectorStoreResponseText.substring(0, 200));
+          throw new Error(`Failed to parse vector store response: ${vectorStoreResponseText.substring(0, 200)}`);
         }
         
         if (!addToVectorStoreResponse.ok) {
-          throw new Error(vectorStoreData.error?.message || 'Adding to vector store failed');
+          throw new Error(vectorStoreData.error?.message || `Adding to vector store failed: ${addToVectorStoreResponse.status}`);
         }
         
         console.log(`File added to vector store: ${file.name}`);
@@ -157,9 +163,9 @@ serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+        status: 200
       }
-    )
+    );
   } catch (error) {
     console.error('Error uploading to vector store:', error);
     return new Response(
@@ -168,8 +174,8 @@ serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 500
       }
-    )
+    );
   }
-})
+});
