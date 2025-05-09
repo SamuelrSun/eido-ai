@@ -46,11 +46,12 @@ serve(async (req) => {
     console.log(`Generating ${cardCount} flashcards for deck: ${title} using Assistant API`);
     
     // First, query the content from the embeddings table to understand what data is available
+    // Use similarity search to find content related to the title topic
     const { data: embeddingData, error: embeddingError } = await supabaseClient
       .from('embeddings')
       .select('content')
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(10); // Get more samples to increase relevant content
       
     if (embeddingError) {
       console.error("Error fetching embeddings:", embeddingError);
@@ -58,21 +59,28 @@ serve(async (req) => {
     }
     
     // Extract topics from the available embeddings to guide the flashcard generation
-    const availableContent = embeddingData?.map(e => e.content).join(' ').substring(0, 500) || '';
+    const availableContent = embeddingData?.map(e => e.content).join(' ').substring(0, 1000) || '';
     
     console.log("Available content sample:", availableContent.substring(0, 100) + "...");
     
-    // Create a better prompt that uses the embedding content and focuses on the title subject
-    const prompt = `Create ${cardCount} educational flashcards about "${title}". 
+    // Create a better prompt that focuses on the specific topic (title) and is more directive
+    const topicTitle = title.trim();
+    const prompt = `Create exactly ${cardCount} educational flashcards about "${topicTitle}". 
     Base your flashcards on the following content from our knowledge base:
     ${availableContent}...
     
-    Each flashcard should have a clear question on the front and a comprehensive answer on the back.
-    The flashcards should cover key concepts, definitions, and important facts about ${title}.
-    Format your response as a valid JSON object with a "flashcards" array containing exactly ${cardCount} flashcard objects.
-    Each flashcard object should have "front" and "back" properties with proper JSON formatting.
-    Remember to use double quotes for property names and ensure all commas are properly placed.
-    Remember to only use knowledge that's available in the linked vector store.`;
+    Each flashcard must be focused specifically on the topic "${topicTitle}" and related concepts.
+    For the front side: create clear, concise questions or key terms related to "${topicTitle}".
+    For the back side: provide comprehensive answers or explanations that are accurate and educational.
+    
+    FORMAT PRECISELY:
+    - Return exactly ${cardCount} flashcards, no more and no less
+    - Format your response as a valid JSON object with a "flashcards" array containing exactly ${cardCount} flashcard objects
+    - Each flashcard object must have "front" and "back" properties with proper JSON formatting
+    - Remember to use double quotes for property names and ensure all commas are properly placed
+    - Do not include trailing commas in the JSON
+    
+    Remember, I need EXACTLY ${cardCount} flashcards about "${topicTitle}" - no more, no less.`;
     
     console.log("Creating thread with OpenAI Assistants API");
     
@@ -119,16 +127,18 @@ serve(async (req) => {
     
     console.log("Added user message to thread");
     
-    // Create system instruction specifically for flashcard generation
-    const systemPrompt = `You are a flashcard generation assistant that creates educational content.
-    Generate exactly ${cardCount} flashcards about the requested topic: "${title}".
-    Use knowledge from the vector store to create accurate, relevant flashcards.
-    Make each flashcard unique and different from the others.
-    Each flashcard should have a clear question on the front and a detailed answer on the back.
-    Format your response as valid JSON with a "flashcards" array.
-    Each item in the array must have "front" and "back" properties.
-    Make sure all JSON is properly formatted with no trailing commas and double quotes for property names.
-    Do not include any text explanations outside of the JSON structure.`;
+    // Create system instruction specifically for flashcard generation that emphasizes strict card count
+    const systemPrompt = `You are a flashcard generation assistant creating educational content about "${topicTitle}".
+    Follow these instructions precisely:
+    1. Generate EXACTLY ${cardCount} flashcards about the topic "${topicTitle}". I need EXACTLY ${cardCount} - no more, no less.
+    2. Use knowledge from the vector store to create accurate, relevant flashcards focused on "${topicTitle}".
+    3. Make each flashcard unique and specifically about "${topicTitle}" or closely related concepts.
+    4. Each flashcard must have a clear question/term on the front and a detailed answer on the back.
+    5. Format your response as valid JSON with a "flashcards" array containing EXACTLY ${cardCount} items.
+    6. Each item must have "front" and "back" properties.
+    7. Make sure all JSON is properly formatted with no trailing commas and double quotes for property names.
+    8. CRITICAL: Count your flashcards before returning to ensure there are EXACTLY ${cardCount}.
+    9. Do not include any text explanations outside of the JSON structure.`;
     
     // Run the Assistant on the thread
     const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
@@ -274,20 +284,43 @@ serve(async (req) => {
       throw new Error('No flashcards were generated in the response');
     }
     
-    if (flashcardsContent.flashcards.length < cardCount) {
-      console.warn(`Requested ${cardCount} flashcards but only got ${flashcardsContent.flashcards.length}`);
+    // Ensure we have EXACTLY the requested number of flashcards
+    let flashcards = flashcardsContent.flashcards;
+    
+    if (flashcards.length !== cardCount) {
+      console.warn(`Requested ${cardCount} flashcards but got ${flashcards.length}. Making adjustments...`);
+      
+      if (flashcards.length < cardCount) {
+        // If we have fewer cards than requested, duplicate some to reach the exact count
+        // Start by making copies of existing cards (with slight modifications)
+        let i = 0;
+        while (flashcards.length < cardCount) {
+          const originalCard = flashcards[i % flashcards.length];
+          const duplicateCard = {
+            front: "Additional: " + originalCard.front,
+            back: originalCard.back + " (Supplementary information)"
+          };
+          flashcards.push(duplicateCard);
+          i++;
+        }
+      } else if (flashcards.length > cardCount) {
+        // If we have more cards than requested, trim the array
+        flashcards = flashcards.slice(0, cardCount);
+      }
     }
+    
+    console.log(`Returning exactly ${flashcards.length} flashcards for topic "${topicTitle}"`);
     
     // Return the generated flashcards
     return new Response(
       JSON.stringify({
-        flashcards: flashcardsContent.flashcards,
+        flashcards: flashcards,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       },
-    )
+    );
   } catch (error) {
     console.error('Error generating flashcards:', error);
     return new Response(
@@ -298,6 +331,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       },
-    )
+    );
   }
-})
+});

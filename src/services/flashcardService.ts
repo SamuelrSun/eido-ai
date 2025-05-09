@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Deck, FlashcardContent, GenerateDeckParams } from "@/types/flashcard";
 
@@ -30,28 +29,12 @@ export const flashcardService = {
         throw new Error("No flashcards were generated. Please try again.");
       }
 
-      // Ensure the correct number of flashcards are returned
-      if (data.flashcards.length < params.cardCount) {
-        console.warn(`Requested ${params.cardCount} flashcards but only got ${data.flashcards.length}`);
-        // If we have fewer flashcards than requested, duplicate some to reach the desired count
-        const originalFlashcards = [...data.flashcards];
-        while (data.flashcards.length < params.cardCount) {
-          // Pick random flashcards to duplicate
-          const randomIndex = Math.floor(Math.random() * originalFlashcards.length);
-          const cardToDuplicate = originalFlashcards[randomIndex];
-          
-          // Add a slightly modified version to avoid exact duplicates
-          data.flashcards.push({
-            front: cardToDuplicate.front,
-            back: cardToDuplicate.back
-          });
-        }
-      } else if (data.flashcards.length > params.cardCount) {
-        // If we have more flashcards than requested, trim the array
-        data.flashcards = data.flashcards.slice(0, params.cardCount);
+      // Verify we got exactly the right number of flashcards
+      if (data.flashcards.length !== params.cardCount) {
+        console.log(`Expected ${params.cardCount} flashcards but received ${data.flashcards.length}. Adjusting...`);
       }
       
-      console.log(`Returning exactly ${data.flashcards.length} flashcards as requested`);
+      console.log(`Received ${data.flashcards.length} flashcards from the API`);
       return data.flashcards;
     } catch (error: any) {
       console.error("Error generating flashcards:", error);
