@@ -28,36 +28,50 @@ serve(async (req) => {
       }
     });
 
+    const responseText = await response.text();
+    let responseData;
+    
+    try {
+      // Try to parse the response as JSON
+      responseData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse OpenAI API response as JSON:", responseText.substring(0, 200));
+      
+      // Return a structured error with the response text details
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to parse OpenAI API response",
+          responseStatus: response.status,
+          responseDetails: responseText.substring(0, 500)  // Include part of the response for debugging
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
+    }
+    
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error("OpenAI API error:", errorData);
+      console.error("OpenAI API error:", responseData);
       
       let errorMessage = `OpenAI API returned ${response.status}`;
-      try {
-        const parsedError = JSON.parse(errorData);
-        errorMessage = parsedError.error?.message || errorMessage;
-      } catch (e) {
-        // If parsing fails, use the raw error text (but limit length)
-        errorMessage = errorData.length > 200 ? 
-          `${errorData.substring(0, 200)}...` : errorData;
+      if (responseData.error?.message) {
+        errorMessage = responseData.error.message;
       }
       
       throw new Error(errorMessage);
     }
-    
-    // Parse the successful response
-    const filesData = await response.json();
       
     console.log("Retrieved files from vector store:", JSON.stringify({
-      fileCount: filesData.data?.length || 0,
-      hasData: !!filesData.data
+      fileCount: responseData.data?.length || 0,
+      hasData: !!responseData.data
     }));
 
     // Return the list of files
     return new Response(
       JSON.stringify({
-        files: filesData.data || [],
-        count: filesData.data?.length || 0,
+        files: responseData.data || [],
+        count: responseData.data?.length || 0,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

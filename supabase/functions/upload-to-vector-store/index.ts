@@ -18,7 +18,21 @@ serve(async (req) => {
     console.log("Function invoked: upload-to-vector-store");
     
     // Parse request body
-    const { files } = await req.json();
+    let requestData; 
+    try {
+      requestData = await req.json();
+    } catch (parseError) {
+      console.error("Failed to parse request body:", parseError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body - could not parse JSON' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
+        }
+      );
+    }
+    
+    const { files } = requestData;
     
     if (!files || !Array.isArray(files) || files.length === 0) {
       return new Response(
@@ -74,7 +88,13 @@ serve(async (req) => {
           body: formData,
         });
         
-        const uploadData = await uploadResponse.json();
+        let uploadData;
+        try {
+          uploadData = await uploadResponse.json();
+        } catch (parseError) {
+          const responseText = await uploadResponse.text();
+          throw new Error(`Failed to parse OpenAI upload response: ${responseText.substring(0, 200)}`);
+        }
         
         if (!uploadResponse.ok) {
           throw new Error(uploadData.error?.message || 'File upload failed');
@@ -96,7 +116,13 @@ serve(async (req) => {
           }),
         });
         
-        const vectorStoreData = await addToVectorStoreResponse.json();
+        let vectorStoreData;
+        try {
+          vectorStoreData = await addToVectorStoreResponse.json();
+        } catch (parseError) {
+          const responseText = await addToVectorStoreResponse.text();
+          throw new Error(`Failed to parse vector store response: ${responseText.substring(0, 200)}`);
+        }
         
         if (!addToVectorStoreResponse.ok) {
           throw new Error(vectorStoreData.error?.message || 'Adding to vector store failed');

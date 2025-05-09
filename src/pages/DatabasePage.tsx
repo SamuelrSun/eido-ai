@@ -267,7 +267,10 @@ const DatabasePage = () => {
           throw new Error("Authentication required");
         }
         
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-vector-store-files`, {
+        // Fix: Use the proper VITE_SUPABASE_URL environment variable
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        
+        const response = await fetch(`${supabaseUrl}/functions/v1/list-vector-store-files`, {
           headers: {
             Authorization: `Bearer ${sessionData.session.access_token}`,
           },
@@ -855,9 +858,11 @@ const DatabasePage = () => {
       const filesToUpload = selectedItems.filter(item => item.type === 'file' && item.url);
       setUploadingProgress(30);
       
+      // Fix: Use the proper VITE_SUPABASE_URL environment variable
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
       // Call an edge function that would handle the upload to Vector Store
-      // This is a placeholder - you would need to implement this edge function
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-to-vector-store`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/upload-to-vector-store`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${sessionData.session.access_token}`,
@@ -1001,26 +1006,26 @@ const DatabasePage = () => {
               <div className="flex gap-3 mb-6 mt-4">
                 {!selectionMode ? (
                   <>
-                    <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)} className="py-6">
+                    <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)} className="py-6 my-2">
                       <Upload className="h-4 w-4 mr-2" />
                       Upload Files
                     </Button>
-                    <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6">
+                    <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6 my-2">
                       <FolderPlus className="h-4 w-4 mr-2" />
                       New Folder
                     </Button>
-                    <Button variant="outline" onClick={() => setSelectionMode(true)} className="py-6 ml-auto">
+                    <Button variant="outline" onClick={() => setSelectionMode(true)} className="py-6 my-2 ml-auto">
                       <Check className="h-4 w-4 mr-2" />
                       Select Items
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button variant="default" onClick={pushToVectorStore} className="py-6">
+                    <Button variant="default" onClick={pushToVectorStore} className="py-6 my-2">
                       <ArrowUp className="h-4 w-4 mr-2" />
                       Push to Vector Store ({selectedItems.length})
                     </Button>
-                    <Button variant="outline" onClick={cancelSelectionMode} className="py-6">
+                    <Button variant="outline" onClick={cancelSelectionMode} className="py-6 my-2">
                       Cancel
                     </Button>
                   </>
