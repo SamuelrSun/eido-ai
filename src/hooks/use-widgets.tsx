@@ -1,49 +1,79 @@
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useState, useContext, useEffect, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+export type WidgetType = "flashcards" | "quizzes" | "calendar" | "supertutor" | "database";
 
 interface WidgetsContextType {
-  enabledWidgets: string[];
-  setEnabledWidgets: (widgets: string[]) => void;
+  enabledWidgets: WidgetType[];
+  toggleWidget: (widget: WidgetType) => void;
+  isWidgetEnabled: (widget: WidgetType) => boolean;
 }
 
 const WidgetsContext = createContext<WidgetsContextType>({
-  enabledWidgets: ["flashcards", "quizzes", "calendar"], // Default widgets
-  setEnabledWidgets: () => {}
+  enabledWidgets: [],
+  toggleWidget: () => {},
+  isWidgetEnabled: () => false,
 });
 
-export function WidgetsProvider({ children }: { children: React.ReactNode }) {
-  const [enabledWidgets, setEnabledWidgets] = useState<string[]>(["flashcards", "quizzes", "calendar"]);
+// Default widgets that are enabled for all users
+const DEFAULT_WIDGETS: WidgetType[] = ["flashcards", "calendar"];
 
-  // Load from local storage on mount
+export const useWidgets = () => useContext(WidgetsContext);
+
+export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
+  const [enabledWidgets, setEnabledWidgets] = useState<WidgetType[]>(DEFAULT_WIDGETS);
+
+  // Load widgets from localStorage or use defaults
   useEffect(() => {
-    const saved = localStorage.getItem("enabledWidgets");
-    
-    if (saved) {
+    const storedWidgets = localStorage.getItem("enabledWidgets");
+    if (storedWidgets) {
       try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setEnabledWidgets(parsed);
-        }
-      } catch (error) {
-        console.error("Failed to parse enabled widgets from localStorage", error);
+        setEnabledWidgets(JSON.parse(storedWidgets));
+      } catch (e) {
+        console.error("Failed to parse stored widgets", e);
+        setEnabledWidgets(DEFAULT_WIDGETS);
       }
     }
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        // Reset to defaults on sign out
+        setEnabledWidgets(DEFAULT_WIDGETS);
+        localStorage.setItem("enabledWidgets", JSON.stringify(DEFAULT_WIDGETS));
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Save to local storage when changed
-  const updateEnabledWidgets = (widgets: string[]) => {
-    setEnabledWidgets(widgets);
-    localStorage.setItem("enabledWidgets", JSON.stringify(widgets));
+  // Save widget changes to localStorage
+  useEffect(() => {
+    localStorage.setItem("enabledWidgets", JSON.stringify(enabledWidgets));
+  }, [enabledWidgets]);
+
+  const toggleWidget = (widget: WidgetType) => {
+    setEnabledWidgets(current => {
+      if (current.includes(widget)) {
+        return current.filter(w => w !== widget);
+      } else {
+        return [...current, widget];
+      }
+    });
+  };
+
+  const isWidgetEnabled = (widget: WidgetType) => {
+    return enabledWidgets.includes(widget);
   };
 
   return (
-    <WidgetsContext.Provider value={{
-      enabledWidgets,
-      setEnabledWidgets: updateEnabledWidgets
+    <WidgetsContext.Provider value={{ 
+      enabledWidgets, 
+      toggleWidget,
+      isWidgetEnabled
     }}>
       {children}
     </WidgetsContext.Provider>
   );
-}
-
-export const useWidgets = () => useContext(WidgetsContext);
+};

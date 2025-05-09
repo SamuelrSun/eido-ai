@@ -20,6 +20,7 @@ import FlashcardsPage from "./pages/FlashcardsPage";
 import QuizzesPage from "./pages/QuizzesPage";
 import QuizSessionPage from "./pages/QuizSessionPage";
 import CalendarPage from "./pages/CalendarPage";
+import CybersecurityCoach from "./pages/CybersecurityCoach";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="quizzes/:quizId" element={<QuizSessionPage />} />
               <Route path="calendar" element={<CalendarPage />} />
               <Route path="account" element={<AccountPage />} />
+              <Route path="cybersecurity-coach" element={<CybersecurityCoach />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />
