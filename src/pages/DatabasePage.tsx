@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -105,7 +104,8 @@ const formatFileSize = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const getFileIcon = (fileType: string) => {
+// Change return type to React.ReactNode instead of string
+const getFileIcon = (fileType: string): React.ReactNode => {
   return <File className="h-8 w-8 text-blue-500" />;
 };
 
@@ -132,7 +132,7 @@ const DatabasePage = () => {
   const [isLoadingVectorFiles, setIsLoadingVectorFiles] = useState(false);
   const [activeTab, setActiveTab] = useState("myFiles");
   
-  // New state for selection mode
+  // State for selection mode
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -802,7 +802,7 @@ const DatabasePage = () => {
     return new Date(timestamp * 1000).toLocaleDateString();
   };
 
-  // New function to handle toggling selection of an item
+  // Function to handle toggling selection of an item
   const toggleSelectItem = (item: SelectedItem) => {
     setSelectedItems(prevItems => {
       const exists = prevItems.some(i => i.id === item.id);
@@ -816,7 +816,7 @@ const DatabasePage = () => {
     });
   };
 
-  // New function to handle pushing selected items to vector store
+  // Function to handle pushing selected items to vector store
   const pushToVectorStore = async () => {
     if (selectedItems.length === 0) {
       toast({
@@ -956,392 +956,384 @@ const DatabasePage = () => {
         description="Store, organize, and access your files and learning materials."
       />
       
-      {!user ? (
-        <div className="bg-white p-6 rounded-xl shadow-sm border text-center py-12">
-          <h3 className="text-lg font-medium text-gray-700 mb-4">Authentication Required</h3>
-          <p className="text-gray-500 mb-6">Please sign in to access your database and files.</p>
-          <Button onClick={() => navigate('/auth')}>Sign In</Button>
-        </div>
-      ) : (
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          {/* Top Section: Search and Storage */}
-          <div className="mb-6 space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="search"
-                placeholder="Search files and folders..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            
-            <div className="mt-2">
-              <div className="flex justify-between items-center text-sm mb-1">
-                <span>Storage usage</span>
-                <span>{((userStorage.storage_used / userStorage.storage_limit) * 100).toFixed(1)}% used</span>
-              </div>
-              <Progress value={(userStorage.storage_used / userStorage.storage_limit) * 100} className="h-2" />
-              <div className="flex justify-end mt-1">
-                <span className="text-xs text-gray-500">
-                  {formatFileSize(userStorage.storage_used)} of {formatFileSize(userStorage.storage_limit)}
-                </span>
-              </div>
-            </div>
+      <div className="bg-white p-6 rounded-xl shadow-sm border">
+        {/* Top Section: Search and Storage */}
+        <div className="mb-6 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="search"
+              placeholder="Search files and folders..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
           
-          {/* Tabs for Local Files and Vector Store Files */}
-          <Tabs defaultValue="myFiles" value={activeTab} onValueChange={setActiveTab} className="mb-6">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="myFiles">Local Files</TabsTrigger>
-              <TabsTrigger value="vectorStore">
-                Vector Store 
-                <Badge variant="outline" className="ml-2 bg-blue-50">AI</Badge>
-              </TabsTrigger>
-            </TabsList>
+          <div className="mt-2">
+            <div className="flex justify-between items-center text-sm mb-1">
+              <span>Storage usage</span>
+              <span>{((userStorage.storage_used / userStorage.storage_limit) * 100).toFixed(1)}% used</span>
+            </div>
+            <Progress value={(userStorage.storage_used / userStorage.storage_limit) * 100} className="h-2" />
+            <div className="flex justify-end mt-1">
+              <span className="text-xs text-gray-500">
+                {formatFileSize(userStorage.storage_used)} of {formatFileSize(userStorage.storage_limit)}
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Tabs for Local Files and Vector Store Files */}
+        <Tabs defaultValue="myFiles" value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="myFiles">Local Files</TabsTrigger>
+            <TabsTrigger value="vectorStore">
+              Vector Store 
+              <Badge variant="outline" className="ml-2 bg-blue-50">AI</Badge>
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="myFiles" className="mt-6">
+            {/* Action Buttons */}
+            <div className="flex gap-3 mb-6 mt-4">
+              {!selectionMode ? (
+                <>
+                  <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)} className="py-6 my-2">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Files
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6 my-2">
+                    <FolderPlus className="h-4 w-4 mr-2" />
+                    New Folder
+                  </Button>
+                  <Button variant="outline" onClick={() => setSelectionMode(true)} className="py-6 my-2 ml-auto">
+                    <Check className="h-4 w-4 mr-2" />
+                    Select Items
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="default" onClick={pushToVectorStore} className="py-6 my-2">
+                    <ArrowUp className="h-4 w-4 mr-2" />
+                    Push to Vector Store ({selectedItems.length})
+                  </Button>
+                  <Button variant="outline" onClick={cancelSelectionMode} className="py-6 my-2">
+                    Cancel
+                  </Button>
+                </>
+              )}
+            </div>
             
-            <TabsContent value="myFiles" className="mt-6">
-              {/* Action Buttons */}
-              <div className="flex gap-3 mb-6 mt-4">
-                {!selectionMode ? (
-                  <>
-                    <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)} className="py-6 my-2">
+            {/* Breadcrumbs Navigation */}
+            <div className="flex flex-wrap items-center mb-6 text-lg">
+              {breadcrumbs.map((crumb, index) => (
+                <div key={index} className="flex items-center">
+                  {index > 0 && (
+                    <ChevronRight className="h-5 w-5 mx-2 text-gray-400" />
+                  )}
+                  <button
+                    onClick={() => navigateToFolder(crumb.id, crumb.name)}
+                    className={`px-4 py-2 rounded-full transition-all ${
+                      index === breadcrumbs.length - 1 
+                        ? 'bg-blue-100 text-blue-700 font-medium' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {crumb.name}
+                  </button>
+                </div>
+              ))}
+            </div>
+            
+            {/* File/Folder Drop Area */}
+            <div 
+              className={`min-h-[400px] border-2 border-dashed rounded-lg p-4 ${
+                dragging ? "border-purple-500 bg-purple-50" : "border-gray-200"
+              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={handleFileDrop}
+            >
+              {/* Loading state */}
+              {loading && (
+                <div className="flex flex-col items-center justify-center h-full py-10">
+                  <Loader2 className="h-10 w-10 text-purple-500 animate-spin mb-4" />
+                  <p className="text-gray-500">Loading your files and folders...</p>
+                </div>
+              )}
+              
+              {/* Empty state */}
+              {!loading && currentFolderItems.folders.length === 0 && currentFolderItems.files.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                  <FolderPlus className="h-16 w-16 text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-700">This folder is empty</h3>
+                  <p className="text-gray-500 mb-4">
+                    Upload files or create folders to get started
+                  </p>
+                  <div className="flex gap-3">
+                    <Button onClick={() => setIsUploadDialogOpen(true)} className="py-6">
                       <Upload className="h-4 w-4 mr-2" />
                       Upload Files
                     </Button>
-                    <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6 my-2">
+                    <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6">
                       <FolderPlus className="h-4 w-4 mr-2" />
                       New Folder
                     </Button>
-                    <Button variant="outline" onClick={() => setSelectionMode(true)} className="py-6 my-2 ml-auto">
-                      <Check className="h-4 w-4 mr-2" />
-                      Select Items
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="default" onClick={pushToVectorStore} className="py-6 my-2">
-                      <ArrowUp className="h-4 w-4 mr-2" />
-                      Push to Vector Store ({selectedItems.length})
-                    </Button>
-                    <Button variant="outline" onClick={cancelSelectionMode} className="py-6 my-2">
-                      Cancel
-                    </Button>
-                  </>
-                )}
-              </div>
-              
-              {/* Breadcrumbs Navigation */}
-              <div className="flex flex-wrap items-center mb-6 text-lg">
-                {breadcrumbs.map((crumb, index) => (
-                  <div key={index} className="flex items-center">
-                    {index > 0 && (
-                      <ChevronRight className="h-5 w-5 mx-2 text-gray-400" />
-                    )}
-                    <button
-                      onClick={() => navigateToFolder(crumb.id, crumb.name)}
-                      className={`px-4 py-2 rounded-full transition-all ${
-                        index === breadcrumbs.length - 1 
-                          ? 'bg-blue-100 text-blue-700 font-medium' 
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      {crumb.name}
-                    </button>
                   </div>
-                ))}
-              </div>
-              
-              {/* File/Folder Drop Area */}
-              <div 
-                className={`min-h-[400px] border-2 border-dashed rounded-lg p-4 ${
-                  dragging ? "border-purple-500 bg-purple-50" : "border-gray-200"
-                }`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragging(true);
-                }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={handleFileDrop}
-              >
-                {/* Loading state */}
-                {loading && (
-                  <div className="flex flex-col items-center justify-center h-full py-10">
-                    <Loader2 className="h-10 w-10 text-purple-500 animate-spin mb-4" />
-                    <p className="text-gray-500">Loading your files and folders...</p>
-                  </div>
-                )}
-                
-                {/* Empty state */}
-                {!loading && currentFolderItems.folders.length === 0 && currentFolderItems.files.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center py-10">
-                    <FolderPlus className="h-16 w-16 text-gray-300 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-700">This folder is empty</h3>
-                    <p className="text-gray-500 mb-4">
-                      Upload files or create folders to get started
-                    </p>
-                    <div className="flex gap-3">
-                      <Button onClick={() => setIsUploadDialogOpen(true)} className="py-6">
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Files
-                      </Button>
-                      <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6">
-                        <FolderPlus className="h-4 w-4 mr-2" />
-                        New Folder
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[500px] pr-4">
-                    {/* Folders Section */}
-                    {!loading && currentFolderItems.folders.length > 0 && (
-                      <div className="mb-8">
-                        <h3 className="font-medium text-gray-700 mb-2">Folders</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                          {currentFolderItems.folders.map(folder => (
-                            <div 
-                              key={folder.id}
-                              className={`border rounded-lg p-3 flex flex-col hover:shadow-md transition-all cursor-pointer ${
-                                selectedItems.some(item => item.id === folder.id) ? 'border-blue-500 bg-blue-50' : ''
-                              }`}
-                              onClick={() => navigateToFolder(folder.id, folder.name)}
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-center">
-                                  {selectionMode && (
-                                    <Checkbox
-                                      checked={selectedItems.some(item => item.id === folder.id)}
-                                      onCheckedChange={() => toggleSelectItem({
-                                        id: folder.id,
-                                        name: folder.name,
-                                        type: 'folder'
-                                      })}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="mr-2"
-                                    />
-                                  )}
-                                  <Folder className="h-8 w-8 text-yellow-500 mr-2" />
-                                  <h4 className="font-medium truncate" title={folder.name}>
-                                    {folder.name}
-                                  </h4>
-                                </div>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem 
-                                      className="text-red-600 cursor-pointer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteItem(folder.id, true);
-                                      }}
-                                    >
-                                      <Trash className="h-4 w-4 mr-2" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(folder.created_at).toLocaleDateString()}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Files Section */}
-                    {!loading && currentFolderItems.files.length > 0 && (
-                      <div>
-                        <h3 className="font-medium text-gray-700 mb-2">Files</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                          {currentFolderItems.files.map(file => (
-                            <div 
-                              key={file.id}
-                              className={`border rounded-lg p-3 hover:shadow-md transition-all ${
-                                selectedItems.some(item => item.id === file.id) ? 'border-blue-500 bg-blue-50' : ''
-                              }`}
-                              onClick={() => {
-                                if (selectionMode) {
-                                  toggleSelectItem({
-                                    id: file.id,
-                                    name: file.name,
-                                    type: 'file',
-                                    url: file.url,
-                                    size: file.size
-                                  });
-                                }
-                              }}
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-center">
-                                  {selectionMode && (
-                                    <Checkbox
-                                      checked={selectedItems.some(item => item.id === file.id)}
-                                      onCheckedChange={() => toggleSelectItem({
-                                        id: file.id,
-                                        name: file.name,
-                                        type: 'file',
-                                        url: file.url,
-                                        size: file.size
-                                      })}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="mr-2"
-                                    />
-                                  )}
-                                  {getFileIcon(file.type)}
-                                  <h4 className="font-medium truncate ml-2" title={file.name}>
-                                    {file.name}
-                                  </h4>
-                                </div>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    {file.url && (
-                                      <DropdownMenuItem
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          window.open(file.url, '_blank');
-                                        }}
-                                      >
-                                        <File className="h-4 w-4 mr-2" />
-                                        Open
-                                      </DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuItem 
-                                      className="text-red-600 cursor-pointer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteItem(file.id, false);
-                                      }}
-                                    >
-                                      <Trash className="h-4 w-4 mr-2" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                              
-                              {file.status !== 'complete' ? (
-                                <div className="mt-2">
-                                  <div className="flex justify-between text-xs mb-1">
-                                    <span>
-                                      {file.status === 'uploading' 
-                                        ? `Uploading (${file.progress}%)` 
-                                        : file.status === 'processing'
-                                          ? 'Processing...'
-                                          : 'Error uploading'}
-                                    </span>
-                                  </div>
-                                  <Progress value={file.progress} className="h-1" />
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    {formatFileSize(file.size)}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {new Date(file.last_modified).toLocaleDateString()}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </ScrollArea>
-                )}
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="vectorStore" className="mt-6">
-              <div className="mb-6">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-medium">Vector Store Files</h3>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700">Connected to OpenAI</Badge>
                 </div>
-                <p className="text-gray-500 text-sm mt-1">
-                  These files are stored in your OpenAI vector store and are available for AI-powered features.
-                </p>
-              </div>
-              
-              {/* Vector Store Files Area */}
-              <div className="min-h-[400px] border-2 rounded-lg p-4 border-gray-200">
-                {/* Loading state */}
-                {isLoadingVectorFiles && (
-                  <div className="flex flex-col items-center justify-center h-full py-10">
-                    <Loader2 className="h-10 w-10 text-blue-500 animate-spin mb-4" />
-                    <p className="text-gray-500">Loading your vector store files...</p>
-                  </div>
-                )}
-                
-                {/* Empty state */}
-                {!isLoadingVectorFiles && vectorStoreFiles.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center py-10">
-                    <CloudLightning className="h-16 w-16 text-gray-300 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-700">No files found in vector store</h3>
-                    <p className="text-gray-500 mb-4 max-w-md">
-                      Files added to your OpenAI vector store will appear here. You can use these files with AI features.
-                    </p>
-                    <Button 
-                      onClick={() => {
-                        setActiveTab("myFiles");
-                        setSelectionMode(true);
-                      }}
-                      className="py-6 mt-4"
-                    >
-                      <ArrowUp className="h-4 w-4 mr-2" />
-                      Upload Files to Vector Store
-                    </Button>
-                  </div>
-                ) : !isLoadingVectorFiles && (
-                  <ScrollArea className="h-[500px] pr-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {vectorStoreFiles.map(file => (
-                        <div 
-                          key={file.id}
-                          className="border rounded-lg p-3 hover:shadow-md transition-all"
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex items-center">
-                              <File className="h-8 w-8 text-blue-500" />
-                              <h4 className="font-medium truncate ml-2" title={file.filename}>
-                                {file.filename}
-                              </h4>
+              ) : (
+                <ScrollArea className="h-[500px] pr-4">
+                  {/* Folders Section */}
+                  {!loading && currentFolderItems.folders.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="font-medium text-gray-700 mb-2">Folders</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {currentFolderItems.folders.map(folder => (
+                          <div 
+                            key={folder.id}
+                            className={`border rounded-lg p-3 flex flex-col hover:shadow-md transition-all cursor-pointer ${
+                              selectedItems.some(item => item.id === folder.id) ? 'border-blue-500 bg-blue-50' : ''
+                            }`}
+                            onClick={() => navigateToFolder(folder.id, folder.name)}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center">
+                                {selectionMode && (
+                                  <Checkbox
+                                    checked={selectedItems.some(item => item.id === folder.id)}
+                                    onCheckedChange={() => toggleSelectItem({
+                                      id: folder.id,
+                                      name: folder.name,
+                                      type: 'folder'
+                                    })}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="mr-2"
+                                  />
+                                )}
+                                <Folder className="h-8 w-8 text-yellow-500 mr-2" />
+                                <h4 className="font-medium truncate" title={folder.name}>
+                                  {folder.name}
+                                </h4>
+                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem 
+                                    className="text-red-600 cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteItem(folder.id, true);
+                                    }}
+                                  >
+                                    <Trash className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(folder.created_at).toLocaleDateString()}
                             </div>
                           </div>
-                          <div className="text-xs text-gray-500 mt-2 flex flex-col gap-1">
-                            <div>Added: {formatTimestamp(file.created_at)}</div>
-                            <div>Modified: {formatTimestamp(file.modified_at)}</div>
-                            {file.size && <div>Size: {formatFileSize(file.size)}</div>}
-                            {file.purpose && (
-                              <div className="mt-1">
-                                <Badge variant="secondary" className="text-xs">
-                                  {file.purpose}
-                                </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Files Section */}
+                  {!loading && currentFolderItems.files.length > 0 && (
+                    <div>
+                      <h3 className="font-medium text-gray-700 mb-2">Files</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {currentFolderItems.files.map(file => (
+                          <div 
+                            key={file.id}
+                            className={`border rounded-lg p-3 hover:shadow-md transition-all ${
+                              selectedItems.some(item => item.id === file.id) ? 'border-blue-500 bg-blue-50' : ''
+                            }`}
+                            onClick={() => {
+                              if (selectionMode) {
+                                toggleSelectItem({
+                                  id: file.id,
+                                  name: file.name,
+                                  type: 'file',
+                                  url: file.url,
+                                  size: file.size
+                                });
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center">
+                                {selectionMode && (
+                                  <Checkbox
+                                    checked={selectedItems.some(item => item.id === file.id)}
+                                    onCheckedChange={() => toggleSelectItem({
+                                      id: file.id,
+                                      name: file.name,
+                                      type: 'file',
+                                      url: file.url,
+                                      size: file.size
+                                    })}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="mr-2"
+                                  />
+                                )}
+                                {getFileIcon(file.type)}
+                                <h4 className="font-medium truncate ml-2" title={file.name}>
+                                  {file.name}
+                                </h4>
                               </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {file.url && (
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.open(file.url, '_blank');
+                                      }}
+                                    >
+                                      <File className="h-4 w-4 mr-2" />
+                                      Open
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem 
+                                    className="text-red-600 cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteItem(file.id, false);
+                                    }}
+                                  >
+                                    <Trash className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            
+                            {file.status !== 'complete' ? (
+                              <div className="mt-2">
+                                <div className="flex justify-between text-xs mb-1">
+                                  <span>
+                                    {file.status === 'uploading' 
+                                      ? `Uploading (${file.progress}%)` 
+                                      : file.status === 'processing'
+                                        ? 'Processing...'
+                                        : 'Error uploading'}
+                                  </span>
+                                </div>
+                                <Progress value={file.progress} className="h-1" />
+                              </div>
+                            ) : (
+                              <>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {formatFileSize(file.size)}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(file.last_modified).toLocaleDateString()}
+                                </div>
+                              </>
                             )}
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </ScrollArea>
-                )}
+                  )}
+                </ScrollArea>
+              )}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="vectorStore" className="mt-6">
+            <div className="mb-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium">Vector Store Files</h3>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700">Connected to OpenAI</Badge>
               </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      )}
+              <p className="text-gray-500 text-sm mt-1">
+                These files are stored in your OpenAI vector store and are available for AI-powered features.
+              </p>
+            </div>
+            
+            {/* Vector Store Files Area */}
+            <div className="min-h-[400px] border-2 rounded-lg p-4 border-gray-200">
+              {/* Loading state */}
+              {isLoadingVectorFiles && (
+                <div className="flex flex-col items-center justify-center h-full py-10">
+                  <Loader2 className="h-10 w-10 text-blue-500 animate-spin mb-4" />
+                  <p className="text-gray-500">Loading your vector store files...</p>
+                </div>
+              )}
+              
+              {/* Empty state */}
+              {!isLoadingVectorFiles && vectorStoreFiles.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                  <CloudLightning className="h-16 w-16 text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-700">No files found in vector store</h3>
+                  <p className="text-gray-500 mb-4 max-w-md">
+                    Files added to your OpenAI vector store will appear here. You can use these files with AI features.
+                  </p>
+                  <Button 
+                    onClick={() => {
+                      setActiveTab("myFiles");
+                      setSelectionMode(true);
+                    }}
+                    className="py-6 mt-4"
+                  >
+                    <ArrowUp className="h-4 w-4 mr-2" />
+                    Upload Files to Vector Store
+                  </Button>
+                </div>
+              ) : !isLoadingVectorFiles && (
+                <ScrollArea className="h-[500px] pr-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {vectorStoreFiles.map(file => (
+                      <div 
+                        key={file.id}
+                        className="border rounded-lg p-3 hover:shadow-md transition-all"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center">
+                            <File className="h-8 w-8 text-blue-500" />
+                            <h4 className="font-medium truncate ml-2" title={file.filename}>
+                              {file.filename}
+                            </h4>
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2 flex flex-col gap-1">
+                          <div>Added: {formatTimestamp(file.created_at)}</div>
+                          <div>Modified: {formatTimestamp(file.modified_at)}</div>
+                          {file.size && <div>Size: {formatFileSize(file.size)}</div>}
+                          {file.purpose && (
+                            <div className="mt-1">
+                              <Badge variant="secondary" className="text-xs">
+                                {file.purpose}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
       
       {/* Upload Dialog */}
       <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
