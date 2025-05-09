@@ -11,12 +11,13 @@ import {
   ArrowLeft,
   ArrowRight,
   Loader,
-  Eye
+  Eye,
+  Trash2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -26,11 +27,21 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { flashcardService } from "@/services/flashcardService";
 import { Deck, FlashcardContent } from "@/types/flashcard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Form schema for deck generation
 const deckGenerationSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
-  cardCount: z.coerce.number().min(3).max(20),
+  cardCount: z.coerce.number().min(3).max(50),
 });
 
 type DeckGenerationFormValues = z.infer<typeof deckGenerationSchema>;
@@ -46,6 +57,8 @@ const FlashcardsPage = () => {
   const [currentDeck, setCurrentDeck] = useState<Deck | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingDecks, setIsLoadingDecks] = useState(true);
+  const [deckToDelete, setDeckToDelete] = useState<Deck | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const form = useForm<DeckGenerationFormValues>({
     resolver: zodResolver(deckGenerationSchema),
@@ -108,6 +121,38 @@ const FlashcardsPage = () => {
     }
   };
 
+  // Handle deleting a deck
+  const handleDeleteDeck = async () => {
+    if (!deckToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await flashcardService.deleteDeck(deckToDelete.id);
+      
+      // Remove the deck from state
+      setDecks(decks.filter(d => d.id !== deckToDelete.id));
+      
+      // If we're currently viewing or studying this deck, reset those states
+      if (viewingDeck?.id === deckToDelete.id) {
+        setViewingDeck(null);
+        setOpenViewDialog(false);
+      }
+      
+      if (currentDeck?.id === deckToDelete.id) {
+        setCurrentDeck(null);
+        setActiveTab("browse");
+      }
+      
+      toast.success(`Successfully deleted "${deckToDelete.title}" deck`);
+    } catch (error) {
+      console.error("Error deleting deck:", error);
+      toast.error(`Failed to delete deck: ${(error as Error).message}`);
+    } finally {
+      setDeckToDelete(null);
+      setIsDeleting(false);
+    }
+  };
+
   const handleGenerateDeck = async (data: DeckGenerationFormValues) => {
     setIsGenerating(true);
     
@@ -119,6 +164,8 @@ const FlashcardsPage = () => {
         title: data.title,
         cardCount: data.cardCount
       });
+      
+      console.log(`Received ${generatedFlashcards.length} flashcards`);
       
       // First create the deck in the database
       const newDeck = await flashcardService.saveDeck({
@@ -437,14 +484,24 @@ const FlashcardsPage = () => {
                     <Progress value={(deck.cardCount - deck.dueCards) / deck.cardCount * 100} className="h-1 mb-4" />
                     
                     <div className="flex justify-between">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => viewDeck(deck.id)}
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        View
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => viewDeck(deck.id)}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          View
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setDeckToDelete(deck)}
+                          className="text-destructive hover:text-destructive border-destructive/50 hover:border-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                       <Button 
                         size="sm"
                         onClick={() => startStudyingDeck(deck.id)}
@@ -554,13 +611,13 @@ const FlashcardsPage = () => {
                       <Input 
                         type="number" 
                         min={3}
-                        max={20}
+                        max={50}
                         placeholder="10" 
                         {...field} 
                       />
                     </FormControl>
                     <FormDescription>
-                      How many flashcards would you like to generate? (3-20)
+                      How many flashcards would you like to generate? (3-50)
                     </FormDescription>
                   </FormItem>
                 )}
@@ -649,6 +706,39 @@ const FlashcardsPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deckToDelete} onOpenChange={(open) => !open && setDeckToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Flashcard Deck</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deckToDelete?.title}"? This action cannot be undone 
+              and will permanently delete the deck and all its flashcards.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault(); // Prevent the dialog from closing automatically
+                handleDeleteDeck();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

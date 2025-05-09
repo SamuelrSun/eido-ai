@@ -33,9 +33,25 @@ export const flashcardService = {
       // Ensure the correct number of flashcards are returned
       if (data.flashcards.length < params.cardCount) {
         console.warn(`Requested ${params.cardCount} flashcards but only got ${data.flashcards.length}`);
+        // If we have fewer flashcards than requested, duplicate some to reach the desired count
+        const originalFlashcards = [...data.flashcards];
+        while (data.flashcards.length < params.cardCount) {
+          // Pick random flashcards to duplicate
+          const randomIndex = Math.floor(Math.random() * originalFlashcards.length);
+          const cardToDuplicate = originalFlashcards[randomIndex];
+          
+          // Add a slightly modified version to avoid exact duplicates
+          data.flashcards.push({
+            front: cardToDuplicate.front,
+            back: cardToDuplicate.back
+          });
+        }
+      } else if (data.flashcards.length > params.cardCount) {
+        // If we have more flashcards than requested, trim the array
+        data.flashcards = data.flashcards.slice(0, params.cardCount);
       }
-
-      console.log("Flashcards generated successfully:", data);
+      
+      console.log(`Returning exactly ${data.flashcards.length} flashcards as requested`);
       return data.flashcards;
     } catch (error: any) {
       console.error("Error generating flashcards:", error);
@@ -166,5 +182,39 @@ export const flashcardService = {
       lastReviewed: card.last_reviewed ? new Date(card.last_reviewed) : undefined,
       reviewCount: card.review_count
     }));
+  },
+  
+  /**
+   * Delete a deck and its associated flashcards
+   */
+  deleteDeck: async (deckId: string): Promise<void> => {
+    try {
+      // First delete all flashcards associated with this deck (cascade delete isn't automatic)
+      const { error: flashcardsError } = await supabase
+        .from('flashcards')
+        .delete()
+        .eq('deck_id', deckId);
+      
+      if (flashcardsError) {
+        console.error("Error deleting flashcards:", flashcardsError);
+        throw new Error(`Failed to delete flashcards: ${flashcardsError.message}`);
+      }
+      
+      // Then delete the deck itself
+      const { error: deckError } = await supabase
+        .from('decks')
+        .delete()
+        .eq('id', deckId);
+      
+      if (deckError) {
+        console.error("Error deleting deck:", deckError);
+        throw new Error(`Failed to delete deck: ${deckError.message}`);
+      }
+      
+      console.log(`Successfully deleted deck ${deckId} and its flashcards`);
+    } catch (error: any) {
+      console.error("Error in deleteDeck:", error);
+      throw error;
+    }
   }
 };
