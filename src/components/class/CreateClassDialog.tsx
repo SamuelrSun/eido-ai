@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { BookOpen, Calendar, SquareCheck, Upload } from "lucide-react";
+import { BookOpen, Calendar, Code, SquareCheck, Upload } from "lucide-react";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -27,6 +27,11 @@ export interface ClassData {
   description: string;
   color: string;
   enabledWidgets: string[];
+  openAIConfig?: {
+    apiKey?: string;
+    vectorStoreId?: string;
+    assistantId?: string;
+  };
 }
 
 const availableWidgets = [
@@ -68,6 +73,12 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
   const [color, setColor] = useState("blue-500");
   const [selectedWidgets, setSelectedWidgets] = useState<string[]>(["flashcards", "quizzes"]);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // OpenAI configuration states
+  const [openAIApiKey, setOpenAIApiKey] = useState("");
+  const [vectorStoreId, setVectorStoreId] = useState("");
+  const [assistantId, setAssistantId] = useState("");
+  const [showOpenAIConfig, setShowOpenAIConfig] = useState(false);
 
   const handleToggleWidget = (id: string) => {
     setSelectedWidgets(prev =>
@@ -78,18 +89,33 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
   const handleSubmit = () => {
     if (!title.trim()) return;
     
-    onClassCreate({
+    const classData: ClassData = {
       title,
       description,
       color,
       enabledWidgets: selectedWidgets
-    });
+    };
+    
+    // Add OpenAI configuration if any fields are provided
+    if (openAIApiKey || vectorStoreId || assistantId) {
+      classData.openAIConfig = {
+        apiKey: openAIApiKey,
+        vectorStoreId: vectorStoreId,
+        assistantId: assistantId
+      };
+    }
+    
+    onClassCreate(classData);
     
     // Reset form
     setTitle("");
     setDescription("");
     setColor("blue-500");
     setSelectedWidgets(["flashcards", "quizzes"]);
+    setOpenAIApiKey("");
+    setVectorStoreId("");
+    setAssistantId("");
+    setShowOpenAIConfig(false);
     onOpenChange(false);
   };
 
@@ -99,6 +125,10 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
     setDescription("");
     setColor("blue-500");
     setSelectedWidgets(["flashcards", "quizzes"]);
+    setOpenAIApiKey("");
+    setVectorStoreId("");
+    setAssistantId("");
+    setShowOpenAIConfig(false);
     onOpenChange(false);
   };
 
@@ -166,6 +196,58 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
                   <span>Upload course materials, syllabus, etc.</span>
                 </Button>
               </div>
+            </div>
+            
+            {/* OpenAI Configuration */}
+            <div className="border rounded-lg p-4">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                  <Code className="h-5 w-5" />
+                  <Label className="text-base font-medium">OpenAI Configuration</Label>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowOpenAIConfig(!showOpenAIConfig)}
+                >
+                  {showOpenAIConfig ? "Hide" : "Show"}
+                </Button>
+              </div>
+              
+              {showOpenAIConfig && (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="openai-api-key">OpenAI API Key</Label>
+                    <Input 
+                      id="openai-api-key"
+                      type="password"
+                      placeholder="sk-..." 
+                      value={openAIApiKey}
+                      onChange={(e) => setOpenAIApiKey(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="vector-store-id">Vector Store ID</Label>
+                    <Input 
+                      id="vector-store-id"
+                      placeholder="vs-..." 
+                      value={vectorStoreId}
+                      onChange={(e) => setVectorStoreId(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="assistant-id">Assistant ID</Label>
+                    <Input 
+                      id="assistant-id"
+                      placeholder="asst-..." 
+                      value={assistantId}
+                      onChange={(e) => setAssistantId(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Widget selection */}

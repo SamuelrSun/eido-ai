@@ -103,10 +103,33 @@ const HomePage = () => {
       description: classData.description,
       emoji: randomEmoji,
       link: "/calendar",
-      color: classData.color
+      color: classData.color,
+      openAIConfig: classData.openAIConfig // Store the OpenAI configuration
     };
     
     setClassOptions(prev => [newClass, ...prev]);
+    
+    // If OpenAI configuration was provided, store it securely
+    if (classData.openAIConfig) {
+      try {
+        // Store in localStorage for now as a temporary solution
+        // In a production app, this should be stored in a secure database
+        const classConfig = {
+          id: Date.now().toString(),
+          title: classData.title,
+          openAIConfig: classData.openAIConfig
+        };
+        
+        // Store a reference to the class configuration
+        const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
+        existingConfigs.push(classConfig);
+        localStorage.setItem('classOpenAIConfigs', JSON.stringify(existingConfigs));
+        
+        console.log('OpenAI configuration saved for class:', classData.title);
+      } catch (error) {
+        console.error('Error storing OpenAI configuration:', error);
+      }
+    }
     
     toast({
       title: "Class created!",
