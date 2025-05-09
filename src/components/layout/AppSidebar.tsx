@@ -15,7 +15,8 @@ import {
   Calendar,
   LayoutGrid,
   Database,
-  Loader2
+  Loader2,
+  FileInput
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -92,6 +93,12 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       label: "Calendar",
       to: "/calendar",
       widgetId: "calendar" as WidgetType
+    },
+    {
+      icon: <FileInput className="mr-2 h-5 w-5" />,
+      label: "Practice",
+      to: "/practice",
+      widgetId: "practice" as WidgetType
     }
   ];
   
