@@ -33,7 +33,25 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
   // Listen for auth state changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
+      // Handle auth changes including logout
+      const newUser = session?.user || null;
+      setUser(newUser);
+      
+      // On logout, reset to defaults or local storage
+      if (event === 'SIGNED_OUT') {
+        const storedWidgets = localStorage.getItem("enabledWidgets");
+        if (storedWidgets) {
+          try {
+            const parsedWidgets = JSON.parse(storedWidgets);
+            setEnabledWidgets(parsedWidgets);
+          } catch (e) {
+            console.error("Failed to parse stored widgets", e);
+            setEnabledWidgets(DEFAULT_WIDGETS);
+          }
+        } else {
+          setEnabledWidgets(DEFAULT_WIDGETS);
+        }
+      }
     });
 
     // Initial auth check
@@ -51,6 +69,8 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
       
       try {
         if (user) {
+          console.log("Loading widgets for user:", user.id);
+          
           // Try to fetch user's widget preferences
           const { data, error } = await supabase
             .from('user_widgets')
@@ -63,6 +83,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
           }
 
           if (data) {
+            console.log("Found user widgets:", data.enabled_widgets);
             // Convert string array to WidgetType array with type safety
             const widgets = data.enabled_widgets
               .filter((widget: string) => 
@@ -71,14 +92,14 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
             
             setEnabledWidgets(widgets);
           } else {
+            console.log("No user widgets found, creating defaults");
             // Create default widgets for new user
             await supabase
               .from('user_widgets')
               .insert({
                 user_id: user.id,
                 enabled_widgets: DEFAULT_WIDGETS
-              })
-              .select();
+              });
             
             setEnabledWidgets(DEFAULT_WIDGETS);
           }
@@ -88,13 +109,16 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
           if (storedWidgets) {
             try {
               const parsedWidgets = JSON.parse(storedWidgets);
+              console.log("Using local storage widgets:", parsedWidgets);
               setEnabledWidgets(parsedWidgets);
             } catch (e) {
               console.error("Failed to parse stored widgets", e);
               setEnabledWidgets(DEFAULT_WIDGETS);
             }
           } else {
+            console.log("No local storage widgets, using defaults");
             setEnabledWidgets(DEFAULT_WIDGETS);
+            localStorage.setItem("enabledWidgets", JSON.stringify(DEFAULT_WIDGETS));
           }
         }
       } catch (error: any) {
@@ -111,6 +135,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
+    // Load widgets whenever user state changes
     loadUserWidgets();
   }, [user, toast]);
 
@@ -120,19 +145,27 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
       if (isLoading) return; // Avoid saving during initial load
       
       try {
+        console.log("Saving widgets:", enabledWidgets);
+        
         if (user) {
           // Save to database for authenticated users
-          await supabase
+          console.log("Saving to database for user:", user.id);
+          const { error } = await supabase
             .from('user_widgets')
             .upsert({
               user_id: user.id,
               enabled_widgets: enabledWidgets,
               updated_at: new Date().toISOString(),
             }, { onConflict: 'user_id' });
-        } else {
-          // Save to localStorage for non-authenticated users
-          localStorage.setItem("enabledWidgets", JSON.stringify(enabledWidgets));
-        }
+            
+          if (error) {
+            throw error;
+          }
+        } 
+        
+        // Always save to localStorage regardless of authentication status
+        // This ensures persistence across page reloads for both logged-in and guest users
+        localStorage.setItem("enabledWidgets", JSON.stringify(enabledWidgets));
       } catch (error: any) {
         console.error("Error saving widgets:", error);
         toast({
@@ -150,6 +183,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
   }, [enabledWidgets, user, isLoading, toast]);
 
   const toggleWidget = (widget: WidgetType) => {
+    console.log("Toggling widget:", widget);
     setEnabledWidgets(current => {
       if (current.includes(widget)) {
         return current.filter(w => w !== widget);
