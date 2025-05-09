@@ -235,6 +235,50 @@ const DatabasePage = () => {
     }
   }, [currentFolderId, user]);
   
+  // Load vector store files
+  useEffect(() => {
+    const fetchVectorStoreFiles = async () => {
+      if (!user) return;
+      
+      setIsLoadingVectorFiles(true);
+      
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session) {
+          throw new Error("Authentication required");
+        }
+        
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-vector-store-files`, {
+          headers: {
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to fetch vector store files");
+        }
+        
+        const result = await response.json();
+        setVectorStoreFiles(result.files || []);
+        console.log("Fetched vector store files:", result);
+      } catch (error: any) {
+        console.error("Error fetching vector store files:", error);
+        toast({
+          title: "Error fetching vector store files",
+          description: error.message,
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoadingVectorFiles(false);
+      }
+    };
+    
+    if (activeTab === "vectorStore" && user) {
+      fetchVectorStoreFiles();
+    }
+  }, [activeTab, user]);
+  
   // Filter files/folders based on search query
   const currentFolderItems = {
     files: files.filter(file => 
