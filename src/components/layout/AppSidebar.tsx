@@ -1,3 +1,4 @@
+
 import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -17,7 +18,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useWidgets } from "@/hooks/use-widgets";
+import { useWidgets, WidgetType } from "@/hooks/use-widgets";
 import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
 
 interface AppSidebarProps {
@@ -65,31 +66,31 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       icon: <Search className="mr-2 h-5 w-5" />,
       label: "Super Tutor",
       to: "/super-stu",
-      widgetId: "supertutor"
+      widgetId: "supertutor" as WidgetType
     },
     {
       icon: <Database className="mr-2 h-5 w-5" />,
       label: "Database",
       to: "/database",
-      widgetId: "database"
+      widgetId: "database" as WidgetType
     },
     {
       icon: <BookOpen className="mr-2 h-5 w-5" />,
       label: "Flashcards",
       to: "/flashcards",
-      widgetId: "flashcards"
+      widgetId: "flashcards" as WidgetType
     },
     {
       icon: <SquareCheck className="mr-2 h-5 w-5" />,
       label: "Quizzes",
       to: "/quizzes",
-      widgetId: "quizzes"
+      widgetId: "quizzes" as WidgetType
     },
     {
       icon: <Calendar className="mr-2 h-5 w-5" />,
       label: "Calendar",
       to: "/calendar",
-      widgetId: "calendar"
+      widgetId: "calendar" as WidgetType
     }
   ];
   
