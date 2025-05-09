@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   BookOpen, 
   Calendar, 
@@ -8,7 +8,8 @@ import {
   X,
   Search,
   Database,
-  Info
+  Info,
+  Loader2
 } from "lucide-react";
 import {
   Dialog,
@@ -33,15 +34,15 @@ interface AddWidgetsDialogProps {
 }
 
 export function AddWidgetsDialog({ open, onOpenChange }: AddWidgetsDialogProps) {
-  const { enabledWidgets, toggleWidget } = useWidgets();
+  const { enabledWidgets, toggleWidget, isLoading } = useWidgets();
   const [localEnabledWidgets, setLocalEnabledWidgets] = useState<WidgetType[]>(enabledWidgets);
 
-  // Reset local state when dialog opens
-  useState(() => {
+  // Reset local state when dialog opens or enabledWidgets change
+  useEffect(() => {
     if (open) {
       setLocalEnabledWidgets(enabledWidgets);
     }
-  });
+  }, [open, enabledWidgets]);
 
   const toggleLocalWidget = (widget: WidgetType) => {
     setLocalEnabledWidgets(current => {
@@ -113,56 +114,63 @@ export function AddWidgetsDialog({ open, onOpenChange }: AddWidgetsDialogProps) 
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-4">
-          {allWidgets.map(widget => (
-            <div
-              key={widget.id}
-              className={cn(
-                "flex items-center p-3 rounded-lg border cursor-pointer transition-colors",
-                localEnabledWidgets.includes(widget.id)
-                  ? "bg-primary/10 border-primary"
-                  : "bg-background hover:bg-accent/50"
-              )}
-              onClick={() => toggleLocalWidget(widget.id)}
-            >
-              <div className={cn(
-                "flex items-center justify-center rounded-md w-10 h-10 mr-3 text-white",
-                localEnabledWidgets.includes(widget.id)
-                  ? "bg-primary"
-                  : "bg-muted-foreground/30"
-              )}>
-                <widget.icon className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">{widget.name}</p>
-                <p className="text-xs text-muted-foreground line-clamp-1">
-                  {widget.description}
-                </p>
-              </div>
-              <div className="ml-2">
-                {localEnabledWidgets.includes(widget.id) ? (
-                  <Check className="h-5 w-5 text-primary" />
-                ) : (
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <Info className="h-4 w-4 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      Click to enable
-                    </TooltipContent>
-                  </Tooltip>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-sm text-muted-foreground">Loading your widgets...</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-4">
+            {allWidgets.map(widget => (
+              <div
+                key={widget.id}
+                className={cn(
+                  "flex items-center p-3 rounded-lg border cursor-pointer transition-colors",
+                  localEnabledWidgets.includes(widget.id)
+                    ? "bg-primary/10 border-primary"
+                    : "bg-background hover:bg-accent/50"
                 )}
+                onClick={() => toggleLocalWidget(widget.id)}
+              >
+                <div className={cn(
+                  "flex items-center justify-center rounded-md w-10 h-10 mr-3 text-white",
+                  localEnabledWidgets.includes(widget.id)
+                    ? "bg-primary"
+                    : "bg-muted-foreground/30"
+                )}>
+                  <widget.icon className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{widget.name}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-1">
+                    {widget.description}
+                  </p>
+                </div>
+                <div className="ml-2">
+                  {localEnabledWidgets.includes(widget.id) ? (
+                    <Check className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        Click to enable
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         
         <DialogFooter className="gap-2 sm:gap-0">
           <Button type="button" variant="outline" onClick={cancelChanges}>
             <X className="mr-2 h-4 w-4" />
             Cancel
           </Button>
-          <Button type="button" onClick={applyChanges}>
+          <Button type="button" onClick={applyChanges} disabled={isLoading}>
             <Check className="mr-2 h-4 w-4" />
             Apply Changes
           </Button>

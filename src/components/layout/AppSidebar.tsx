@@ -14,7 +14,8 @@ import {
   SquareCheck,
   Calendar,
   LayoutGrid,
-  Database
+  Database,
+  Loader2
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +31,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
   const [loading, setLoading] = useState(true);
   const [isWidgetsDialogOpen, setIsWidgetsDialogOpen] = useState(false);
   const navigate = useNavigate();
-  const { enabledWidgets } = useWidgets();
+  const { enabledWidgets, isLoading: widgetsLoading } = useWidgets();
   
   useEffect(() => {
     const fetchUser = async () => {
@@ -164,7 +165,12 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
               </Button>
             </div>
             
-            {visibleWidgetNavItems.length > 0 ? (
+            {widgetsLoading ? (
+              <div className="flex items-center justify-center p-4">
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <span className="text-xs text-muted-foreground">Loading...</span>
+              </div>
+            ) : visibleWidgetNavItems.length > 0 ? (
               visibleWidgetNavItems.map((item) => (
                 <li key={item.to}>
                   <NavLink

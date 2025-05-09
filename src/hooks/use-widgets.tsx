@@ -1,6 +1,7 @@
 
 import { createContext, useState, useContext, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export type WidgetType = "flashcards" | "quizzes" | "calendar" | "supertutor" | "database";
 
@@ -8,12 +9,14 @@ interface WidgetsContextType {
   enabledWidgets: WidgetType[];
   toggleWidget: (widget: WidgetType) => void;
   isWidgetEnabled: (widget: WidgetType) => boolean;
+  isLoading: boolean;
 }
 
 const WidgetsContext = createContext<WidgetsContextType>({
   enabledWidgets: [],
   toggleWidget: () => {},
   isWidgetEnabled: () => false,
+  isLoading: true,
 });
 
 // Default widgets that are enabled for all users
@@ -23,35 +26,128 @@ export const useWidgets = () => useContext(WidgetsContext);
 
 export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
   const [enabledWidgets, setEnabledWidgets] = useState<WidgetType[]>(DEFAULT_WIDGETS);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<any>(null);
+  const { toast } = useToast();
 
-  // Load widgets from localStorage or use defaults
+  // Listen for auth state changes
   useEffect(() => {
-    const storedWidgets = localStorage.getItem("enabledWidgets");
-    if (storedWidgets) {
-      try {
-        setEnabledWidgets(JSON.parse(storedWidgets));
-      } catch (e) {
-        console.error("Failed to parse stored widgets", e);
-        setEnabledWidgets(DEFAULT_WIDGETS);
-      }
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+    });
 
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') {
-        // Reset to defaults on sign out
-        setEnabledWidgets(DEFAULT_WIDGETS);
-        localStorage.setItem("enabledWidgets", JSON.stringify(DEFAULT_WIDGETS));
-      }
+    // Initial auth check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Save widget changes to localStorage
+  // Load user widgets when user changes
   useEffect(() => {
-    localStorage.setItem("enabledWidgets", JSON.stringify(enabledWidgets));
-  }, [enabledWidgets]);
+    const loadUserWidgets = async () => {
+      setIsLoading(true);
+      
+      try {
+        if (user) {
+          // Try to fetch user's widget preferences
+          const { data, error } = await supabase
+            .from('user_widgets')
+            .select('enabled_widgets')
+            .eq('user_id', user.id)
+            .single();
+
+          if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+            throw error;
+          }
+
+          if (data) {
+            // Convert string array to WidgetType array with type safety
+            const widgets = data.enabled_widgets
+              .filter((widget: string) => 
+                ["flashcards", "quizzes", "calendar", "supertutor", "database"].includes(widget)
+              ) as WidgetType[];
+            
+            setEnabledWidgets(widgets);
+          } else {
+            // Create default widgets for new user
+            await supabase
+              .from('user_widgets')
+              .insert({
+                user_id: user.id,
+                enabled_widgets: DEFAULT_WIDGETS
+              })
+              .select();
+            
+            setEnabledWidgets(DEFAULT_WIDGETS);
+          }
+        } else {
+          // Use local storage for non-authenticated users
+          const storedWidgets = localStorage.getItem("enabledWidgets");
+          if (storedWidgets) {
+            try {
+              const parsedWidgets = JSON.parse(storedWidgets);
+              setEnabledWidgets(parsedWidgets);
+            } catch (e) {
+              console.error("Failed to parse stored widgets", e);
+              setEnabledWidgets(DEFAULT_WIDGETS);
+            }
+          } else {
+            setEnabledWidgets(DEFAULT_WIDGETS);
+          }
+        }
+      } catch (error: any) {
+        console.error("Error loading widgets:", error);
+        toast({
+          title: "Error loading widgets",
+          description: error.message || "Failed to load your widget preferences",
+          variant: "destructive",
+        });
+        // Fall back to defaults
+        setEnabledWidgets(DEFAULT_WIDGETS);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserWidgets();
+  }, [user, toast]);
+
+  // Save widget changes to database when they change
+  useEffect(() => {
+    const saveWidgets = async () => {
+      if (isLoading) return; // Avoid saving during initial load
+      
+      try {
+        if (user) {
+          // Save to database for authenticated users
+          await supabase
+            .from('user_widgets')
+            .upsert({
+              user_id: user.id,
+              enabled_widgets: enabledWidgets,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id' });
+        } else {
+          // Save to localStorage for non-authenticated users
+          localStorage.setItem("enabledWidgets", JSON.stringify(enabledWidgets));
+        }
+      } catch (error: any) {
+        console.error("Error saving widgets:", error);
+        toast({
+          title: "Error saving widgets",
+          description: error.message || "Failed to save your widget preferences",
+          variant: "destructive",
+        });
+      }
+    };
+
+    // Skip the first render
+    if (!isLoading) {
+      saveWidgets();
+    }
+  }, [enabledWidgets, user, isLoading, toast]);
 
   const toggleWidget = (widget: WidgetType) => {
     setEnabledWidgets(current => {
@@ -71,7 +167,8 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
     <WidgetsContext.Provider value={{ 
       enabledWidgets, 
       toggleWidget,
-      isWidgetEnabled
+      isWidgetEnabled,
+      isLoading
     }}>
       {children}
     </WidgetsContext.Provider>
