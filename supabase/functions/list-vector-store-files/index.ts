@@ -27,57 +27,57 @@ serve(async (req) => {
         "OpenAI-Beta": "assistants=v2"
       }
     });
-    
-    console.log("OpenAI API response status:", response.status);
-    
-    // Read the response as text first
+
     const responseText = await response.text();
-    console.log("Response text sample:", responseText.substring(0, 200));
-    
-    // Try to parse as JSON
     let responseData;
+    
     try {
+      // Try to parse the response as JSON
       responseData = JSON.parse(responseText);
     } catch (parseError) {
-      console.error("Failed to parse response as JSON:", parseError);
+      console.error("Failed to parse OpenAI API response as JSON:", responseText.substring(0, 200));
+      
+      // Return a structured error with the response text details
       return new Response(
-        JSON.stringify({
+        JSON.stringify({ 
           error: "Failed to parse OpenAI API response",
-          details: responseText.substring(0, 500)
+          responseStatus: response.status,
+          responseDetails: responseText.substring(0, 500)  // Include part of the response for debugging
         }),
         {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
     
-    // Check if the API request was successful
     if (!response.ok) {
       console.error("OpenAI API error:", responseData);
-      return new Response(
-        JSON.stringify({
-          error: responseData.error?.message || `API returned ${response.status}`,
-          details: responseData
-        }),
-        {
-          status: response.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      
+      let errorMessage = `OpenAI API returned ${response.status}`;
+      if (responseData.error?.message) {
+        errorMessage = responseData.error.message;
+      }
+      
+      throw new Error(errorMessage);
     }
-    
+      
+    console.log("Retrieved files from vector store:", JSON.stringify({
+      fileCount: responseData.data?.length || 0,
+      hasData: !!responseData.data
+    }));
+
     // Return the list of files
     return new Response(
       JSON.stringify({
         files: responseData.data || [],
-        count: responseData.data?.length || 0
+        count: responseData.data?.length || 0,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
+        status: 200,
       }
-    );
+    )
   } catch (error) {
     console.error('Error listing vector store files:', error);
     return new Response(
@@ -86,8 +86,8 @@ serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
+        status: 500,
       }
-    );
+    )
   }
-});
+})

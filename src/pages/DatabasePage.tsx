@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -131,7 +132,7 @@ const DatabasePage = () => {
   const [isLoadingVectorFiles, setIsLoadingVectorFiles] = useState(false);
   const [activeTab, setActiveTab] = useState("myFiles");
   
-  // State for selection mode
+  // New state for selection mode
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -266,10 +267,8 @@ const DatabasePage = () => {
           throw new Error("Authentication required");
         }
         
-        // Get the correct URL from the client library
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://uzdtqomtbrccinrkhzme.supabase.co";
-        
-        console.log("Calling vector store files function with URL:", `${supabaseUrl}/functions/v1/list-vector-store-files`);
+        // Fix: Use the proper VITE_SUPABASE_URL environment variable
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         
         const response = await fetch(`${supabaseUrl}/functions/v1/list-vector-store-files`, {
           headers: {
@@ -279,47 +278,24 @@ const DatabasePage = () => {
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.error("Vector store API error response:", errorText);
-          
-          let errorMessage = `Failed to fetch vector store files: ${response.status}`;
+          let errorMessage = "Failed to fetch vector store files";
           
           try {
             // Try to parse as JSON to get a better error message
             const errorData = JSON.parse(errorText);
-            if (errorData.error) {
-              errorMessage = errorData.error;
-            }
-            console.error("Parsed error data:", errorData);
+            errorMessage = errorData.error || errorMessage;
           } catch (e) {
-            // Not JSON, use the raw text
-            console.error("Response is not JSON:", errorText.substring(0, 100));
-            errorMessage = `API error (${response.status}): ${errorText.substring(0, 100)}`;
+            // If it's not JSON, use the raw text (but limit length)
+            errorMessage = errorText.length > 100 ? 
+              `${errorText.substring(0, 100)}...` : errorText;
           }
           
           throw new Error(errorMessage);
         }
         
-        // Parse the response
-        const responseText = await response.text();
-        console.log("Vector store API response text:", responseText.substring(0, 100));
-        
-        let result;
-        try {
-          result = JSON.parse(responseText);
-        } catch (e) {
-          console.error("Failed to parse response as JSON:", e);
-          throw new Error("Invalid JSON response from vector store API");
-        }
-        
+        const result = await response.json();
+        setVectorStoreFiles(result.files || []);
         console.log("Fetched vector store files:", result);
-        
-        // If we get a valid response with files, update state
-        if (result && Array.isArray(result.files)) {
-          setVectorStoreFiles(result.files);
-        } else {
-          console.warn("Unexpected response format:", result);
-          setVectorStoreFiles([]);
-        }
       } catch (error: any) {
         console.error("Error fetching vector store files:", error);
         toast({
@@ -327,9 +303,6 @@ const DatabasePage = () => {
           description: error.message,
           variant: "destructive"
         });
-        
-        // Set empty array on error to prevent UI from waiting indefinitely
-        setVectorStoreFiles([]);
       } finally {
         setIsLoadingVectorFiles(false);
       }
@@ -829,7 +802,7 @@ const DatabasePage = () => {
     return new Date(timestamp * 1000).toLocaleDateString();
   };
 
-  // Function to handle toggling selection of an item
+  // New function to handle toggling selection of an item
   const toggleSelectItem = (item: SelectedItem) => {
     setSelectedItems(prevItems => {
       const exists = prevItems.some(i => i.id === item.id);
@@ -843,7 +816,7 @@ const DatabasePage = () => {
     });
   };
 
-  // Function to handle pushing selected items to vector store
+  // New function to handle pushing selected items to vector store
   const pushToVectorStore = async () => {
     if (selectedItems.length === 0) {
       toast({
@@ -885,71 +858,45 @@ const DatabasePage = () => {
       const filesToUpload = selectedItems.filter(item => item.type === 'file' && item.url);
       setUploadingProgress(30);
       
-      // Get the correct URL from the client library
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://uzdtqomtbrccinrkhzme.supabase.co";
+      // Fix: Use the proper VITE_SUPABASE_URL environment variable
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       
-      console.log("Uploading files to vector store using endpoint:", `${supabaseUrl}/functions/v1/upload-to-vector-store`);
+      // Call an edge function that would handle the upload to Vector Store
+      const response = await fetch(`${supabaseUrl}/functions/v1/upload-to-vector-store`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          files: filesToUpload.map(file => ({
+            id: file.id,
+            name: file.name,
+            url: file.url,
+            size: file.size
+          }))
+        }),
+      });
       
-      // Call the edge function with more detailed error handling
-      try {
-        const response = await fetch(`${supabaseUrl}/functions/v1/upload-to-vector-store`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${sessionData.session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            files: filesToUpload.map(file => ({
-              id: file.id,
-              name: file.name,
-              url: file.url,
-              size: file.size
-            }))
-          }),
-        });
+      setUploadingProgress(70);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = "Failed to upload to vector store";
         
-        setUploadingProgress(70);
-        
-        // Get response as text first for better debugging
-        const responseText = await response.text();
-        console.log("Vector store upload response text:", responseText.substring(0, 100));
-        
-        if (!response.ok) {
-          let errorMessage = `Failed to upload to vector store: ${response.status}`;
-          
-          try {
-            const errorData = JSON.parse(responseText);
-            if (errorData.error) {
-              errorMessage = errorData.error;
-            }
-          } catch (e) {
-            errorMessage = `API error (${response.status}): ${responseText.substring(0, 100)}`;
-          }
-          
-          throw new Error(errorMessage);
-        }
-        
-        // Parse JSON response
-        let result;
         try {
-          result = JSON.parse(responseText);
-          console.log("Upload result:", result);
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
         } catch (e) {
-          throw new Error("Invalid JSON response from upload API");
+          errorMessage = errorText.length > 100 ? 
+            `${errorText.substring(0, 100)}...` : errorText;
         }
         
-        setUploadingProgress(100);
-        
-        // Show success message with details
-        toast({
-          title: "Files uploaded to vector store",
-          description: result.message || `Successfully uploaded ${filesToUpload.length} files to your vector store.`,
-        });
-        
-      } catch (fetchError: any) {
-        console.error("Fetch error during upload:", fetchError);
-        throw new Error(fetchError.message || "Network error during vector store upload");
+        throw new Error(errorMessage);
       }
+      
+      const result = await response.json();
+      setUploadingProgress(100);
       
       // Refresh vector store files list
       if (activeTab === "vectorStore") {
@@ -961,6 +908,11 @@ const DatabasePage = () => {
       // Exit selection mode
       setSelectionMode(false);
       setSelectedItems([]);
+      
+      toast({
+        title: "Files uploaded to vector store",
+        description: `Successfully uploaded ${filesToUpload.length} files to your vector store.`,
+      });
       
     } catch (error: any) {
       console.error("Error uploading to vector store:", error);
@@ -1006,4 +958,518 @@ const DatabasePage = () => {
       
       {!user ? (
         <div className="bg-white p-6 rounded-xl shadow-sm border text-center py-12">
-          <h3 className="text-lg font-medium text-gray-700 mb-4">
+          <h3 className="text-lg font-medium text-gray-700 mb-4">Authentication Required</h3>
+          <p className="text-gray-500 mb-6">Please sign in to access your database and files.</p>
+          <Button onClick={() => navigate('/auth')}>Sign In</Button>
+        </div>
+      ) : (
+        <div className="bg-white p-6 rounded-xl shadow-sm border">
+          {/* Top Section: Search and Storage */}
+          <div className="mb-6 space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="search"
+                placeholder="Search files and folders..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            
+            <div className="mt-2">
+              <div className="flex justify-between items-center text-sm mb-1">
+                <span>Storage usage</span>
+                <span>{((userStorage.storage_used / userStorage.storage_limit) * 100).toFixed(1)}% used</span>
+              </div>
+              <Progress value={(userStorage.storage_used / userStorage.storage_limit) * 100} className="h-2" />
+              <div className="flex justify-end mt-1">
+                <span className="text-xs text-gray-500">
+                  {formatFileSize(userStorage.storage_used)} of {formatFileSize(userStorage.storage_limit)}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Tabs for Local Files and Vector Store Files */}
+          <Tabs defaultValue="myFiles" value={activeTab} onValueChange={setActiveTab} className="mb-6">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="myFiles">Local Files</TabsTrigger>
+              <TabsTrigger value="vectorStore">
+                Vector Store 
+                <Badge variant="outline" className="ml-2 bg-blue-50">AI</Badge>
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="myFiles" className="mt-6">
+              {/* Action Buttons */}
+              <div className="flex gap-3 mb-6 mt-4">
+                {!selectionMode ? (
+                  <>
+                    <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)} className="py-6 my-2">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Files
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6 my-2">
+                      <FolderPlus className="h-4 w-4 mr-2" />
+                      New Folder
+                    </Button>
+                    <Button variant="outline" onClick={() => setSelectionMode(true)} className="py-6 my-2 ml-auto">
+                      <Check className="h-4 w-4 mr-2" />
+                      Select Items
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="default" onClick={pushToVectorStore} className="py-6 my-2">
+                      <ArrowUp className="h-4 w-4 mr-2" />
+                      Push to Vector Store ({selectedItems.length})
+                    </Button>
+                    <Button variant="outline" onClick={cancelSelectionMode} className="py-6 my-2">
+                      Cancel
+                    </Button>
+                  </>
+                )}
+              </div>
+              
+              {/* Breadcrumbs Navigation */}
+              <div className="flex flex-wrap items-center mb-6 text-lg">
+                {breadcrumbs.map((crumb, index) => (
+                  <div key={index} className="flex items-center">
+                    {index > 0 && (
+                      <ChevronRight className="h-5 w-5 mx-2 text-gray-400" />
+                    )}
+                    <button
+                      onClick={() => navigateToFolder(crumb.id, crumb.name)}
+                      className={`px-4 py-2 rounded-full transition-all ${
+                        index === breadcrumbs.length - 1 
+                          ? 'bg-blue-100 text-blue-700 font-medium' 
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      {crumb.name}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              
+              {/* File/Folder Drop Area */}
+              <div 
+                className={`min-h-[400px] border-2 border-dashed rounded-lg p-4 ${
+                  dragging ? "border-purple-500 bg-purple-50" : "border-gray-200"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleFileDrop}
+              >
+                {/* Loading state */}
+                {loading && (
+                  <div className="flex flex-col items-center justify-center h-full py-10">
+                    <Loader2 className="h-10 w-10 text-purple-500 animate-spin mb-4" />
+                    <p className="text-gray-500">Loading your files and folders...</p>
+                  </div>
+                )}
+                
+                {/* Empty state */}
+                {!loading && currentFolderItems.folders.length === 0 && currentFolderItems.files.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                    <FolderPlus className="h-16 w-16 text-gray-300 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-700">This folder is empty</h3>
+                    <p className="text-gray-500 mb-4">
+                      Upload files or create folders to get started
+                    </p>
+                    <div className="flex gap-3">
+                      <Button onClick={() => setIsUploadDialogOpen(true)} className="py-6">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Files
+                      </Button>
+                      <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6">
+                        <FolderPlus className="h-4 w-4 mr-2" />
+                        New Folder
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[500px] pr-4">
+                    {/* Folders Section */}
+                    {!loading && currentFolderItems.folders.length > 0 && (
+                      <div className="mb-8">
+                        <h3 className="font-medium text-gray-700 mb-2">Folders</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {currentFolderItems.folders.map(folder => (
+                            <div 
+                              key={folder.id}
+                              className={`border rounded-lg p-3 flex flex-col hover:shadow-md transition-all cursor-pointer ${
+                                selectedItems.some(item => item.id === folder.id) ? 'border-blue-500 bg-blue-50' : ''
+                              }`}
+                              onClick={() => navigateToFolder(folder.id, folder.name)}
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center">
+                                  {selectionMode && (
+                                    <Checkbox
+                                      checked={selectedItems.some(item => item.id === folder.id)}
+                                      onCheckedChange={() => toggleSelectItem({
+                                        id: folder.id,
+                                        name: folder.name,
+                                        type: 'folder'
+                                      })}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="mr-2"
+                                    />
+                                  )}
+                                  <Folder className="h-8 w-8 text-yellow-500 mr-2" />
+                                  <h4 className="font-medium truncate" title={folder.name}>
+                                    {folder.name}
+                                  </h4>
+                                </div>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem 
+                                      className="text-red-600 cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteItem(folder.id, true);
+                                      }}
+                                    >
+                                      <Trash className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(folder.created_at).toLocaleDateString()}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Files Section */}
+                    {!loading && currentFolderItems.files.length > 0 && (
+                      <div>
+                        <h3 className="font-medium text-gray-700 mb-2">Files</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {currentFolderItems.files.map(file => (
+                            <div 
+                              key={file.id}
+                              className={`border rounded-lg p-3 hover:shadow-md transition-all ${
+                                selectedItems.some(item => item.id === file.id) ? 'border-blue-500 bg-blue-50' : ''
+                              }`}
+                              onClick={() => {
+                                if (selectionMode) {
+                                  toggleSelectItem({
+                                    id: file.id,
+                                    name: file.name,
+                                    type: 'file',
+                                    url: file.url,
+                                    size: file.size
+                                  });
+                                }
+                              }}
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center">
+                                  {selectionMode && (
+                                    <Checkbox
+                                      checked={selectedItems.some(item => item.id === file.id)}
+                                      onCheckedChange={() => toggleSelectItem({
+                                        id: file.id,
+                                        name: file.name,
+                                        type: 'file',
+                                        url: file.url,
+                                        size: file.size
+                                      })}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="mr-2"
+                                    />
+                                  )}
+                                  {getFileIcon(file.type)}
+                                  <h4 className="font-medium truncate ml-2" title={file.name}>
+                                    {file.name}
+                                  </h4>
+                                </div>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    {file.url && (
+                                      <DropdownMenuItem
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          window.open(file.url, '_blank');
+                                        }}
+                                      >
+                                        <File className="h-4 w-4 mr-2" />
+                                        Open
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem 
+                                      className="text-red-600 cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteItem(file.id, false);
+                                      }}
+                                    >
+                                      <Trash className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                              
+                              {file.status !== 'complete' ? (
+                                <div className="mt-2">
+                                  <div className="flex justify-between text-xs mb-1">
+                                    <span>
+                                      {file.status === 'uploading' 
+                                        ? `Uploading (${file.progress}%)` 
+                                        : file.status === 'processing'
+                                          ? 'Processing...'
+                                          : 'Error uploading'}
+                                    </span>
+                                  </div>
+                                  <Progress value={file.progress} className="h-1" />
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {formatFileSize(file.size)}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {new Date(file.last_modified).toLocaleDateString()}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </ScrollArea>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="vectorStore" className="mt-6">
+              <div className="mb-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Vector Store Files</h3>
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700">Connected to OpenAI</Badge>
+                </div>
+                <p className="text-gray-500 text-sm mt-1">
+                  These files are stored in your OpenAI vector store and are available for AI-powered features.
+                </p>
+              </div>
+              
+              {/* Vector Store Files Area */}
+              <div className="min-h-[400px] border-2 rounded-lg p-4 border-gray-200">
+                {/* Loading state */}
+                {isLoadingVectorFiles && (
+                  <div className="flex flex-col items-center justify-center h-full py-10">
+                    <Loader2 className="h-10 w-10 text-blue-500 animate-spin mb-4" />
+                    <p className="text-gray-500">Loading your vector store files...</p>
+                  </div>
+                )}
+                
+                {/* Empty state */}
+                {!isLoadingVectorFiles && vectorStoreFiles.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                    <CloudLightning className="h-16 w-16 text-gray-300 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-700">No files found in vector store</h3>
+                    <p className="text-gray-500 mb-4 max-w-md">
+                      Files added to your OpenAI vector store will appear here. You can use these files with AI features.
+                    </p>
+                    <Button 
+                      onClick={() => {
+                        setActiveTab("myFiles");
+                        setSelectionMode(true);
+                      }}
+                      className="py-6 mt-4"
+                    >
+                      <ArrowUp className="h-4 w-4 mr-2" />
+                      Upload Files to Vector Store
+                    </Button>
+                  </div>
+                ) : !isLoadingVectorFiles && (
+                  <ScrollArea className="h-[500px] pr-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {vectorStoreFiles.map(file => (
+                        <div 
+                          key={file.id}
+                          className="border rounded-lg p-3 hover:shadow-md transition-all"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center">
+                              <File className="h-8 w-8 text-blue-500" />
+                              <h4 className="font-medium truncate ml-2" title={file.filename}>
+                                {file.filename}
+                              </h4>
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-2 flex flex-col gap-1">
+                            <div>Added: {formatTimestamp(file.created_at)}</div>
+                            <div>Modified: {formatTimestamp(file.modified_at)}</div>
+                            {file.size && <div>Size: {formatFileSize(file.size)}</div>}
+                            {file.purpose && (
+                              <div className="mt-1">
+                                <Badge variant="secondary" className="text-xs">
+                                  {file.purpose}
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}
+      
+      {/* Upload Dialog */}
+      <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Files</DialogTitle>
+            <DialogDescription>
+              Upload files to your current folder. Supported formats include PDF, DOCX, PPTX, TXT, JPG, and PNG.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <Upload className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+              <p className="mb-2 text-gray-600">
+                <span className="font-semibold">Drop files here</span> or click to upload
+              </p>
+              <p className="text-xs text-gray-500 mb-4">
+                Maximum 50MB per file
+              </p>
+              <input
+                type="file"
+                className="hidden"
+                id="file-upload"
+                onChange={handleFileUpload}
+                multiple
+              />
+              <label htmlFor="file-upload">
+                <Button variant="outline" className="mt-2" asChild>
+                  <span>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Select Files
+                  </span>
+                </Button>
+              </label>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* New Folder Dialog */}
+      <Dialog open={isNewFolderDialogOpen} onOpenChange={setIsNewFolderDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Folder</DialogTitle>
+            <DialogDescription>
+              Enter a name for your new folder.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <Input
+              placeholder="Folder Name"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              autoFocus
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={createNewFolder}>Create Folder</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vector Store Upload Dialog */}
+      <Dialog open={vectorUploadDialogOpen} onOpenChange={setVectorUploadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload to Vector Store</DialogTitle>
+            <DialogDescription>
+              You are about to upload {selectedItems.filter(item => item.type === 'file').length} files to the OpenAI Vector Store.
+              These files will be available for AI-powered features.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {isUploading ? (
+            <div className="py-6">
+              <div className="mb-2 flex justify-between text-xs">
+                <span>Uploading to Vector Store...</span>
+                <span>{uploadingProgress}%</span>
+              </div>
+              <Progress value={uploadingProgress} className="h-2 mb-4" />
+              <p className="text-xs text-gray-500 text-center">
+                This may take a few moments depending on the file size.
+              </p>
+            </div>
+          ) : (
+            <div className="py-4">
+              <ul className="max-h-40 overflow-y-auto border rounded-lg divide-y">
+                {selectedItems
+                  .filter(item => item.type === 'file')
+                  .map(file => (
+                    <li key={file.id} className="p-2 flex items-center">
+                      <File className="h-4 w-4 text-blue-500 mr-2" />
+                      <span className="text-sm truncate">{file.name}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+          
+          <DialogFooter>
+            {!isUploading && (
+              <>
+                <Button variant="outline" onClick={() => setVectorUploadDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={confirmVectorUpload}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload to Vector Store
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default DatabasePage;
