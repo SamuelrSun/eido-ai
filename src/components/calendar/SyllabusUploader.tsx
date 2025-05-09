@@ -48,11 +48,20 @@ export function SyllabusUploader({ onEventsAdded }: SyllabusUploaderProps) {
       
       console.log("Sending request to process-syllabus edge function");
       
-      // Call our edge function to process the syllabus
+      // Get auth token for the function call
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        throw new Error("No active session found");
+      }
+      
+      // Call our edge function to process the syllabus with the bearer token
       const response = await fetch(
-        `https://uzdtqomtbrccinrkhzme.functions.supabase.co/process-syllabus`, 
+        "https://uzdtqomtbrccinrkhzme.functions.supabase.co/process-syllabus", 
         {
           method: 'POST',
+          headers: {
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
           body: formData,
         }
       );
