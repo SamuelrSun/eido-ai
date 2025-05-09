@@ -9,7 +9,8 @@ import {
   Search,
   Database,
   Info,
-  Loader2
+  Loader2,
+  FileInput
 } from "lucide-react";
 import {
   Dialog,
@@ -101,6 +102,12 @@ export function AddWidgetsDialog({ open, onOpenChange }: AddWidgetsDialogProps) 
       name: "Database",
       description: "Store and manage your files",
       icon: Database,
+    },
+    {
+      id: "practice" as WidgetType,
+      name: "Practice",
+      description: "Generate worksheets & get feedback",
+      icon: FileInput,
     }
   ];
 
