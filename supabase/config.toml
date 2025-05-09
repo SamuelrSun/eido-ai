@@ -9,24 +9,49 @@ schemas = ["public", "storage", "graphql_public"]
 [db]
 port = 54322
 
-[realtime]
+[studio]
 enabled = true
+port = 54323
+api_url = "http://localhost"
+
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
 
 [storage]
 enabled = true
 
-[inbucket]
+[analytics]
 enabled = true
+port = 54327
 
-[functions]
-[functions.generate-flashcards]
+[experimental]
+multiservice = true
+
+[[functions]]
+name = "chat"
 verify_jwt = true
 
-[functions.generate-quiz]
+[[functions]]
+name = "generate-flashcards"
 verify_jwt = true
 
-[functions.process-syllabus]
-verify_jwt = false
+[[functions]]
+name = "generate-quiz"
+verify_jwt = true
 
-[functions.list-vector-store-files]
+[[functions]]
+name = "process-syllabus"
+verify_jwt = true
+
+[[functions]]
+name = "list-vector-store-files"
+verify_jwt = true
+
+[[functions]]
+name = "upload-to-vector-store"
 verify_jwt = true

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -13,7 +14,8 @@ import {
   ArrowUp,
   Loader2,
   ChevronRight,
-  CloudLightning
+  CloudLightning,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -44,6 +46,8 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 
 interface FolderType {
@@ -85,6 +89,14 @@ interface VectorStoreFileType {
   vector_store_id?: string;
 }
 
+interface SelectedItem {
+  id: string;
+  name: string;
+  type: 'file' | 'folder';
+  url?: string;
+  size?: number;
+}
+
 const formatFileSize = (bytes: number) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -107,7 +119,7 @@ const DatabasePage = () => {
     storage_limit: 1024 * 1024 * 1024 // Default 1GB
   });
   const [breadcrumbs, setBreadcrumbs] = useState<{id: string | null, name: string}[]>([
-    { id: null, name: 'Main' } // Changed from 'Root' to 'Main'
+    { id: null, name: 'Main' }
   ]);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
@@ -119,6 +131,13 @@ const DatabasePage = () => {
   const [vectorStoreFiles, setVectorStoreFiles] = useState<VectorStoreFileType[]>([]);
   const [isLoadingVectorFiles, setIsLoadingVectorFiles] = useState(false);
   const [activeTab, setActiveTab] = useState("myFiles");
+  
+  // New state for selection mode
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadingProgress, setUploadingProgress] = useState(0);
+  const [vectorUploadDialogOpen, setVectorUploadDialogOpen] = useState(false);
   
   // Fetch current user
   useEffect(() => {
@@ -303,10 +322,20 @@ const DatabasePage = () => {
 
   // Navigate to a folder
   const navigateToFolder = async (folderId: string | null, folderName: string) => {
+    // If in selection mode, don't navigate but select/deselect the folder
+    if (selectionMode && folderId !== null) {
+      toggleSelectItem({
+        id: folderId,
+        name: folderName,
+        type: 'folder'
+      });
+      return;
+    }
+    
     if (folderId === null) {
       // Navigate to root
       setCurrentFolderId(null);
-      setBreadcrumbs([{ id: null, name: 'Main' }]); // Changed from 'Root' to 'Main'
+      setBreadcrumbs([{ id: null, name: 'Main' }]);
       return;
     }
     
@@ -769,6 +798,135 @@ const DatabasePage = () => {
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString();
   };
+
+  // New function to handle toggling selection of an item
+  const toggleSelectItem = (item: SelectedItem) => {
+    setSelectedItems(prevItems => {
+      const exists = prevItems.some(i => i.id === item.id);
+      if (exists) {
+        // Remove from selected items
+        return prevItems.filter(i => i.id !== item.id);
+      } else {
+        // Add to selected items
+        return [...prevItems, item];
+      }
+    });
+  };
+
+  // New function to handle pushing selected items to vector store
+  const pushToVectorStore = async () => {
+    if (selectedItems.length === 0) {
+      toast({
+        title: "No items selected",
+        description: "Please select at least one file to upload to the vector store.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Only files can be uploaded to the vector store
+    const filesToUpload = selectedItems.filter(item => item.type === 'file' && item.url);
+    
+    if (filesToUpload.length === 0) {
+      toast({
+        title: "No valid files selected",
+        description: "Please select files to upload. Folders cannot be directly uploaded to the vector store.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Show the upload confirmation dialog
+    setVectorUploadDialogOpen(true);
+  };
+
+  // Function to handle confirmed vector store upload
+  const confirmVectorUpload = async () => {
+    try {
+      setIsUploading(true);
+      setUploadingProgress(10);
+      
+      // Get auth session for the function call
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        throw new Error("Authentication required");
+      }
+      
+      const filesToUpload = selectedItems.filter(item => item.type === 'file' && item.url);
+      setUploadingProgress(30);
+      
+      // Call an edge function that would handle the upload to Vector Store
+      // This is a placeholder - you would need to implement this edge function
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-to-vector-store`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          files: filesToUpload.map(file => ({
+            id: file.id,
+            name: file.name,
+            url: file.url,
+            size: file.size
+          }))
+        }),
+      });
+      
+      setUploadingProgress(70);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = "Failed to upload to vector store";
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          errorMessage = errorText.length > 100 ? 
+            `${errorText.substring(0, 100)}...` : errorText;
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      const result = await response.json();
+      setUploadingProgress(100);
+      
+      // Refresh vector store files list
+      if (activeTab === "vectorStore") {
+        // This will trigger the useEffect to reload vector store files
+        setActiveTab("myFiles");
+        setTimeout(() => setActiveTab("vectorStore"), 100);
+      }
+      
+      // Exit selection mode
+      setSelectionMode(false);
+      setSelectedItems([]);
+      
+      toast({
+        title: "Files uploaded to vector store",
+        description: `Successfully uploaded ${filesToUpload.length} files to your vector store.`,
+      });
+      
+    } catch (error: any) {
+      console.error("Error uploading to vector store:", error);
+      toast({
+        title: "Upload to vector store failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+      setVectorUploadDialogOpen(false);
+    }
+  };
+  
+  // Exit selection mode
+  const cancelSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedItems([]);
+  };
   
   if (!user) {
     return (
@@ -828,10 +986,10 @@ const DatabasePage = () => {
             </div>
           </div>
           
-          {/* Tabs for My Files and Vector Store Files */}
+          {/* Tabs for Local Files and Vector Store Files */}
           <Tabs defaultValue="myFiles" value={activeTab} onValueChange={setActiveTab} className="mb-6">
             <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="myFiles">My Files</TabsTrigger>
+              <TabsTrigger value="myFiles">Local Files</TabsTrigger>
               <TabsTrigger value="vectorStore">
                 Vector Store 
                 <Badge variant="outline" className="ml-2 bg-blue-50">AI</Badge>
@@ -841,14 +999,32 @@ const DatabasePage = () => {
             <TabsContent value="myFiles" className="mt-6">
               {/* Action Buttons */}
               <div className="flex gap-3 mb-6 mt-4">
-                <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)} className="py-6">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Files
-                </Button>
-                <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6">
-                  <FolderPlus className="h-4 w-4 mr-2" />
-                  New Folder
-                </Button>
+                {!selectionMode ? (
+                  <>
+                    <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)} className="py-6">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Files
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6">
+                      <FolderPlus className="h-4 w-4 mr-2" />
+                      New Folder
+                    </Button>
+                    <Button variant="outline" onClick={() => setSelectionMode(true)} className="py-6 ml-auto">
+                      <Check className="h-4 w-4 mr-2" />
+                      Select Items
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="default" onClick={pushToVectorStore} className="py-6">
+                      <ArrowUp className="h-4 w-4 mr-2" />
+                      Push to Vector Store ({selectedItems.length})
+                    </Button>
+                    <Button variant="outline" onClick={cancelSelectionMode} className="py-6">
+                      Cancel
+                    </Button>
+                  </>
+                )}
               </div>
               
               {/* Breadcrumbs Navigation */}
@@ -921,11 +1097,25 @@ const DatabasePage = () => {
                           {currentFolderItems.folders.map(folder => (
                             <div 
                               key={folder.id}
-                              className="border rounded-lg p-3 flex flex-col hover:shadow-md transition-all cursor-pointer"
+                              className={`border rounded-lg p-3 flex flex-col hover:shadow-md transition-all cursor-pointer ${
+                                selectedItems.some(item => item.id === folder.id) ? 'border-blue-500 bg-blue-50' : ''
+                              }`}
                               onClick={() => navigateToFolder(folder.id, folder.name)}
                             >
                               <div className="flex justify-between items-start mb-2">
                                 <div className="flex items-center">
+                                  {selectionMode && (
+                                    <Checkbox
+                                      checked={selectedItems.some(item => item.id === folder.id)}
+                                      onCheckedChange={() => toggleSelectItem({
+                                        id: folder.id,
+                                        name: folder.name,
+                                        type: 'folder'
+                                      })}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="mr-2"
+                                    />
+                                  )}
                                   <Folder className="h-8 w-8 text-yellow-500 mr-2" />
                                   <h4 className="font-medium truncate" title={folder.name}>
                                     {folder.name}
@@ -968,17 +1158,44 @@ const DatabasePage = () => {
                           {currentFolderItems.files.map(file => (
                             <div 
                               key={file.id}
-                              className="border rounded-lg p-3 hover:shadow-md transition-all"
+                              className={`border rounded-lg p-3 hover:shadow-md transition-all ${
+                                selectedItems.some(item => item.id === file.id) ? 'border-blue-500 bg-blue-50' : ''
+                              }`}
+                              onClick={() => {
+                                if (selectionMode) {
+                                  toggleSelectItem({
+                                    id: file.id,
+                                    name: file.name,
+                                    type: 'file',
+                                    url: file.url,
+                                    size: file.size
+                                  });
+                                }
+                              }}
                             >
                               <div className="flex justify-between items-start mb-2">
                                 <div className="flex items-center">
+                                  {selectionMode && (
+                                    <Checkbox
+                                      checked={selectedItems.some(item => item.id === file.id)}
+                                      onCheckedChange={() => toggleSelectItem({
+                                        id: file.id,
+                                        name: file.name,
+                                        type: 'file',
+                                        url: file.url,
+                                        size: file.size
+                                      })}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="mr-2"
+                                    />
+                                  )}
                                   {getFileIcon(file.type)}
                                   <h4 className="font-medium truncate ml-2" title={file.name}>
                                     {file.name}
                                   </h4>
                                 </div>
                                 <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
+                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                       <MoreHorizontal className="h-4 w-4" />
                                     </Button>
@@ -986,7 +1203,10 @@ const DatabasePage = () => {
                                   <DropdownMenuContent align="end">
                                     {file.url && (
                                       <DropdownMenuItem
-                                        onClick={() => window.open(file.url, '_blank')}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          window.open(file.url, '_blank');
+                                        }}
                                       >
                                         <File className="h-4 w-4 mr-2" />
                                         Open
@@ -994,7 +1214,10 @@ const DatabasePage = () => {
                                     )}
                                     <DropdownMenuItem 
                                       className="text-red-600 cursor-pointer"
-                                      onClick={() => deleteItem(file.id, false)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteItem(file.id, false);
+                                      }}
                                     >
                                       <Trash className="h-4 w-4 mr-2" />
                                       Delete
@@ -1065,6 +1288,16 @@ const DatabasePage = () => {
                     <p className="text-gray-500 mb-4 max-w-md">
                       Files added to your OpenAI vector store will appear here. You can use these files with AI features.
                     </p>
+                    <Button 
+                      onClick={() => {
+                        setActiveTab("myFiles");
+                        setSelectionMode(true);
+                      }}
+                      className="py-6 mt-4"
+                    >
+                      <ArrowUp className="h-4 w-4 mr-2" />
+                      Upload Files to Vector Store
+                    </Button>
                   </div>
                 ) : !isLoadingVectorFiles && (
                   <ScrollArea className="h-[500px] pr-4">
@@ -1174,6 +1407,59 @@ const DatabasePage = () => {
               Cancel
             </Button>
             <Button onClick={createNewFolder}>Create Folder</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vector Store Upload Dialog */}
+      <Dialog open={vectorUploadDialogOpen} onOpenChange={setVectorUploadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload to Vector Store</DialogTitle>
+            <DialogDescription>
+              You are about to upload {selectedItems.filter(item => item.type === 'file').length} files to the OpenAI Vector Store.
+              These files will be available for AI-powered features.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {isUploading ? (
+            <div className="py-6">
+              <div className="mb-2 flex justify-between text-xs">
+                <span>Uploading to Vector Store...</span>
+                <span>{uploadingProgress}%</span>
+              </div>
+              <Progress value={uploadingProgress} className="h-2 mb-4" />
+              <p className="text-xs text-gray-500 text-center">
+                This may take a few moments depending on the file size.
+              </p>
+            </div>
+          ) : (
+            <div className="py-4">
+              <ul className="max-h-40 overflow-y-auto border rounded-lg divide-y">
+                {selectedItems
+                  .filter(item => item.type === 'file')
+                  .map(file => (
+                    <li key={file.id} className="p-2 flex items-center">
+                      <File className="h-4 w-4 text-blue-500 mr-2" />
+                      <span className="text-sm truncate">{file.name}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+          
+          <DialogFooter>
+            {!isUploading && (
+              <>
+                <Button variant="outline" onClick={() => setVectorUploadDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={confirmVectorUpload}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload to Vector Store
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
