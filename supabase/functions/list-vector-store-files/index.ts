@@ -28,30 +28,35 @@ serve(async (req) => {
       }
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      console.error("Error fetching vector store files:", error);
-      throw new Error(`Failed to fetch vector store files: ${JSON.stringify(error)}`);
+    // Get the response text first to debug any issues
+    const responseText = await response.text();
+    
+    try {
+      // Attempt to parse as JSON
+      const filesData = JSON.parse(responseText);
+      
+      console.log("Retrieved files from vector store:", JSON.stringify({
+        fileCount: filesData.data?.length || 0,
+        hasData: !!filesData.data
+      }));
+
+      // Return the list of files
+      return new Response(
+        JSON.stringify({
+          files: filesData.data || [],
+          count: filesData.data?.length || 0,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    } catch (parseError) {
+      console.error("Error parsing response as JSON:", parseError);
+      console.error("Response wasn't valid JSON:", responseText.substring(0, 200) + "...");
+      
+      throw new Error(`Failed to parse OpenAI response as JSON. Response starts with: ${responseText.substring(0, 100)}...`);
     }
-
-    // Parse the response
-    const filesData = await response.json();
-    console.log("Retrieved files from vector store:", JSON.stringify({
-      fileCount: filesData.data?.length || 0,
-      hasData: !!filesData.data
-    }));
-
-    // Return the list of files
-    return new Response(
-      JSON.stringify({
-        files: filesData.data || [],
-        count: filesData.data?.length || 0,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
   } catch (error) {
     console.error('Error listing vector store files:', error);
     return new Response(

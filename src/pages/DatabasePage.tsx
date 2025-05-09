@@ -255,8 +255,20 @@ const DatabasePage = () => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to fetch vector store files");
+          const errorText = await response.text();
+          let errorMessage = "Failed to fetch vector store files";
+          
+          try {
+            // Try to parse as JSON to get a better error message
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            // If it's not JSON, use the raw text (but limit length)
+            errorMessage = errorText.length > 100 ? 
+              `${errorText.substring(0, 100)}...` : errorText;
+          }
+          
+          throw new Error(errorMessage);
         }
         
         const result = await response.json();
@@ -817,7 +829,7 @@ const DatabasePage = () => {
           </div>
           
           {/* Tabs for My Files and Vector Store Files */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <Tabs defaultValue="myFiles" value={activeTab} onValueChange={setActiveTab} className="mb-6">
             <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="myFiles">My Files</TabsTrigger>
               <TabsTrigger value="vectorStore">
@@ -826,14 +838,14 @@ const DatabasePage = () => {
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="myFiles" className="mt-0">
+            <TabsContent value="myFiles" className="mt-6">
               {/* Action Buttons */}
-              <div className="flex gap-2 mb-4">
-                <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)}>
+              <div className="flex gap-3 mb-6 mt-4">
+                <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)} className="py-6">
                   <Upload className="h-4 w-4 mr-2" />
                   Upload Files
                 </Button>
-                <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)}>
+                <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6">
                   <FolderPlus className="h-4 w-4 mr-2" />
                   New Folder
                 </Button>
@@ -889,11 +901,11 @@ const DatabasePage = () => {
                       Upload files or create folders to get started
                     </p>
                     <div className="flex gap-3">
-                      <Button onClick={() => setIsUploadDialogOpen(true)}>
+                      <Button onClick={() => setIsUploadDialogOpen(true)} className="py-6">
                         <Upload className="h-4 w-4 mr-2" />
                         Upload Files
                       </Button>
-                      <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)}>
+                      <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)} className="py-6">
                         <FolderPlus className="h-4 w-4 mr-2" />
                         New Folder
                       </Button>
@@ -1024,7 +1036,7 @@ const DatabasePage = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="vectorStore" className="mt-0">
+            <TabsContent value="vectorStore" className="mt-6">
               <div className="mb-6">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-medium">Vector Store Files</h3>
