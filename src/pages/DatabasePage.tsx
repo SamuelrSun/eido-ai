@@ -104,7 +104,8 @@ const formatFileSize = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const getFileIcon = (fileType: string) => {
+// Changed return type to React.ReactNode to properly reflect what the function returns
+const getFileIcon = (fileType: string): React.ReactNode => {
   return <File className="h-8 w-8 text-blue-500" />;
 };
 
