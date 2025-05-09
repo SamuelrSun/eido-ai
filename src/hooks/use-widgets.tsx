@@ -1,3 +1,4 @@
+
 import { createContext, useState, useContext, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +51,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setEnabledWidgets(DEFAULT_WIDGETS);
         }
+        setIsLoading(false);
       }
     });
 
@@ -77,22 +79,14 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
             .eq('user_id', user.id)
             .single();
 
-          if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-            throw error;
-          }
-
-          if (data) {
-            console.log("Found user widgets:", data.enabled_widgets);
-            // Convert string array to WidgetType array with type safety
-            const widgets = data.enabled_widgets
-              .filter((widget: string) => 
-                ["flashcards", "quizzes", "calendar", "supertutor", "database", "practice"].includes(widget)
-              ) as WidgetType[];
+          if (error) {
+            // Only throw if it's not a "no rows returned" error
+            if (error.code !== 'PGRST116') {
+              throw error;
+            }
             
-            setEnabledWidgets(widgets);
-          } else {
+            // If no widgets found for user, create default entry
             console.log("No user widgets found, creating defaults");
-            // Create default widgets for new user
             await supabase
               .from('user_widgets')
               .insert({
@@ -101,6 +95,15 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
               });
             
             setEnabledWidgets(DEFAULT_WIDGETS);
+          } else if (data) {
+            console.log("Found user widgets:", data.enabled_widgets);
+            // Convert string array to WidgetType array with type safety
+            const widgets = data.enabled_widgets
+              .filter((widget: string) => 
+                ["flashcards", "quizzes", "calendar", "supertutor", "database", "practice"].includes(widget)
+              ) as WidgetType[];
+            
+            setEnabledWidgets(widgets);
           }
         } else {
           // Use local storage for non-authenticated users
