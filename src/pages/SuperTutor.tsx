@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
-const SuperStu = () => {
+const SuperTutor = () => {
   const navigate = useNavigate();
   const suggestions = [
     "Explain the OSI model layers and their functions",
@@ -41,4 +41,4 @@ const SuperStu = () => {
   );
 };
 
-export default SuperStu;
+export default SuperTutor;

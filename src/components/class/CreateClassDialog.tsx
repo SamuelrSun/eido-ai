@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { BookOpen, Calendar, SquareCheck, Upload } from "lucide-react";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CreateClassDialogProps {
   open: boolean;
@@ -103,7 +104,7 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Create New Class</DialogTitle>
           <DialogDescription>
@@ -111,81 +112,83 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-6 py-2">
-          {/* Class title and description */}
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="class-title">Class Title</Label>
-              <Input 
-                id="class-title"
-                placeholder="e.g., Introduction to Computer Science" 
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
+        <ScrollArea className="max-h-[calc(90vh-180px)]">
+          <div className="space-y-6 py-2 pr-4">
+            {/* Class title and description */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="class-title">Class Title</Label>
+                <Input 
+                  id="class-title"
+                  placeholder="e.g., Introduction to Computer Science" 
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="class-description">Description (optional)</Label>
+                <Textarea 
+                  id="class-description"
+                  placeholder="Describe what this class is about..." 
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
             </div>
             
+            {/* Color selection */}
             <div>
-              <Label htmlFor="class-description">Description (optional)</Label>
-              <Textarea 
-                id="class-description"
-                placeholder="Describe what this class is about..." 
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
+              <Label>Class Color</Label>
+              <div className="flex flex-wrap gap-3 mt-2">
+                {colorOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`w-8 h-8 rounded-full ${option.className} flex items-center justify-center ${color === option.value ? 'ring-2 ring-offset-2 ring-black' : ''}`}
+                    onClick={() => setColor(option.value)}
+                    aria-label={`Select ${option.label} color`}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {/* Document upload */}
+            <div>
+              <Label>Upload Materials (optional)</Label>
+              <div className="mt-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full h-20 flex flex-col"
+                  onClick={() => setIsUploading(true)}
+                >
+                  <Upload className="h-6 w-6 mb-2" />
+                  <span>Upload course materials, syllabus, etc.</span>
+                </Button>
+              </div>
+            </div>
+            
+            {/* Widget selection */}
+            <div>
+              <Label className="mb-2 block">Select Widgets for this Class</Label>
+              <div className="space-y-3">
+                {availableWidgets.map(widget => (
+                  <WidgetCard
+                    key={widget.id}
+                    id={widget.id}
+                    name={widget.name}
+                    description={widget.description}
+                    icon={widget.icon}
+                    isSelected={selectedWidgets.includes(widget.id)}
+                    onToggle={handleToggleWidget}
+                  />
+                ))}
+              </div>
             </div>
           </div>
-          
-          {/* Color selection */}
-          <div>
-            <Label>Class Color</Label>
-            <div className="flex flex-wrap gap-3 mt-2">
-              {colorOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`w-8 h-8 rounded-full ${option.className} flex items-center justify-center ${color === option.value ? 'ring-2 ring-offset-2 ring-black' : ''}`}
-                  onClick={() => setColor(option.value)}
-                  aria-label={`Select ${option.label} color`}
-                />
-              ))}
-            </div>
-          </div>
-          
-          {/* Document upload */}
-          <div>
-            <Label>Upload Materials (optional)</Label>
-            <div className="mt-2">
-              <Button 
-                variant="outline" 
-                className="w-full h-20 flex flex-col"
-                onClick={() => setIsUploading(true)}
-              >
-                <Upload className="h-6 w-6 mb-2" />
-                <span>Upload course materials, syllabus, etc.</span>
-              </Button>
-            </div>
-          </div>
-          
-          {/* Widget selection */}
-          <div>
-            <Label className="mb-2 block">Select Widgets for this Class</Label>
-            <div className="space-y-3">
-              {availableWidgets.map(widget => (
-                <WidgetCard
-                  key={widget.id}
-                  id={widget.id}
-                  name={widget.name}
-                  description={widget.description}
-                  icon={widget.icon}
-                  isSelected={selectedWidgets.includes(widget.id)}
-                  onToggle={handleToggleWidget}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
+        </ScrollArea>
         
-        <DialogFooter className="flex justify-between sm:justify-between">
+        <DialogFooter className="flex justify-between sm:justify-between mt-4 pt-2 border-t">
           <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
