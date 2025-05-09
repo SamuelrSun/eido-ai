@@ -1,4 +1,3 @@
-
 import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -122,7 +121,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
           <div className="w-8 h-8 rounded-md bg-purple-500 flex items-center justify-center mr-2">
             <GraduationCap className="h-5 w-5 text-white" />
           </div>
-          <span className="font-semibold text-xl">SuperStu</span>
+          <span className="font-semibold text-xl">Eido</span>
         </div>
         <Button 
           variant="ghost" 

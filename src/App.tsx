@@ -8,7 +8,7 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { AuthGuard } from "./components/auth/AuthGuard";
 import { WidgetsProvider } from "./hooks/use-widgets";
 import HomePage from "./pages/HomePage";
-import SuperStu from "./pages/SuperStu";
+import SuperTutor from "./pages/SuperTutor";
 import SecureCoach from "./pages/SecureCoach";
 import StaticCoach from "./pages/StaticCoach";
 import AuthPage from "./pages/AuthPage";
@@ -39,7 +39,7 @@ const App = () => (
             {/* Protected routes */}
             <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
               <Route path="/" element={<HomePage />} />
-              <Route path="super-stu" element={<SuperStu />} />
+              <Route path="super-stu" element={<SuperTutor />} />
               <Route path="secure-coach" element={<SecureCoach />} />
               <Route path="static-coach" element={<StaticCoach />} />
               <Route path="database" element={<DatabasePage />} />
