@@ -1,11 +1,13 @@
-
 import { createContext, useState, useContext, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useWidgetBase, WidgetType } from "./use-widget-base";
 
 // Re-export WidgetType so other components can import it from here
-export { WidgetType } from "./use-widget-base";
+export type { WidgetType } from "./use-widget-base";
+
+// Default widgets for any class
+export const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"];
 
 interface ClassWidgetsContextType {
   enabledWidgets: WidgetType[];
@@ -20,9 +22,6 @@ interface ClassWidgetsProviderProps {
   classId?: string;
   defaultWidgets?: WidgetType[];
 }
-
-// Default widgets for any class
-export const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"];
 
 const ClassWidgetsContext = createContext<ClassWidgetsContextType>({
   enabledWidgets: [],

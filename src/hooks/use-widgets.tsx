@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWidgetBase, WidgetType } from "./use-widget-base";
 
 // Re-export WidgetType so other components can import it from here
-export { WidgetType } from "./use-widget-base";
+export type { WidgetType } from "./use-widget-base";
 
 interface WidgetsContextType {
   enabledWidgets: WidgetType[];
