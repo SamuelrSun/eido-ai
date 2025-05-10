@@ -72,8 +72,12 @@ export function AppLayout() {
                 <Menu className="h-6 w-6" />
               </Button>
               <div className="flex items-center mx-auto">
-                <div className="w-8 h-8 rounded-md bg-purple-500 flex items-center justify-center mr-2">
-                  <span className="text-white font-bold">E</span>
+                <div className="w-8 h-8 rounded-md flex items-center justify-center mr-2">
+                  <img 
+                    src="/lovable-uploads/eido-ai.png" 
+                    alt="Eido AI Logo" 
+                    className="h-8 w-8 object-contain"
+                  />
                 </div>
                 <h1 className="text-lg font-semibold">Eido</h1>
               </div>

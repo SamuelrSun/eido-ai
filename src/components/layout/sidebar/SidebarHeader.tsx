@@ -12,8 +12,12 @@ export function SidebarHeader({ onClose, activeClassName }: SidebarHeaderProps) 
     <div className="flex flex-col p-4 border-b border-sidebar-border">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
-          <div className="w-8 h-8 rounded-md bg-purple-500 flex items-center justify-center mr-2">
-            <GraduationCap className="h-5 w-5 text-white" />
+          <div className="w-8 h-8 rounded-md flex items-center justify-center mr-2">
+            <img 
+              src="/lovable-uploads/eido-ai.png" 
+              alt="Eido AI Logo" 
+              className="h-8 w-8 object-contain"
+            />
           </div>
           <span className="font-semibold text-xl">Eido</span>
         </div>
