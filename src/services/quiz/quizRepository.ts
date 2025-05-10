@@ -15,8 +15,7 @@ export const quizRepository = {
       // Get the current authenticated user to set user_id
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast("You must be logged in to save a quiz");
-        throw new Error("Authentication required");
+        throw new Error("You must be logged in to save a quiz");
       }
       
       // Insert the quiz into the quizzes table
@@ -34,10 +33,7 @@ export const quizRepository = {
         .select()
         .single();
 
-      if (error) {
-        toast("Failed to save quiz");
-        throw error;
-      }
+      if (error) throw error;
 
       // Now that we have the quiz ID, save the questions
       for (const question of quiz.questions) {
@@ -51,14 +47,9 @@ export const quizRepository = {
             explanation: question.explanation
           });
 
-        if (questionError) {
-          toast("Failed to save quiz questions");
-          throw questionError;
-        }
+        if (questionError) throw questionError;
       }
 
-      toast("Quiz saved successfully");
-      
       return {
         id: data.id,
         title: data.title,
@@ -83,8 +74,6 @@ export const quizRepository = {
    */
   fetchQuizzes: async (): Promise<Quiz[]> => {
     try {
-      console.log("Fetching quizzes...");
-      
       // Get the current authenticated user
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -98,12 +87,7 @@ export const quizRepository = {
         .eq('user_id', session.user.id) // Only fetch quizzes for the current user
         .order('created_at', { ascending: false });
 
-      if (error) {
-        toast('Failed to load quizzes');
-        throw error;
-      }
-
-      console.log(`Fetched ${quizzes.length} quizzes`);
+      if (error) throw error;
 
       // For each quiz, fetch its questions
       const quizzesWithQuestions = await Promise.all(
@@ -113,13 +97,7 @@ export const quizRepository = {
             .select('*')
             .eq('quiz_id', quiz.id);
 
-          if (questionsError) {
-            console.error('Error fetching quiz questions:', questionsError);
-            toast('Failed to load quiz questions');
-            throw questionsError;
-          }
-
-          console.log(`Fetched ${questions.length} questions for quiz ${quiz.id}`);
+          if (questionsError) throw questionsError;
 
           const formattedQuestions: QuizQuestion[] = questions.map(q => ({
             question: q.question_text,
@@ -147,7 +125,7 @@ export const quizRepository = {
       return quizzesWithQuestions;
     } catch (error) {
       console.error('Error fetching quizzes:', error);
-      toast('Failed to load quizzes');
+      toast.error('Failed to load quizzes');
       return [];
     }
   },
@@ -157,34 +135,15 @@ export const quizRepository = {
    */
   fetchQuiz: async (quizId: string): Promise<Quiz | null> => {
     try {
-      console.log(`Fetching quiz with ID: ${quizId}`);
-      
-      // Check auth status
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.log("No active session when fetching quiz");
-        toast("Please log in to view this quiz");
-        return null;
-      }
-      
       // Fetch the quiz
       const { data: quiz, error } = await supabase
         .from('quizzes')
         .select('*')
         .eq('id', quizId)
-        .maybeSingle();
+        .single();
 
-      if (error) {
-        console.error('Error fetching quiz:', error);
-        toast('Failed to load quiz');
-        throw error;
-      }
-      
-      if (!quiz) {
-        console.log(`Quiz with ID ${quizId} not found`);
-        toast('Quiz not found');
-        return null;
-      }
+      if (error) throw error;
+      if (!quiz) return null;
 
       // Fetch the questions for this quiz
       const { data: questions, error: questionsError } = await supabase
@@ -192,11 +151,7 @@ export const quizRepository = {
         .select('*')
         .eq('quiz_id', quizId);
 
-      if (questionsError) {
-        console.error('Error fetching quiz questions:', questionsError);
-        toast('Failed to load quiz questions');
-        throw questionsError;
-      }
+      if (questionsError) throw questionsError;
 
       const formattedQuestions: QuizQuestion[] = questions.map(q => ({
         question: q.question_text,
@@ -220,7 +175,7 @@ export const quizRepository = {
       };
     } catch (error) {
       console.error('Error fetching quiz:', error);
-      toast('Failed to load quiz');
+      toast.error('Failed to load quiz');
       return null;
     }
   },
@@ -230,23 +185,13 @@ export const quizRepository = {
    */
   deleteQuiz: async (quizId: string): Promise<void> => {
     try {
-      // Check auth status
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast("You must be logged in to delete a quiz");
-        throw new Error("Authentication required");
-      }
-      
       // Delete the questions first (due to foreign key constraint)
       const { error: questionsError } = await supabase
         .from('quiz_questions')
         .delete()
         .eq('quiz_id', quizId);
 
-      if (questionsError) {
-        toast("Failed to delete quiz questions");
-        throw questionsError;
-      }
+      if (questionsError) throw questionsError;
 
       // Then delete the quiz
       const { error } = await supabase
@@ -254,12 +199,7 @@ export const quizRepository = {
         .delete()
         .eq('id', quizId);
 
-      if (error) {
-        toast("Failed to delete quiz");
-        throw error;
-      }
-      
-      toast("Quiz deleted successfully");
+      if (error) throw error;
     } catch (error) {
       console.error('Error deleting quiz:', error);
       throw error;
