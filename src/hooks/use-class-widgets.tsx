@@ -2,7 +2,13 @@
 import { createContext, useState, useContext, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { WidgetType } from "@/hooks/use-widgets";
+import { useWidgetBase, WidgetType } from "./use-widget-base";
+
+// Re-export WidgetType so other components can import it from here
+export type { WidgetType } from "./use-widget-base";
+
+// Default widgets for any class
+export const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"];
 
 interface ClassWidgetsContextType {
   enabledWidgets: WidgetType[];
@@ -17,9 +23,6 @@ interface ClassWidgetsProviderProps {
   classId?: string;
   defaultWidgets?: WidgetType[];
 }
-
-// Default widgets for any class
-export const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"];
 
 const ClassWidgetsContext = createContext<ClassWidgetsContextType>({
   enabledWidgets: [],
@@ -36,62 +39,94 @@ export const ClassWidgetsProvider = ({
   classId, 
   defaultWidgets = DEFAULT_CLASS_WIDGETS 
 }: ClassWidgetsProviderProps) => {
-  const [enabledWidgets, setEnabledWidgets] = useState<WidgetType[]>(defaultWidgets);
-  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [localIsLoading, setLocalIsLoading] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  
+  const storageKey = classId ? `session:class_widgets_${classId}` : undefined;
+  
+  const {
+    enabledWidgets,
+    toggleWidget: baseToggleWidget,
+    isWidgetEnabled,
+    isLoading: baseIsLoading,
+    setWidgets
+  } = useWidgetBase({
+    defaultWidgets,
+    storageKey
+  });
 
   // Load class widgets from session storage or use defaults
   useEffect(() => {
+    if (initialLoadDone) return; // Prevent re-loading after initial load
+    
     const loadClassWidgets = () => {
-      setIsLoading(true);
+      setLocalIsLoading(true);
       try {
-        // Try to load from session storage using class ID
+        // Try to load from active class
         if (classId) {
+          const activeClass = sessionStorage.getItem('activeClass');
+          if (activeClass) {
+            try {
+              const parsedClass = JSON.parse(activeClass);
+              if (parsedClass.title === classId && parsedClass.enabledWidgets) {
+                setWidgets(parsedClass.enabledWidgets);
+                console.log('Using widgets from active class:', parsedClass.enabledWidgets);
+                setLocalIsLoading(false);
+                setInitialLoadDone(true);
+                return;
+              }
+            } catch (e) {
+              console.error("Error parsing active class:", e);
+            }
+          }
+          
+          // Try to load from session storage using class ID
           const storedWidgets = sessionStorage.getItem(`class_widgets_${classId}`);
           if (storedWidgets) {
-            const parsedWidgets = JSON.parse(storedWidgets);
-            setEnabledWidgets(parsedWidgets);
-            console.log(`Loaded widgets for class ${classId}:`, parsedWidgets);
-            setIsLoading(false);
-            return;
-          }
-        }
-        
-        // Try to load from active class
-        const activeClass = sessionStorage.getItem('activeClass');
-        if (activeClass) {
-          try {
-            const parsedClass = JSON.parse(activeClass);
-            if (parsedClass.enabledWidgets) {
-              setEnabledWidgets(parsedClass.enabledWidgets);
-              console.log('Using widgets from active class:', parsedClass.enabledWidgets);
-              setIsLoading(false);
-              return;
+            try {
+              const parsedWidgets = JSON.parse(storedWidgets);
+              if (Array.isArray(parsedWidgets)) {
+                setWidgets(parsedWidgets);
+                console.log(`Loaded widgets for class ${classId}:`, parsedWidgets);
+                setLocalIsLoading(false);
+                setInitialLoadDone(true);
+                return;
+              }
+            } catch (e) {
+              console.error("Error parsing class widgets:", e);
             }
-          } catch (e) {
-            console.error("Error parsing active class:", e);
           }
         }
         
         // Fall back to defaults
-        setEnabledWidgets(defaultWidgets);
+        setWidgets(defaultWidgets);
         console.log('Using default widgets:', defaultWidgets);
       } catch (error) {
         console.error("Error loading class widgets:", error);
-        setEnabledWidgets(defaultWidgets);
+        setWidgets(defaultWidgets);
+        toast({
+          title: "Error loading class widgets",
+          description: "Failed to load widget preferences for this class",
+          variant: "destructive",
+        });
       } finally {
-        setIsLoading(false);
+        setLocalIsLoading(false);
+        setInitialLoadDone(true);
       }
     };
 
     loadClassWidgets();
-  }, [classId, defaultWidgets]);
+  }, [classId, defaultWidgets, setWidgets, toast, initialLoadDone]);
 
   // Save widgets to session storage when they change
   useEffect(() => {
-    if (!isLoading && classId) {
+    if (!initialLoadDone || !enabledWidgets) return; // Don't save during initial load
+    
+    if (classId) {
       try {
         sessionStorage.setItem(`class_widgets_${classId}`, JSON.stringify(enabledWidgets));
+        console.log(`Saved widgets for class ${classId}:`, enabledWidgets);
         
         // Also update the active class if this is the active class
         const activeClass = sessionStorage.getItem('activeClass');
@@ -115,26 +150,19 @@ export const ClassWidgetsProvider = ({
         });
       }
     }
-  }, [enabledWidgets, classId, isLoading, toast]);
+  }, [enabledWidgets, classId, toast, initialLoadDone]);
 
+  // Custom toggle wrapper
   const toggleWidget = (widget: WidgetType) => {
     console.log("Toggling widget for class:", widget);
-    setEnabledWidgets(current => {
-      if (current.includes(widget)) {
-        return current.filter(w => w !== widget);
-      } else {
-        return [...current, widget];
-      }
-    });
-  };
-
-  const isWidgetEnabled = (widget: WidgetType) => {
-    return enabledWidgets.includes(widget);
+    baseToggleWidget(widget);
   };
 
   const setClassWidgets = (widgets: WidgetType[]) => {
-    setEnabledWidgets(widgets);
+    setWidgets(widgets);
   };
+
+  const isLoading = localIsLoading || baseIsLoading;
 
   return (
     <ClassWidgetsContext.Provider value={{ 

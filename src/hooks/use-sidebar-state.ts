@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useClassWidgets } from "@/hooks/use-class-widgets";
-import { WidgetType } from "@/hooks/use-widgets";
+import { WidgetType } from "@/hooks/use-widget-base";
 
 export function useSidebarState() {
   const [user, setUser] = useState<any>(null);
