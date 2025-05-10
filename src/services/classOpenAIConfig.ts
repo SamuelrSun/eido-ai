@@ -248,7 +248,7 @@ export const classOpenAIConfigService = {
           professor: item.professor || undefined,
           classTime: item.class_time || undefined,
           classroom: item.classroom || undefined,
-          color: item.color || 'blue-300',
+          color: item.color || 'blue-300', // Add default color if not present
           emoji: item.emoji || undefined,
           openAIConfig: {
             apiKey: item.api_key || undefined,
