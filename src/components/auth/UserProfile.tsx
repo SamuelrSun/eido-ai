@@ -35,6 +35,7 @@ export function UserProfile() {
               console.error("Error fetching profile:", error);
             } else {
               setProfile(data);
+              console.log("Profile data loaded:", data);
             }
           } catch (error) {
             console.error("Error in profile fetch:", error);
@@ -68,6 +69,7 @@ export function UserProfile() {
                 console.error("Error fetching profile on auth change:", error);
               } else {
                 setProfile(data);
+                console.log("Profile data loaded on auth change:", data);
               }
             } catch (error) {
               console.error("Error in profile fetch on auth change:", error);
@@ -142,17 +144,26 @@ export function UserProfile() {
       const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
       
+      console.log("Uploading file to path:", filePath);
+      
       // Upload the file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profiles')
         .upload(filePath, file);
         
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
+      
+      console.log("Upload successful:", uploadData);
       
       // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
+      const publicUrl = supabase.storage
         .from('profiles')
-        .getPublicUrl(filePath);
+        .getPublicUrl(filePath).data.publicUrl;
+      
+      console.log("Public URL:", publicUrl);
       
       // Update the user profile with the new avatar URL
       const { error: updateError } = await supabase
@@ -160,7 +171,10 @@ export function UserProfile() {
         .update({ avatar_url: publicUrl })
         .eq('id', user.id);
         
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Profile update error:", updateError);
+        throw updateError;
+      }
       
       // Update the local state
       setProfile({
@@ -172,11 +186,11 @@ export function UserProfile() {
         title: "Profile photo updated",
         description: "Your profile photo has been updated successfully.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading photo:', error);
       toast({
         title: "Upload failed",
-        description: "Failed to upload profile photo. Please try again.",
+        description: error.message || "Failed to upload profile photo. Please try again.",
         variant: "destructive",
       });
     } finally {
