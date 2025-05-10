@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -85,12 +84,13 @@ const HomePage = () => {
               
               return {
                 title: config.class_title,
-                professor: config.professor || "",  // Professor may not exist in DB yet
-                classTime: config.class_time || "",  // class_time may not exist in DB yet
-                classroom: config.classroom || "",  // classroom may not exist in DB yet
+                // Add null checks/default values for properties that might not exist in the database response
+                professor: (config as any).professor || "",
+                classTime: (config as any).class_time || "",
+                classroom: (config as any).classroom || "",
                 emoji: randomEmoji,
                 link: "/super-stu",
-                color: config.color || randomColor,  // color may not exist in DB yet
+                color: (config as any).color || randomColor,
                 enabledWidgets: DEFAULT_CLASS_WIDGETS,
                 openAIConfig: {
                   apiKey: config.api_key,
@@ -445,17 +445,7 @@ const HomePage = () => {
       {/* Quick Actions */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Link to="/upload">
-            <Card className="hover:bg-gray-50 text-center p-6">
-              <div className="flex flex-col items-center space-y-2">
-                <div className="p-2 bg-blue-50 rounded-full">
-                  <span className="text-2xl">📤</span>
-                </div>
-                <span className="font-medium">Upload Materials</span>
-              </div>
-            </Card>
-          </Link>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <Link to="/account">
             <Card className="hover:bg-gray-50 text-center p-6">
               <div className="flex flex-col items-center space-y-2">
