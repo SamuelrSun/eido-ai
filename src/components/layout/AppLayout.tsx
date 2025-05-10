@@ -74,7 +74,7 @@ export function AppLayout() {
               <div className="flex items-center mx-auto">
                 <div className="w-8 h-8 rounded-md flex items-center justify-center mr-2">
                   <img 
-                    src="/lovable-uploads/eido-ai.png" 
+                    src="/eido-ai.png" 
                     alt="Eido AI Logo" 
                     className="h-8 w-8 object-contain"
                   />
