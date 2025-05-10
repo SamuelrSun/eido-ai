@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +14,8 @@ export function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [usageDescription, setUsageDescription] = useState('');
+  const [betaAccessCode, setBetaAccessCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup'); // Default to signup
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +38,8 @@ export function Auth() {
           options: {
             emailRedirectTo: window.location.origin,
             data: {
-              full_name: fullName
+              full_name: fullName,
+              usage_description: usageDescription
             }
           }
         });
@@ -47,13 +51,24 @@ export function Auth() {
           description: "We've sent you a confirmation link to complete your signup.",
         });
       } else {
-        // For signin, don't validate password length client-side
-        // Let the server handle validation against stored credentials
+        // For signin, validate beta access code
+        const { data: codeData, error: codeError } = await supabase
+          .from('beta_access_codes')
+          .select('*')
+          .eq('code', betaAccessCode)
+          .eq('is_active', true)
+          .single();
+        
+        if (codeError || !codeData) {
+          throw new Error("Invalid beta access code. Please try again or contact support.");
+        }
+        
+        // If code is valid, proceed with sign in
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         
         toast({
-          title: "Welcome back!",
+          title: "Welcome to the Eido beta!",
           description: "You have been signed in successfully.",
         });
         
@@ -74,6 +89,8 @@ export function Auth() {
           errorMessage = "An account with this email already exists. Please sign in instead.";
         } else if (error.message.includes("Password should be")) {
           errorMessage = "Password should be at least 10 characters long.";
+        } else if (error.message.includes("Invalid beta access code")) {
+          errorMessage = "Invalid beta access code. Please check and try again.";
         } else {
           errorMessage = error.message;
         }
@@ -106,7 +123,7 @@ export function Auth() {
         <CardDescription className="text-center">
           {authMode === 'signin' 
             ? 'Enter your credentials to access your account' 
-            : 'Sign up to start using all features'}
+            : 'Sign up to access the beta'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -169,6 +186,38 @@ export function Auth() {
               </p>
             )}
           </div>
+
+          {authMode === 'signup' && (
+            <div className="space-y-2">
+              <Label htmlFor="usageDescription">How will you use Eido? (Max 100 words)</Label>
+              <Textarea
+                id="usageDescription"
+                placeholder="Share how you plan to use Eido..."
+                value={usageDescription}
+                onChange={(e) => setUsageDescription(e.target.value)}
+                className="bg-muted/30"
+                rows={3}
+                maxLength={500}
+                required
+              />
+            </div>
+          )}
+
+          {authMode === 'signin' && (
+            <div className="space-y-2">
+              <Label htmlFor="betaAccessCode">Beta Access Code</Label>
+              <Input
+                id="betaAccessCode"
+                type="text"
+                placeholder="Enter your beta access code"
+                value={betaAccessCode}
+                onChange={(e) => setBetaAccessCode(e.target.value)}
+                className="bg-muted/30"
+                required
+              />
+            </div>
+          )}
+
           <Button 
             type="submit" 
             className="w-full bg-sidebar hover:bg-sidebar-accent text-white"

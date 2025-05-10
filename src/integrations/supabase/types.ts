@@ -36,6 +36,27 @@ export type Database = {
         }
         Relationships: []
       }
+      beta_access_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+        }
+        Relationships: []
+      }
       calendar_events: {
         Row: {
           class_name: string
@@ -307,6 +328,7 @@ export type Database = {
           full_name: string | null
           id: string
           updated_at: string
+          usage_description: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -314,6 +336,7 @@ export type Database = {
           full_name?: string | null
           id: string
           updated_at?: string
+          usage_description?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -321,6 +344,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+          usage_description?: string | null
         }
         Relationships: []
       }
