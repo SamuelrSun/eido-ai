@@ -10,6 +10,11 @@ export interface OpenAIConfig {
 export interface ClassConfig {
   id: string;
   title: string;
+  professor?: string;
+  classTime?: string;
+  classroom?: string;
+  color?: string;
+  emoji?: string;
   openAIConfig: OpenAIConfig;
 }
 
@@ -28,7 +33,7 @@ export const classOpenAIConfigService = {
       // First try to get from Supabase
       const { data, error } = await supabase
         .from('class_openai_configs')
-        .select('api_key, vector_store_id, assistant_id')
+        .select('api_key, vector_store_id, assistant_id, color')
         .eq('class_title', classTitle)
         .maybeSingle(); // Use maybeSingle instead of single to avoid errors if not found
       
@@ -84,7 +89,7 @@ export const classOpenAIConfigService = {
    * @param classTitle The title of the class
    * @param config The OpenAI configuration
    */
-  saveConfigForClass: async (classTitle: string, config: OpenAIConfig): Promise<void> => {
+  saveConfigForClass: async (classTitle: string, config: OpenAIConfig, color?: string, emoji?: string, professor?: string, classTime?: string, classroom?: string): Promise<void> => {
     try {
       // Fix: Get the user data properly from the session
       const { data: { session } } = await supabase.auth.getSession();
@@ -101,6 +106,11 @@ export const classOpenAIConfigService = {
           api_key: config.apiKey,
           vector_store_id: config.vectorStoreId,
           assistant_id: config.assistantId,
+          color: color,
+          emoji: emoji,
+          professor: professor,
+          class_time: classTime,
+          classroom: classroom,
           user_id: session.user.id,
           updated_at: new Date().toISOString()
         }, {
@@ -119,6 +129,11 @@ export const classOpenAIConfigService = {
         const classConfig: ClassConfig = {
           id: Date.now().toString(),
           title: classTitle,
+          color: color,
+          emoji: emoji,
+          professor: professor,
+          classTime: classTime,
+          classroom: classroom,
           openAIConfig: config
         };
         

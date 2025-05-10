@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,7 @@ const HomePage = () => {
                 classroom: config.classroom || "",
                 emoji: classEmoji,
                 link: "/super-stu",
+                // Use the color from the database if it exists, otherwise use a random one
                 color: config.color || randomColor,
                 enabledWidgets: DEFAULT_CLASS_WIDGETS,
                 openAIConfig: {
