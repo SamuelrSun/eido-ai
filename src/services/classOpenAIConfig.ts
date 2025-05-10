@@ -18,6 +18,23 @@ export interface ClassConfig {
   openAIConfig: OpenAIConfig;
 }
 
+// Define an interface that explicitly matches the database schema
+interface ClassConfigDBRow {
+  id: string;
+  class_title: string;
+  professor?: string;
+  class_time?: string;
+  classroom?: string;
+  color?: string;
+  emoji?: string;
+  api_key?: string;
+  vector_store_id?: string;
+  assistant_id?: string;
+  user_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 /**
  * Service to manage OpenAI configurations per class
  */
@@ -219,7 +236,7 @@ export const classOpenAIConfigService = {
         return [];
       }
       
-      // Fetch from Supabase - use explicit type to include color field
+      // Fetch from Supabase with explicit type for database rows
       const { data, error } = await supabase
         .from('class_openai_configs')
         .select('*')
@@ -239,18 +256,16 @@ export const classOpenAIConfigService = {
       }
       
       if (data && data.length > 0) {
-        console.log(`Found ${data.length} classes in Supabase`);
+        console.log(`Found ${data.length} classes in Supabase:`, data);
         
-        // Transform the database objects into ClassConfig objects
-        // Explicitly handle each field to avoid TypeScript errors
-        return data.map(item => ({
+        // Transform the database objects into ClassConfig objects with explicit typing
+        return data.map((item: ClassConfigDBRow) => ({
           id: item.id,
           title: item.class_title,
           professor: item.professor || undefined,
           classTime: item.class_time || undefined,
           classroom: item.classroom || undefined,
-          // Explicitly cast and handle the color field
-          color: (item as any).color || 'blue-300', // Temporary type assertion
+          color: item.color || 'blue-300',
           emoji: item.emoji || undefined,
           openAIConfig: {
             apiKey: item.api_key || undefined,
