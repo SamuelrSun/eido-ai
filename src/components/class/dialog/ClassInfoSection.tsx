@@ -69,6 +69,8 @@ export function ClassInfoSection({
           onChange={(e) => onClassroomChange(e.target.value)}
         />
       </div>
+      
+      {/* We could add an emoji picker here in the future if needed */}
     </div>
   );
 }

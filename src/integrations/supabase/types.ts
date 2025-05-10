@@ -94,10 +94,13 @@ export type Database = {
         Row: {
           api_key: string | null
           assistant_id: string | null
+          class_time: string | null
           class_title: string
+          classroom: string | null
           created_at: string | null
           emoji: string | null
           id: string
+          professor: string | null
           updated_at: string | null
           user_id: string | null
           vector_store_id: string | null
@@ -105,10 +108,13 @@ export type Database = {
         Insert: {
           api_key?: string | null
           assistant_id?: string | null
+          class_time?: string | null
           class_title: string
+          classroom?: string | null
           created_at?: string | null
           emoji?: string | null
           id?: string
+          professor?: string | null
           updated_at?: string | null
           user_id?: string | null
           vector_store_id?: string | null
@@ -116,10 +122,13 @@ export type Database = {
         Update: {
           api_key?: string | null
           assistant_id?: string | null
+          class_time?: string | null
           class_title?: string
+          classroom?: string | null
           created_at?: string | null
           emoji?: string | null
           id?: string
+          professor?: string | null
           updated_at?: string | null
           user_id?: string | null
           vector_store_id?: string | null
