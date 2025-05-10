@@ -56,7 +56,7 @@ export const classOpenAIConfigService = {
         .eq('class_title', classTitle)
         .maybeSingle();
       
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      if (error) {
         console.error('Error retrieving OpenAI configuration from Supabase:', error);
         
         // Fallback to localStorage (for backward compatibility)
@@ -120,22 +120,27 @@ export const classOpenAIConfigService = {
         throw new Error('User must be authenticated to save configurations');
       }
       
+      // Ensure all the data is correctly formatted
+      const classData = {
+        class_title: classTitle,
+        api_key: config.apiKey,
+        vector_store_id: config.vectorStoreId,
+        assistant_id: config.assistantId,
+        color: color || 'blue-300', // Ensure we always have a default color
+        emoji: emoji,
+        professor: professor,
+        class_time: classTime,
+        classroom: classroom,
+        user_id: session.user.id,
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('Saving class data to Supabase:', classData);
+      
       // Save to Supabase
       const { error } = await supabase
         .from('class_openai_configs')
-        .upsert({
-          class_title: classTitle,
-          api_key: config.apiKey,
-          vector_store_id: config.vectorStoreId,
-          assistant_id: config.assistantId,
-          color: color || 'blue-300', // Ensure we always have a default color
-          emoji: emoji,
-          professor: professor,
-          class_time: classTime,
-          classroom: classroom,
-          user_id: session.user.id,
-          updated_at: new Date().toISOString()
-        }, {
+        .upsert(classData, {
           onConflict: 'class_title,user_id'
         });
       
@@ -169,6 +174,7 @@ export const classOpenAIConfigService = {
         
         // Save to localStorage
         localStorage.setItem('classOpenAIConfigs', JSON.stringify(filteredConfigs));
+        console.log(`Saved backup to localStorage for class '${classTitle}'`);
         
       } catch (localError) {
         // Just log the error but continue since Supabase save was successful
@@ -232,9 +238,17 @@ export const classOpenAIConfigService = {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
-        console.warn('User not authenticated, cannot fetch classes');
+        console.warn('User not authenticated, cannot fetch classes from Supabase');
+        // Still try localStorage in this case
+        const storedConfigs = localStorage.getItem('classOpenAIConfigs');
+        if (storedConfigs) {
+          console.log('Using localStorage for class data (user not authenticated)');
+          return JSON.parse(storedConfigs);
+        }
         return [];
       }
+      
+      console.log('User authenticated, fetching classes from Supabase for user:', session.user.id);
       
       // Fetch from Supabase with explicit type for database rows
       const { data, error } = await supabase
@@ -243,12 +257,12 @@ export const classOpenAIConfigService = {
         .eq('user_id', session.user.id);
         
       if (error) {
-        console.error('Fetching classes from Supabase:', error);
+        console.error('Error fetching classes from Supabase:', error);
         
         // Fallback to localStorage
         const storedConfigs = localStorage.getItem('classOpenAIConfigs');
         if (storedConfigs) {
-          console.log('Falling back to localStorage for class data');
+          console.log('Falling back to localStorage for class data after Supabase error');
           return JSON.parse(storedConfigs);
         }
         
@@ -259,7 +273,7 @@ export const classOpenAIConfigService = {
         console.log(`Found ${data.length} classes in Supabase:`, data);
         
         // Transform the database objects into ClassConfig objects with explicit typing
-        return data.map((item: ClassConfigDBRow) => ({
+        const classConfigs = data.map((item: ClassConfigDBRow) => ({
           id: item.id,
           title: item.class_title,
           professor: item.professor || undefined,
@@ -273,18 +287,36 @@ export const classOpenAIConfigService = {
             assistantId: item.assistant_id || undefined
           }
         }));
+        
+        console.log('Transformed class configs:', classConfigs);
+        return classConfigs;
       }
       
       // If no data in Supabase, try localStorage
       console.log('No classes found in Supabase, checking localStorage');
       const storedConfigs = localStorage.getItem('classOpenAIConfigs');
       if (storedConfigs) {
-        return JSON.parse(storedConfigs);
+        const parsedConfigs = JSON.parse(storedConfigs);
+        console.log('Found classes in localStorage:', parsedConfigs);
+        return parsedConfigs;
       }
       
+      console.log('No classes found anywhere');
       return [];
     } catch (error) {
       console.error('Error retrieving all classes:', error);
+      
+      // Last resort: try localStorage
+      try {
+        const storedConfigs = localStorage.getItem('classOpenAIConfigs');
+        if (storedConfigs) {
+          console.log('Using localStorage after error in getAllClasses');
+          return JSON.parse(storedConfigs);
+        }
+      } catch (parseError) {
+        console.error('Error parsing localStorage data:', parseError);
+      }
+      
       return [];
     }
   },
@@ -324,6 +356,7 @@ export const classOpenAIConfigService = {
         const storedConfigs: ClassConfig[] = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
         const filteredConfigs = storedConfigs.filter(config => config.title !== classTitle);
         localStorage.setItem('classOpenAIConfigs', JSON.stringify(filteredConfigs));
+        console.log(`Removed class '${classTitle}' from localStorage`);
       } catch (localError) {
         console.warn('Error updating localStorage after class deletion:', localError);
       }

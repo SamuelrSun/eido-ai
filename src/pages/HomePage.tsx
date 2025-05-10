@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -69,7 +68,9 @@ const HomePage = () => {
         }
         
         // Fetch all classes using the service
+        console.log('Calling classOpenAIConfigService.getAllClasses()');
         const userClasses = await classOpenAIConfigService.getAllClasses();
+        console.log('Retrieved classes:', userClasses);
         
         if (userClasses && userClasses.length > 0) {
           console.log(`Found ${userClasses.length} classes for the user:`, userClasses);
@@ -102,12 +103,14 @@ const HomePage = () => {
           console.log("No classes found for user");
           setClassOptions([]);
         }
+      } else {
+        console.log("No authenticated user found");
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
       toast({
         title: "Error",
-        description: "Failed to load your profile data",
+        description: "Failed to load your profile data. Please try refreshing the page.",
         variant: "destructive"
       });
     } finally {
@@ -124,13 +127,15 @@ const HomePage = () => {
 
   const handleCreateClass = async (classData: ClassData) => {
     try {
+      console.log("Creating class with data:", classData);
+      
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         toast({
           title: "Error",
-          description: "You must be signed in to create a class",
+          description: "You must be signed in to create a class. Please sign in and try again.",
           variant: "destructive"
         });
         return;
@@ -138,6 +143,7 @@ const HomePage = () => {
       
       // Ensure we have an emoji (either from form or generated)
       const classEmoji = classData.emoji || getEmojiForClass(classData.title);
+      console.log("Using emoji:", classEmoji);
       
       // Add the new class to the UI immediately
       const newClass: ClassOption = {
@@ -157,6 +163,7 @@ const HomePage = () => {
       // Store OpenAI configuration and class info in Supabase
       if (classData.title) {
         try {
+          console.log("Saving class data using classOpenAIConfigService");
           // Save class and OpenAI config data using our service
           await classOpenAIConfigService.saveConfigForClass(
             classData.title,
@@ -169,6 +176,10 @@ const HomePage = () => {
           );
           
           console.log('Class data saved successfully:', classData.title);
+          
+          // Refresh class data just to be sure
+          fetchUserData();
+          
         } catch (error) {
           console.error('Error storing class data:', error);
           toast({
@@ -187,7 +198,7 @@ const HomePage = () => {
       console.error("Error creating class:", error);
       toast({
         title: "Error",
-        description: "Failed to create class",
+        description: "Failed to create class. Please try again.",
         variant: "destructive"
       });
     }
