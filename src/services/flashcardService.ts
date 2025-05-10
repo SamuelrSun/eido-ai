@@ -74,6 +74,7 @@ export const flashcardService = {
     const classTitle = activeClass ? JSON.parse(activeClass).title : null;
     
     // Create an object with snake_case properties for the database
+    // Make sure we're using the field names expected by the database
     const { data, error } = await supabase
       .from('decks')
       .insert({
@@ -116,12 +117,13 @@ export const flashcardService = {
    */
   saveFlashcards: async (deckId: string, flashcards: FlashcardContent[]): Promise<void> => {
     // Convert from application model to database model (camelCase to snake_case)
+    // Make sure we're mapping properly to the database schema fields
     const flashcardsToInsert = flashcards.map(card => ({
       deck_id: deckId,
       front: card.front,
       back: card.back,
       difficulty: 'medium',
-      next_review: new Date().toISOString(),
+      next_review: new Date().toISOString()
     }));
 
     const { error } = await supabase
