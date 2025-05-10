@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { classOpenAIConfigService, OpenAIConfig } from "@/services/classOpenAIConfig";
-import { Database, AlertCircle, KeyRound, Settings } from "lucide-react";
+import { Database, AlertCircle, KeyRound, Settings, Bot } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 
@@ -109,6 +109,19 @@ const SuperTutor = () => {
           </AlertDescription>
         </Alert>
       ) : null}
+      
+      {openAIConfig?.assistantId && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800">
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4" />
+            <p className="font-medium">Using custom assistant for {activeClass}</p>
+          </div>
+          <p className="text-xs text-blue-600 mt-1">
+            Assistant ID: {openAIConfig.assistantId.substring(0, 10)}... • 
+            Specialized for this class subject
+          </p>
+        </div>
+      )}
 
       {!openAIConfig?.apiKey && (
         <Alert variant="destructive" className="bg-red-50 border-red-200">

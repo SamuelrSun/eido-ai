@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Database } from "lucide-react";
+import { Send, Database, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
@@ -36,6 +36,8 @@ export function ChatBot({
   const [isLoading, setIsLoading] = useState(false);
   const [activeVectorStore, setActiveVectorStore] = useState<string | null>(null);
   const [activeAssistant, setActiveAssistant] = useState<string | null>(null);
+  const [usedVectorStore, setUsedVectorStore] = useState(false);
+  const [usedAssistant, setUsedAssistant] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -88,13 +90,28 @@ export function ChatBot({
       // Store the active vector store and assistant IDs for display
       setActiveVectorStore(data.vectorStoreId || null);
       setActiveAssistant(data.assistantId || null);
+      setUsedVectorStore(data.usedVectorStore || false);
+      setUsedAssistant(data.usedAssistant || false);
       
-      // Show toast if using custom class configuration
-      if (data.usingCustomConfig) {
+      // Show appropriate toast based on what was used
+      if (data.usedVectorStore) {
         toast({
-          title: "Using Class-Specific AI",
-          description: `Response generated using ${knowledgeBase}'s custom AI configuration with Vector Store: ${data.vectorStoreId?.substring(0, 8)}...`,
+          title: "Using Class Knowledge Base",
+          description: `Response generated using the vector store (${data.vectorStoreId?.substring(0, 8)}...) for ${knowledgeBase}`,
           duration: 3000
+        });
+      } else if (data.usedAssistant) {
+        toast({
+          title: "Using Class Assistant",
+          description: `Response generated using the custom assistant (${data.assistantId?.substring(0, 8)}...) for ${knowledgeBase}`,
+          duration: 3000
+        });
+      } else if (data.usedFallback && (data.vectorStoreId || data.assistantId)) {
+        toast({
+          title: "Using Fallback Mode",
+          description: `Unable to access custom knowledge base or assistant. Using general model instead.`,
+          variant: "destructive",
+          duration: 5000
         });
       }
 
@@ -113,6 +130,8 @@ export function ChatBot({
         errorMessage = "OpenAI API rate limit exceeded. Please try again in a few minutes.";
       } else if (error.message?.includes("Edge function")) {
         errorMessage = "Connection issue with the AI service. Please check your internet connection and try again.";
+      } else if (error.message?.includes("vector store")) {
+        errorMessage = "Failed to connect to your class knowledge base. Using general knowledge instead.";
       }
       
       toast({
@@ -138,12 +157,21 @@ export function ChatBot({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">{title}</h2>
           
-          {(activeVectorStore || openAIConfig?.vectorStoreId) && (
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Database className="h-3 w-3" />
-              <span className="text-xs">Using Custom Knowledge Base</span>
-            </Badge>
-          )}
+          <div className="flex gap-2">
+            {activeVectorStore && (
+              <Badge variant={usedVectorStore ? "default" : "outline"} className="flex items-center gap-1">
+                <Database className="h-3 w-3" />
+                <span className="text-xs">{usedVectorStore ? "Using" : "Has"} Knowledge Base</span>
+              </Badge>
+            )}
+            
+            {activeAssistant && (
+              <Badge variant={usedAssistant ? "default" : "outline"} className="flex items-center gap-1">
+                <Bot className="h-3 w-3" />
+                <span className="text-xs">{usedAssistant ? "Using" : "Has"} Assistant</span>
+              </Badge>
+            )}
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
