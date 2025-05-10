@@ -24,6 +24,11 @@ export function Auth() {
     setLoading(true);
     try {
       if (authMode === 'signup') {
+        // For signup, enforce 10-character password
+        if (password.length < 10) {
+          throw new Error("Password should be at least 10 characters long.");
+        }
+        
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
@@ -42,6 +47,8 @@ export function Auth() {
           description: "We've sent you a confirmation link to complete your signup.",
         });
       } else {
+        // For signin, don't validate password length client-side
+        // Let the server handle validation against stored credentials
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         
@@ -142,7 +149,7 @@ export function Auth() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={10}
+                minLength={authMode === 'signup' ? 10 : undefined}
                 className="bg-muted/30 pl-10"
               />
               <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
