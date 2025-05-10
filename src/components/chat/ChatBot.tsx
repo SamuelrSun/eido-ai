@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Send, Database, Bot, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,9 +48,12 @@ export function ChatBot({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Scroll to bottom of messages
+  // Scroll to bottom of messages only when new messages are added
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Only scroll when there are actual messages
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   // Update the response generation state when loading changes
@@ -270,6 +272,7 @@ export function ChatBot({
           </div>
         )}
 
+        {/* Keep the ref but don't force scroll on initial render */}
         <div ref={messagesEndRef} />
       </div>
 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { ChatBot } from "@/components/chat/ChatBot";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -26,6 +25,11 @@ const SuperTutor = () => {
     "What are the key points to remember?",
     "Can you provide some practice examples?"
   ]);
+
+  // When component mounts, make sure we're at the top of the page
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   // Load the active class and its OpenAI configuration
   useEffect(() => {
