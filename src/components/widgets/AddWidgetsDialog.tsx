@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { WidgetCard } from "./WidgetCard";
@@ -107,7 +107,7 @@ export function AddWidgetsDialog({
   };
 
   // Initialize selection state when dialog opens
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) {
       setSelectedWidgets(enabledWidgets);
     }
@@ -133,11 +133,12 @@ export function AddWidgetsDialog({
           {widgetOptions.map((widget) => (
             <WidgetCard
               key={widget.id}
-              title={widget.title}
+              id={widget.id}
+              name={widget.title}
               description={widget.description}
               icon={widget.icon}
-              selected={selectedWidgets.includes(widget.id)}
-              onClick={() => toggleSelection(widget.id)}
+              isSelected={selectedWidgets.includes(widget.id)}
+              onToggle={() => toggleSelection(widget.id)}
             />
           ))}
         </div>
