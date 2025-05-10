@@ -8,6 +8,7 @@ import { OpenAIConfigSection } from "./OpenAIConfigSection";
 import { WidgetSelectionSection } from "./WidgetSelectionSection";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ClassData } from "../CreateClassDialog";
+import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
 
 interface CreateClassDialogContentProps {
   onClassCreate: (classData: ClassData) => void;
@@ -76,6 +77,11 @@ export function CreateClassDialogContent({ onClassCreate, onCancel }: CreateClas
         vectorStoreId: vectorStoreId,
         assistantId: assistantId
       };
+
+      // Also save this config to our service for future use
+      if (title) {
+        classOpenAIConfigService.saveConfigForClass(title, classData.openAIConfig);
+      }
     }
     
     onClassCreate(classData);

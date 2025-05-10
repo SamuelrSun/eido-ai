@@ -1,209 +1,91 @@
 
-// Follow this setup guide to integrate the Deno runtime into your application:
-// https://docs.supabase.com/guides/functions/connect-to-database
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.2"
-import { corsHeaders } from "../_shared/cors.ts"
-
-// Set the OpenAI API key directly - matching the approach in the flashcards function
-const openaiApiKey = "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";
-
-// Vector store ID and assistant ID are reused from the flashcards function
-const vectorStoreId = "vs_681a9a95ea088191b7c66683f0f3b9cf";
-const assistantId = "asst_u7TVc67jaF4bb2qsUzasOWSs";
-
-interface QuizQuestion {
-  question: string;
-  options: string[];
-  correctAnswerIndex: number;
-  explanation: string;
-}
-
-interface GenerateQuizParams {
-  title: string;
-  questionCount: number;
-  difficulty: string;
-  coverage: string;
-}
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 serve(async (req) => {
-  console.log("Function invoked: generate-quiz");
-  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Check if OpenAI API key is available - using the hardcoded key instead of env variable
-    if (!openaiApiKey) {
-      throw new Error("OpenAI API key is not configured. Please check the key in the function.");
+    const { topic, questionCount = 5, difficulty = 'medium', openAIConfig = {} } = await req.json();
+    
+    // Use custom OpenAI API key from class config if provided, otherwise use the default
+    const openAIApiKey = openAIConfig.apiKey || Deno.env.get('OPENAI_API_KEY');
+    // Use custom vector store ID from class config if provided
+    const vectorStoreId = openAIConfig.vectorStoreId || Deno.env.get('VECTOR_STORE_ID');
+
+    console.log(`Generating ${questionCount} ${difficulty} quiz questions for topic: ${topic}`);
+    console.log(`Using Vector Store ID: ${vectorStoreId || 'default'}`);
+    
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not provided');
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    )
-    
-    const { title, questionCount, difficulty, coverage }: GenerateQuizParams = await req.json()
-    console.log(`Generating ${questionCount} ${difficulty} quiz questions for: ${title} covering ${coverage}`);
-    
-    // Generate quiz content using a simpler approach - without using Assistants API
-    // This is more reliable for our current needs
-    
-    // Query the content from the embeddings table using a similarity search based on the quiz title
-    const { data: embeddingData, error: embeddingError } = await supabaseClient
-      .from('embeddings')
-      .select('content')
-      .order('created_at', { ascending: false })
-      .limit(5);
-      
-    if (embeddingError) {
-      console.error("Error fetching embeddings:", embeddingError);
-      throw new Error(`Failed to fetch embeddings: ${embeddingError.message}`);
-    }
-    
-    // Extract topics from the available embeddings
-    const availableContent = embeddingData?.map(e => e.content).join(' ').substring(0, 2000) || '';
-    
-    console.log("Available content sample:", availableContent.substring(0, 100) + "...");
+    // Determine time estimate based on question count and difficulty
+    const baseTime = 15; // base time in seconds
+    const difficultyMultiplier = difficulty === 'easy' ? 0.8 : difficulty === 'hard' ? 1.5 : 1;
+    const timeEstimate = Math.round(baseTime * questionCount * difficultyMultiplier);
 
-    // Use the Chat Completions API directly instead of Assistants API
-    console.log("Calling OpenAI Chat Completions API");
-    
-    const systemPrompt = `You are a quiz generator that creates educational multiple-choice questions.
-    Use the following content as your knowledge base to create ${questionCount} quiz questions about "${title}":
-    
-    ${availableContent}
-    
-    Generate exactly ${questionCount} quiz questions with the following specifications:
-    - Quiz topic: "${title}" (VERY IMPORTANT: Make sure ALL questions are specifically about ${title}, not just general cybersecurity)
-    - Difficulty level: ${difficulty}
-    - Content coverage: ${coverage}
-    - Each question must have exactly 4 options (labeled as options in an array)
-    - Only one option should be correct (indicated by correctAnswerIndex - a number from 0 to 3)
-    - Include a brief explanation of why the correct answer is right
-    - Make all options plausible and similar in length and style
-    - Don't make incorrect options obviously wrong
-    - If the title refers to a specific topic like "Active Directory Security", ensure ALL questions are about that specific topic
-    
-    Format your response as a valid JSON object with this exact structure:
-    {
-      "questions": [
-        {
-          "question": "Question text specifically about ${title}?",
-          "options": ["Option A", "Option B", "Option C", "Option D"],
-          "correctAnswerIndex": 0,
-          "explanation": "Explanation of why Option A is correct"
-        },
-        // more questions...
-      ]
-    }`;
-    
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiApiKey}`
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: 'gpt-4o-mini',
         messages: [
           {
-            "role": "system",
-            "content": systemPrompt
+            role: 'system',
+            content: `You are a quiz generator. Create ${questionCount} multiple-choice questions of ${difficulty} difficulty for the topic "${topic}".
+                      If a vector store ID is provided (${vectorStoreId}), use that context for generation.
+                      Format each question as a JSON object with "question_text", "options" (array of 4 choices), "correct_answer_index" (0-3), and "explanation" properties.`
           },
           {
-            "role": "user",
-            "content": `Create a ${difficulty} difficulty quiz about "${title}". The questions should be very specific to this topic and not general cybersecurity questions.`
+            role: 'user', 
+            content: `Generate ${questionCount} ${difficulty} quiz questions about "${topic}" in JSON format.`
           }
         ],
         temperature: 0.7,
-        max_tokens: 4000
-      })
+      }),
     });
+
+    const data = await response.json();
     
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("OpenAI API error:", errorData);
-      throw new Error(`OpenAI API returned error: ${response.status} ${response.statusText}`);
-    }
+    // Process the response to extract questions
+    const content = data.choices[0].message.content;
     
-    const openAIResponse = await response.json();
-    console.log("Received response from OpenAI");
-    
-    // Parse the response to extract the questions
-    let quizContent;
+    // Extract the JSON array from the content
+    let questions = [];
     try {
-      const responseText = openAIResponse.choices[0].message.content;
-      console.log("Response text sample:", responseText.substring(0, 200) + "...");
-      
-      // Extract JSON from the response
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      // Find anything that looks like a JSON array in the response
+      const jsonMatch = content.match(/\[\s*{[\s\S]*}\s*\]/);
       if (jsonMatch) {
-        // Clean the JSON string
-        let jsonStr = jsonMatch[0];
-        jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
-        
-        quizContent = JSON.parse(jsonStr);
+        questions = JSON.parse(jsonMatch[0]);
       } else {
-        // If no JSON object found, try to parse the whole text
-        quizContent = JSON.parse(responseText);
+        throw new Error('Could not find valid JSON in response');
       }
-    } catch (e) {
-      console.error("Failed to parse JSON from response:", e);
-      throw new Error("Failed to parse quiz questions from OpenAI response");
+    } catch (jsonError) {
+      console.error('Error parsing questions JSON:', jsonError);
+      throw new Error('Unable to parse questions from AI response');
     }
     
-    // Validate the parsed content
-    if (!quizContent || !quizContent.questions || !Array.isArray(quizContent.questions) || quizContent.questions.length === 0) {
-      console.error("Invalid quiz content structure:", JSON.stringify(quizContent));
-      throw new Error("Generated quiz content has invalid structure");
-    }
-    
-    // Calculate average time per question based on difficulty
-    let timeEstimateMinutes = 0;
-    switch(difficulty.toLowerCase()) {
-      case 'easy':
-        timeEstimateMinutes = questionCount * 0.5; // 30 seconds per question
-        break;
-      case 'medium':
-        timeEstimateMinutes = questionCount * 1; // 1 minute per question
-        break;
-      case 'hard':
-        timeEstimateMinutes = questionCount * 1.5; // 1.5 minutes per question
-        break;
-      default:
-        timeEstimateMinutes = questionCount * 1; // Default to 1 minute per question
-    }
-    
-    // Return the generated quiz questions
     return new Response(
-      JSON.stringify({
-        questions: quizContent.questions,
-        timeEstimate: Math.ceil(timeEstimateMinutes),
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      },
-    )
+      JSON.stringify({ questions, timeEstimate }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
-    console.error('Error generating quiz questions:', error);
+    console.error('Error:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message || 'An unknown error occurred while generating quiz questions'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      },
-    )
+      JSON.stringify({ error: error.message || 'An unexpected error occurred' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+    );
   }
-})
+});

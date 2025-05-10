@@ -1,336 +1,86 @@
 
-// Follow this setup guide to integrate the Deno runtime into your application:
-// https://docs.supabase.com/guides/functions/connect-to-database
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.2"
-import { corsHeaders } from "../_shared/cors.ts"
-
-// Set the API key directly (you can update this later through Supabase Secrets)
-const openaiApiKey = "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";
-
-// Vector store ID and assistant ID
-const vectorStoreId = "vs_681a9a95ea088191b7c66683f0f3b9cf";
-const assistantId = "asst_u7TVc67jaF4bb2qsUzasOWSs";
-
-interface FlashcardContent {
-  front: string;
-  back: string;
-}
-
-interface GenerateFlashcardsParams {
-  title: string;
-  cardCount: number;
-}
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 serve(async (req) => {
-  console.log("Function invoked: generate-flashcards");
-  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    )
+    const { title, cardCount = 10, openAIConfig = {} } = await req.json();
     
-    const { title, cardCount }: GenerateFlashcardsParams = await req.json()
-    console.log(`Generating ${cardCount} flashcards for deck: ${title} using Assistant API`);
+    // Use custom OpenAI API key from class config if provided, otherwise use the default
+    const openAIApiKey = openAIConfig.apiKey || Deno.env.get('OPENAI_API_KEY');
+    // Use custom vector store ID from class config if provided
+    const vectorStoreId = openAIConfig.vectorStoreId || Deno.env.get('VECTOR_STORE_ID');
+
+    console.log(`Generating ${cardCount} flashcards for topic: ${title}`);
+    console.log(`Using Vector Store ID: ${vectorStoreId || 'default'}`);
     
-    // First, query the content from the embeddings table to understand what data is available
-    // Use similarity search to find content related to the title topic
-    const { data: embeddingData, error: embeddingError } = await supabaseClient
-      .from('embeddings')
-      .select('content')
-      .order('created_at', { ascending: false })
-      .limit(10); // Get more samples to increase relevant content
-      
-    if (embeddingError) {
-      console.error("Error fetching embeddings:", embeddingError);
-      throw new Error(`Failed to fetch embeddings: ${embeddingError.message}`);
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not provided');
     }
-    
-    // Extract topics from the available embeddings to guide the flashcard generation
-    const availableContent = embeddingData?.map(e => e.content).join(' ').substring(0, 1000) || '';
-    
-    console.log("Available content sample:", availableContent.substring(0, 100) + "...");
-    
-    // Create a better prompt that focuses on the specific topic (title) and is more directive
-    const topicTitle = title.trim();
-    const prompt = `Create exactly ${cardCount} educational flashcards about "${topicTitle}". 
-    Base your flashcards on the following content from our knowledge base:
-    ${availableContent}...
-    
-    Each flashcard must be focused specifically on the topic "${topicTitle}" and related concepts.
-    For the front side: create clear, concise questions or key terms related to "${topicTitle}".
-    For the back side: provide comprehensive answers or explanations that are accurate and educational.
-    
-    FORMAT PRECISELY:
-    - Return exactly ${cardCount} flashcards, no more and no less
-    - Format your response as a valid JSON object with a "flashcards" array containing exactly ${cardCount} flashcard objects
-    - Each flashcard object must have "front" and "back" properties with proper JSON formatting
-    - Remember to use double quotes for property names and ensure all commas are properly placed
-    - Do not include trailing commas in the JSON
-    
-    Remember, I need EXACTLY ${cardCount} flashcards about "${topicTitle}" - no more, no less.`;
-    
-    console.log("Creating thread with OpenAI Assistants API");
-    
-    // Start a thread with the Assistant (using v2)
-    const threadResponse = await fetch("https://api.openai.com/v1/threads", {
-      method: "POST",
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiApiKey}`,
-        "OpenAI-Beta": "assistants=v2"
-      }
-    });
-    
-    if (!threadResponse.ok) {
-      const threadError = await threadResponse.json();
-      console.error("Thread creation error:", JSON.stringify(threadError));
-      throw new Error(`Failed to create thread: ${JSON.stringify(threadError)}`);
-    }
-    
-    const threadData = await threadResponse.json();
-    const threadId = threadData.id;
-    
-    console.log(`Created thread with ID: ${threadId}`);
-    
-    // Add the user message to the thread
-    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiApiKey}`,
-        "OpenAI-Beta": "assistants=v2"
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        role: "user",
-        content: prompt
-      })
-    });
-    
-    if (!messageResponse.ok) {
-      const messageError = await messageResponse.json();
-      console.error("Message error:", JSON.stringify(messageError));
-      throw new Error(`Failed to add message: ${JSON.stringify(messageError)}`);
-    }
-    
-    console.log("Added user message to thread");
-    
-    // Create system instruction specifically for flashcard generation that emphasizes strict card count
-    const systemPrompt = `You are a flashcard generation assistant creating educational content about "${topicTitle}".
-    Follow these instructions precisely:
-    1. Generate EXACTLY ${cardCount} flashcards about the topic "${topicTitle}". I need EXACTLY ${cardCount} - no more, no less.
-    2. Use knowledge from the vector store to create accurate, relevant flashcards focused on "${topicTitle}".
-    3. Make each flashcard unique and specifically about "${topicTitle}" or closely related concepts.
-    4. Each flashcard must have a clear question/term on the front and a detailed answer on the back.
-    5. Format your response as valid JSON with a "flashcards" array containing EXACTLY ${cardCount} items.
-    6. Each item must have "front" and "back" properties.
-    7. Make sure all JSON is properly formatted with no trailing commas and double quotes for property names.
-    8. CRITICAL: Count your flashcards before returning to ensure there are EXACTLY ${cardCount}.
-    9. Do not include any text explanations outside of the JSON structure.`;
-    
-    // Run the Assistant on the thread
-    const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiApiKey}`,
-        "OpenAI-Beta": "assistants=v2"
-      },
-      body: JSON.stringify({
-        assistant_id: assistantId,
-        instructions: systemPrompt,
-        tools: [
+        model: 'gpt-4o-mini',
+        messages: [
           {
-            type: "file_search"
+            role: 'system',
+            content: `You are a flashcard generator. Create ${cardCount} flashcards for the topic "${title}". 
+                     If a vector store ID is provided (${vectorStoreId}), use that context for generation.
+                     Format each flashcard as a JSON object with "front" and "back" properties.`
+          },
+          {
+            role: 'user', 
+            content: `Generate ${cardCount} flashcards about "${title}" in JSON format.`
           }
-        ]
-      })
-    });
-    
-    if (!runResponse.ok) {
-      const runError = await runResponse.json();
-      console.error("Run error:", JSON.stringify(runError));
-      throw new Error(`Failed to run assistant: ${JSON.stringify(runError)}`);
-    }
-    
-    const runData = await runResponse.json();
-    const runId = runData.id;
-    
-    console.log(`Started run with ID: ${runId}`);
-    
-    // Poll for run completion
-    let runStatus = "queued";
-    let maxAttempts = 120;  // 2 minutes timeout (120s)
-    let attempts = 0;
-    
-    while (runStatus !== "completed" && runStatus !== "failed" && runStatus !== "expired" && attempts < maxAttempts) {
-      attempts++;
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));  // Wait 1 second between polls
-      
-      const runCheckResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${openaiApiKey}`,
-          "OpenAI-Beta": "assistants=v2"
-        }
-      });
-      
-      if (!runCheckResponse.ok) {
-        const checkError = await runCheckResponse.json();
-        console.error("Run check error:", JSON.stringify(checkError));
-        throw new Error(`Failed to check run status: ${JSON.stringify(checkError)}`);
-      }
-      
-      const runCheckData = await runCheckResponse.json();
-      runStatus = runCheckData.status;
-      
-      // Log status every 10 seconds or if status changes
-      if (attempts % 10 === 0 || runStatus !== "in_progress") {
-        console.log(`Run status (attempt ${attempts}): ${runStatus}`);
-      }
-    }
-    
-    if (runStatus !== "completed") {
-      console.error(`Run did not complete. Final status: ${runStatus} after ${attempts} attempts.`);
-      throw new Error(`Run did not complete. Final status: ${runStatus}`);
-    }
-    
-    // Get the assistant's response
-    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${openaiApiKey}`,
-        "OpenAI-Beta": "assistants=v2"
-      }
-    });
-    
-    if (!messagesResponse.ok) {
-      const messagesError = await messagesResponse.json();
-      console.error("Messages retrieval error:", JSON.stringify(messagesError));
-      throw new Error(`Failed to get messages: ${JSON.stringify(messagesError)}`);
-    }
-    
-    const messagesData = await messagesResponse.json();
-    console.log("Retrieved messages:", JSON.stringify({
-      messageCount: messagesData.data?.length || 0,
-      hasData: !!messagesData.data
-    }));
-    
-    // Find the most recent assistant message
-    const assistantMessages = messagesData.data?.filter(m => m.role === "assistant") || [];
-    if (assistantMessages.length === 0) {
-      console.error("No assistant messages found in response:", JSON.stringify(messagesData));
-      throw new Error("No assistant response found");
-    }
-    
-    const latestAssistantMessage = assistantMessages[0];
-    console.log("Latest assistant message ID:", latestAssistantMessage.id);
-    
-    // Check if the content array exists and has items
-    if (!latestAssistantMessage.content || !Array.isArray(latestAssistantMessage.content) || latestAssistantMessage.content.length === 0) {
-      console.error("Invalid assistant message structure:", JSON.stringify(latestAssistantMessage));
-      throw new Error("Invalid assistant message structure");
-    }
-    
-    // Get the text value from the first content item of type "text"
-    const textContent = latestAssistantMessage.content.find(c => c.type === "text");
-    if (!textContent || !textContent.text || !textContent.text.value) {
-      console.error("No text content found in assistant message:", JSON.stringify(latestAssistantMessage.content));
-      throw new Error("No text content found in assistant message");
-    }
-    
-    const responseText = textContent.text.value;
-    console.log("Assistant response length:", responseText.length);
-    
-    // Extract JSON content containing flashcards
-    let flashcardsContent;
-    try {
-      // Find JSON content in the response
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        // Clean the JSON string to fix any formatting issues
-        let jsonStr = jsonMatch[0];
-        
-        // Fix trailing commas in objects/arrays which are invalid in JSON
-        jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
-        
-        flashcardsContent = JSON.parse(jsonStr);
-      } else {
-        throw new Error("No JSON object found in response");
-      }
-    } catch (e) {
-      console.error("Failed to parse JSON from response:", e);
-      console.log("Raw response (truncated):", responseText.substring(0, 500));
-      throw new Error("Failed to parse flashcards from response");
-    }
-    
-    // Validate that we got the correct number of flashcards
-    if (!flashcardsContent.flashcards || flashcardsContent.flashcards.length === 0) {
-      console.error("No flashcards were found in the response");
-      console.log("Raw response (truncated):", responseText.substring(0, 500));
-      throw new Error('No flashcards were generated in the response');
-    }
-    
-    // Ensure we have EXACTLY the requested number of flashcards
-    let flashcards = flashcardsContent.flashcards;
-    
-    if (flashcards.length !== cardCount) {
-      console.warn(`Requested ${cardCount} flashcards but got ${flashcards.length}. Making adjustments...`);
-      
-      if (flashcards.length < cardCount) {
-        // If we have fewer cards than requested, duplicate some to reach the exact count
-        // Start by making copies of existing cards (with slight modifications)
-        let i = 0;
-        while (flashcards.length < cardCount) {
-          const originalCard = flashcards[i % flashcards.length];
-          const duplicateCard = {
-            front: "Additional: " + originalCard.front,
-            back: originalCard.back + " (Supplementary information)"
-          };
-          flashcards.push(duplicateCard);
-          i++;
-        }
-      } else if (flashcards.length > cardCount) {
-        // If we have more cards than requested, trim the array
-        flashcards = flashcards.slice(0, cardCount);
-      }
-    }
-    
-    console.log(`Returning exactly ${flashcards.length} flashcards for topic "${topicTitle}"`);
-    
-    // Return the generated flashcards
-    return new Response(
-      JSON.stringify({
-        flashcards: flashcards,
+        ],
+        temperature: 0.7,
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      },
+    });
+
+    const data = await response.json();
+    
+    // Process the response to extract flashcards
+    const content = data.choices[0].message.content;
+    
+    // Extract the JSON array from the content
+    let flashcards = [];
+    try {
+      // Find anything that looks like a JSON array in the response
+      const jsonMatch = content.match(/\[\s*{[\s\S]*}\s*\]/);
+      if (jsonMatch) {
+        flashcards = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('Could not find valid JSON in response');
+      }
+    } catch (jsonError) {
+      console.error('Error parsing flashcards JSON:', jsonError);
+      throw new Error('Unable to parse flashcards from AI response');
+    }
+    
+    return new Response(
+      JSON.stringify({ flashcards }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error generating flashcards:', error);
+    console.error('Error:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message || 'An unknown error occurred while generating flashcards'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      },
+      JSON.stringify({ error: error.message || 'An unexpected error occurred' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });

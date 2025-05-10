@@ -1,5 +1,7 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Deck, FlashcardContent, GenerateDeckParams } from "@/types/flashcard";
+import { classOpenAIConfigService } from "./classOpenAIConfig";
 
 /**
  * Service to handle flashcard-related operations
@@ -12,11 +14,15 @@ export const flashcardService = {
     console.log("Attempting to generate flashcards with params:", params);
     
     try {
-      // Call the Supabase Edge Function to generate flashcards
+      // Get class-specific OpenAI configuration if available
+      const classConfig = classOpenAIConfigService.getActiveClassConfig();
+      
+      // Call the Supabase Edge Function to generate flashcards with the class config
       const { data, error } = await supabase.functions.invoke('generate-flashcards', {
         body: {
           title: params.title,
-          cardCount: params.cardCount
+          cardCount: params.cardCount,
+          openAIConfig: classConfig // Pass the class-specific configuration
         }
       });
 
