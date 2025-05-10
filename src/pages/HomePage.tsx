@@ -78,17 +78,19 @@ const HomePage = () => {
             const userClasses = classConfigs.map(config => {
               // Generate random emoji and color if not already set
               const emojis = ["📚", "🎓", "✏️", "📝", "🔬", "🎨", "🧮", "🔍", "📊", "💡"];
+              const colors = ["blue-300", "emerald-300", "rose-300", "amber-200", "violet-300", "indigo-300"];
               
               const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+              const randomColor = colors[Math.floor(Math.random() * colors.length)];
               
               return {
                 title: config.class_title,
-                professor: config.professor,
-                classTime: config.class_time,
-                classroom: config.classroom,
+                professor: config.professor || "",  // Professor may not exist in DB yet
+                classTime: config.class_time || "",  // class_time may not exist in DB yet
+                classroom: config.classroom || "",  // classroom may not exist in DB yet
                 emoji: randomEmoji,
                 link: "/super-stu",
-                color: config.color || "blue-300",
+                color: config.color || randomColor,  // color may not exist in DB yet
                 enabledWidgets: DEFAULT_CLASS_WIDGETS,
                 openAIConfig: {
                   apiKey: config.api_key,
