@@ -69,6 +69,39 @@ export type Database = {
         }
         Relationships: []
       }
+      class_openai_configs: {
+        Row: {
+          api_key: string | null
+          assistant_id: string | null
+          class_title: string
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string | null
+          vector_store_id: string | null
+        }
+        Insert: {
+          api_key?: string | null
+          assistant_id?: string | null
+          class_title: string
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+          vector_store_id?: string | null
+        }
+        Update: {
+          api_key?: string | null
+          assistant_id?: string | null
+          class_title?: string
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+          vector_store_id?: string | null
+        }
+        Relationships: []
+      }
       decks: {
         Row: {
           card_count: number

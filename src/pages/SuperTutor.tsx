@@ -12,6 +12,7 @@ const SuperTutor = () => {
   const navigate = useNavigate();
   const [openAIConfig, setOpenAIConfig] = useState<OpenAIConfig | undefined>(undefined);
   const [activeClass, setActiveClass] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   const suggestions = [
     "Explain the OSI model layers and their functions",
@@ -22,26 +23,34 @@ const SuperTutor = () => {
 
   // Load the active class and its OpenAI configuration
   useEffect(() => {
-    try {
-      const activeClassData = sessionStorage.getItem('activeClass');
-      if (activeClassData) {
-        const parsedClass = JSON.parse(activeClassData);
-        setActiveClass(parsedClass.title || null);
+    async function loadClassConfig() {
+      try {
+        setIsLoading(true);
         
-        // Get the OpenAI configuration for the active class
-        const config = classOpenAIConfigService.getActiveClassConfig();
-        setOpenAIConfig(config);
-        
-        if (config) {
-          console.log(`Loaded OpenAI config for class: ${parsedClass.title}`);
-          if (config.vectorStoreId) {
-            console.log(`Using Vector Store ID: ${config.vectorStoreId}`);
+        const activeClassData = sessionStorage.getItem('activeClass');
+        if (activeClassData) {
+          const parsedClass = JSON.parse(activeClassData);
+          setActiveClass(parsedClass.title || null);
+          
+          // Get the OpenAI configuration for the active class
+          const config = await classOpenAIConfigService.getActiveClassConfig();
+          setOpenAIConfig(config);
+          
+          if (config) {
+            console.log(`Loaded OpenAI config for class: ${parsedClass.title}`);
+            if (config.vectorStoreId) {
+              console.log(`Using Vector Store ID: ${config.vectorStoreId}`);
+            }
           }
         }
+      } catch (error) {
+        console.error("Error loading active class:", error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Error loading active class:", error);
     }
+    
+    loadClassConfig();
   }, []);
 
   const handleGoToFlashcards = () => {
@@ -58,7 +67,9 @@ const SuperTutor = () => {
         }
       />
 
-      {openAIConfig?.vectorStoreId ? (
+      {isLoading ? (
+        <div className="h-8 w-full bg-gray-100 animate-pulse rounded"></div>
+      ) : openAIConfig?.vectorStoreId ? (
         <div className="bg-green-50 border border-green-200 rounded-md p-3 text-sm text-green-800">
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4" />

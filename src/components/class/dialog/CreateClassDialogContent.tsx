@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { BookOpen, Calendar, Code, SquareCheck } from "lucide-react";
+import { BookOpen, Calendar, SquareCheck } from "lucide-react";
 import { ClassInfoSection } from "./ClassInfoSection";
 import { ColorSelectionSection } from "./ColorSelectionSection";
 import { MaterialsUploadSection } from "./MaterialsUploadSection";
@@ -65,6 +65,27 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     isEditing ? !!(initialData?.openAIConfig?.apiKey || initialData?.openAIConfig?.vectorStoreId || initialData?.openAIConfig?.assistantId) : false
   );
 
+  // Fetch config from Supabase when editing
+  useEffect(() => {
+    const fetchConfig = async () => {
+      if (initialData && isEditing && initialData.title) {
+        try {
+          const config = await classOpenAIConfigService.getConfigForClass(initialData.title);
+          if (config) {
+            setOpenAIApiKey(config.apiKey || "");
+            setVectorStoreId(config.vectorStoreId || "");
+            setAssistantId(config.assistantId || "");
+            setShowOpenAIConfig(true);
+          }
+        } catch (error) {
+          console.error("Error fetching OpenAI config:", error);
+        }
+      }
+    };
+    
+    fetchConfig();
+  }, [initialData, isEditing]);
+
   // Update values when initialData changes (important for edit mode)
   useEffect(() => {
     if (initialData && isEditing) {
@@ -81,28 +102,36 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
 
   // Update parent component whenever form data changes
   useEffect(() => {
-    const classData: ClassData = {
-      title,
-      description,
-      color,
-      enabledWidgets: selectedWidgets
+    const updateClassData = async () => {
+      const classData: ClassData = {
+        title,
+        description,
+        color,
+        enabledWidgets: selectedWidgets
+      };
+      
+      // Add OpenAI configuration if any fields are provided
+      if (openAIApiKey || vectorStoreId || assistantId) {
+        classData.openAIConfig = {
+          apiKey: openAIApiKey,
+          vectorStoreId: vectorStoreId,
+          assistantId: assistantId
+        };
+
+        // Also save this config to our service for future use
+        if (title) {
+          try {
+            await classOpenAIConfigService.saveConfigForClass(title, classData.openAIConfig);
+          } catch (error) {
+            console.error("Error saving OpenAI config:", error);
+          }
+        }
+      }
+      
+      onClassCreate(classData);
     };
     
-    // Add OpenAI configuration if any fields are provided
-    if (openAIApiKey || vectorStoreId || assistantId) {
-      classData.openAIConfig = {
-        apiKey: openAIApiKey,
-        vectorStoreId: vectorStoreId,
-        assistantId: assistantId
-      };
-
-      // Also save this config to our service for future use
-      if (title) {
-        classOpenAIConfigService.saveConfigForClass(title, classData.openAIConfig);
-      }
-    }
-    
-    onClassCreate(classData);
+    updateClassData();
   }, [title, description, color, selectedWidgets, openAIApiKey, vectorStoreId, assistantId, onClassCreate]);
 
   const handleToggleWidget = (id: string) => {

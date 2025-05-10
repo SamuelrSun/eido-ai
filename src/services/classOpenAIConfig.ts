@@ -23,22 +23,42 @@ export const classOpenAIConfigService = {
    * @param classTitle The title of the class
    * @returns The OpenAI configuration for the class, or undefined if not found
    */
-  getConfigForClass: (classTitle: string): OpenAIConfig | undefined => {
+  getConfigForClass: async (classTitle: string): Promise<OpenAIConfig | undefined> => {
     try {
-      // Try to load from localStorage (temporary solution)
-      // In a production app, this should be stored in a secure database
-      const storedConfigs = localStorage.getItem('classOpenAIConfigs');
-      if (storedConfigs) {
-        const configs: ClassConfig[] = JSON.parse(storedConfigs);
-        const classConfig = configs.find(config => config.title === classTitle);
+      // First try to get from Supabase
+      const { data, error } = await supabase
+        .from('class_openai_configs')
+        .select('api_key, vector_store_id, assistant_id')
+        .eq('class_title', classTitle)
+        .single();
+      
+      if (error) {
+        console.error('Error retrieving OpenAI configuration from Supabase:', error);
         
-        if (classConfig?.openAIConfig) {
-          console.log(`Found OpenAI config for class '${classTitle}'`);
-          return classConfig.openAIConfig;
+        // Fallback to localStorage (for backward compatibility)
+        const storedConfigs = localStorage.getItem('classOpenAIConfigs');
+        if (storedConfigs) {
+          const configs: ClassConfig[] = JSON.parse(storedConfigs);
+          const classConfig = configs.find(config => config.title === classTitle);
+          
+          if (classConfig?.openAIConfig) {
+            console.log(`Found OpenAI config for class '${classTitle}' in localStorage`);
+            return classConfig.openAIConfig;
+          }
         }
+        
+        return undefined;
       }
       
-      console.log(`No OpenAI config found for class '${classTitle}'`);
+      if (data) {
+        console.log(`Found OpenAI config for class '${classTitle}' in Supabase`);
+        return {
+          apiKey: data.api_key,
+          vectorStoreId: data.vector_store_id,
+          assistantId: data.assistant_id
+        };
+      }
+      
       return undefined;
     } catch (error) {
       console.error('Error retrieving OpenAI configuration:', error);
@@ -54,25 +74,56 @@ export const classOpenAIConfigService = {
    */
   saveConfigForClass: async (classTitle: string, config: OpenAIConfig): Promise<void> => {
     try {
-      // In a production app, this should be stored in a secure database
-      const classConfig: ClassConfig = {
-        id: Date.now().toString(), // Simple unique ID (use UUID in production)
-        title: classTitle,
-        openAIConfig: config
-      };
+      const { user } = await supabase.auth.getUser();
       
-      const existingConfigs: ClassConfig[] = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
+      if (!user) {
+        throw new Error('User must be authenticated to save configurations');
+      }
       
-      // Remove any existing config for this class
-      const filteredConfigs = existingConfigs.filter(config => config.title !== classTitle);
+      // Save to Supabase
+      const { error } = await supabase
+        .from('class_openai_configs')
+        .upsert({
+          class_title: classTitle,
+          api_key: config.apiKey,
+          vector_store_id: config.vectorStoreId,
+          assistant_id: config.assistantId,
+          user_id: user.id,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'class_title'
+        });
       
-      // Add the new config
-      filteredConfigs.push(classConfig);
+      if (error) {
+        console.error('Error saving OpenAI configuration to Supabase:', error);
+        throw error;
+      }
       
-      // Save to localStorage
-      localStorage.setItem('classOpenAIConfigs', JSON.stringify(filteredConfigs));
+      console.log(`Saved OpenAI config for class '${classTitle}' to Supabase`);
       
-      console.log(`Saved OpenAI config for class '${classTitle}'`);
+      // Also save to localStorage as a backup/fallback
+      try {
+        const classConfig: ClassConfig = {
+          id: Date.now().toString(),
+          title: classTitle,
+          openAIConfig: config
+        };
+        
+        const existingConfigs: ClassConfig[] = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
+        
+        // Remove any existing config for this class
+        const filteredConfigs = existingConfigs.filter(config => config.title !== classTitle);
+        
+        // Add the new config
+        filteredConfigs.push(classConfig);
+        
+        // Save to localStorage
+        localStorage.setItem('classOpenAIConfigs', JSON.stringify(filteredConfigs));
+        
+      } catch (localError) {
+        // Just log the error but continue since Supabase save was successful
+        console.warn('Error saving OpenAI configuration to localStorage (backup):', localError);
+      }
     } catch (error) {
       console.error('Error saving OpenAI configuration:', error);
       throw error;
@@ -84,7 +135,7 @@ export const classOpenAIConfigService = {
    * 
    * @returns The OpenAI configuration for the active class, or undefined if not found
    */
-  getActiveClassConfig: (): OpenAIConfig | undefined => {
+  getActiveClassConfig: async (): Promise<OpenAIConfig | undefined> => {
     try {
       const activeClass = sessionStorage.getItem('activeClass');
       if (activeClass) {
@@ -96,7 +147,7 @@ export const classOpenAIConfigService = {
         
         // If the active class doesn't have an inline config, try to find it by title
         if (parsedClass.title) {
-          return classOpenAIConfigService.getConfigForClass(parsedClass.title);
+          return await classOpenAIConfigService.getConfigForClass(parsedClass.title);
         }
       }
       

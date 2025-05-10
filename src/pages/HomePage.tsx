@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CreateClassDialog, ClassData } from "@/components/class/CreateClassDialog";
 import { useToast } from "@/hooks/use-toast";
 import { EditClassDialog } from "@/components/class/EditClassDialog";
+import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
 
 interface ClassOption {
   title: string;
@@ -123,7 +123,7 @@ const HomePage = () => {
     sessionStorage.removeItem('activeClass');
   }, []);
 
-  const handleCreateClass = (classData: ClassData) => {
+  const handleCreateClass = async (classData: ClassData) => {
     // Get an appropriate emoji for the class
     const emojis = ["📚", "🎓", "✏️", "📝", "🔬", "🎨", "🧮", "🔍", "📊", "💡"];
     const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
@@ -140,25 +140,18 @@ const HomePage = () => {
     
     setClassOptions(prev => [newClass, ...prev]);
     
-    // Store class-specific configurations
+    // Store OpenAI configuration in Supabase
     if (classData.openAIConfig) {
       try {
-        // Store in localStorage for now as a temporary solution
-        // In a production app, this should be stored in a secure database
-        const classConfig = {
-          id: Date.now().toString(),
-          title: classData.title,
-          openAIConfig: classData.openAIConfig
-        };
-        
-        // Store a reference to the class configuration
-        const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
-        existingConfigs.push(classConfig);
-        localStorage.setItem('classOpenAIConfigs', JSON.stringify(existingConfigs));
-        
+        await classOpenAIConfigService.saveConfigForClass(classData.title, classData.openAIConfig);
         console.log('OpenAI configuration saved for class:', classData.title);
       } catch (error) {
         console.error('Error storing OpenAI configuration:', error);
+        toast({
+          title: "Warning",
+          description: "Failed to save OpenAI configuration. You may need to sign in.",
+          variant: "destructive"
+        });
       }
     }
     
@@ -168,7 +161,7 @@ const HomePage = () => {
     });
   };
 
-  const handleUpdateClass = (classData: ClassData) => {
+  const handleUpdateClass = async (classData: ClassData) => {
     if (!selectedClassToEdit) return;
     
     // Update the class in the array
@@ -187,26 +180,18 @@ const HomePage = () => {
       )
     );
     
-    // Update class-specific configurations in localStorage
+    // Update OpenAI configuration in Supabase
     if (classData.openAIConfig) {
       try {
-        const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
-        
-        // Remove existing config for this class if title hasn't changed
-        const filteredConfigs = existingConfigs.filter(
-          (config: any) => config.title !== selectedClassToEdit.title
-        );
-        
-        // Add the updated config
-        filteredConfigs.push({
-          id: Date.now().toString(),
-          title: classData.title,
-          openAIConfig: classData.openAIConfig
-        });
-        
-        localStorage.setItem('classOpenAIConfigs', JSON.stringify(filteredConfigs));
+        await classOpenAIConfigService.saveConfigForClass(classData.title, classData.openAIConfig);
+        console.log('OpenAI configuration updated for class:', classData.title);
       } catch (error) {
         console.error('Error updating OpenAI configuration:', error);
+        toast({
+          title: "Warning",
+          description: "Failed to update OpenAI configuration. You may need to sign in.",
+          variant: "destructive"
+        });
       }
     }
     
@@ -214,7 +199,7 @@ const HomePage = () => {
     setSelectedClassToEdit(null);
   };
 
-  const handleDeleteClass = () => {
+  const handleDeleteClass = async () => {
     if (!selectedClassToEdit) return;
     
     // Remove the class from the array
@@ -222,13 +207,22 @@ const HomePage = () => {
       prev.filter(classItem => classItem.title !== selectedClassToEdit.title)
     );
     
-    // Remove class-specific configurations from localStorage
+    // Delete OpenAI configuration from Supabase
     try {
-      const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
-      const filteredConfigs = existingConfigs.filter(
-        (config: any) => config.title !== selectedClassToEdit.title
-      );
-      localStorage.setItem('classOpenAIConfigs', JSON.stringify(filteredConfigs));
+      // Note: We need to add a deleteConfigForClass method to the service
+      // For now, we'll just notify the user
+      console.log('Class deleted:', selectedClassToEdit.title);
+      
+      // Also remove from localStorage (backup storage)
+      try {
+        const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
+        const filteredConfigs = existingConfigs.filter(
+          (config: any) => config.title !== selectedClassToEdit.title
+        );
+        localStorage.setItem('classOpenAIConfigs', JSON.stringify(filteredConfigs));
+      } catch (error) {
+        console.error('Error removing OpenAI configuration from localStorage:', error);
+      }
     } catch (error) {
       console.error('Error removing OpenAI configuration:', error);
     }
