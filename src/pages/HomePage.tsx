@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { CreateClassDialog, ClassData } from "@/components/class/CreateClassDial
 import { useToast } from "@/hooks/use-toast";
 import { EditClassDialog } from "@/components/class/EditClassDialog";
 import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
+import { getEmojiForClass } from "@/utils/emojiUtils";
 
 interface ClassOption {
   title: string;
@@ -75,12 +77,12 @@ const HomePage = () => {
           } else if (classConfigs && classConfigs.length > 0) {
             // Transform the class configs into ClassOption objects
             const userClasses = classConfigs.map(config => {
-              // Generate random emoji and color if not already set
-              const emojis = ["📚", "🎓", "✏️", "📝", "🔬", "🎨", "🧮", "🔍", "📊", "💡"];
+              // Generate colors if not already set
               const colors = ["blue-300", "emerald-300", "rose-300", "amber-200", "violet-300", "indigo-300"];
-              
-              const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
               const randomColor = colors[Math.floor(Math.random() * colors.length)];
+              
+              // Use stored emoji or generate one based on class title
+              const classEmoji = config.emoji || getEmojiForClass(config.class_title);
               
               return {
                 title: config.class_title,
@@ -88,7 +90,7 @@ const HomePage = () => {
                 professor: (config as any).professor || "",
                 classTime: (config as any).class_time || "",
                 classroom: (config as any).classroom || "",
-                emoji: randomEmoji,
+                emoji: classEmoji,
                 link: "/super-stu",
                 color: (config as any).color || randomColor,
                 enabledWidgets: DEFAULT_CLASS_WIDGETS,
@@ -138,16 +140,15 @@ const HomePage = () => {
         return;
       }
       
-      // Get an appropriate emoji for the class
-      const emojis = ["📚", "🎓", "✏️", "📝", "🔬", "🎨", "🧮", "🔍", "📊", "💡"];
-      const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+      // Ensure we have an emoji (either from form or generated)
+      const classEmoji = classData.emoji || getEmojiForClass(classData.title);
       
       const newClass: ClassOption = {
         title: classData.title,
         professor: classData.professor,
         classTime: classData.classTime,
         classroom: classData.classroom,
-        emoji: randomEmoji,
+        emoji: classEmoji,
         link: "/super-stu", // Always navigate to Super Tutor
         color: classData.color,
         enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
@@ -167,6 +168,7 @@ const HomePage = () => {
             class_time: classData.classTime,
             classroom: classData.classroom,
             color: classData.color,
+            emoji: classEmoji,
             api_key: classData.openAIConfig?.apiKey || null,
             vector_store_id: classData.openAIConfig?.vectorStoreId || null,
             assistant_id: classData.openAIConfig?.assistantId || null
@@ -215,6 +217,9 @@ const HomePage = () => {
         return;
       }
       
+      // Ensure we have an emoji (either from form or generated)
+      const classEmoji = classData.emoji || getEmojiForClass(classData.title);
+      
       // Update the class in the array
       setClassOptions(prev => 
         prev.map(classItem => 
@@ -226,6 +231,7 @@ const HomePage = () => {
                 classTime: classData.classTime,
                 classroom: classData.classroom,
                 color: classData.color,
+                emoji: classEmoji,
                 enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
                 openAIConfig: classData.openAIConfig
               }
@@ -243,6 +249,7 @@ const HomePage = () => {
             class_time: classData.classTime,
             classroom: classData.classroom,
             color: classData.color,
+            emoji: classEmoji,
             api_key: classData.openAIConfig?.apiKey || null,
             vector_store_id: classData.openAIConfig?.vectorStoreId || null,
             assistant_id: classData.openAIConfig?.assistantId || null

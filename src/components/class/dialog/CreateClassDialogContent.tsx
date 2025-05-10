@@ -8,6 +8,7 @@ import { WidgetSelectionSection } from "./WidgetSelectionSection";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ClassData } from "../CreateClassDialog";
 import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
+import { getEmojiForClass } from "@/utils/emojiUtils";
 
 interface CreateClassDialogContentProps {
   onClassCreate: (classData: ClassData) => void;
@@ -57,6 +58,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
   const [classroom, setClassroom] = useState(initialData?.classroom || "");
   const [color, setColor] = useState(initialData?.color || "blue-300");
   const [selectedWidgets, setSelectedWidgets] = useState<string[]>(initialData?.enabledWidgets || ["flashcards", "quizzes"]);
+  const [emoji, setEmoji] = useState(initialData?.emoji || "");
   
   // OpenAI configuration states
   const [openAIApiKey, setOpenAIApiKey] = useState(initialData?.openAIConfig?.apiKey || "");
@@ -87,6 +89,13 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     fetchConfig();
   }, [initialData, isEditing]);
 
+  // Update emoji when title changes (only if emoji is not set or we're not in edit mode)
+  useEffect(() => {
+    if (title && (!emoji || (!isEditing && !initialData?.emoji))) {
+      setEmoji(getEmojiForClass(title));
+    }
+  }, [title, emoji, isEditing, initialData?.emoji]);
+
   // Update values when initialData changes (important for edit mode)
   useEffect(() => {
     if (initialData && isEditing) {
@@ -99,6 +108,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
       setOpenAIApiKey(initialData.openAIConfig?.apiKey || "");
       setVectorStoreId(initialData.openAIConfig?.vectorStoreId || "");
       setAssistantId(initialData.openAIConfig?.assistantId || "");
+      setEmoji(initialData.emoji || getEmojiForClass(initialData.title || ""));
       setShowOpenAIConfig(!!(initialData.openAIConfig?.apiKey || initialData.openAIConfig?.vectorStoreId || initialData.openAIConfig?.assistantId));
     }
   }, [initialData, isEditing]);
@@ -112,7 +122,8 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
         classTime,
         classroom,
         color,
-        enabledWidgets: selectedWidgets
+        enabledWidgets: selectedWidgets,
+        emoji: emoji || getEmojiForClass(title)
       };
       
       // Add OpenAI configuration if any fields are provided
@@ -137,7 +148,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     };
     
     updateClassData();
-  }, [title, professor, classTime, classroom, color, selectedWidgets, openAIApiKey, vectorStoreId, assistantId, onClassCreate]);
+  }, [title, professor, classTime, classroom, color, selectedWidgets, emoji, openAIApiKey, vectorStoreId, assistantId, onClassCreate]);
 
   const handleToggleWidget = (id: string) => {
     setSelectedWidgets(prev =>

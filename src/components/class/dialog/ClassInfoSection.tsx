@@ -8,10 +8,12 @@ interface ClassInfoSectionProps {
   professor: string;
   classTime: string;
   classroom: string;
+  emoji?: string;
   onTitleChange: (value: string) => void;
   onProfessorChange: (value: string) => void;
   onClassTimeChange: (value: string) => void;
   onClassroomChange: (value: string) => void;
+  onEmojiChange?: (value: string) => void;
 }
 
 export function ClassInfoSection({
@@ -19,10 +21,12 @@ export function ClassInfoSection({
   professor,
   classTime,
   classroom,
+  emoji,
   onTitleChange,
   onProfessorChange,
   onClassTimeChange,
-  onClassroomChange
+  onClassroomChange,
+  onEmojiChange
 }: ClassInfoSectionProps) {
   return (
     <div className="space-y-4">

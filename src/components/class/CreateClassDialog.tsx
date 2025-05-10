@@ -23,6 +23,7 @@ export interface ClassData {
   classTime?: string;
   classroom?: string;
   color: string;
+  emoji?: string;
   enabledWidgets: string[];
   openAIConfig?: {
     apiKey?: string;

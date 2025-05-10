@@ -96,6 +96,7 @@ export type Database = {
           assistant_id: string | null
           class_title: string
           created_at: string | null
+          emoji: string | null
           id: string
           updated_at: string | null
           user_id: string | null
@@ -106,6 +107,7 @@ export type Database = {
           assistant_id?: string | null
           class_title: string
           created_at?: string | null
+          emoji?: string | null
           id?: string
           updated_at?: string | null
           user_id?: string | null
@@ -116,6 +118,7 @@ export type Database = {
           assistant_id?: string | null
           class_title?: string
           created_at?: string | null
+          emoji?: string | null
           id?: string
           updated_at?: string | null
           user_id?: string | null
