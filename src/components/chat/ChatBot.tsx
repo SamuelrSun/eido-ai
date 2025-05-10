@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Send, Database, Bot, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -112,7 +113,7 @@ export function ChatBot({
       setUsedAssistant(data.usedAssistant || false);
       
       // Only show toasts if not disabled
-      if (!disableToasts) {
+      if (!disableToasts && false) { // Added 'false' to ensure toasts are disabled
         // Show appropriate toast based on what was used
         if (data.usedVectorStore) {
           toast({
@@ -158,7 +159,7 @@ export function ChatBot({
       setErrorMessage(errorMessage);
       
       // Only show toasts if not disabled
-      if (!disableToasts) {
+      if (!disableToasts && false) { // Added 'false' to ensure toasts are disabled
         toast({
           title: "Error",
           description: errorMessage,

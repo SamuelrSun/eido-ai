@@ -15,6 +15,7 @@ const SuperTutor = () => {
   const [openAIConfig, setOpenAIConfig] = useState<OpenAIConfig | undefined>(undefined);
   const [activeClass, setActiveClass] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const { toast } = useToast();
   
@@ -125,6 +126,11 @@ const SuperTutor = () => {
     
     loadClassConfig();
   }, [toast]);
+
+  // Function to be passed to ChatBot for tracking response generation state
+  const handleResponseGenerationState = (isGenerating: boolean) => {
+    setIsGeneratingResponse(isGenerating);
+  };
 
   const handleGoToFlashcards = () => {
     navigate("/flashcards");
@@ -262,10 +268,24 @@ const SuperTutor = () => {
 
       <div className="bg-white p-6 rounded-xl shadow-sm border">
         <ChatBot 
+          disableToasts={true}
           suggestions={suggestions}
           title={activeClass ? `${activeClass} Assistant` : "Class Assistant"}
           knowledgeBase={activeClass || "Network Security Concepts"}
           openAIConfig={openAIConfig}
+          onResponseGenerationStateChange={handleResponseGenerationState}
+          loadingIndicator={
+            isGeneratingResponse && (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-pulse flex items-center space-x-2">
+                  <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                  <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                  <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-sm text-gray-500 ml-2">AI is thinking...</span>
+                </div>
+              </div>
+            )
+          }
         />
       </div>
     </div>
