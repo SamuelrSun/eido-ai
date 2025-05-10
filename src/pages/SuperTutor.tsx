@@ -5,14 +5,16 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { classOpenAIConfigService, OpenAIConfig } from "@/services/classOpenAIConfig";
-import { Database, AlertCircle, KeyRound } from "lucide-react";
+import { Database, AlertCircle, KeyRound, Settings } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 const SuperTutor = () => {
   const navigate = useNavigate();
   const [openAIConfig, setOpenAIConfig] = useState<OpenAIConfig | undefined>(undefined);
   const [activeClass, setActiveClass] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
   
   const suggestions = [
     "Explain the OSI model layers and their functions",
@@ -41,17 +43,31 @@ const SuperTutor = () => {
             if (config.vectorStoreId) {
               console.log(`Using Vector Store ID: ${config.vectorStoreId}`);
             }
+            
+            // Validate API key format
+            if (config.apiKey && !config.apiKey.startsWith('sk-')) {
+              toast({
+                title: "Invalid API Key Format",
+                description: "Your OpenAI API key appears to be invalid. API keys should start with 'sk-'. Please update it in your class settings.",
+                variant: "destructive"
+              });
+            }
           }
         }
       } catch (error) {
         console.error("Error loading active class:", error);
+        toast({
+          title: "Error Loading Configuration",
+          description: "Failed to load your class configuration. Please refresh or check your settings.",
+          variant: "destructive"
+        });
       } finally {
         setIsLoading(false);
       }
     }
     
     loadClassConfig();
-  }, []);
+  }, [toast]);
 
   const handleGoToFlashcards = () => {
     navigate("/flashcards");
@@ -100,15 +116,34 @@ const SuperTutor = () => {
           <AlertTitle>OpenAI API Key Required</AlertTitle>
           <AlertDescription className="flex flex-col gap-2">
             <p>An OpenAI API key is required to use Super Tutor. Please set up your API key in the class settings.</p>
-            <Button size="sm" variant="outline" className="w-fit" onClick={handleSetupAPIKey}>
+            <Button size="sm" variant="outline" className="w-fit flex items-center gap-2" onClick={handleSetupAPIKey}>
+              <Settings className="h-4 w-4" />
               Set up API Key
             </Button>
           </AlertDescription>
         </Alert>
       )}
 
+      {openAIConfig?.apiKey && !openAIConfig.apiKey.startsWith('sk-') && (
+        <Alert variant="destructive" className="bg-red-50 border-red-200">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Invalid API Key Format</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            <p>Your OpenAI API key appears to be invalid. OpenAI API keys typically start with "sk-". Please update it in settings.</p>
+            <Button size="sm" variant="outline" className="w-fit flex items-center gap-2" onClick={handleSetupAPIKey}>
+              <Settings className="h-4 w-4" />
+              Update API Key
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex flex-col gap-4 mb-6">
-        <Button onClick={handleGoToFlashcards} className="w-fit">
+        <Button 
+          onClick={handleGoToFlashcards} 
+          className="w-fit"
+          disabled={!openAIConfig?.apiKey || (openAIConfig.apiKey && !openAIConfig.apiKey.startsWith('sk-'))}
+        >
           Generate Flashcards
         </Button>
       </div>

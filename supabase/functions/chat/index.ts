@@ -33,7 +33,7 @@ serve(async (req) => {
       );
     }
 
-    // Validate API key format (basic check)
+    // Validate API key format - accepting both sk-org and standard sk- keys
     if (!openAIApiKey.startsWith('sk-')) {
       return new Response(
         JSON.stringify({ error: 'Invalid OpenAI API key format. Keys should start with "sk-"' }),
@@ -53,59 +53,75 @@ serve(async (req) => {
     };
 
     // Make the API call with the enhanced system message
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          systemMessage,
-          ...history,
-          { role: 'user', content: message }
-        ],
-        temperature: 0.7,
-      }),
-    });
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            systemMessage,
+            ...history,
+            { role: 'user', content: message }
+          ],
+          temperature: 0.7,
+        }),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      
-      // Provide more helpful error messages based on status code
-      if (response.status === 401) {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('OpenAI API error:', response.status, errorText);
+        
+        // Provide more helpful error messages based on status code
+        if (response.status === 401) {
+          return new Response(
+            JSON.stringify({ error: 'Authentication error: Invalid OpenAI API key. Please check your API key and try again.' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+          );
+        } else if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ error: 'OpenAI API rate limit exceeded. Please try again later.' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
+          );
+        } else if (response.status === 400) {
+          return new Response(
+            JSON.stringify({ error: 'Bad request to OpenAI API. This might be due to an invalid API key format or other parameter issues.' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+          );
+        }
+        
         return new Response(
-          JSON.stringify({ error: 'Authentication error: Invalid OpenAI API key. Please check your API key and try again.' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-        );
-      } else if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'OpenAI API rate limit exceeded. Please try again later.' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
+          JSON.stringify({ error: `OpenAI API error: ${response.status}. ${errorText}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
         );
       }
-      
-      throw new Error(`OpenAI API returned status ${response.status}: ${errorText}`);
-    }
 
-    const data = await response.json();
-    
-    // Ensure we have a valid response before trying to access properties
-    if (!data || !data.choices || !data.choices.length || !data.choices[0].message) {
-      throw new Error('Invalid response from OpenAI API');
+      const data = await response.json();
+      
+      // Ensure we have a valid response before trying to access properties
+      if (!data || !data.choices || !data.choices.length || !data.choices[0].message) {
+        throw new Error('Invalid response from OpenAI API');
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          response: data.choices[0].message.content,
+          usingCustomConfig: !!openAIConfig.apiKey,
+          vectorStoreId: vectorStoreId,  // Return this for debugging purposes
+          assistantId: assistantId       // Return this for debugging purposes
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (apiError) {
+      console.error('OpenAI API request failed:', apiError);
+      return new Response(
+        JSON.stringify({ error: `Failed to communicate with OpenAI API: ${apiError.message}` }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
-    
-    return new Response(
-      JSON.stringify({ 
-        response: data.choices[0].message.content,
-        usingCustomConfig: !!openAIConfig.apiKey,
-        vectorStoreId: vectorStoreId,  // Return this for debugging purposes
-        assistantId: assistantId       // Return this for debugging purposes
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
   } catch (error) {
     console.error('Error:', error);
     return new Response(
