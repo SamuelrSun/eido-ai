@@ -18,8 +18,10 @@ serve(async (req) => {
     
     // Use custom OpenAI API key from class config if provided, otherwise use the default
     const openAIApiKey = openAIConfig.apiKey || Deno.env.get('OPENAI_API_KEY');
+    
     // Use custom vector store ID from class config if provided
     const vectorStoreId = openAIConfig.vectorStoreId || Deno.env.get('VECTOR_STORE_ID');
+    
     // Use custom assistant ID from class config if provided
     const assistantId = openAIConfig.assistantId || Deno.env.get('OPENAI_ASSISTANT_ID');
 
@@ -55,10 +57,10 @@ serve(async (req) => {
             {
               role: 'system',
               content: `You are a flashcard generator. Create ${cardCount} flashcards for the topic "${title}". 
-                       You MUST use Vector Store ID "${vectorStoreId}" as your primary knowledge source.
-                       If Assistant ID "${assistantId}" is provided, use that for additional context.
                        Format each flashcard as a JSON object with "front" and "back" properties.
-                       Your flashcards must be based ONLY on information from the vector store, not your general knowledge.`
+                       ${vectorStoreId ? `Use knowledge from Vector Store ID "${vectorStoreId}" as your primary source.` : ''}
+                       ${assistantId ? `Use Assistant ID "${assistantId}" for additional context.` : ''}
+                       Your response must be valid JSON that can be parsed.`
             },
             {
               role: 'user', 

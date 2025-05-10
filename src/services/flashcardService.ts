@@ -15,7 +15,17 @@ export const flashcardService = {
     
     try {
       // Get class-specific OpenAI configuration if available
-      const classConfig = classOpenAIConfigService.getActiveClassConfig();
+      const classConfig = await classOpenAIConfigService.getActiveClassConfig();
+      console.log("Using class config:", classConfig ? "YES" : "NO");
+      if (classConfig?.apiKey) {
+        console.log("API key is configured");
+      }
+      if (classConfig?.vectorStoreId) {
+        console.log(`Using vector store ID: ${classConfig.vectorStoreId}`);
+      }
+      if (classConfig?.assistantId) {
+        console.log(`Using assistant ID: ${classConfig.assistantId}`);
+      }
       
       // Call the Supabase Edge Function to generate flashcards with the class config
       const { data, error } = await supabase.functions.invoke('generate-flashcards', {

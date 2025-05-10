@@ -114,30 +114,8 @@ export function ChatBot({
       setUsedVectorStore(data.usedVectorStore || false);
       setUsedAssistant(data.usedAssistant || false);
       
-      // Only show toasts if not disabled
-      if (!disableToasts && false) { // Added 'false' to ensure toasts are disabled
-        // Show appropriate toast based on what was used
-        if (data.usedVectorStore) {
-          toast({
-            title: "Using Class Knowledge Base",
-            description: `Response generated using the vector store (${data.vectorStoreId?.substring(0, 8)}...) for ${knowledgeBase}`,
-            duration: 3000
-          });
-        } else if (data.usedAssistant) {
-          toast({
-            title: "Using Class Assistant",
-            description: `Response generated using the custom assistant (${data.assistantId?.substring(0, 8)}...) for ${knowledgeBase}`,
-            duration: 3000
-          });
-        } else if (data.usedFallback && (data.vectorStoreId || data.assistantId)) {
-          toast({
-            title: "Using Fallback Mode",
-            description: `Unable to access custom knowledge base or assistant. Using general model instead.`,
-            variant: "destructive",
-            duration: 5000
-          });
-        }
-      }
+      // All toasts are now permanently disabled by setting disableToasts to true
+      // and adding false to the condition to ensure it's always false
 
     } catch (error: any) {
       console.error("Error getting AI response:", error);
@@ -160,14 +138,7 @@ export function ChatBot({
       
       setErrorMessage(errorMessage);
       
-      // Only show toasts if not disabled
-      if (!disableToasts && false) { // Added 'false' to ensure toasts are disabled
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      }
+      // All toasts are now permanently disabled
 
       // Add error message to chat
       const errorMessageContent: Message = {
