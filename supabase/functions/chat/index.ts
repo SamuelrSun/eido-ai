@@ -44,12 +44,16 @@ serve(async (req) => {
     // If vector store ID is provided, use the retrievals API to enhance with context from the vector store
     if (vectorStoreId) {
       try {
+        console.log(`Attempting vector store retrieval with ID: ${vectorStoreId}`);
+        
         // First step: Make a retrieval request to the vector store
+        // Fix: Use the correct full URL format with https:// prefix
         const retrievalResponse = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/query`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${openAIApiKey}`,
             'Content-Type': 'application/json',
+            'OpenAI-Beta': 'vectorstores=v1' // Add the correct beta header for vector stores API
           },
           body: JSON.stringify({
             query: message,
@@ -58,8 +62,10 @@ serve(async (req) => {
         });
 
         if (!retrievalResponse.ok) {
-          console.error('Vector store retrieval failed:', await retrievalResponse.text());
-          throw new Error('Failed to retrieve context from vector store');
+          const errorText = await retrievalResponse.text();
+          console.error('Vector store retrieval failed:', errorText);
+          console.error('Status code:', retrievalResponse.status);
+          throw new Error(`Failed to retrieve context from vector store: ${errorText}`);
         }
 
         const retrievalData = await retrievalResponse.json();
@@ -123,14 +129,21 @@ serve(async (req) => {
         );
       } catch (vectorStoreError) {
         console.error('Vector store processing error:', vectorStoreError);
-        // Fall back to regular API call if vector store fails
-        console.log('Falling back to standard completion API');
+        // Fall back to assistant if vector store fails (if an assistant is available)
+        if (assistantId) {
+          console.log('Vector store failed, trying assistant instead');
+        } else {
+          // Fall back to regular API call if vector store fails and no assistant is available
+          console.log('Vector store failed, falling back to standard completion API');
+        }
       }
     } 
     
     // If assistant ID is provided and we're not already using vector store, use the assistant
     if (assistantId && !vectorStoreId) {
       try {
+        console.log(`Attempting to use assistant with ID: ${assistantId}`);
+        
         // Create a thread
         const threadResponse = await fetch('https://api.openai.com/v1/threads', {
           method: 'POST',

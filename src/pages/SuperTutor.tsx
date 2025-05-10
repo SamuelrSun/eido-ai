@@ -5,15 +5,17 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { classOpenAIConfigService, OpenAIConfig } from "@/services/classOpenAIConfig";
-import { Database, AlertCircle, KeyRound, Settings, Bot } from "lucide-react";
+import { Database, AlertCircle, KeyRound, Settings, Bot, ExternalLink } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 const SuperTutor = () => {
   const navigate = useNavigate();
   const [openAIConfig, setOpenAIConfig] = useState<OpenAIConfig | undefined>(undefined);
   const [activeClass, setActiveClass] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const { toast } = useToast();
   
   const suggestions = [
@@ -28,6 +30,7 @@ const SuperTutor = () => {
     async function loadClassConfig() {
       try {
         setIsLoading(true);
+        setConnectError(null);
         
         const activeClassData = sessionStorage.getItem('activeClass');
         if (activeClassData) {
@@ -51,6 +54,29 @@ const SuperTutor = () => {
                 description: "Your OpenAI API key appears to be invalid. API keys should start with 'sk-'. Please update it in your class settings.",
                 variant: "destructive"
               });
+            }
+            
+            // Test vector store connectivity if available
+            if (config.vectorStoreId && config.apiKey) {
+              try {
+                // Simple connectivity test
+                const testResponse = await fetch(`https://api.openai.com/v1/vector_stores/${config.vectorStoreId}`, {
+                  method: 'GET',
+                  headers: {
+                    'Authorization': `Bearer ${config.apiKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'vectorstores=v1'
+                  }
+                });
+                
+                if (!testResponse.ok) {
+                  const errorData = await testResponse.json();
+                  setConnectError(`Vector store connectivity issue: ${errorData.error?.message || "Unknown error"}`);
+                  console.error("Vector store test failed:", errorData);
+                }
+              } catch (error) {
+                console.error("Vector store connectivity test error:", error);
+              }
             }
           }
         }
@@ -77,6 +103,10 @@ const SuperTutor = () => {
     navigate("/settings");
   };
 
+  const openOpenAIDocs = () => {
+    window.open("https://platform.openai.com/docs/api-reference/vector-stores", "_blank");
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader 
@@ -89,35 +119,61 @@ const SuperTutor = () => {
 
       {isLoading ? (
         <div className="h-8 w-full bg-gray-100 animate-pulse rounded"></div>
-      ) : openAIConfig?.vectorStoreId ? (
-        <div className="bg-green-50 border border-green-200 rounded-md p-3 text-sm text-green-800">
-          <div className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            <p className="font-medium">Using custom knowledge base for {activeClass}</p>
-          </div>
-          <p className="text-xs text-green-600 mt-1">
-            Vector Store ID: {openAIConfig.vectorStoreId.substring(0, 10)}... • 
-            Responses will be based on your class materials
-          </p>
-        </div>
-      ) : activeClass ? (
-        <Alert variant="default" className="bg-amber-50 border-amber-200">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>No custom knowledge base</AlertTitle>
-          <AlertDescription>
-            This class isn't connected to a vector store. Responses will use OpenAI's general knowledge, not your class materials.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      ) : (
+        <>
+          {openAIConfig?.vectorStoreId ? (
+            <div className={`${connectError ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'} border rounded-md p-4 text-sm`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Database className={`h-4 w-4 ${connectError ? 'text-amber-600' : 'text-green-600'}`} />
+                  <p className="font-medium">{connectError ? 'Vector store connectivity issue' : `Using custom knowledge base for ${activeClass}`}</p>
+                </div>
+                <Badge variant={connectError ? "outline" : "default"} className="text-xs">
+                  {openAIConfig.vectorStoreId.substring(0, 8)}...
+                </Badge>
+              </div>
+              {connectError ? (
+                <div className="mt-2">
+                  <p className="text-xs text-amber-700">{connectError}</p>
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="px-0 h-auto text-xs flex items-center gap-1 text-amber-700" 
+                    onClick={openOpenAIDocs}
+                  >
+                    View OpenAI Vector Store docs <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-green-600 mt-1">
+                  Responses will be based on your class materials
+                </p>
+              )}
+            </div>
+          ) : activeClass ? (
+            <Alert variant="default" className="bg-amber-50 border-amber-200">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>No custom knowledge base</AlertTitle>
+              <AlertDescription>
+                This class isn't connected to a vector store. Responses will use OpenAI's general knowledge, not your class materials.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </>
+      )}
       
       {openAIConfig?.assistantId && (
         <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800">
-          <div className="flex items-center gap-2">
-            <Bot className="h-4 w-4" />
-            <p className="font-medium">Using custom assistant for {activeClass}</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4" />
+              <p className="font-medium">Using custom assistant for {activeClass}</p>
+            </div>
+            <Badge variant="default" className="bg-blue-500 text-xs">
+              {openAIConfig.assistantId.substring(0, 8)}...
+            </Badge>
           </div>
           <p className="text-xs text-blue-600 mt-1">
-            Assistant ID: {openAIConfig.assistantId.substring(0, 10)}... • 
             Specialized for this class subject
           </p>
         </div>

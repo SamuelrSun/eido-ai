@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Database, Bot } from "lucide-react";
+import { Send, Database, Bot, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { OpenAIConfig } from "@/services/classOpenAIConfig";
 import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 
 export interface Message {
   role: "user" | "assistant" | "system";
@@ -38,6 +39,7 @@ export function ChatBot({
   const [activeAssistant, setActiveAssistant] = useState<string | null>(null);
   const [usedVectorStore, setUsedVectorStore] = useState(false);
   const [usedAssistant, setUsedAssistant] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -48,6 +50,9 @@ export function ChatBot({
 
   const handleSendMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
+    
+    // Clear previous error state
+    setErrorMessage(null);
 
     // Add user message to chat
     const userMessage: Message = { role: "user", content: messageText };
@@ -80,6 +85,7 @@ export function ChatBot({
 
       if (data.error) {
         console.error("API response error:", data.error);
+        setErrorMessage(data.error);
         throw new Error(data.error);
       }
 
@@ -134,6 +140,8 @@ export function ChatBot({
         errorMessage = "Failed to connect to your class knowledge base. Using general knowledge instead.";
       }
       
+      setErrorMessage(errorMessage);
+      
       toast({
         title: "Error",
         description: errorMessage,
@@ -184,6 +192,13 @@ export function ChatBot({
             isUser={message.role === "user"}
           />
         ))}
+
+        {errorMessage && messages.length > 0 && (
+          <Alert variant="destructive" className="mx-4 my-2">
+            <AlertCircle className="h-4 w-4" />
+            <div className="ml-2 text-sm">{errorMessage}</div>
+          </Alert>
+        )}
 
         {messages.length === 0 && (
           <div className="p-4">
