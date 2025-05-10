@@ -14,7 +14,7 @@ export function SidebarHeader({ onClose, activeClassName }: SidebarHeaderProps) 
         <div className="flex items-center">
           <div className="w-8 h-8 rounded-md flex items-center justify-center mr-2">
             <img 
-              src="/eido-ai.png" 
+              src="/eido-icon.png" 
               alt="Eido AI Logo" 
               className="h-8 w-8 object-contain"
             />
