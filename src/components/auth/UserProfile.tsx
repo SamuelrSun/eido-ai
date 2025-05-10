@@ -211,12 +211,8 @@ export function UserProfile() {
     return null;
   }
 
-  // Updated logic to ensure first letters are capitalized
   const userInitials = profile?.full_name 
-    ? profile.full_name
-        .split(' ')
-        .map((n: string) => n.charAt(0).toUpperCase())
-        .join('')
+    ? profile.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
     : user.email.charAt(0).toUpperCase();
 
   return (
