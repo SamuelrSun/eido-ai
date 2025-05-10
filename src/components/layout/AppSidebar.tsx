@@ -1,3 +1,4 @@
+
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -139,32 +140,35 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
   const visibleWidgetNavItems = widgetNavItems.filter(item => 
     enabledWidgets.includes(item.widgetId)
   );
-  
-  const accountNavItems = [
-    {
-      icon: <UserCircle className="mr-2 h-5 w-5" />,
-      label: "My Account",
-      to: "/account"
-    }
-  ];
 
   return (
     <div className="flex flex-col h-screen w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
-      <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-        <div className="flex items-center">
-          <div className="w-8 h-8 rounded-md bg-purple-500 flex items-center justify-center mr-2">
-            <GraduationCap className="h-5 w-5 text-white" />
+      <div className="flex flex-col p-4 border-b border-sidebar-border">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center">
+            <div className="w-8 h-8 rounded-md bg-purple-500 flex items-center justify-center mr-2">
+              <GraduationCap className="h-5 w-5 text-white" />
+            </div>
+            <span className="font-semibold text-xl">Eido</span>
           </div>
-          <span className="font-semibold text-xl">Eido</span>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onClose}
+            className="md:hidden text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            <X className="h-5 w-5" />
+          </Button>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={onClose}
-          className="md:hidden text-sidebar-foreground hover:bg-sidebar-accent"
-        >
-          <X className="h-5 w-5" />
-        </Button>
+        
+        {/* Display active class at the top under Eido */}
+        {activeClassName && (
+          <div className="py-1 px-1">
+            <div className="text-sm font-medium text-sidebar-foreground truncate">
+              {activeClassName}
+            </div>
+          </div>
+        )}
       </div>
       
       <nav className="flex-1 overflow-auto py-4">
@@ -188,20 +192,8 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             </li>
           ))}
           
-          {/* Always show the widgets section - but display a message if no class */}
-          <div className="mt-4 px-4 py-2">
-            <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
-              {activeClassName ? "Active Class" : "No Active Class"}
-            </h3>
-            {activeClassName && (
-              <p className="text-sm text-sidebar-foreground font-medium py-1 truncate">
-                {activeClassName}
-              </p>
-            )}
-          </div>
-          
           {/* Widgets section with heading and add button */}
-          <div className="pt-2">
+          <div className="pt-4">
             <div className="px-4 py-2 flex justify-between items-center">
               <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
                 {activeClassName ? "Class Widgets" : "Available Widgets"}
