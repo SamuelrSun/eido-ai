@@ -67,12 +67,25 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // When on homepage, clear active class
+  // Update active class name when location changes
   useEffect(() => {
     if (location.pathname === '/') {
       setActiveClassName(null);
+    } else {
+      const activeClass = sessionStorage.getItem('activeClass');
+      if (activeClass) {
+        try {
+          const parsedClass = JSON.parse(activeClass);
+          setActiveClassName(parsedClass.title);
+        } catch (e) {
+          console.error("Error parsing active class:", e);
+        }
+      }
     }
   }, [location.pathname]);
+
+  console.log("Active class name in sidebar:", activeClassName);
+  console.log("Enabled widgets in sidebar:", enabledWidgets);
 
   // Define all navigation items - core features
   const coreNavItems = [
@@ -176,67 +189,68 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             </li>
           ))}
           
-          {/* Only show class section if a class is active */}
-          {activeClassName && (
-            <>
-              {/* Class name display */}
-              <div className="mt-4 px-4 py-2">
-                <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
-                  Active Class
-                </h3>
-                <p className="text-sm text-sidebar-foreground font-medium py-1 truncate">
-                  {activeClassName}
-                </p>
+          {/* Always show the widgets section - but display a message if no class */}
+          <div className="mt-4 px-4 py-2">
+            <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
+              {activeClassName ? "Active Class" : "No Active Class"}
+            </h3>
+            {activeClassName && (
+              <p className="text-sm text-sidebar-foreground font-medium py-1 truncate">
+                {activeClassName}
+              </p>
+            )}
+          </div>
+          
+          {/* Widgets section with heading and add button */}
+          <div className="pt-2">
+            <div className="px-4 py-2 flex justify-between items-center">
+              <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
+                {activeClassName ? "Class Widgets" : "Available Widgets"}
+              </h3>
+              {activeClassName && (
+                <Button 
+                  onClick={() => setIsWidgetsDialogOpen(true)}
+                  variant="ghost"
+                  size="sm"
+                  className="flex items-center gap-1 h-7 text-sidebar-foreground hover:text-primary hover:bg-sidebar-accent/80"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  <span>Add</span>
+                </Button>
+              )}
+            </div>
+            
+            {widgetsLoading ? (
+              <div className="flex items-center justify-center p-4">
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <span className="text-xs text-muted-foreground">Loading...</span>
               </div>
-              
-              {/* Widgets section with heading and add button */}
-              <div className="pt-2">
-                <div className="px-4 py-2 flex justify-between items-center">
-                  <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
-                    Class Widgets
-                  </h3>
-                  <Button 
-                    onClick={() => setIsWidgetsDialogOpen(true)}
-                    variant="ghost"
-                    size="sm"
-                    className="flex items-center gap-1 h-7 text-sidebar-foreground hover:text-primary hover:bg-sidebar-accent/80"
+            ) : visibleWidgetNavItems.length > 0 ? (
+              visibleWidgetNavItems.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) => 
+                      `flex items-center px-4 py-2 rounded-md transition-colors ${
+                        isActive 
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                      }`
+                    }
                   >
-                    <LayoutGrid className="h-4 w-4" />
-                    <span>Add</span>
-                  </Button>
-                </div>
-                
-                {widgetsLoading ? (
-                  <div className="flex items-center justify-center p-4">
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    <span className="text-xs text-muted-foreground">Loading...</span>
-                  </div>
-                ) : visibleWidgetNavItems.length > 0 ? (
-                  visibleWidgetNavItems.map((item) => (
-                    <li key={item.to}>
-                      <NavLink
-                        to={item.to}
-                        className={({ isActive }) => 
-                          `flex items-center px-4 py-2 rounded-md transition-colors ${
-                            isActive 
-                              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
-                              : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                          }`
-                        }
-                      >
-                        {item.icon}
-                        <span>{item.label}</span>
-                      </NavLink>
-                    </li>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground px-4 py-2">
-                    No widgets added yet
-                  </p>
-                )}
-              </div>
-            </>
-          )}
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </NavLink>
+                </li>
+              ))
+            ) : (
+              <p className="text-xs text-muted-foreground px-4 py-2">
+                {activeClassName 
+                  ? "No widgets added yet" 
+                  : "Select a class to use widgets"}
+              </p>
+            )}
+          </div>
         </ul>
       </nav>
       
