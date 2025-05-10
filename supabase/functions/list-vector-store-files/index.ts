@@ -6,9 +6,6 @@ import { corsHeaders } from "../_shared/cors.ts"
 // In production, store this securely in Supabase secrets
 const openaiApiKey = "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";
 
-// The vector store ID to retrieve files from
-const vectorStoreId = "vs_681a9a95ea088191b7c66683f0f3b9cf";
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -25,7 +22,6 @@ serve(async (req) => {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${openaiApiKey}`
-        // No beta header needed for files endpoint
       }
     });
 

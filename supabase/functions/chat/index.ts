@@ -41,106 +41,8 @@ serve(async (req) => {
       );
     }
 
-    // If vector store ID is provided, use the retrievals API to enhance with context from the vector store
-    if (vectorStoreId) {
-      try {
-        console.log(`Attempting vector store retrieval with ID: ${vectorStoreId}`);
-        
-        // First step: Make a retrieval request to the vector store
-        // Using the correct full URL and updated beta header format
-        const retrievalResponse = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/query`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
-            'OpenAI-Beta': 'vector_stores=v1' // FIXED: Updated from 'vectorstores=v1' to 'vector_stores=v1'
-          },
-          body: JSON.stringify({
-            query: message,
-            limit: 5,  // Retrieve top 5 most relevant chunks
-          }),
-        });
-
-        if (!retrievalResponse.ok) {
-          const errorText = await retrievalResponse.text();
-          console.error('Vector store retrieval failed:', errorText);
-          console.error('Status code:', retrievalResponse.status);
-          throw new Error(`Failed to retrieve context from vector store: ${errorText}`);
-        }
-
-        const retrievalData = await retrievalResponse.json();
-        
-        console.log(`Retrieved ${retrievalData.data?.length || 0} context items from vector store`);
-        
-        // Build enhanced system message with retrieved context
-        let contextContent = '';
-        if (retrievalData.data && retrievalData.data.length > 0) {
-          contextContent = retrievalData.data.map((item: any, index: number) => 
-            `Context ${index + 1}:\n${item.text}`
-          ).join('\n\n');
-        }
-        
-        // Create a system message with the retrieved context
-        const systemMessage = {
-          role: 'system',
-          content: `You are an AI Assistant for ${knowledgeBase} education.
-          
-          Here's relevant information from the class materials:
-          ${contextContent || "No specific context found. Use your general knowledge."}
-          
-          Answer the user's question using this context. If the context doesn't contain enough information to provide a complete answer, acknowledge that and provide your best response based on your general knowledge while being clear about which parts come from the class materials and which don't.`
-        };
-
-        // Now make the completion request with the enhanced context
-        const completionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              systemMessage,
-              ...history,
-              { role: 'user', content: message }
-            ],
-            temperature: 0.7,
-          }),
-        });
-
-        if (!completionResponse.ok) {
-          const errorText = await completionResponse.text();
-          console.error('OpenAI API error:', completionResponse.status, errorText);
-          throw new Error(`OpenAI API error: ${completionResponse.status}. ${errorText}`);
-        }
-
-        const completionData = await completionResponse.json();
-        
-        return new Response(
-          JSON.stringify({ 
-            response: completionData.choices[0].message.content,
-            usingCustomConfig: !!openAIConfig.apiKey,
-            vectorStoreId: vectorStoreId,
-            assistantId: assistantId,
-            usedVectorStore: true
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (vectorStoreError) {
-        console.error('Vector store processing error:', vectorStoreError);
-        // Fall back to assistant if vector store fails (if an assistant is available)
-        if (assistantId) {
-          console.log('Vector store failed, trying assistant instead');
-        } else {
-          // Fall back to regular API call if vector store fails and no assistant is available
-          console.log('Vector store failed, falling back to standard completion API');
-        }
-      }
-    } 
-    
-    // If assistant ID is provided and we're not already using vector store, use the assistant
-    if (assistantId && !vectorStoreId) {
+    // If assistant ID is provided, use it (this is the preferred method for vector stores with assistants API)
+    if (assistantId) {
       try {
         console.log(`Attempting to use assistant with ID: ${assistantId}`);
         
@@ -150,14 +52,15 @@ serve(async (req) => {
           headers: {
             'Authorization': `Bearer ${openAIApiKey}`,
             'Content-Type': 'application/json',
-            'OpenAI-Beta': 'assistants=v1'
+            'OpenAI-Beta': 'assistants=v2'  // Using the updated beta header
           },
           body: JSON.stringify({}),
         });
 
         if (!threadResponse.ok) {
-          console.error('Failed to create thread:', await threadResponse.text());
-          throw new Error('Failed to create assistant thread');
+          const errorText = await threadResponse.text();
+          console.error('Failed to create thread:', errorText);
+          throw new Error(`Failed to create assistant thread: ${errorText}`);
         }
 
         const threadData = await threadResponse.json();
@@ -169,7 +72,7 @@ serve(async (req) => {
           headers: {
             'Authorization': `Bearer ${openAIApiKey}`,
             'Content-Type': 'application/json',
-            'OpenAI-Beta': 'assistants=v1'
+            'OpenAI-Beta': 'assistants=v2'  // Updated beta header
           },
           body: JSON.stringify({
             role: 'user',
@@ -178,8 +81,9 @@ serve(async (req) => {
         });
 
         if (!messageResponse.ok) {
-          console.error('Failed to add message:', await messageResponse.text());
-          throw new Error('Failed to add message to thread');
+          const errorText = await messageResponse.text();
+          console.error('Failed to add message:', errorText);
+          throw new Error(`Failed to add message to thread: ${errorText}`);
         }
 
         // Run the assistant
@@ -188,7 +92,7 @@ serve(async (req) => {
           headers: {
             'Authorization': `Bearer ${openAIApiKey}`,
             'Content-Type': 'application/json',
-            'OpenAI-Beta': 'assistants=v1'
+            'OpenAI-Beta': 'assistants=v2'  // Updated beta header
           },
           body: JSON.stringify({
             assistant_id: assistantId
@@ -196,8 +100,9 @@ serve(async (req) => {
         });
 
         if (!runResponse.ok) {
-          console.error('Failed to run assistant:', await runResponse.text());
-          throw new Error('Failed to run assistant');
+          const errorText = await runResponse.text();
+          console.error('Failed to run assistant:', errorText);
+          throw new Error(`Failed to run assistant: ${errorText}`);
         }
 
         const runData = await runResponse.json();
@@ -221,13 +126,14 @@ serve(async (req) => {
           const runCheckResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
             headers: {
               'Authorization': `Bearer ${openAIApiKey}`,
-              'OpenAI-Beta': 'assistants=v1'
+              'OpenAI-Beta': 'assistants=v2'  // Updated beta header
             },
           });
           
           if (!runCheckResponse.ok) {
-            console.error('Failed to check run status:', await runCheckResponse.text());
-            throw new Error('Failed to check assistant run status');
+            const errorText = await runCheckResponse.text();
+            console.error('Failed to check run status:', errorText);
+            throw new Error(`Failed to check assistant run status: ${errorText}`);
           }
           
           const runCheckData = await runCheckResponse.json();
@@ -244,13 +150,14 @@ serve(async (req) => {
         const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
           headers: {
             'Authorization': `Bearer ${openAIApiKey}`,
-            'OpenAI-Beta': 'assistants=v1'
+            'OpenAI-Beta': 'assistants=v2'  // Updated beta header
           },
         });
         
         if (!messagesResponse.ok) {
-          console.error('Failed to get messages:', await messagesResponse.text());
-          throw new Error('Failed to get assistant messages');
+          const errorText = await messagesResponse.text();
+          console.error('Failed to get messages:', errorText);
+          throw new Error(`Failed to get assistant messages: ${errorText}`);
         }
         
         const messagesData = await messagesResponse.json();
@@ -267,7 +174,7 @@ serve(async (req) => {
           JSON.stringify({ 
             response: lastMessage,
             usingCustomConfig: !!openAIConfig.apiKey,
-            vectorStoreId: null,
+            vectorStoreId: vectorStoreId,
             assistantId: assistantId,
             usedAssistant: true
           }),
@@ -279,6 +186,10 @@ serve(async (req) => {
         // Fall back to regular API call if assistant fails
         console.log('Falling back to standard completion API');
       }
+    } 
+    // If no assistant but vector store is provided
+    else if (vectorStoreId) {
+      console.log('No valid assistant available, falling back to standard completion API with system message mentioning vector store');
     }
 
     // Standard completion API as fallback

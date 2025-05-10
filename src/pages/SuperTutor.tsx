@@ -46,6 +46,9 @@ const SuperTutor = () => {
             if (config.vectorStoreId) {
               console.log(`Using Vector Store ID: ${config.vectorStoreId}`);
             }
+            if (config.assistantId) {
+              console.log(`Using Assistant ID: ${config.assistantId}`);
+            }
             
             // Validate API key format
             if (config.apiKey && !config.apiKey.startsWith('sk-')) {
@@ -56,17 +59,41 @@ const SuperTutor = () => {
               });
             }
             
-            // Test vector store connectivity if available
-            if (config.vectorStoreId && config.apiKey) {
+            // Test assistant connectivity if available
+            if (config.assistantId && config.apiKey) {
               try {
-                // Test with the files endpoint instead of directly accessing vector store
-                // This is more reliable as it checks if we can access files stored for assistants
+                const assistantResponse = await fetch(`https://api.openai.com/v1/assistants/${config.assistantId}`, {
+                  method: 'GET',
+                  headers: {
+                    'Authorization': `Bearer ${config.apiKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'  // Using the updated beta header
+                  }
+                });
+                
+                if (!assistantResponse.ok) {
+                  const assistantError = await assistantResponse.json();
+                  setConnectError(`Assistant connectivity issue: ${assistantError.error?.message || "Unknown error"}`);
+                  console.error("Assistant test failed:", assistantError);
+                } else {
+                  console.log("Successfully connected to OpenAI Assistant API");
+                  const assistantData = await assistantResponse.json();
+                  console.log(`Assistant name: ${assistantData.name || "Unnamed"}`);
+                }
+              } catch (error) {
+                console.error("Assistant connectivity test error:", error);
+                setConnectError(`Failed to connect to assistant: ${error instanceof Error ? error.message : "Unknown error"}`);
+              }
+            }
+            // Test vector store connectivity only if no assistant but vector store is available
+            else if (config.vectorStoreId && config.apiKey && !config.assistantId) {
+              try {
+                // Test with the files endpoint instead
                 const testResponse = await fetch(`https://api.openai.com/v1/files?purpose=assistants`, {
                   method: 'GET',
                   headers: {
                     'Authorization': `Bearer ${config.apiKey}`,
                     'Content-Type': 'application/json'
-                    // No beta header needed for files endpoint
                   }
                 });
                 
@@ -76,28 +103,6 @@ const SuperTutor = () => {
                   console.error("API test failed:", errorData);
                 } else {
                   console.log("Successfully connected to OpenAI API");
-                  // The connection is good, but let's specifically check the assistant
-                  if (config.assistantId) {
-                    try {
-                      const assistantResponse = await fetch(`https://api.openai.com/v1/assistants/${config.assistantId}`, {
-                        method: 'GET',
-                        headers: {
-                          'Authorization': `Bearer ${config.apiKey}`,
-                          'Content-Type': 'application/json',
-                          'OpenAI-Beta': 'assistants=v2'
-                        }
-                      });
-
-                      if (!assistantResponse.ok) {
-                        const assistantError = await assistantResponse.json();
-                        setConnectError(`Assistant connectivity issue: ${assistantError.error?.message || "Unknown error"}`);
-                        console.error("Assistant test failed:", assistantError);
-                      }
-                    } catch (assistantError) {
-                      console.error("Assistant connectivity test error:", assistantError);
-                      setConnectError(`Failed to connect to assistant: ${assistantError instanceof Error ? assistantError.message : "Unknown error"}`);
-                    }
-                  }
                 }
               } catch (error) {
                 console.error("API connectivity test error:", error);
@@ -130,7 +135,7 @@ const SuperTutor = () => {
   };
 
   const openOpenAIDocs = () => {
-    window.open("https://platform.openai.com/docs/api-reference/assistants/overview", "_blank");
+    window.open("https://platform.openai.com/docs/api-reference/assistants", "_blank");
   };
 
   return (
@@ -147,7 +152,36 @@ const SuperTutor = () => {
         <div className="h-8 w-full bg-gray-100 animate-pulse rounded"></div>
       ) : (
         <>
-          {openAIConfig?.vectorStoreId ? (
+          {openAIConfig?.assistantId ? (
+            <div className={`${connectError ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'} border rounded-md p-4 text-sm`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bot className={`h-4 w-4 ${connectError ? 'text-amber-600' : 'text-blue-600'}`} />
+                  <p className="font-medium">{connectError ? 'Assistant connectivity issue' : `Using custom assistant for ${activeClass}`}</p>
+                </div>
+                <Badge variant={connectError ? "outline" : "default"} className={connectError ? "" : "bg-blue-500"}>
+                  {openAIConfig.assistantId.substring(0, 8)}...
+                </Badge>
+              </div>
+              {connectError ? (
+                <div className="mt-2">
+                  <p className="text-xs text-amber-700">{connectError}</p>
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="px-0 h-auto text-xs flex items-center gap-1 text-amber-700" 
+                    onClick={openOpenAIDocs}
+                  >
+                    View OpenAI Assistant docs <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-blue-600 mt-1">
+                  Responses will be based on your class materials using a specialized assistant
+                </p>
+              )}
+            </div>
+          ) : openAIConfig?.vectorStoreId ? (
             <div className={`${connectError ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'} border rounded-md p-4 text-sm`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -181,28 +215,11 @@ const SuperTutor = () => {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>No custom knowledge base</AlertTitle>
               <AlertDescription>
-                This class isn't connected to a vector store. Responses will use OpenAI's general knowledge, not your class materials.
+                This class isn't connected to an assistant. Responses will use OpenAI's general knowledge, not your class materials.
               </AlertDescription>
             </Alert>
           ) : null}
         </>
-      )}
-      
-      {openAIConfig?.assistantId && (
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bot className="h-4 w-4" />
-              <p className="font-medium">Using custom assistant for {activeClass}</p>
-            </div>
-            <Badge variant="default" className="bg-blue-500 text-xs">
-              {openAIConfig.assistantId.substring(0, 8)}...
-            </Badge>
-          </div>
-          <p className="text-xs text-blue-600 mt-1">
-            Specialized for this class subject
-          </p>
-        </div>
       )}
 
       {!openAIConfig?.apiKey && (
