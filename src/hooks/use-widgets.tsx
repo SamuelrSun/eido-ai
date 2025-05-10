@@ -2,8 +2,7 @@
 import { createContext, useState, useContext, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
-export type WidgetType = "flashcards" | "quizzes" | "calendar" | "supertutor" | "database" | "practice";
+import { useWidgetBase, WidgetType } from "./use-widget-base";
 
 interface WidgetsContextType {
   enabledWidgets: WidgetType[];
@@ -12,6 +11,9 @@ interface WidgetsContextType {
   isLoading: boolean;
 }
 
+// Default widgets that are enabled for all users
+const DEFAULT_WIDGETS: WidgetType[] = ["flashcards", "calendar"];
+
 const WidgetsContext = createContext<WidgetsContextType>({
   enabledWidgets: [],
   toggleWidget: () => {},
@@ -19,16 +21,23 @@ const WidgetsContext = createContext<WidgetsContextType>({
   isLoading: true,
 });
 
-// Default widgets that are enabled for all users
-const DEFAULT_WIDGETS: WidgetType[] = ["flashcards", "calendar"];
-
 export const useWidgets = () => useContext(WidgetsContext);
 
 export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
-  const [enabledWidgets, setEnabledWidgets] = useState<WidgetType[]>(DEFAULT_WIDGETS);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [user, setUser] = useState<any>(null);
   const { toast } = useToast();
+  const [localIsLoading, setLocalIsLoading] = useState<boolean>(true);
+  
+  const {
+    enabledWidgets,
+    toggleWidget: baseToggleWidget,
+    isWidgetEnabled,
+    isLoading: baseIsLoading,
+    setWidgets
+  } = useWidgetBase({
+    defaultWidgets: DEFAULT_WIDGETS,
+    storageKey: "enabledWidgets"
+  });
 
   // Listen for auth state changes
   useEffect(() => {
@@ -43,15 +52,15 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
         if (storedWidgets) {
           try {
             const parsedWidgets = JSON.parse(storedWidgets);
-            setEnabledWidgets(parsedWidgets);
+            setWidgets(parsedWidgets);
           } catch (e) {
             console.error("Failed to parse stored widgets", e);
-            setEnabledWidgets(DEFAULT_WIDGETS);
+            setWidgets(DEFAULT_WIDGETS);
           }
         } else {
-          setEnabledWidgets(DEFAULT_WIDGETS);
+          setWidgets(DEFAULT_WIDGETS);
         }
-        setIsLoading(false);
+        setLocalIsLoading(false);
       }
     });
 
@@ -61,12 +70,12 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [setWidgets]);
 
   // Load user widgets when user changes
   useEffect(() => {
     const loadUserWidgets = async () => {
-      setIsLoading(true);
+      setLocalIsLoading(true);
       
       try {
         if (user) {
@@ -94,7 +103,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
                 enabled_widgets: DEFAULT_WIDGETS
               });
             
-            setEnabledWidgets(DEFAULT_WIDGETS);
+            setWidgets(DEFAULT_WIDGETS);
           } else if (data) {
             console.log("Found user widgets:", data.enabled_widgets);
             // Convert string array to WidgetType array with type safety
@@ -103,7 +112,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
                 ["flashcards", "quizzes", "calendar", "supertutor", "database", "practice"].includes(widget)
               ) as WidgetType[];
             
-            setEnabledWidgets(widgets);
+            setWidgets(widgets);
           }
         } else {
           // Use local storage for non-authenticated users
@@ -112,14 +121,14 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
             try {
               const parsedWidgets = JSON.parse(storedWidgets);
               console.log("Using local storage widgets:", parsedWidgets);
-              setEnabledWidgets(parsedWidgets);
+              setWidgets(parsedWidgets);
             } catch (e) {
               console.error("Failed to parse stored widgets", e);
-              setEnabledWidgets(DEFAULT_WIDGETS);
+              setWidgets(DEFAULT_WIDGETS);
             }
           } else {
             console.log("No local storage widgets, using defaults");
-            setEnabledWidgets(DEFAULT_WIDGETS);
+            setWidgets(DEFAULT_WIDGETS);
             localStorage.setItem("enabledWidgets", JSON.stringify(DEFAULT_WIDGETS));
           }
         }
@@ -131,20 +140,20 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
           variant: "destructive",
         });
         // Fall back to defaults
-        setEnabledWidgets(DEFAULT_WIDGETS);
+        setWidgets(DEFAULT_WIDGETS);
       } finally {
-        setIsLoading(false);
+        setLocalIsLoading(false);
       }
     };
 
     // Load widgets whenever user state changes
     loadUserWidgets();
-  }, [user, toast]);
+  }, [user, toast, setWidgets]);
 
   // Save widget changes to database when they change
   useEffect(() => {
     const saveWidgets = async () => {
-      if (isLoading) return; // Avoid saving during initial load
+      if (localIsLoading || baseIsLoading) return; // Avoid saving during initial load
       
       try {
         console.log("Saving widgets:", enabledWidgets);
@@ -179,25 +188,18 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
     };
 
     // Skip the first render
-    if (!isLoading) {
+    if (!localIsLoading && !baseIsLoading) {
       saveWidgets();
     }
-  }, [enabledWidgets, user, isLoading, toast]);
+  }, [enabledWidgets, user, localIsLoading, baseIsLoading, toast]);
 
+  // Custom toggle wrapper that handles database updates
   const toggleWidget = (widget: WidgetType) => {
     console.log("Toggling widget:", widget);
-    setEnabledWidgets(current => {
-      if (current.includes(widget)) {
-        return current.filter(w => w !== widget);
-      } else {
-        return [...current, widget];
-      }
-    });
+    baseToggleWidget(widget);
   };
 
-  const isWidgetEnabled = (widget: WidgetType) => {
-    return enabledWidgets.includes(widget);
-  };
+  const isLoading = localIsLoading || baseIsLoading;
 
   return (
     <WidgetsContext.Provider value={{ 
