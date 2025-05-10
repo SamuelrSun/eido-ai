@@ -40,8 +40,7 @@ const App = () => (
             <Route element={<AuthGuard />}>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<HomePage />} />
-                <Route path="/super-tutor" element={<SuperTutor />} />
-                <Route path="/super-stu" element={<Navigate to="/super-tutor" replace />} />
+                <Route path="/super-stu" element={<SuperTutor />} />
                 <Route path="/secure-coach" element={<SecureCoach />} />
                 <Route path="/static-coach" element={<StaticCoach />} />
                 <Route path="/database" element={<DatabasePage />} />

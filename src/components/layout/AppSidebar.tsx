@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
-import { WidgetType } from "@/hooks/use-widget-base";
+import { WidgetType } from "@/hooks/use-widgets";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { SidebarHeader } from "./sidebar/SidebarHeader";
 import { SidebarNavigation } from "./sidebar/SidebarNavigation";
@@ -54,7 +54,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     {
       icon: <Search className="mr-2 h-5 w-5" />,
       label: "Super Tutor",
-      to: "/super-tutor",
+      to: "/super-stu",
       widgetId: "supertutor" as WidgetType
     },
     {

@@ -3,7 +3,7 @@ import { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LayoutGrid, Loader2 } from "lucide-react";
-import { WidgetType } from "@/hooks/use-widget-base";
+import { WidgetType } from "@/hooks/use-widgets";
 
 interface WidgetNavItem {
   icon: ReactNode;

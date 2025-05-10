@@ -1,11 +1,34 @@
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { 
+  BookOpen, 
+  Calendar, 
+  Check, 
+  SquareCheck, 
+  X,
+  Search,
+  Database,
+  Info,
+  Loader2,
+  FileInput
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { WidgetCard } from "./WidgetCard";
+import { 
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { useWidgets, WidgetType } from "@/hooks/use-widgets";
 import { useClassWidgets } from "@/hooks/use-class-widgets";
-import { BookOpen, Database, FileInput, Search, SquareCheck } from "lucide-react";
 
 interface AddWidgetsDialogProps {
   open: boolean;
@@ -14,140 +37,173 @@ interface AddWidgetsDialogProps {
   currentClassName?: string;
 }
 
-interface WidgetOption {
-  id: WidgetType;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-}
-
-export function AddWidgetsDialog({
-  open,
+export function AddWidgetsDialog({ 
+  open, 
   onOpenChange,
   classMode = false,
-  currentClassName = ""
+  currentClassName = "Current Class"
 }: AddWidgetsDialogProps) {
-  // Use either class widgets or global widgets based on mode
-  const { enabledWidgets: globalWidgets, toggleWidget: globalToggleWidget } = useWidgets();
-  const { enabledWidgets: classWidgets, toggleWidget: classToggleWidget } = useClassWidgets();
+  const globalWidgets = useWidgets();
+  const classWidgets = useClassWidgets();
   
-  const enabledWidgets = classMode ? classWidgets : globalWidgets;
-  const toggleWidget = classMode ? classToggleWidget : globalToggleWidget;
-
-  // Track selection state for adding/removing multiple widgets at once
-  const [selectedWidgets, setSelectedWidgets] = useState<WidgetType[]>([]);
+  // Use either class widgets or global widgets depending on mode
+  const { 
+    enabledWidgets, 
+    toggleWidget, 
+    isLoading 
+  } = classMode ? classWidgets : globalWidgets;
   
-  // Available widget options (Calendar is removed)
-  const widgetOptions: WidgetOption[] = [
-    {
-      id: "flashcards",
-      title: "Flashcards",
-      description: "Create and review flashcards for effective learning and retention",
-      icon: <BookOpen className="h-8 w-8 text-primary" />
-    },
-    {
-      id: "quizzes",
-      title: "Quizzes",
-      description: "Generate and take quizzes to test your knowledge",
-      icon: <SquareCheck className="h-8 w-8 text-primary" />
-    },
-    {
-      id: "practice",
-      title: "Practice",
-      description: "Create custom practice worksheets for various subjects",
-      icon: <FileInput className="h-8 w-8 text-primary" />
-    },
-    {
-      id: "supertutor",
-      title: "Super Tutor",
-      description: "Get personalized tutoring from our AI tutor",
-      icon: <Search className="h-8 w-8 text-primary" />
-    },
-    {
-      id: "database",
-      title: "Database",
-      description: "Access and manage your knowledge database",
-      icon: <Database className="h-8 w-8 text-primary" />
-    }
-  ];
+  const [localEnabledWidgets, setLocalEnabledWidgets] = useState<WidgetType[]>(enabledWidgets);
 
-  // Toggle selection state
-  const toggleSelection = (widget: WidgetType) => {
-    setSelectedWidgets(prev => 
-      prev.includes(widget) 
-        ? prev.filter(w => w !== widget) 
-        : [...prev, widget]
-    );
-  };
-
-  // Apply selected changes
-  const applyChanges = () => {
-    // For each selected widget, toggle it if needed
-    selectedWidgets.forEach(widget => {
-      const isCurrentlyEnabled = enabledWidgets.includes(widget);
-      const isWantedEnabled = true;
-      
-      if (isCurrentlyEnabled !== isWantedEnabled) {
-        toggleWidget(widget);
-      }
-    });
-    
-    // For each non-selected widget, toggle off if currently enabled
-    widgetOptions
-      .map(option => option.id)
-      .filter(widget => !selectedWidgets.includes(widget))
-      .forEach(widget => {
-        if (enabledWidgets.includes(widget)) {
-          toggleWidget(widget);
-        }
-      });
-    
-    // Close dialog
-    onOpenChange(false);
-  };
-
-  // Initialize selection state when dialog opens
+  // Reset local state when dialog opens or enabledWidgets change
   useEffect(() => {
     if (open) {
-      setSelectedWidgets(enabledWidgets);
+      setLocalEnabledWidgets(enabledWidgets);
     }
   }, [open, enabledWidgets]);
 
+  const toggleLocalWidget = (widget: WidgetType) => {
+    setLocalEnabledWidgets(current => {
+      if (current.includes(widget)) {
+        return current.filter(w => w !== widget);
+      } else {
+        return [...current, widget];
+      }
+    });
+  };
+
+  const applyChanges = () => {
+    // Find widgets to enable and disable
+    const toEnable = localEnabledWidgets.filter(w => !enabledWidgets.includes(w));
+    const toDisable = enabledWidgets.filter(w => !localEnabledWidgets.includes(w));
+    
+    // Apply changes
+    toEnable.forEach(w => toggleWidget(w));
+    toDisable.forEach(w => toggleWidget(w));
+    
+    onOpenChange(false);
+  };
+
+  const cancelChanges = () => {
+    setLocalEnabledWidgets(enabledWidgets);
+    onOpenChange(false);
+  };
+
+  const allWidgets = [
+    {
+      id: "flashcards" as WidgetType,
+      name: "Flashcards",
+      description: "Study with digital flashcards",
+      icon: BookOpen,
+    },
+    {
+      id: "quizzes" as WidgetType,
+      name: "Quizzes",
+      description: "Test your knowledge with quizzes",
+      icon: SquareCheck,
+    },
+    {
+      id: "calendar" as WidgetType,
+      name: "Calendar",
+      description: "Schedule and manage your classes",
+      icon: Calendar,
+    },
+    {
+      id: "supertutor" as WidgetType,
+      name: "Super Tutor",
+      description: "AI-powered learning assistant",
+      icon: Search,
+    },
+    {
+      id: "database" as WidgetType,
+      name: "Database",
+      description: "Store and manage your files",
+      icon: Database,
+    },
+    {
+      id: "practice" as WidgetType,
+      name: "Practice",
+      description: "Generate worksheets & get feedback",
+      icon: FileInput,
+    }
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {classMode 
-              ? `Configure Widgets for ${currentClassName || 'Class'}` 
-              : 'Configure Available Widgets'}
+              ? `Manage Widgets for ${currentClassName}` 
+              : "Manage Widgets"
+            }
           </DialogTitle>
           <DialogDescription>
             {classMode
-              ? 'Select which learning tools should be available in this class.'
-              : 'Choose which tools you want to use across all your classes.'}
+              ? "Enable or disable widgets for this class."
+              : "Enable or disable widgets for your dashboard."
+            }
           </DialogDescription>
         </DialogHeader>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-          {widgetOptions.map((widget) => (
-            <WidgetCard
-              key={widget.id}
-              id={widget.id}
-              name={widget.title}
-              description={widget.description}
-              icon={widget.icon}
-              isSelected={selectedWidgets.includes(widget.id)}
-              onToggle={() => toggleSelection(widget.id)}
-            />
-          ))}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-sm text-muted-foreground">Loading your widgets...</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-4">
+            {allWidgets.map(widget => (
+              <div
+                key={widget.id}
+                className={cn(
+                  "flex items-center p-3 rounded-lg border cursor-pointer transition-colors",
+                  localEnabledWidgets.includes(widget.id)
+                    ? "bg-primary/10 border-primary"
+                    : "bg-background hover:bg-accent/50"
+                )}
+                onClick={() => toggleLocalWidget(widget.id)}
+              >
+                <div className={cn(
+                  "flex items-center justify-center rounded-md w-10 h-10 mr-3 text-white",
+                  localEnabledWidgets.includes(widget.id)
+                    ? "bg-primary"
+                    : "bg-muted-foreground/30"
+                )}>
+                  <widget.icon className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{widget.name}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-1">
+                    {widget.description}
+                  </p>
+                </div>
+                <div className="ml-2">
+                  {localEnabledWidgets.includes(widget.id) ? (
+                    <Check className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        Click to enable
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button type="button" variant="outline" onClick={cancelChanges}>
+            <X className="mr-2 h-4 w-4" />
             Cancel
           </Button>
-          <Button onClick={applyChanges}>
+          <Button type="button" onClick={applyChanges} disabled={isLoading}>
+            <Check className="mr-2 h-4 w-4" />
             Apply Changes
           </Button>
         </DialogFooter>
