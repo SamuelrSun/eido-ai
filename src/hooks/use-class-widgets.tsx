@@ -64,24 +64,24 @@ export const ClassWidgetsProvider = ({
       setLocalIsLoading(true);
       try {
         // Try to load from active class
-        const activeClass = sessionStorage.getItem('activeClass');
-        if (activeClass && classId) {
-          try {
-            const parsedClass = JSON.parse(activeClass);
-            if (parsedClass.title === classId && parsedClass.enabledWidgets) {
-              setWidgets(parsedClass.enabledWidgets);
-              console.log('Using widgets from active class:', parsedClass.enabledWidgets);
-              setLocalIsLoading(false);
-              setInitialLoadDone(true);
-              return;
-            }
-          } catch (e) {
-            console.error("Error parsing active class:", e);
-          }
-        }
-        
-        // Try to load from session storage using class ID
         if (classId) {
+          const activeClass = sessionStorage.getItem('activeClass');
+          if (activeClass) {
+            try {
+              const parsedClass = JSON.parse(activeClass);
+              if (parsedClass.title === classId && parsedClass.enabledWidgets) {
+                setWidgets(parsedClass.enabledWidgets);
+                console.log('Using widgets from active class:', parsedClass.enabledWidgets);
+                setLocalIsLoading(false);
+                setInitialLoadDone(true);
+                return;
+              }
+            } catch (e) {
+              console.error("Error parsing active class:", e);
+            }
+          }
+          
+          // Try to load from session storage using class ID
           const storedWidgets = sessionStorage.getItem(`class_widgets_${classId}`);
           if (storedWidgets) {
             try {
@@ -105,6 +105,11 @@ export const ClassWidgetsProvider = ({
       } catch (error) {
         console.error("Error loading class widgets:", error);
         setWidgets(defaultWidgets);
+        toast({
+          title: "Error loading class widgets",
+          description: "Failed to load widget preferences for this class",
+          variant: "destructive",
+        });
       } finally {
         setLocalIsLoading(false);
         setInitialLoadDone(true);
@@ -112,15 +117,16 @@ export const ClassWidgetsProvider = ({
     };
 
     loadClassWidgets();
-  }, [classId, defaultWidgets, setWidgets, initialLoadDone]);
+  }, [classId, defaultWidgets, setWidgets, toast, initialLoadDone]);
 
   // Save widgets to session storage when they change
   useEffect(() => {
-    if (!initialLoadDone) return; // Don't save during initial load
+    if (!initialLoadDone || !enabledWidgets) return; // Don't save during initial load
     
     if (classId) {
       try {
         sessionStorage.setItem(`class_widgets_${classId}`, JSON.stringify(enabledWidgets));
+        console.log(`Saved widgets for class ${classId}:`, enabledWidgets);
         
         // Also update the active class if this is the active class
         const activeClass = sessionStorage.getItem('activeClass');

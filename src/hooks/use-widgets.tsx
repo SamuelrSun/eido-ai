@@ -15,7 +15,7 @@ interface WidgetsContextType {
 }
 
 // Default widgets that are enabled for all users - Calendar has been removed
-const DEFAULT_WIDGETS: WidgetType[] = ["flashcards", "quizzes"];
+const DEFAULT_WIDGETS: WidgetType[] = ["flashcards", "quizzes", "supertutor", "database"];
 
 const WidgetsContext = createContext<WidgetsContextType>({
   enabledWidgets: [],
@@ -45,6 +45,17 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
 
   // Listen for auth state changes
   useEffect(() => {
+    const getInitialAuthState = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        setUser(data.session?.user || null);
+      } catch (error) {
+        console.error("Error getting initial auth state:", error);
+      }
+    };
+
+    getInitialAuthState();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // Handle auth changes including logout
       const newUser = session?.user || null;
@@ -52,26 +63,27 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
       
       // On logout, reset to defaults or local storage
       if (event === 'SIGNED_OUT') {
+        console.log("User signed out, resetting widgets to defaults");
         const storedWidgets = localStorage.getItem("enabledWidgets");
         if (storedWidgets) {
           try {
             const parsedWidgets = JSON.parse(storedWidgets);
-            setWidgets(parsedWidgets);
+            if (Array.isArray(parsedWidgets) && parsedWidgets.length > 0) {
+              setWidgets(parsedWidgets);
+              console.log("Using stored widgets on logout:", parsedWidgets);
+            } else {
+              setWidgets(DEFAULT_WIDGETS);
+              console.log("Using default widgets on logout (empty stored)");
+            }
           } catch (e) {
-            console.error("Failed to parse stored widgets", e);
+            console.error("Failed to parse stored widgets on logout", e);
             setWidgets(DEFAULT_WIDGETS);
           }
         } else {
           setWidgets(DEFAULT_WIDGETS);
+          console.log("Using default widgets on logout (no stored)");
         }
-        setLocalIsLoading(false);
-        setInitialLoadDone(true);
       }
-    });
-
-    // Initial auth check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user || null);
     });
 
     return () => subscription.unsubscribe();
@@ -94,14 +106,28 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
               .from('user_widgets')
               .select('enabled_widgets')
               .eq('user_id', user.id)
-              .single();
+              .maybeSingle();
 
-            if (error) {
-              // Only throw if it's not a "no rows returned" error
-              if (error.code !== 'PGRST116') {
-                throw error;
-              }
+            if (error && error.code !== 'PGRST116') {
+              console.error("Database error fetching widgets:", error);
+              throw error;
+            }
               
+            if (data) {
+              console.log("Found user widgets:", data.enabled_widgets);
+              // Convert string array to WidgetType array with type safety
+              const widgets = data.enabled_widgets
+                .filter((widget: string) => 
+                  ["flashcards", "quizzes", "calendar", "supertutor", "database", "practice"].includes(widget)
+                ) as WidgetType[];
+              
+              if (widgets.length > 0) {
+                setWidgets(widgets);
+              } else {
+                // If we got an empty array, use defaults
+                setWidgets(DEFAULT_WIDGETS);
+              }
+            } else {
               // If no widgets found for user, create default entry
               console.log("No user widgets found, creating defaults");
               try {
@@ -111,20 +137,12 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
                     user_id: user.id,
                     enabled_widgets: DEFAULT_WIDGETS
                   });
+                  
+                setWidgets(DEFAULT_WIDGETS);
               } catch (insertError) {
                 console.error("Error creating default widgets:", insertError);
+                setWidgets(DEFAULT_WIDGETS);
               }
-              
-              setWidgets(DEFAULT_WIDGETS);
-            } else if (data) {
-              console.log("Found user widgets:", data.enabled_widgets);
-              // Convert string array to WidgetType array with type safety
-              const widgets = data.enabled_widgets
-                .filter((widget: string) => 
-                  ["flashcards", "quizzes", "calendar", "supertutor", "database", "practice"].includes(widget)
-                ) as WidgetType[];
-              
-              setWidgets(widgets);
             }
           } catch (dbError) {
             console.error("Database error:", dbError);
@@ -133,11 +151,18 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
             if (storedWidgets) {
               try {
                 const parsedWidgets = JSON.parse(storedWidgets);
-                setWidgets(parsedWidgets);
+                if (Array.isArray(parsedWidgets) && parsedWidgets.length > 0) {
+                  setWidgets(parsedWidgets);
+                  console.log("Using local storage widgets (after DB error):", parsedWidgets);
+                } else {
+                  setWidgets(DEFAULT_WIDGETS);
+                }
               } catch (e) {
+                console.error("Error parsing local storage widgets:", e);
                 setWidgets(DEFAULT_WIDGETS);
               }
             } else {
+              console.log("No local storage widgets, using defaults after DB error");
               setWidgets(DEFAULT_WIDGETS);
             }
           }
@@ -147,14 +172,21 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
           if (storedWidgets) {
             try {
               const parsedWidgets = JSON.parse(storedWidgets);
-              console.log("Using local storage widgets:", parsedWidgets);
-              setWidgets(parsedWidgets);
+              if (Array.isArray(parsedWidgets) && parsedWidgets.length > 0) {
+                console.log("Using local storage widgets for guest:", parsedWidgets);
+                setWidgets(parsedWidgets);
+              } else {
+                console.log("Empty widgets in local storage for guest, using defaults");
+                setWidgets(DEFAULT_WIDGETS);
+                localStorage.setItem("enabledWidgets", JSON.stringify(DEFAULT_WIDGETS));
+              }
             } catch (e) {
-              console.error("Failed to parse stored widgets", e);
+              console.error("Failed to parse stored widgets for guest", e);
               setWidgets(DEFAULT_WIDGETS);
+              localStorage.setItem("enabledWidgets", JSON.stringify(DEFAULT_WIDGETS));
             }
           } else {
-            console.log("No local storage widgets, using defaults");
+            console.log("No local storage widgets for guest, using defaults");
             setWidgets(DEFAULT_WIDGETS);
             localStorage.setItem("enabledWidgets", JSON.stringify(DEFAULT_WIDGETS));
           }
@@ -180,7 +212,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
 
   // Save widget changes to database when they change
   useEffect(() => {
-    if (!initialLoadDone) return; // Avoid saving during initial load
+    if (!initialLoadDone || !enabledWidgets) return; // Avoid saving during initial load
     
     const saveWidgets = async () => {
       try {
@@ -203,10 +235,16 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
               }, { onConflict: 'user_id' });
               
             if (error) {
+              console.error("Error saving widgets to database:", error);
               throw error;
             }
           } catch (dbError) {
             console.error("Database error while saving widgets:", dbError);
+            toast({
+              title: "Warning",
+              description: "Your widget preferences were saved locally but not to your account",
+              variant: "default",
+            });
           }
         }
       } catch (error: any) {
@@ -219,7 +257,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    // Skip the first render
+    // Skip the first render and only save when loading is finished
     if (!localIsLoading && !baseIsLoading) {
       saveWidgets();
     }
