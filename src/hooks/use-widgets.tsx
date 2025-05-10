@@ -14,8 +14,8 @@ interface WidgetsContextType {
   isLoading: boolean;
 }
 
-// Default widgets that are enabled for all users
-const DEFAULT_WIDGETS: WidgetType[] = ["flashcards", "calendar"];
+// Default widgets that are enabled for all users - Calendar has been removed
+const DEFAULT_WIDGETS: WidgetType[] = ["flashcards", "quizzes"];
 
 const WidgetsContext = createContext<WidgetsContextType>({
   enabledWidgets: [],
@@ -88,38 +88,58 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
         if (user) {
           console.log("Loading widgets for user:", user.id);
           
-          // Try to fetch user's widget preferences
-          const { data, error } = await supabase
-            .from('user_widgets')
-            .select('enabled_widgets')
-            .eq('user_id', user.id)
-            .single();
-
-          if (error) {
-            // Only throw if it's not a "no rows returned" error
-            if (error.code !== 'PGRST116') {
-              throw error;
-            }
-            
-            // If no widgets found for user, create default entry
-            console.log("No user widgets found, creating defaults");
-            await supabase
+          try {
+            // Try to fetch user's widget preferences
+            const { data, error } = await supabase
               .from('user_widgets')
-              .insert({
-                user_id: user.id,
-                enabled_widgets: DEFAULT_WIDGETS
-              });
-            
-            setWidgets(DEFAULT_WIDGETS);
-          } else if (data) {
-            console.log("Found user widgets:", data.enabled_widgets);
-            // Convert string array to WidgetType array with type safety
-            const widgets = data.enabled_widgets
-              .filter((widget: string) => 
-                ["flashcards", "quizzes", "calendar", "supertutor", "database", "practice"].includes(widget)
-              ) as WidgetType[];
-            
-            setWidgets(widgets);
+              .select('enabled_widgets')
+              .eq('user_id', user.id)
+              .single();
+
+            if (error) {
+              // Only throw if it's not a "no rows returned" error
+              if (error.code !== 'PGRST116') {
+                throw error;
+              }
+              
+              // If no widgets found for user, create default entry
+              console.log("No user widgets found, creating defaults");
+              try {
+                await supabase
+                  .from('user_widgets')
+                  .insert({
+                    user_id: user.id,
+                    enabled_widgets: DEFAULT_WIDGETS
+                  });
+              } catch (insertError) {
+                console.error("Error creating default widgets:", insertError);
+              }
+              
+              setWidgets(DEFAULT_WIDGETS);
+            } else if (data) {
+              console.log("Found user widgets:", data.enabled_widgets);
+              // Convert string array to WidgetType array with type safety
+              const widgets = data.enabled_widgets
+                .filter((widget: string) => 
+                  ["flashcards", "quizzes", "calendar", "supertutor", "database", "practice"].includes(widget)
+                ) as WidgetType[];
+              
+              setWidgets(widgets);
+            }
+          } catch (dbError) {
+            console.error("Database error:", dbError);
+            // Use local storage as fallback
+            const storedWidgets = localStorage.getItem("enabledWidgets");
+            if (storedWidgets) {
+              try {
+                const parsedWidgets = JSON.parse(storedWidgets);
+                setWidgets(parsedWidgets);
+              } catch (e) {
+                setWidgets(DEFAULT_WIDGETS);
+              }
+            } else {
+              setWidgets(DEFAULT_WIDGETS);
+            }
           }
         } else {
           // Use local storage for non-authenticated users
@@ -166,25 +186,29 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
       try {
         console.log("Saving widgets:", enabledWidgets);
         
-        if (user) {
-          // Save to database for authenticated users
-          console.log("Saving to database for user:", user.id);
-          const { error } = await supabase
-            .from('user_widgets')
-            .upsert({
-              user_id: user.id,
-              enabled_widgets: enabledWidgets,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: 'user_id' });
-            
-          if (error) {
-            throw error;
-          }
-        } 
-        
         // Always save to localStorage regardless of authentication status
         // This ensures persistence across page reloads for both logged-in and guest users
         localStorage.setItem("enabledWidgets", JSON.stringify(enabledWidgets));
+        
+        if (user) {
+          // Save to database for authenticated users
+          console.log("Saving to database for user:", user.id);
+          try {
+            const { error } = await supabase
+              .from('user_widgets')
+              .upsert({
+                user_id: user.id,
+                enabled_widgets: enabledWidgets,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'user_id' });
+              
+            if (error) {
+              throw error;
+            }
+          } catch (dbError) {
+            console.error("Database error while saving widgets:", dbError);
+          }
+        }
       } catch (error: any) {
         console.error("Error saving widgets:", error);
         toast({

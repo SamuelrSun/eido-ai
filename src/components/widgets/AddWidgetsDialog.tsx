@@ -1,7 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { 
   BookOpen, 
-  Calendar, 
   Check, 
   SquareCheck, 
   X,
@@ -103,12 +103,6 @@ export function AddWidgetsDialog({
       icon: SquareCheck,
     },
     {
-      id: "calendar" as WidgetType,
-      name: "Calendar",
-      description: "Schedule and manage your classes",
-      icon: Calendar,
-    },
-    {
       id: "supertutor" as WidgetType,
       name: "Super Tutor",
       description: "AI-powered learning assistant",
@@ -126,6 +120,7 @@ export function AddWidgetsDialog({
       description: "Generate worksheets & get feedback",
       icon: FileInput,
     }
+    // Calendar widget removed from options as requested
   ];
 
   return (

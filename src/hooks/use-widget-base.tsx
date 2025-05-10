@@ -32,63 +32,49 @@ export function useWidgetBase({
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Local storage handler
-  const saveToLocalStorage = (key: string, widgets: WidgetType[]) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(widgets));
-      return true;
-    } catch (error) {
-      console.error(`Error saving widgets to ${key}:`, error);
-      return false;
-    }
-  };
-
-  // Session storage handler
-  const saveToSessionStorage = (key: string, widgets: WidgetType[]) => {
-    try {
-      sessionStorage.setItem(key, JSON.stringify(widgets));
-      return true;
-    } catch (error) {
-      console.error(`Error saving widgets to ${key}:`, error);
-      return false;
-    }
-  };
-
-  // Load widgets from storage based on provided options
-  const loadFromStorage = (key: string) => {
-    try {
-      const storage = key.startsWith('session:') 
-        ? sessionStorage 
-        : localStorage;
-      
-      const actualKey = key.startsWith('session:') 
-        ? key.substring(8) 
-        : key;
+  // Initialize widgets with default values
+  useEffect(() => {
+    if (storageKey) {
+      try {
+        let widgets: WidgetType[] | null = null;
         
-      const storedWidgets = storage.getItem(actualKey);
-      
-      if (storedWidgets) {
-        try {
-          const parsedWidgets = JSON.parse(storedWidgets);
-          if (Array.isArray(parsedWidgets)) {
-            // Filter to ensure only valid widget types
-            const validWidgets = parsedWidgets.filter((widget: any) => 
-              ["flashcards", "quizzes", "calendar", "supertutor", "database", "practice"].includes(widget)
-            ) as WidgetType[];
-            
-            console.log(`Loaded widgets from ${key}:`, validWidgets);
-            return validWidgets;
+        if (storageKey.startsWith('session:')) {
+          const actualKey = storageKey.substring(8);
+          const storedWidgets = sessionStorage.getItem(actualKey);
+          if (storedWidgets) {
+            const parsedWidgets = JSON.parse(storedWidgets);
+            if (Array.isArray(parsedWidgets)) {
+              widgets = parsedWidgets.filter((widget: any) => 
+                ["flashcards", "quizzes", "calendar", "supertutor", "database", "practice"].includes(widget)
+              ) as WidgetType[];
+            }
           }
-        } catch (e) {
-          console.error(`Failed to parse stored widgets from ${key}:`, e);
+        } else {
+          const storedWidgets = localStorage.getItem(storageKey);
+          if (storedWidgets) {
+            const parsedWidgets = JSON.parse(storedWidgets);
+            if (Array.isArray(parsedWidgets)) {
+              widgets = parsedWidgets.filter((widget: any) => 
+                ["flashcards", "quizzes", "calendar", "supertutor", "database", "practice"].includes(widget)
+              ) as WidgetType[];
+            }
+          }
         }
+        
+        if (widgets) {
+          setEnabledWidgets(widgets);
+          console.log(`Loaded widgets from ${storageKey}:`, widgets);
+        } else {
+          console.log(`No widgets found in ${storageKey}, using defaults:`, defaultWidgets);
+          setEnabledWidgets(defaultWidgets);
+        }
+      } catch (error) {
+        console.error(`Error loading widgets from storage:`, error);
+        setEnabledWidgets(defaultWidgets);
       }
-    } catch (error) {
-      console.error(`Error loading widgets from ${key}:`, error);
     }
-    
-    return null;
-  };
+    setIsLoading(false);
+  }, [defaultWidgets, storageKey]);
 
   const toggleWidget = (widget: WidgetType) => {
     setEnabledWidgets(current => {

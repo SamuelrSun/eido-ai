@@ -63,6 +63,23 @@ export const ClassWidgetsProvider = ({
     const loadClassWidgets = () => {
       setLocalIsLoading(true);
       try {
+        // Try to load from active class
+        const activeClass = sessionStorage.getItem('activeClass');
+        if (activeClass && classId) {
+          try {
+            const parsedClass = JSON.parse(activeClass);
+            if (parsedClass.title === classId && parsedClass.enabledWidgets) {
+              setWidgets(parsedClass.enabledWidgets);
+              console.log('Using widgets from active class:', parsedClass.enabledWidgets);
+              setLocalIsLoading(false);
+              setInitialLoadDone(true);
+              return;
+            }
+          } catch (e) {
+            console.error("Error parsing active class:", e);
+          }
+        }
+        
         // Try to load from session storage using class ID
         if (classId) {
           const storedWidgets = sessionStorage.getItem(`class_widgets_${classId}`);
@@ -79,23 +96,6 @@ export const ClassWidgetsProvider = ({
             } catch (e) {
               console.error("Error parsing class widgets:", e);
             }
-          }
-        }
-        
-        // Try to load from active class
-        const activeClass = sessionStorage.getItem('activeClass');
-        if (activeClass) {
-          try {
-            const parsedClass = JSON.parse(activeClass);
-            if (parsedClass.enabledWidgets) {
-              setWidgets(parsedClass.enabledWidgets);
-              console.log('Using widgets from active class:', parsedClass.enabledWidgets);
-              setLocalIsLoading(false);
-              setInitialLoadDone(true);
-              return;
-            }
-          } catch (e) {
-            console.error("Error parsing active class:", e);
           }
         }
         
