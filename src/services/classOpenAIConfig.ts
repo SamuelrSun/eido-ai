@@ -18,19 +18,18 @@ export interface ClassConfig {
   openAIConfig: OpenAIConfig;
 }
 
-// Define an interface that explicitly matches the database schema
+// Interface that explicitly matches the database schema
 interface ClassConfigDBRow {
   id: string;
   class_title: string;
   professor?: string;
   class_time?: string;
   classroom?: string;
-  color?: string;
-  emoji?: string;
   api_key?: string;
   vector_store_id?: string;
   assistant_id?: string;
   user_id?: string;
+  emoji?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -126,7 +125,6 @@ export const classOpenAIConfigService = {
         api_key: config.apiKey,
         vector_store_id: config.vectorStoreId,
         assistant_id: config.assistantId,
-        color: color || 'blue-300', // Ensure we always have a default color
         emoji: emoji,
         professor: professor,
         class_time: classTime,
@@ -279,7 +277,7 @@ export const classOpenAIConfigService = {
           professor: item.professor || undefined,
           classTime: item.class_time || undefined,
           classroom: item.classroom || undefined,
-          color: item.color || 'blue-300',
+          color: 'blue-300', // Default color since it's not in database
           emoji: item.emoji || undefined,
           openAIConfig: {
             apiKey: item.api_key || undefined,
@@ -289,6 +287,14 @@ export const classOpenAIConfigService = {
         }));
         
         console.log('Transformed class configs:', classConfigs);
+        
+        // Also sync with localStorage for backup
+        try {
+          localStorage.setItem('classOpenAIConfigs', JSON.stringify(classConfigs));
+        } catch (localError) {
+          console.warn('Error syncing to localStorage:', localError);
+        }
+        
         return classConfigs;
       }
       
@@ -363,6 +369,24 @@ export const classOpenAIConfigService = {
     } catch (error) {
       console.error('Error deleting class:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Clear all stored data about classes
+   * This is useful for troubleshooting
+   */
+  clearAllData: async (): Promise<void> => {
+    try {
+      // Clear localStorage data
+      localStorage.removeItem('classOpenAIConfigs');
+      
+      // Clear session storage
+      sessionStorage.removeItem('activeClass');
+      
+      console.log('Cleared all local class data');
+    } catch (error) {
+      console.error('Error clearing class data:', error);
     }
   }
 };

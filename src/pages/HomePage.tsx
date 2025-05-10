@@ -41,7 +41,8 @@ const HomePage = () => {
   const navigate = useNavigate();
   
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
-  const [refreshTrigger, setRefreshTrigger] = useState<number>(0); // Added to force refresh
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+  const [forceLocalStorageOnly, setForceLocalStorageOnly] = useState(false);
 
   // Function to fetch all user data
   const fetchUserData = async () => {
@@ -69,41 +70,57 @@ const HomePage = () => {
           setUserName(emailName);
         }
         
-        // Force clean fetch of classes with no caching
-        console.log('Calling classOpenAIConfigService.getAllClasses()');
-        const userClasses = await classOpenAIConfigService.getAllClasses();
-        console.log('Retrieved classes:', userClasses);
-        
-        if (userClasses && userClasses.length > 0) {
-          console.log(`Found ${userClasses.length} classes for the user:`, userClasses);
+        try {
+          // Force clean fetch of classes with no caching
+          console.log('Calling classOpenAIConfigService.getAllClasses()');
+          const userClasses = forceLocalStorageOnly ? 
+            JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]') :
+            await classOpenAIConfigService.getAllClasses();
+            
+          console.log('Retrieved classes:', userClasses);
           
-          // Transform ClassConfig objects to ClassOption objects
-          const classOptions = userClasses.map((config): ClassOption => {
-            // Generate a random color if not already set
-            const colors = ["blue-300", "emerald-300", "rose-300", "amber-200", "violet-300", "indigo-300"];
-            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+          if (userClasses && userClasses.length > 0) {
+            console.log(`Found ${userClasses.length} classes for the user:`, userClasses);
             
-            // Use stored emoji or generate one based on class title
-            const classEmoji = config.emoji || getEmojiForClass(config.title);
+            // Transform ClassConfig objects to ClassOption objects
+            const classOptions = userClasses.map((config): ClassOption => {
+              // Generate a random color if not already set
+              const colors = ["blue-300", "emerald-300", "rose-300", "amber-200", "violet-300", "indigo-300"];
+              const randomColor = colors[Math.floor(Math.random() * colors.length)];
+              
+              // Use stored emoji or generate one based on class title
+              const classEmoji = config.emoji || getEmojiForClass(config.title);
+              
+              return {
+                title: config.title,
+                professor: config.professor || "",
+                classTime: config.classTime || "",
+                classroom: config.classroom || "",
+                emoji: classEmoji,
+                link: "/super-stu",
+                color: config.color || randomColor, 
+                enabledWidgets: DEFAULT_CLASS_WIDGETS,
+                openAIConfig: config.openAIConfig
+              };
+            });
             
-            return {
-              title: config.title,
-              professor: config.professor || "",
-              classTime: config.classTime || "",
-              classroom: config.classroom || "",
-              emoji: classEmoji,
-              link: "/super-stu",
-              color: config.color || randomColor, 
-              enabledWidgets: DEFAULT_CLASS_WIDGETS,
-              openAIConfig: config.openAIConfig
-            };
+            console.log("Transformed class options:", classOptions);
+            setClassOptions(classOptions);
+          } else {
+            console.log("No classes found for user");
+            setClassOptions([]);
+          }
+        } catch (fetchError) {
+          console.error("Error fetching class data:", fetchError);
+          toast({
+            title: "Warning",
+            description: "Failed to load class data. Trying alternate method.",
+            variant: "destructive"
           });
           
-          console.log("Transformed class options:", classOptions);
-          setClassOptions(classOptions);
-        } else {
-          console.log("No classes found for user");
-          setClassOptions([]);
+          // Try using localStorage only if Supabase fetch fails
+          setForceLocalStorageOnly(true);
+          setRefreshTrigger(prev => prev + 1);
         }
       } else {
         console.log("No authenticated user found");
@@ -147,7 +164,7 @@ const HomePage = () => {
       const classEmoji = classData.emoji || getEmojiForClass(classData.title);
       console.log("Using emoji:", classEmoji);
       
-      // Add the new class to the UI immediately
+      // Add the new class to the UI immediately for better user experience
       const newClass: ClassOption = {
         title: classData.title,
         professor: classData.professor,
@@ -186,9 +203,33 @@ const HomePage = () => {
           console.error('Error storing class data:', error);
           toast({
             title: "Warning",
-            description: "Failed to save class information. You may need to sign in again.",
+            description: "Failed to save class information to the server. A local version has been saved.",
             variant: "destructive"
           });
+          
+          // Still update localStorage manually as a fallback
+          try {
+            const storedConfig = {
+              id: Date.now().toString(),
+              title: classData.title,
+              professor: classData.professor,
+              classTime: classData.classTime,
+              classroom: classData.classroom,
+              color: classData.color,
+              emoji: classEmoji,
+              openAIConfig: classData.openAIConfig || {}
+            };
+            
+            const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
+            existingConfigs.push(storedConfig);
+            localStorage.setItem('classOpenAIConfigs', JSON.stringify(existingConfigs));
+            
+            // Force refresh with localStorage only
+            setForceLocalStorageOnly(true);
+            setRefreshTrigger(prev => prev + 1);
+          } catch (localStoreError) {
+            console.error('Failed to save to localStorage:', localStoreError);
+          }
         }
       }
       
@@ -196,6 +237,8 @@ const HomePage = () => {
         title: "Class created!",
         description: `${classData.title} has been added to your dashboard.`
       });
+      
+      setIsCreateClassOpen(false);
     } catch (error) {
       console.error("Error creating class:", error);
       toast({
@@ -266,9 +309,36 @@ const HomePage = () => {
         console.error('Error updating class data:', error);
         toast({
           title: "Warning",
-          description: "Failed to update class information. You may need to sign in again.",
+          description: "Failed to update class information on the server. Local changes were made.",
           variant: "destructive"
         });
+        
+        // Manual localStorage update as fallback
+        try {
+          const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
+          const updatedConfigs = existingConfigs.map(config => 
+            config.title === selectedClassToEdit.title
+              ? {
+                  ...config,
+                  title: classData.title,
+                  professor: classData.professor,
+                  classTime: classData.classTime,
+                  classroom: classData.classroom,
+                  color: classData.color,
+                  emoji: classData.emoji,
+                  openAIConfig: classData.openAIConfig || {}
+                }
+              : config
+          );
+          
+          localStorage.setItem('classOpenAIConfigs', JSON.stringify(updatedConfigs));
+          
+          // Force refresh with localStorage only
+          setForceLocalStorageOnly(true);
+          setRefreshTrigger(prev => prev + 1);
+        } catch (localStoreError) {
+          console.error('Failed to update localStorage:', localStoreError);
+        }
       }
       
       toast({
@@ -278,6 +348,7 @@ const HomePage = () => {
       
       // Reset state
       setSelectedClassToEdit(null);
+      setIsEditClassOpen(false);
     } catch (error) {
       console.error("Error updating class:", error);
       toast({
@@ -324,13 +395,38 @@ const HomePage = () => {
       
       // Reset state
       setSelectedClassToEdit(null);
+      setIsEditClassOpen(false);
     } catch (error) {
       console.error("Error deleting class:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete class",
-        variant: "destructive"
-      });
+      
+      // Try fallback to localStorage
+      try {
+        const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
+        const updatedConfigs = existingConfigs.filter(config => config.title !== selectedClassToEdit?.title);
+        localStorage.setItem('classOpenAIConfigs', JSON.stringify(updatedConfigs));
+        
+        // Force UI update
+        setClassOptions(prev => 
+          prev.filter(classItem => classItem.title !== selectedClassToEdit?.title)
+        );
+        
+        toast({
+          title: "Class deleted locally",
+          description: `${selectedClassToEdit?.title} has been removed from your local data.`
+        });
+        
+        // Reset state and force refresh
+        setSelectedClassToEdit(null);
+        setIsEditClassOpen(false);
+        setForceLocalStorageOnly(true);
+        setRefreshTrigger(prev => prev + 1);
+      } catch (localStoreError) {
+        toast({
+          title: "Error",
+          description: "Failed to delete class",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -345,6 +441,20 @@ const HomePage = () => {
     
     // Navigate to Super Tutor
     navigate("/super-stu");
+  };
+
+  // Function to reset all data (for troubleshooting)
+  const handleResetAllData = async () => {
+    try {
+      await classOpenAIConfigService.clearAllData();
+      toast({
+        title: "Data reset",
+        description: "All local class data has been reset. Refreshing..."
+      });
+      setRefreshTrigger(prev => prev + 1);
+    } catch (error) {
+      console.error("Error resetting data:", error);
+    }
   };
 
   return (
@@ -380,7 +490,7 @@ const HomePage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {classOptions.map((option, index) => (
             <div
-              key={index} 
+              key={`${option.title}-${index}`}
               className="cursor-pointer relative"
             >
               <Button 
@@ -395,11 +505,11 @@ const HomePage = () => {
                 <Settings className="h-4 w-4" />
               </Button>
               <Card 
-                className={`h-full transition-all hover:shadow-md hover:border-${option.color}`}
+                className="h-full transition-all hover:shadow-md hover:border-blue-300"
                 onClick={() => handleClassClick(option)}
               >
                 <CardHeader>
-                  <div className={`mb-4 p-2 bg-${option.color}/20 rounded-lg w-fit`}>
+                  <div className="mb-4 p-2 bg-blue-300/20 rounded-lg w-fit">
                     <span className="text-4xl">{option.emoji}</span>
                   </div>
                   <CardTitle>{option.title}</CardTitle>
@@ -418,7 +528,7 @@ const HomePage = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="ghost" className={`group text-${option.color}`}>
+                  <Button variant="ghost" className="group text-blue-500">
                     Enter class
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Button>
@@ -480,6 +590,20 @@ const HomePage = () => {
           </Link>
         </div>
       </div>
+
+      {/* Troubleshooting option - only visible in dev mode */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-8 pt-4 border-t">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleResetAllData}
+            className="text-red-500 border-red-200"
+          >
+            Reset All Class Data (Dev Only)
+          </Button>
+        </div>
+      )}
 
       {/* Help CTA */}
       <div className="bg-cybercoach-blue-dark text-white p-6 rounded-xl text-center">
