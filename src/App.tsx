@@ -40,18 +40,18 @@ const App = () => (
             <Route element={<AuthGuard />}>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<HomePage />} />
-                <Route path="super-stu" element={<SuperTutor />} />
-                <Route path="secure-coach" element={<SecureCoach />} />
-                <Route path="static-coach" element={<StaticCoach />} />
-                <Route path="database" element={<DatabasePage />} />
-                <Route path="upload" element={<UploadPage />} />
-                <Route path="flashcards" element={<FlashcardsPage />} />
-                <Route path="quizzes" element={<QuizzesPage />} />
-                <Route path="quizzes/:quizId" element={<QuizSessionPage />} />
-                <Route path="calendar" element={<CalendarPage />} />
-                <Route path="account" element={<AccountPage />} />
-                <Route path="cybersecurity-coach" element={<CybersecurityCoach />} />
-                <Route path="practice" element={<PracticePage />} />
+                <Route path="/super-stu" element={<SuperTutor />} />
+                <Route path="/secure-coach" element={<SecureCoach />} />
+                <Route path="/static-coach" element={<StaticCoach />} />
+                <Route path="/database" element={<DatabasePage />} />
+                <Route path="/upload" element={<UploadPage />} />
+                <Route path="/flashcards" element={<FlashcardsPage />} />
+                <Route path="/quizzes" element={<QuizzesPage />} />
+                <Route path="/quizzes/:quizId" element={<QuizSessionPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/account" element={<AccountPage />} />
+                <Route path="/cybersecurity-coach" element={<CybersecurityCoach />} />
+                <Route path="/practice" element={<PracticePage />} />
               </Route>
             </Route>
             
