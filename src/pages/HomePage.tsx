@@ -302,6 +302,20 @@ const HomePage = () => {
         return;
       }
       
+      // Check if the deleted class is the active class
+      const activeClass = sessionStorage.getItem('activeClass');
+      if (activeClass) {
+        try {
+          const parsedClass = JSON.parse(activeClass);
+          // If the active class is being deleted, remove it from session storage
+          if (parsedClass.title === selectedClassToEdit.title) {
+            sessionStorage.removeItem('activeClass');
+          }
+        } catch (error) {
+          console.error("Error parsing active class:", error);
+        }
+      }
+      
       // Remove the class from the array
       setClassOptions(prev => 
         prev.filter(classItem => classItem.title !== selectedClassToEdit.title)

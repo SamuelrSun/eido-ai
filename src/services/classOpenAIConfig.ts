@@ -30,9 +30,9 @@ export const classOpenAIConfigService = {
         .from('class_openai_configs')
         .select('api_key, vector_store_id, assistant_id')
         .eq('class_title', classTitle)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to avoid errors if not found
       
-      if (error) {
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" which we handle nicely
         console.error('Error retrieving OpenAI configuration from Supabase:', error);
         
         // Fallback to localStorage (for backward compatibility)
@@ -57,6 +57,18 @@ export const classOpenAIConfigService = {
           vectorStoreId: data.vector_store_id,
           assistantId: data.assistant_id
         };
+      }
+      
+      // If not found in Supabase, try localStorage
+      const storedConfigs = localStorage.getItem('classOpenAIConfigs');
+      if (storedConfigs) {
+        const configs: ClassConfig[] = JSON.parse(storedConfigs);
+        const classConfig = configs.find(config => config.title === classTitle);
+        
+        if (classConfig?.openAIConfig) {
+          console.log(`Found OpenAI config for class '${classTitle}' in localStorage`);
+          return classConfig.openAIConfig;
+        }
       }
       
       return undefined;
@@ -139,7 +151,12 @@ export const classOpenAIConfigService = {
   getActiveClassConfig: async (): Promise<OpenAIConfig | undefined> => {
     try {
       const activeClass = sessionStorage.getItem('activeClass');
-      if (activeClass) {
+      if (!activeClass) {
+        console.log('No active class found in session storage');
+        return undefined;
+      }
+      
+      try {
         const parsedClass = JSON.parse(activeClass);
         if (parsedClass.title && parsedClass.openAIConfig) {
           console.log(`Using OpenAI config from active class '${parsedClass.title}'`);
@@ -150,6 +167,11 @@ export const classOpenAIConfigService = {
         if (parsedClass.title) {
           return await classOpenAIConfigService.getConfigForClass(parsedClass.title);
         }
+      } catch (parseError) {
+        console.error('Error parsing active class from session storage:', parseError);
+        // Clear invalid session storage data
+        sessionStorage.removeItem('activeClass');
+        return undefined;
       }
       
       console.log('No active class OpenAI config found');
