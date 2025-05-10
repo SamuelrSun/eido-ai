@@ -5,10 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
 interface AuthGuardProps {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
-export function AuthGuard({ children }: AuthGuardProps) {
+export function AuthGuard({ children }: AuthGuardProps = {}) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const location = useLocation();
 
@@ -41,6 +41,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // User is authenticated, render children
-  return <>{children}</>;
+  // User is authenticated, render children or Outlet
+  return children ? <>{children}</> : <Outlet />;
 }
