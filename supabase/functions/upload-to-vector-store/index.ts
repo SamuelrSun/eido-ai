@@ -75,7 +75,7 @@ serve(async (req) => {
         // Create a FormData instance for the file upload
         const formData = new FormData();
         formData.append('file', fileBlob, file.name);
-        formData.append('purpose', 'vector_store');
+        formData.append('purpose', 'assistants');
         
         console.log(`Uploading file to OpenAI: ${file.name}`);
         
@@ -109,7 +109,7 @@ serve(async (req) => {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${openaiApiKey}`,
-            'OpenAI-Beta': 'assistants=v2'
+            'OpenAI-Beta': 'assistants=v2'  // Updated to the correct beta header format
           },
           body: JSON.stringify({
             file_ids: [uploadData.id]

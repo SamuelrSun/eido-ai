@@ -59,13 +59,14 @@ const SuperTutor = () => {
             // Test vector store connectivity if available
             if (config.vectorStoreId && config.apiKey) {
               try {
-                // Simple connectivity test with corrected beta header
+                // Using the properly formatted beta header for vector stores
                 const testResponse = await fetch(`https://api.openai.com/v1/vector_stores/${config.vectorStoreId}`, {
                   method: 'GET',
                   headers: {
                     'Authorization': `Bearer ${config.apiKey}`,
                     'Content-Type': 'application/json',
-                    'OpenAI-Beta': 'vector_stores=v1' // FIXED: Updated from 'vectorstores=v1' to 'vector_stores=v1'
+                    // The correct format as per OpenAI documentation
+                    'OpenAI-Beta': 'assistants=v2'
                   }
                 });
                 
@@ -76,6 +77,7 @@ const SuperTutor = () => {
                 }
               } catch (error) {
                 console.error("Vector store connectivity test error:", error);
+                setConnectError(`Failed to connect to vector store: ${error instanceof Error ? error.message : "Unknown error"}`);
               }
             }
           }
@@ -104,7 +106,7 @@ const SuperTutor = () => {
   };
 
   const openOpenAIDocs = () => {
-    window.open("https://platform.openai.com/docs/api-reference/vector-stores", "_blank");
+    window.open("https://platform.openai.com/docs/api-reference/assistants/overview", "_blank");
   };
 
   return (
@@ -141,7 +143,7 @@ const SuperTutor = () => {
                     className="px-0 h-auto text-xs flex items-center gap-1 text-amber-700" 
                     onClick={openOpenAIDocs}
                   >
-                    View OpenAI Vector Store docs <ExternalLink className="h-3 w-3" />
+                    View OpenAI Assistant docs <ExternalLink className="h-3 w-3" />
                   </Button>
                 </div>
               ) : (

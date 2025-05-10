@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Code, Info, Database, Bot } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -104,7 +105,7 @@ export function OpenAIConfigSection({
               className="font-mono"
             />
             <p className="text-xs text-blue-600 mt-1 font-medium">
-              Important: Vector Store IDs use the format "vs_..." and use the API header 'OpenAI-Beta': 'vector_stores=v1'
+              Important: Vector Store IDs use the format "vs_..." and should be used with the OpenAI assistants API
             </p>
           </div>
           

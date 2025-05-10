@@ -24,7 +24,7 @@ serve(async (req) => {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${openaiApiKey}`,
-        "OpenAI-Beta": "assistants=v2"
+        "OpenAI-Beta": "assistants=v2"  // Updated to the correct beta header format
       }
     });
 
