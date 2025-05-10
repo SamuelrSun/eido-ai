@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { classOpenAIConfigService, OpenAIConfig } from "@/services/classOpenAIConfig";
-import { Database, AlertCircle } from "lucide-react";
+import { Database, AlertCircle, KeyRound } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const SuperTutor = () => {
@@ -57,6 +57,10 @@ const SuperTutor = () => {
     navigate("/flashcards");
   };
 
+  const handleSetupAPIKey = () => {
+    navigate("/settings");
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader 
@@ -89,6 +93,19 @@ const SuperTutor = () => {
           </AlertDescription>
         </Alert>
       ) : null}
+
+      {!openAIConfig?.apiKey && (
+        <Alert variant="destructive" className="bg-red-50 border-red-200">
+          <KeyRound className="h-4 w-4" />
+          <AlertTitle>OpenAI API Key Required</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            <p>An OpenAI API key is required to use Super Tutor. Please set up your API key in the class settings.</p>
+            <Button size="sm" variant="outline" className="w-fit" onClick={handleSetupAPIKey}>
+              Set up API Key
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex flex-col gap-4 mb-6">
         <Button onClick={handleGoToFlashcards} className="w-fit">

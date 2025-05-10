@@ -58,6 +58,7 @@ export function ChatBot({
       if (openAIConfig) {
         console.log("Vector Store ID:", openAIConfig.vectorStoreId);
         console.log("Assistant ID:", openAIConfig.assistantId);
+        console.log("API Key provided:", openAIConfig.apiKey ? "Yes" : "No");
       }
       
       // Call the Supabase Edge Function with the class-specific OpenAI configuration
@@ -70,7 +71,15 @@ export function ChatBot({
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Edge function error:", error);
+        throw new Error(`Edge function error: ${error.message}`);
+      }
+
+      if (data.error) {
+        console.error("API response error:", data.error);
+        throw new Error(data.error);
+      }
 
       // Add AI response to chat
       const aiMessage: Message = { role: "assistant", content: data.response };
@@ -91,18 +100,33 @@ export function ChatBot({
 
     } catch (error: any) {
       console.error("Error getting AI response:", error);
+      
+      let errorMessage = "Failed to get a response from AI.";
+      
+      // Provide more user-friendly error messages based on common issues
+      if (error.message?.includes("Invalid OpenAI API key") || 
+          error.message?.includes("Authentication error")) {
+        errorMessage = "Invalid OpenAI API key. Please check your class settings and update the API key.";
+      } else if (error.message?.includes("OpenAI API key not provided")) {
+        errorMessage = "No OpenAI API key found. Please add an API key in your class settings.";
+      } else if (error.message?.includes("rate limit")) {
+        errorMessage = "OpenAI API rate limit exceeded. Please try again in a few minutes.";
+      } else if (error.message?.includes("Edge function")) {
+        errorMessage = "Connection issue with the AI service. Please check your internet connection and try again.";
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to get a response from AI.",
+        description: errorMessage,
         variant: "destructive",
       });
 
       // Add error message to chat
-      const errorMessage: Message = {
+      const errorMessageContent: Message = {
         role: "assistant",
-        content: "Sorry, I couldn't process your request. Please try again later."
+        content: `Sorry, I couldn't process your request. ${errorMessage}`
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMessageContent]);
     } finally {
       setIsLoading(false);
     }
@@ -147,6 +171,15 @@ export function ChatBot({
                 </p>
                 <p className="text-xs text-green-600 mt-1">
                   Answers will be based on your class materials
+                </p>
+              </div>
+            )}
+            
+            {!openAIConfig?.apiKey && (
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-4 text-sm text-amber-800">
+                <p className="font-medium">No OpenAI API key configured</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  Please add an API key in your class settings for this feature to work
                 </p>
               </div>
             )}

@@ -28,7 +28,18 @@ serve(async (req) => {
     console.log(`Using Assistant ID: ${assistantId || 'default'}`);
     
     if (!openAIApiKey) {
-      throw new Error('OpenAI API key not provided');
+      return new Response(
+        JSON.stringify({ error: 'OpenAI API key not provided. Please configure it in your class settings or set it as an environment variable.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    // Validate API key format (basic check)
+    if (!openAIApiKey.startsWith('sk-')) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid OpenAI API key format. Keys should start with "sk-"' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
 
     // Determine time estimate based on question count and difficulty
@@ -65,6 +76,20 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API error:', response.status, errorText);
+      
+      // Provide more helpful error messages based on status code
+      if (response.status === 401) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication error: Invalid OpenAI API key. Please check your API key and try again.' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+        );
+      } else if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'OpenAI API rate limit exceeded. Please try again later.' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
+        );
+      }
+      
       throw new Error(`OpenAI API returned status ${response.status}: ${errorText}`);
     }
 
