@@ -226,7 +226,7 @@ export const classOpenAIConfigService = {
         .eq('user_id', session.user.id);
         
       if (error) {
-        console.error('Error fetching classes from Supabase:', error);
+        console.error('Fetching classes from Supabase:', error);
         
         // Fallback to localStorage
         const storedConfigs = localStorage.getItem('classOpenAIConfigs');
