@@ -32,10 +32,6 @@ export function AppLayout() {
     }
   }, [location.pathname]);
 
-  // Log for debugging
-  console.log("Active class in AppLayout:", activeClass);
-  console.log("Using default widgets:", activeClass?.enabledWidgets || ["supertutor", "database"]);
-
   return (
     <WidgetsProvider>
       <ClassWidgetsProvider 
