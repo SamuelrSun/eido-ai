@@ -22,6 +22,9 @@ interface ChatBotProps {
   suggestions?: string[];
   knowledgeBase?: string;
   openAIConfig?: OpenAIConfig;
+  disableToasts?: boolean;
+  loadingIndicator?: React.ReactNode;
+  onResponseGenerationStateChange?: (isGenerating: boolean) => void;
 }
 
 export function ChatBot({
@@ -30,7 +33,10 @@ export function ChatBot({
   placeholder = "Send a message...",
   suggestions = [],
   knowledgeBase,
-  openAIConfig
+  openAIConfig,
+  disableToasts = false,
+  loadingIndicator,
+  onResponseGenerationStateChange
 }: ChatBotProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -47,6 +53,13 @@ export function ChatBot({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Update the response generation state when loading changes
+  useEffect(() => {
+    if (onResponseGenerationStateChange) {
+      onResponseGenerationStateChange(isLoading);
+    }
+  }, [isLoading, onResponseGenerationStateChange]);
 
   const handleSendMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
@@ -99,26 +112,29 @@ export function ChatBot({
       setUsedVectorStore(data.usedVectorStore || false);
       setUsedAssistant(data.usedAssistant || false);
       
-      // Show appropriate toast based on what was used
-      if (data.usedVectorStore) {
-        toast({
-          title: "Using Class Knowledge Base",
-          description: `Response generated using the vector store (${data.vectorStoreId?.substring(0, 8)}...) for ${knowledgeBase}`,
-          duration: 3000
-        });
-      } else if (data.usedAssistant) {
-        toast({
-          title: "Using Class Assistant",
-          description: `Response generated using the custom assistant (${data.assistantId?.substring(0, 8)}...) for ${knowledgeBase}`,
-          duration: 3000
-        });
-      } else if (data.usedFallback && (data.vectorStoreId || data.assistantId)) {
-        toast({
-          title: "Using Fallback Mode",
-          description: `Unable to access custom knowledge base or assistant. Using general model instead.`,
-          variant: "destructive",
-          duration: 5000
-        });
+      // Only show toasts if not disabled
+      if (!disableToasts) {
+        // Show appropriate toast based on what was used
+        if (data.usedVectorStore) {
+          toast({
+            title: "Using Class Knowledge Base",
+            description: `Response generated using the vector store (${data.vectorStoreId?.substring(0, 8)}...) for ${knowledgeBase}`,
+            duration: 3000
+          });
+        } else if (data.usedAssistant) {
+          toast({
+            title: "Using Class Assistant",
+            description: `Response generated using the custom assistant (${data.assistantId?.substring(0, 8)}...) for ${knowledgeBase}`,
+            duration: 3000
+          });
+        } else if (data.usedFallback && (data.vectorStoreId || data.assistantId)) {
+          toast({
+            title: "Using Fallback Mode",
+            description: `Unable to access custom knowledge base or assistant. Using general model instead.`,
+            variant: "destructive",
+            duration: 5000
+          });
+        }
       }
 
     } catch (error: any) {
@@ -142,11 +158,14 @@ export function ChatBot({
       
       setErrorMessage(errorMessage);
       
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      // Only show toasts if not disabled
+      if (!disableToasts) {
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
 
       // Add error message to chat
       const errorMessageContent: Message = {
@@ -199,6 +218,9 @@ export function ChatBot({
             <div className="ml-2 text-sm">{errorMessage}</div>
           </Alert>
         )}
+
+        {/* Custom loading indicator */}
+        {isLoading && loadingIndicator}
 
         {messages.length === 0 && (
           <div className="p-4">
