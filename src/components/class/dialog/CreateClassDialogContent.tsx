@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ClassData } from "../CreateClassDialog";
 import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
 import { getEmojiForClass } from "@/utils/emojiUtils";
+import { EmojiPicker } from "./EmojiPicker";
 
 interface CreateClassDialogContentProps {
   onClassCreate: (classData: ClassData) => void;
@@ -59,6 +60,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
   const [color, setColor] = useState(initialData?.color || "blue-300");
   const [selectedWidgets, setSelectedWidgets] = useState<string[]>(initialData?.enabledWidgets || ["flashcards", "quizzes"]);
   const [emoji, setEmoji] = useState(initialData?.emoji || "");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   
   // OpenAI configuration states
   const [openAIApiKey, setOpenAIApiKey] = useState(initialData?.openAIConfig?.apiKey || "");
@@ -137,7 +139,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
         // Also save this config to our service for future use
         if (title) {
           try {
-            await classOpenAIConfigService.saveConfigForClass(title, classData.openAIConfig);
+            await classOpenAIConfigService.saveConfigForClass(title, classData.openAIConfig, color, emoji, professor, classTime, classroom);
           } catch (error) {
             console.error("Error saving OpenAI config:", error);
           }
@@ -156,6 +158,11 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     );
   };
 
+  const handleSelectEmoji = (selectedEmoji: string) => {
+    setEmoji(selectedEmoji);
+    setShowEmojiPicker(false);
+  };
+
   return (
     <ScrollArea className="max-h-[calc(90vh-180px)]">
       <div className="space-y-6 py-2 pr-4">
@@ -171,6 +178,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
           onClassTimeChange={setClassTime}
           onClassroomChange={setClassroom}
           onEmojiChange={setEmoji}
+          onEmojiPickerOpen={() => setShowEmojiPicker(true)}
         />
         
         {/* Color selection */}
@@ -179,6 +187,15 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
           colorOptions={colorOptions}
           onColorChange={setColor}
         />
+        
+        {/* Emoji Picker Dialog */}
+        {showEmojiPicker && (
+          <EmojiPicker 
+            open={showEmojiPicker}
+            onOpenChange={setShowEmojiPicker}
+            onSelect={handleSelectEmoji}
+          />
+        )}
         
         {/* OpenAI Configuration */}
         <OpenAIConfigSection 
