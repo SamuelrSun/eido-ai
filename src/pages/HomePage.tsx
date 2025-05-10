@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +28,7 @@ interface ClassOption {
 }
 
 const HomePage = () => {
+  
   const [userName, setUserName] = useState<string>("Student");
   const [recentlyViewed, setRecentlyViewed] = useState<{title: string, path: string}[]>([]);
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
@@ -50,6 +50,7 @@ const HomePage = () => {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user) {
+          
           const { data: profile } = await supabase
             .from('profiles')
             .select('full_name')
@@ -126,6 +127,7 @@ const HomePage = () => {
     sessionStorage.removeItem('activeClass');
   }, [toast]);
 
+  
   const handleCreateClass = async (classData: ClassData) => {
     try {
       // Get current user

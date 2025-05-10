@@ -33,7 +33,7 @@ export const classOpenAIConfigService = {
       // First try to get from Supabase
       const { data, error } = await supabase
         .from('class_openai_configs')
-        .select('api_key, vector_store_id, assistant_id, color')
+        .select('*') // Select all columns to make sure we get everything we need
         .eq('class_title', classTitle)
         .maybeSingle(); // Use maybeSingle instead of single to avoid errors if not found
       
