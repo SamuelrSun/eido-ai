@@ -59,7 +59,18 @@ serve(async (req) => {
       }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API returned status ${response.status}: ${errorText}`);
+    }
+
     const data = await response.json();
+    
+    // Ensure we have a valid response before trying to access properties
+    if (!data || !data.choices || !data.choices.length || !data.choices[0].message) {
+      throw new Error('Invalid response from OpenAI API');
+    }
     
     return new Response(
       JSON.stringify({ 
