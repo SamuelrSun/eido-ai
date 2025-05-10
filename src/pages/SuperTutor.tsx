@@ -59,25 +59,49 @@ const SuperTutor = () => {
             // Test vector store connectivity if available
             if (config.vectorStoreId && config.apiKey) {
               try {
-                // Using the properly formatted beta header for vector stores
-                const testResponse = await fetch(`https://api.openai.com/v1/vector_stores/${config.vectorStoreId}`, {
+                // Test with the files endpoint instead of directly accessing vector store
+                // This is more reliable as it checks if we can access files stored for assistants
+                const testResponse = await fetch(`https://api.openai.com/v1/files?purpose=assistants`, {
                   method: 'GET',
                   headers: {
                     'Authorization': `Bearer ${config.apiKey}`,
-                    'Content-Type': 'application/json',
-                    // The correct format as per OpenAI documentation
-                    'OpenAI-Beta': 'assistants=v2'
+                    'Content-Type': 'application/json'
+                    // No beta header needed for files endpoint
                   }
                 });
                 
                 if (!testResponse.ok) {
                   const errorData = await testResponse.json();
-                  setConnectError(`Vector store connectivity issue: ${errorData.error?.message || "Unknown error"}`);
-                  console.error("Vector store test failed:", errorData);
+                  setConnectError(`API connectivity issue: ${errorData.error?.message || "Unknown error"}`);
+                  console.error("API test failed:", errorData);
+                } else {
+                  console.log("Successfully connected to OpenAI API");
+                  // The connection is good, but let's specifically check the assistant
+                  if (config.assistantId) {
+                    try {
+                      const assistantResponse = await fetch(`https://api.openai.com/v1/assistants/${config.assistantId}`, {
+                        method: 'GET',
+                        headers: {
+                          'Authorization': `Bearer ${config.apiKey}`,
+                          'Content-Type': 'application/json',
+                          'OpenAI-Beta': 'assistants=v2'
+                        }
+                      });
+
+                      if (!assistantResponse.ok) {
+                        const assistantError = await assistantResponse.json();
+                        setConnectError(`Assistant connectivity issue: ${assistantError.error?.message || "Unknown error"}`);
+                        console.error("Assistant test failed:", assistantError);
+                      }
+                    } catch (assistantError) {
+                      console.error("Assistant connectivity test error:", assistantError);
+                      setConnectError(`Failed to connect to assistant: ${assistantError instanceof Error ? assistantError.message : "Unknown error"}`);
+                    }
+                  }
                 }
               } catch (error) {
-                console.error("Vector store connectivity test error:", error);
-                setConnectError(`Failed to connect to vector store: ${error instanceof Error ? error.message : "Unknown error"}`);
+                console.error("API connectivity test error:", error);
+                setConnectError(`Failed to connect to OpenAI API: ${error instanceof Error ? error.message : "Unknown error"}`);
               }
             }
           }

@@ -1,76 +1,49 @@
 
+// Import required modules
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders } from "../_shared/cors.ts"
-
-// OpenAI API Key - in production, use Deno.env.get
-const openaiApiKey = "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";
-
-// The vector store ID to upload files to
-const vectorStoreId = "vs_681a9a95ea088191b7c66683f0f3b9cf";
+import { corsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
-
+  
   try {
-    console.log("Function invoked: upload-to-vector-store");
-    
     // Parse request body
-    let requestData; 
-    try {
-      requestData = await req.json();
-    } catch (parseError) {
-      console.error("Failed to parse request body:", parseError);
-      return new Response(
-        JSON.stringify({ error: 'Invalid request body - could not parse JSON' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400
-        }
-      );
+    const { files, openAIConfig } = await req.json();
+    
+    // Check if required data is provided
+    if (!files || !files.length) {
+      throw new Error('No files provided for upload');
     }
     
-    const { files } = requestData;
-    
-    if (!files || !Array.isArray(files) || files.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'No valid files provided in the request' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400
-        }
-      );
+    if (!openAIConfig || !openAIConfig.apiKey) {
+      throw new Error('OpenAI API key is required');
     }
     
-    console.log(`Processing ${files.length} files for upload to vector store`);
+    const openaiApiKey = openAIConfig.apiKey;
     
-    // Process each file for upload
+    // For creating or using a specific vector store
+    const vectorStoreId = openAIConfig.vectorStoreId || null;
+    const assistantId = openAIConfig.assistantId || null;
+    
+    // Process each file
     const results = [];
+    
+    console.log(`Processing ${files.length} files for upload`);
     
     for (const file of files) {
       try {
-        if (!file.url) {
-          console.error(`Missing URL for file: ${file.name}`);
-          results.push({
-            name: file.name,
-            success: false,
-            error: "Missing file URL"
-          });
-          continue;
+        // Convert base64 to blob
+        const base64Data = file.content.split(',')[1];
+        if (!base64Data) {
+          throw new Error(`Invalid file content format for ${file.name}`);
         }
         
-        // Fetch the file content from the provided URL
-        console.log(`Downloading file from URL: ${file.url}`);
-        const fileResponse = await fetch(file.url);
-        
-        if (!fileResponse.ok) {
-          throw new Error(`Failed to download file: ${fileResponse.statusText}`);
-        }
-        
-        // Get the file as a blob
-        const fileBlob = await fileResponse.blob();
+        // Convert base64 to Uint8Array
+        const binaryData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+        const fileBlob = new Blob([binaryData], { type: file.type });
         
         // Create a FormData instance for the file upload
         const formData = new FormData();
@@ -84,92 +57,89 @@ serve(async (req) => {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${openaiApiKey}`,
+            // No Content-Type header for FormData
           },
           body: formData,
         });
         
-        let uploadData;
-        try {
-          uploadData = await uploadResponse.json();
-        } catch (parseError) {
-          const responseText = await uploadResponse.text();
-          throw new Error(`Failed to parse OpenAI upload response: ${responseText.substring(0, 200)}`);
-        }
-        
         if (!uploadResponse.ok) {
-          throw new Error(uploadData.error?.message || 'File upload failed');
+          const errorData = await uploadResponse.json();
+          throw new Error(`OpenAI file upload failed: ${errorData.error?.message || uploadResponse.statusText}`);
         }
         
-        console.log(`File uploaded to OpenAI: ${uploadData.id}`);
+        const uploadData = await uploadResponse.json();
+        console.log(`File uploaded successfully: ${file.name}, ID: ${uploadData.id}`);
         
-        // If we got here, the file was uploaded successfully to OpenAI
-        // Now add it to the vector store
-        const addToVectorStoreResponse = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openaiApiKey}`,
-            'OpenAI-Beta': 'assistants=v2'  // Updated to the correct beta header format
-          },
-          body: JSON.stringify({
-            file_ids: [uploadData.id]
-          }),
-        });
-        
-        let vectorStoreData;
-        try {
-          vectorStoreData = await addToVectorStoreResponse.json();
-        } catch (parseError) {
-          const responseText = await addToVectorStoreResponse.text();
-          throw new Error(`Failed to parse vector store response: ${responseText.substring(0, 200)}`);
+        // If we have an assistant ID, attach the file to it
+        if (assistantId) {
+          console.log(`Attaching file ${uploadData.id} to assistant ${assistantId}`);
+          
+          const attachResponse = await fetch(`https://api.openai.com/v1/assistants/${assistantId}/files`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${openaiApiKey}`,
+              'OpenAI-Beta': 'assistants=v2'
+            },
+            body: JSON.stringify({
+              file_id: uploadData.id
+            }),
+          });
+          
+          if (!attachResponse.ok) {
+            const attachErrorData = await attachResponse.json();
+            throw new Error(`Failed to attach file to assistant: ${attachErrorData.error?.message || attachResponse.statusText}`);
+          }
+          
+          const attachData = await attachResponse.json();
+          console.log(`File ${uploadData.id} successfully attached to assistant ${assistantId}`);
+          
+          results.push({
+            fileName: file.name,
+            fileId: uploadData.id,
+            assistantId: assistantId,
+            attachmentId: attachData.id,
+            success: true
+          });
+        } else {
+          // If no assistant ID, just return success for the file upload
+          results.push({
+            fileName: file.name,
+            fileId: uploadData.id,
+            success: true
+          });
         }
-        
-        if (!addToVectorStoreResponse.ok) {
-          throw new Error(vectorStoreData.error?.message || 'Adding to vector store failed');
-        }
-        
-        console.log(`File added to vector store: ${file.name}`);
-        
-        results.push({
-          name: file.name,
-          success: true,
-          file_id: uploadData.id,
-        });
-        
       } catch (fileError) {
         console.error(`Error processing file ${file.name}:`, fileError);
         results.push({
-          name: file.name,
-          success: false,
-          error: fileError.message
+          fileName: file.name,
+          error: fileError.message,
+          success: false
         });
       }
     }
     
-    // Count successes and failures
-    const successCount = results.filter(r => r.success).length;
-    const failureCount = results.filter(r => !r.success).length;
+    return new Response(
+      JSON.stringify({
+        success: results.every(r => r.success),
+        results: results,
+        message: `Processed ${results.filter(r => r.success).length} of ${files.length} files successfully`
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+    
+  } catch (error) {
+    console.error('Error in upload-to-vector-store function:', error);
     
     return new Response(
-      JSON.stringify({ 
-        message: `Processed ${results.length} files. Successfully uploaded: ${successCount}, Failed: ${failureCount}`,
-        results 
+      JSON.stringify({
+        success: false,
+        error: error.message
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    )
-  } catch (error) {
-    console.error('Error uploading to vector store:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: error.message || 'An unknown error occurred during the upload process'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
-    )
+    );
   }
 })

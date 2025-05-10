@@ -19,12 +19,13 @@ serve(async (req) => {
     console.log("Function invoked: list-vector-store-files");
     
     // Call the OpenAI API to list files in the vector store
-    const response = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
+    // Using the assistants endpoint which handles vector stores
+    const response = await fetch(`https://api.openai.com/v1/files?purpose=assistants`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiApiKey}`,
-        "OpenAI-Beta": "assistants=v2"  // Updated to the correct beta header format
+        "Authorization": `Bearer ${openaiApiKey}`
+        // No beta header needed for files endpoint
       }
     });
 
@@ -62,7 +63,7 @@ serve(async (req) => {
       throw new Error(errorMessage);
     }
       
-    console.log("Retrieved files from vector store:", JSON.stringify({
+    console.log("Retrieved files from OpenAI:", JSON.stringify({
       fileCount: responseData.data?.length || 0,
       hasData: !!responseData.data
     }));

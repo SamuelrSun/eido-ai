@@ -105,7 +105,7 @@ export function OpenAIConfigSection({
               className="font-mono"
             />
             <p className="text-xs text-blue-600 mt-1 font-medium">
-              Important: Vector Store IDs use the format "vs_..." and should be used with the OpenAI assistants API
+              Important: Vector Store IDs use the format "vs_..." and must be connected to an OpenAI Assistant
             </p>
           </div>
           
@@ -137,9 +137,10 @@ export function OpenAIConfigSection({
           <div className="p-3 bg-blue-50 rounded-md border border-blue-100">
             <h4 className="text-sm font-medium text-blue-800">How to use your class's own knowledge base:</h4>
             <ol className="text-xs text-blue-700 mt-2 space-y-1 list-decimal list-inside">
-              <li>Create a vector store in OpenAI and upload your class materials</li>
-              <li>Copy the Vector Store ID (starts with "vs_") and paste it above</li>
-              <li>Optionally create an Assistant and connect it to your vector store</li>
+              <li>Create an Assistant in OpenAI and connect it to a vector store</li>
+              <li>Upload your class materials to the Assistant</li>
+              <li>Copy both the Assistant ID (starts with "asst_") and Vector Store ID (starts with "vs_")</li>
+              <li>Paste both IDs above, along with your API key</li>
               <li>Now all AI features will use your class-specific knowledge</li>
             </ol>
           </div>
