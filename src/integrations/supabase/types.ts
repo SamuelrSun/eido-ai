@@ -105,6 +105,7 @@ export type Database = {
       decks: {
         Row: {
           card_count: number
+          class_title: string | null
           color: string
           created_at: string
           description: string
@@ -117,6 +118,7 @@ export type Database = {
         }
         Insert: {
           card_count?: number
+          class_title?: string | null
           color: string
           created_at?: string
           description: string
@@ -129,6 +131,7 @@ export type Database = {
         }
         Update: {
           card_count?: number
+          class_title?: string | null
           color?: string
           created_at?: string
           description?: string
@@ -361,6 +364,7 @@ export type Database = {
       }
       quizzes: {
         Row: {
+          class_title: string | null
           coverage: string
           created_at: string
           description: string
@@ -373,6 +377,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          class_title?: string | null
           coverage: string
           created_at?: string
           description: string
@@ -385,6 +390,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          class_title?: string | null
           coverage?: string
           created_at?: string
           description?: string

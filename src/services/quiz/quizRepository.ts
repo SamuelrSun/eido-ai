@@ -34,7 +34,7 @@ export const quizRepository = {
           coverage: quiz.coverage,
           user_id: session.user.id, // Set the user_id to the current user's ID
           class_title: classTitle // Associate with the current class
-        })
+        } as any)
         .select()
         .single();
 

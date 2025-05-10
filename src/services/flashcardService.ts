@@ -74,7 +74,6 @@ export const flashcardService = {
     const classTitle = activeClass ? JSON.parse(activeClass).title : null;
     
     // Create an object with snake_case properties for the database
-    // Make sure we're using field names as expected by the database schema
     const dbDeck = {
       title: deck.title,
       description: deck.description,
@@ -86,7 +85,7 @@ export const flashcardService = {
       class_title: classTitle // Add class_title to associate with specific class
     };
 
-    // Note: We need to explicitly type the insert operation to make TypeScript happy
+    // Insert the deck into the database with explicit type assertion
     const { data, error } = await supabase
       .from('decks')
       .insert(dbDeck as any) // Use type assertion to bypass TypeScript's type checking
@@ -120,7 +119,6 @@ export const flashcardService = {
    */
   saveFlashcards: async (deckId: string, flashcards: FlashcardContent[]): Promise<void> => {
     // Convert from application model to database model (camelCase to snake_case)
-    // Make sure we're mapping properly to the database schema fields
     const flashcardsToInsert = flashcards.map(card => ({
       deck_id: deckId,
       front: card.front,
