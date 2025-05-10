@@ -10,12 +10,10 @@ import { WidgetsProvider } from "./hooks/use-widgets";
 import HomePage from "./pages/HomePage";
 import SuperTutor from "./pages/SuperTutor";
 import SecureCoach from "./pages/SecureCoach";
-import StaticCoach from "./pages/StaticCoach";
 import AuthPage from "./pages/AuthPage";
 import AccountPage from "./pages/AccountPage";
 import NotFound from "./pages/NotFound";
 import DatabasePage from "./pages/DatabasePage";
-import UploadPage from "./pages/UploadPage";
 import FlashcardsPage from "./pages/FlashcardsPage";
 import QuizzesPage from "./pages/QuizzesPage";
 import QuizSessionPage from "./pages/QuizSessionPage";
@@ -42,9 +40,7 @@ const App = () => (
                 <Route path="/" element={<HomePage />} />
                 <Route path="/super-stu" element={<SuperTutor />} />
                 <Route path="/secure-coach" element={<SecureCoach />} />
-                <Route path="/static-coach" element={<StaticCoach />} />
                 <Route path="/database" element={<DatabasePage />} />
-                <Route path="/upload" element={<UploadPage />} />
                 <Route path="/flashcards" element={<FlashcardsPage />} />
                 <Route path="/quizzes" element={<QuizzesPage />} />
                 <Route path="/quizzes/:quizId" element={<QuizSessionPage />} />
