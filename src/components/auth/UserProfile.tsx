@@ -142,11 +142,12 @@ export function UserProfile() {
       // Generate a unique file name
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      // Change path from 'avatars/' to 'profiles/' to match our bucket name
+      const filePath = `${fileName}`;
       
       console.log("Uploading file to path:", filePath);
       
-      // Upload the file to Supabase Storage
+      // Upload the file to Supabase Storage with the correct bucket name
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profiles')
         .upload(filePath, file);
