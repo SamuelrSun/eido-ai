@@ -8,7 +8,7 @@ interface AuthGuardProps {
   children?: ReactNode;
 }
 
-export function AuthGuard({ children }: AuthGuardProps = {}) {
+export function AuthGuard({ children }: AuthGuardProps) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const location = useLocation();
 
