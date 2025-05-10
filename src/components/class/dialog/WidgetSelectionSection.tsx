@@ -1,7 +1,10 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
+import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
 
 interface Widget {
   id: string;
@@ -22,11 +25,16 @@ export function WidgetSelectionSection({
   availableWidgets,
   onToggleWidget
 }: WidgetSelectionSectionProps) {
+  const [isAddWidgetsOpen, setIsAddWidgetsOpen] = useState(false);
+  
+  // Display only the recommended widgets (limit to 3)
+  const recommendedWidgets = availableWidgets.slice(0, 3);
+  
   return (
     <div>
       <Label className="mb-2 block">Select Widgets for this Class</Label>
       <div className="space-y-3">
-        {availableWidgets.map(widget => (
+        {recommendedWidgets.map(widget => (
           <WidgetCard
             key={widget.id}
             id={widget.id}
@@ -37,7 +45,23 @@ export function WidgetSelectionSection({
             onToggle={onToggleWidget}
           />
         ))}
+        
+        <Button
+          variant="outline"
+          className="w-full flex items-center justify-center py-6"
+          onClick={() => setIsAddWidgetsOpen(true)}
+        >
+          <PlusCircle className="mr-2 h-4 w-4" />
+          See More Widgets
+        </Button>
       </div>
+      
+      <AddWidgetsDialog 
+        open={isAddWidgetsOpen} 
+        onOpenChange={setIsAddWidgetsOpen}
+        classMode={true}
+        currentClassName="Current Class"
+      />
     </div>
   );
 }

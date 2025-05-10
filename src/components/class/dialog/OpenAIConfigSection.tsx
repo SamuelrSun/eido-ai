@@ -57,9 +57,9 @@ export function OpenAIConfigSection({
       </div>
       
       {showOpenAIConfig && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
-            <Label htmlFor="openai-api-key" className="flex items-center gap-1">
+            <Label htmlFor="openai-api-key" className="flex items-center gap-1 mb-3">
               OpenAI API Key
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -78,13 +78,10 @@ export function OpenAIConfigSection({
               onChange={(e) => onApiKeyChange(e.target.value)}
               className="font-mono"
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              This will be used to authenticate API calls for AI features in this class.
-            </p>
           </div>
           
           <div>
-            <Label htmlFor="assistant-id" className="flex items-center gap-1">
+            <Label htmlFor="assistant-id" className="flex items-center gap-1 mb-3">
               <Bot className="h-4 w-4 mr-1" />
               Assistant ID
               <Tooltip>
@@ -103,13 +100,10 @@ export function OpenAIConfigSection({
               onChange={(e) => onAssistantIdChange(e.target.value)}
               className="font-mono"
             />
-            <p className="text-xs text-blue-600 mt-1 font-medium">
-              RECOMMENDED: Use an Assistant ID (starts with "asst_") for best functionality
-            </p>
           </div>
           
           <div>
-            <Label htmlFor="vector-store-id" className="flex items-center gap-1">
+            <Label htmlFor="vector-store-id" className="flex items-center gap-1 mb-3">
               <Database className="h-4 w-4 mr-1" />
               Vector Store ID (Legacy)
               <Tooltip>
@@ -129,20 +123,6 @@ export function OpenAIConfigSection({
               onChange={(e) => onVectorStoreIdChange(e.target.value)}
               className="font-mono"
             />
-            <p className="text-xs text-amber-600 mt-1 font-medium">
-              NOTE: Direct vector store access is deprecated. Use Assistants with files instead.
-            </p>
-          </div>
-
-          <div className="p-3 bg-blue-50 rounded-md border border-blue-100">
-            <h4 className="text-sm font-medium text-blue-800">How to use your class's own knowledge base:</h4>
-            <ol className="text-xs text-blue-700 mt-2 space-y-1 list-decimal list-inside">
-              <li>Create an Assistant in the <a href="https://platform.openai.com/assistants" target="_blank" rel="noopener noreferrer" className="underline">OpenAI platform</a></li>
-              <li>Upload your class materials directly to the Assistant</li>
-              <li>Copy the Assistant ID (starts with "asst_")</li>
-              <li>Paste the Assistant ID above, along with your API key</li>
-              <li>Now all AI features will use your class-specific knowledge</li>
-            </ol>
           </div>
         </div>
       )}

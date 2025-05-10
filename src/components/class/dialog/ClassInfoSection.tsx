@@ -1,21 +1,28 @@
 
 import React from "react";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
 interface ClassInfoSectionProps {
   title: string;
-  description: string;
+  professor: string;
+  classTime: string;
+  classroom: string;
   onTitleChange: (value: string) => void;
-  onDescriptionChange: (value: string) => void;
+  onProfessorChange: (value: string) => void;
+  onClassTimeChange: (value: string) => void;
+  onClassroomChange: (value: string) => void;
 }
 
 export function ClassInfoSection({
   title,
-  description,
+  professor,
+  classTime,
+  classroom,
   onTitleChange,
-  onDescriptionChange
+  onProfessorChange,
+  onClassTimeChange,
+  onClassroomChange
 }: ClassInfoSectionProps) {
   return (
     <div className="space-y-4">
@@ -30,12 +37,32 @@ export function ClassInfoSection({
       </div>
       
       <div>
-        <Label htmlFor="class-description">Description (optional)</Label>
-        <Textarea 
-          id="class-description"
-          placeholder="Describe what this class is about..." 
-          value={description}
-          onChange={(e) => onDescriptionChange(e.target.value)}
+        <Label htmlFor="professor">Professor</Label>
+        <Input 
+          id="professor"
+          placeholder="e.g., Dr. Jane Smith" 
+          value={professor}
+          onChange={(e) => onProfessorChange(e.target.value)}
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="class-time">Class Time</Label>
+        <Input 
+          id="class-time"
+          placeholder="e.g., MWF 10:00 AM - 11:30 AM" 
+          value={classTime}
+          onChange={(e) => onClassTimeChange(e.target.value)}
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="classroom">Classroom</Label>
+        <Input 
+          id="classroom"
+          placeholder="e.g., Science Building, Room 305" 
+          value={classroom}
+          onChange={(e) => onClassroomChange(e.target.value)}
         />
       </div>
     </div>

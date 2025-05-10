@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import { BookOpen, Calendar, SquareCheck } from "lucide-react";
 import { ClassInfoSection } from "./ClassInfoSection";
 import { ColorSelectionSection } from "./ColorSelectionSection";
-import { MaterialsUploadSection } from "./MaterialsUploadSection";
 import { OpenAIConfigSection } from "./OpenAIConfigSection";
 import { WidgetSelectionSection } from "./WidgetSelectionSection";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -41,21 +40,23 @@ const availableWidgets = [
   },
 ];
 
+// Updated pastel and sophisticated color options
 const colorOptions = [
-  { value: "blue-500", label: "Blue", className: "bg-blue-500" },
-  { value: "green-500", label: "Green", className: "bg-green-500" },
-  { value: "red-500", label: "Red", className: "bg-red-500" },
-  { value: "yellow-500", label: "Yellow", className: "bg-yellow-500" },
-  { value: "purple-500", label: "Purple", className: "bg-purple-500" },
-  { value: "pink-500", label: "Pink", className: "bg-pink-500" },
+  { value: "blue-300", label: "Blue", className: "bg-blue-300" },
+  { value: "emerald-300", label: "Emerald", className: "bg-emerald-300" },
+  { value: "rose-300", label: "Rose", className: "bg-rose-300" },
+  { value: "amber-200", label: "Amber", className: "bg-amber-200" },
+  { value: "violet-300", label: "Violet", className: "bg-violet-300" },
+  { value: "indigo-300", label: "Indigo", className: "bg-indigo-300" },
 ];
 
 export function CreateClassDialogContent({ onClassCreate, onCancel, initialData, isEditing = false }: CreateClassDialogContentProps) {
   const [title, setTitle] = useState(initialData?.title || "");
-  const [description, setDescription] = useState(initialData?.description || "");
-  const [color, setColor] = useState(initialData?.color || "blue-500");
+  const [professor, setProfessor] = useState(initialData?.professor || "");
+  const [classTime, setClassTime] = useState(initialData?.classTime || "");
+  const [classroom, setClassroom] = useState(initialData?.classroom || "");
+  const [color, setColor] = useState(initialData?.color || "blue-300");
   const [selectedWidgets, setSelectedWidgets] = useState<string[]>(initialData?.enabledWidgets || ["flashcards", "quizzes"]);
-  const [isUploading, setIsUploading] = useState(false);
   
   // OpenAI configuration states
   const [openAIApiKey, setOpenAIApiKey] = useState(initialData?.openAIConfig?.apiKey || "");
@@ -90,8 +91,10 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
   useEffect(() => {
     if (initialData && isEditing) {
       setTitle(initialData.title || "");
-      setDescription(initialData.description || "");
-      setColor(initialData.color || "blue-500");
+      setProfessor(initialData.professor || "");
+      setClassTime(initialData.classTime || "");
+      setClassroom(initialData.classroom || "");
+      setColor(initialData.color || "blue-300");
       setSelectedWidgets(initialData.enabledWidgets || ["flashcards", "quizzes"]);
       setOpenAIApiKey(initialData.openAIConfig?.apiKey || "");
       setVectorStoreId(initialData.openAIConfig?.vectorStoreId || "");
@@ -105,7 +108,9 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     const updateClassData = async () => {
       const classData: ClassData = {
         title,
-        description,
+        professor,
+        classTime,
+        classroom,
         color,
         enabledWidgets: selectedWidgets
       };
@@ -132,7 +137,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     };
     
     updateClassData();
-  }, [title, description, color, selectedWidgets, openAIApiKey, vectorStoreId, assistantId, onClassCreate]);
+  }, [title, professor, classTime, classroom, color, selectedWidgets, openAIApiKey, vectorStoreId, assistantId, onClassCreate]);
 
   const handleToggleWidget = (id: string) => {
     setSelectedWidgets(prev =>
@@ -140,20 +145,19 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     );
   };
 
-  const handleUpload = () => {
-    setIsUploading(true);
-    // Upload functionality would be implemented here
-  };
-
   return (
     <ScrollArea className="max-h-[calc(90vh-180px)]">
       <div className="space-y-6 py-2 pr-4">
-        {/* Class title and description */}
+        {/* Class title and information */}
         <ClassInfoSection 
           title={title}
-          description={description}
+          professor={professor}
+          classTime={classTime}
+          classroom={classroom}
           onTitleChange={setTitle}
-          onDescriptionChange={setDescription}
+          onProfessorChange={setProfessor}
+          onClassTimeChange={setClassTime}
+          onClassroomChange={setClassroom}
         />
         
         {/* Color selection */}
@@ -162,9 +166,6 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
           colorOptions={colorOptions}
           onColorChange={setColor}
         />
-        
-        {/* Document upload */}
-        <MaterialsUploadSection onUpload={handleUpload} />
         
         {/* OpenAI Configuration */}
         <OpenAIConfigSection 

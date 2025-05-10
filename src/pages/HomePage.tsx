@@ -13,7 +13,9 @@ import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
 
 interface ClassOption {
   title: string;
-  description: string;
+  professor?: string;
+  classTime?: string;
+  classroom?: string;
   emoji: string;
   link: string;
   color: string;
@@ -76,17 +78,17 @@ const HomePage = () => {
             const userClasses = classConfigs.map(config => {
               // Generate random emoji and color if not already set
               const emojis = ["📚", "🎓", "✏️", "📝", "🔬", "🎨", "🧮", "🔍", "📊", "💡"];
-              const colors = ["blue-500", "green-500", "red-500", "yellow-500", "purple-500", "pink-500"];
               
               const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-              const randomColor = colors[Math.floor(Math.random() * colors.length)];
               
               return {
                 title: config.class_title,
-                description: `Class configuration for ${config.class_title}`,
+                professor: config.professor,
+                classTime: config.class_time,
+                classroom: config.classroom,
                 emoji: randomEmoji,
                 link: "/super-stu",
-                color: randomColor,
+                color: config.color || "blue-300",
                 enabledWidgets: DEFAULT_CLASS_WIDGETS,
                 openAIConfig: {
                   apiKey: config.api_key,
@@ -140,7 +142,9 @@ const HomePage = () => {
       
       const newClass: ClassOption = {
         title: classData.title,
-        description: classData.description,
+        professor: classData.professor,
+        classTime: classData.classTime,
+        classroom: classData.classroom,
         emoji: randomEmoji,
         link: "/super-stu", // Always navigate to Super Tutor
         color: classData.color,
@@ -150,16 +154,30 @@ const HomePage = () => {
       
       setClassOptions(prev => [newClass, ...prev]);
       
-      // Store OpenAI configuration in Supabase
-      if (classData.openAIConfig) {
+      // Store OpenAI configuration and class info in Supabase
+      if (classData.title) {
         try {
-          await classOpenAIConfigService.saveConfigForClass(classData.title, classData.openAIConfig);
-          console.log('OpenAI configuration saved for class:', classData.title);
+          // Save class and OpenAI config data
+          const { error } = await supabase.from('class_openai_configs').insert({
+            user_id: user.id,
+            class_title: classData.title,
+            professor: classData.professor,
+            class_time: classData.classTime,
+            classroom: classData.classroom,
+            color: classData.color,
+            api_key: classData.openAIConfig?.apiKey || null,
+            vector_store_id: classData.openAIConfig?.vectorStoreId || null,
+            assistant_id: classData.openAIConfig?.assistantId || null
+          });
+          
+          if (error) throw error;
+          
+          console.log('Class data saved:', classData.title);
         } catch (error) {
-          console.error('Error storing OpenAI configuration:', error);
+          console.error('Error storing class data:', error);
           toast({
             title: "Warning",
-            description: "Failed to save OpenAI configuration. You may need to sign in.",
+            description: "Failed to save class information. You may need to sign in.",
             variant: "destructive"
           });
         }
@@ -183,6 +201,18 @@ const HomePage = () => {
     if (!selectedClassToEdit) return;
     
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You must be signed in to update a class",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       // Update the class in the array
       setClassOptions(prev => 
         prev.map(classItem => 
@@ -190,7 +220,9 @@ const HomePage = () => {
             ? {
                 ...classItem,
                 title: classData.title,
-                description: classData.description,
+                professor: classData.professor,
+                classTime: classData.classTime,
+                classroom: classData.classroom,
                 color: classData.color,
                 enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
                 openAIConfig: classData.openAIConfig
@@ -199,19 +231,33 @@ const HomePage = () => {
         )
       );
       
-      // Update OpenAI configuration in Supabase
-      if (classData.openAIConfig) {
-        try {
-          await classOpenAIConfigService.saveConfigForClass(classData.title, classData.openAIConfig);
-          console.log('OpenAI configuration updated for class:', classData.title);
-        } catch (error) {
-          console.error('Error updating OpenAI configuration:', error);
-          toast({
-            title: "Warning",
-            description: "Failed to update OpenAI configuration. You may need to sign in.",
-            variant: "destructive"
-          });
-        }
+      // Update class data in Supabase
+      try {
+        const { error } = await supabase
+          .from('class_openai_configs')
+          .update({
+            class_title: classData.title,
+            professor: classData.professor,
+            class_time: classData.classTime,
+            classroom: classData.classroom,
+            color: classData.color,
+            api_key: classData.openAIConfig?.apiKey || null,
+            vector_store_id: classData.openAIConfig?.vectorStoreId || null,
+            assistant_id: classData.openAIConfig?.assistantId || null
+          })
+          .eq('user_id', user.id)
+          .eq('class_title', selectedClassToEdit.title);
+          
+        if (error) throw error;
+        
+        console.log('Class data updated for:', classData.title);
+      } catch (error) {
+        console.error('Error updating class data:', error);
+        toast({
+          title: "Warning",
+          description: "Failed to update class information. You may need to sign in.",
+          variant: "destructive"
+        });
       }
       
       toast({
@@ -235,36 +281,36 @@ const HomePage = () => {
     if (!selectedClassToEdit) return;
     
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You must be signed in to delete a class",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       // Remove the class from the array
       setClassOptions(prev => 
         prev.filter(classItem => classItem.title !== selectedClassToEdit.title)
       );
       
-      // Delete OpenAI configuration from Supabase
+      // Delete from Supabase
       try {
         const { error } = await supabase
           .from('class_openai_configs')
           .delete()
+          .eq('user_id', user.id)
           .eq('class_title', selectedClassToEdit.title);
           
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
         
         console.log('Class deleted:', selectedClassToEdit.title);
-        
-        // Also remove from localStorage (backup storage)
-        try {
-          const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
-          const filteredConfigs = existingConfigs.filter(
-            (config: any) => config.title !== selectedClassToEdit.title
-          );
-          localStorage.setItem('classOpenAIConfigs', JSON.stringify(filteredConfigs));
-        } catch (error) {
-          console.error('Error removing OpenAI configuration from localStorage:', error);
-        }
       } catch (error) {
-        console.error('Error removing OpenAI configuration:', error);
+        console.error('Error deleting class:', error);
       }
       
       toast({
@@ -349,12 +395,24 @@ const HomePage = () => {
                 onClick={() => handleClassClick(option)}
               >
                 <CardHeader>
-                  <div className={`mb-4 p-2 bg-${option.color}/10 rounded-lg w-fit`}>
+                  <div className={`mb-4 p-2 bg-${option.color}/20 rounded-lg w-fit`}>
                     <span className="text-4xl">{option.emoji}</span>
                   </div>
                   <CardTitle>{option.title}</CardTitle>
-                  <CardDescription>{option.description}</CardDescription>
                 </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="text-sm space-y-1">
+                    {option.professor && (
+                      <p className="text-muted-foreground"><span className="font-medium text-foreground">Professor:</span> {option.professor}</p>
+                    )}
+                    {option.classTime && (
+                      <p className="text-muted-foreground"><span className="font-medium text-foreground">Time:</span> {option.classTime}</p>
+                    )}
+                    {option.classroom && (
+                      <p className="text-muted-foreground"><span className="font-medium text-foreground">Location:</span> {option.classroom}</p>
+                    )}
+                  </div>
+                </CardContent>
                 <CardFooter>
                   <Button variant="ghost" className={`group text-${option.color}`}>
                     Enter class
@@ -456,7 +514,9 @@ const HomePage = () => {
           onOpenChange={setIsEditClassOpen}
           initialData={{
             title: selectedClassToEdit.title,
-            description: selectedClassToEdit.description,
+            professor: selectedClassToEdit.professor,
+            classTime: selectedClassToEdit.classTime,
+            classroom: selectedClassToEdit.classroom,
             color: selectedClassToEdit.color,
             enabledWidgets: selectedClassToEdit.enabledWidgets,
             openAIConfig: selectedClassToEdit.openAIConfig

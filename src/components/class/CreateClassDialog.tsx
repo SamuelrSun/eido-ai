@@ -19,7 +19,9 @@ interface CreateClassDialogProps {
 
 export interface ClassData {
   title: string;
-  description: string;
+  professor?: string;
+  classTime?: string;
+  classroom?: string;
   color: string;
   enabledWidgets: string[];
   openAIConfig?: {
@@ -58,7 +60,7 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh]">
-        <DialogHeader>
+        <DialogHeader className="text-left">
           <DialogTitle>Create New Class</DialogTitle>
           <DialogDescription>
             Set up your new class with all the tools you'll need
