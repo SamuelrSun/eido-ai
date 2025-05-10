@@ -227,18 +227,6 @@ const SuperTutor = () => {
       </div>
     </div>
   );
-
-  function handleGoToFlashcards() {
-    navigate("/flashcards");
-  }
-
-  function handleSetupAPIKey() {
-    navigate("/settings");
-  }
-
-  function openOpenAIDocs() {
-    window.open("https://platform.openai.com/docs/api-reference/vector-stores", "_blank");
-  }
 };
 
 export default SuperTutor;
