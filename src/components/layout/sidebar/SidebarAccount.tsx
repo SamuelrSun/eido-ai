@@ -1,6 +1,9 @@
 
 import { NavLink } from "react-router-dom";
 import { LogIn } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SidebarAccountProps {
   loading: boolean;
@@ -8,6 +11,33 @@ interface SidebarAccountProps {
 }
 
 export function SidebarAccount({ loading, user }: SidebarAccountProps) {
+  const [profile, setProfile] = useState<any>(null);
+  
+  useEffect(() => {
+    // Fetch profile data when user is available
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single() as any;
+          
+        if (error) {
+          console.error("Error fetching profile:", error);
+        } else {
+          setProfile(data);
+        }
+      } catch (error) {
+        console.error("Error in profile fetch:", error);
+      }
+    };
+    
+    fetchProfile();
+  }, [user]);
+
   if (loading) {
     return null; // Don't render anything while loading
   }
@@ -30,6 +60,11 @@ export function SidebarAccount({ loading, user }: SidebarAccountProps) {
     );
   }
   
+  // Get user initials for avatar fallback
+  const userInitials = profile?.full_name
+    ? profile.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+    : user.email?.charAt(0).toUpperCase() || "U";
+    
   return (
     <NavLink 
       to="/account"
@@ -41,9 +76,12 @@ export function SidebarAccount({ loading, user }: SidebarAccountProps) {
         }`
       }
     >
-      <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
-        <span className="text-xs font-medium">{user.email?.charAt(0).toUpperCase() || "U"}</span>
-      </div>
+      <Avatar className="w-8 h-8 rounded-full bg-sidebar-accent">
+        {profile?.avatar_url && (
+          <AvatarImage src={profile.avatar_url} alt={profile?.full_name || user.email} />
+        )}
+        <AvatarFallback className="text-xs font-medium">{userInitials}</AvatarFallback>
+      </Avatar>
       <div className="ml-2 overflow-hidden">
         <p className="font-medium truncate">{user.email}</p>
         <p className="text-xs opacity-70 truncate">Signed In</p>
