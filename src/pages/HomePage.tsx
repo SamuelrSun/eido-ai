@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,23 @@ interface ClassOption {
     vectorStoreId?: string;
     assistantId?: string;
   };
+}
+
+// Interface for the data shape returned from Supabase
+interface ClassConfigFromDB {
+  api_key: string;
+  assistant_id: string;
+  class_time: string;
+  class_title: string;
+  classroom: string;
+  created_at: string;
+  emoji: string;
+  id: string;
+  professor: string;
+  updated_at: string;
+  user_id: string;
+  vector_store_id: string;
+  color?: string; // Make this optional since it might not exist in older records
 }
 
 const HomePage = () => {
@@ -77,7 +95,7 @@ const HomePage = () => {
             console.error("Error fetching class configs:", classConfigsError);
           } else if (classConfigs && classConfigs.length > 0) {
             // Transform the class configs into ClassOption objects
-            const userClasses = classConfigs.map(config => {
+            const userClasses = classConfigs.map((config: ClassConfigFromDB) => {
               // Generate colors if not already set
               const colors = ["blue-300", "emerald-300", "rose-300", "amber-200", "violet-300", "indigo-300"];
               const randomColor = colors[Math.floor(Math.random() * colors.length)];
@@ -93,7 +111,7 @@ const HomePage = () => {
                 emoji: classEmoji,
                 link: "/super-stu",
                 // Use the color from the database if it exists, otherwise use a random one
-                color: config.color || randomColor,
+                color: config.color || randomColor, 
                 enabledWidgets: DEFAULT_CLASS_WIDGETS,
                 openAIConfig: {
                   apiKey: config.api_key,
