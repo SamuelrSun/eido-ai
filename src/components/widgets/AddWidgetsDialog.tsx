@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { 
   BookOpen, 
@@ -27,8 +26,9 @@ import {
   TooltipContent
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { useWidgets, WidgetType } from "@/hooks/use-widgets";
+import { useWidgets } from "@/hooks/use-widgets";
 import { useClassWidgets } from "@/hooks/use-class-widgets";
+import { WidgetType } from "@/hooks/use-widget-base";
 
 interface AddWidgetsDialogProps {
   open: boolean;

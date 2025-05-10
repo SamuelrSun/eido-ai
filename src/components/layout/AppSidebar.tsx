@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
-import { WidgetType } from "@/hooks/use-widgets";
+import { WidgetType } from "@/hooks/use-widget-base";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { SidebarHeader } from "./sidebar/SidebarHeader";
 import { SidebarNavigation } from "./sidebar/SidebarNavigation";
