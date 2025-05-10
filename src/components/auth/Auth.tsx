@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 
 export function Auth() {
@@ -14,7 +14,8 @@ export function Auth() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup'); // Default to signup
+  const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -85,14 +86,20 @@ export function Auth() {
     setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
   };
 
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>{authMode === 'signin' ? 'Sign In' : 'Sign Up'}</CardTitle>
-        <CardDescription>
+    <Card className="w-full max-w-md bg-white shadow-lg border-0">
+      <CardHeader className="space-y-2">
+        <CardTitle className="text-2xl font-bold text-center">
+          {authMode === 'signin' ? 'Sign In' : 'Create Account'}
+        </CardTitle>
+        <CardDescription className="text-center">
           {authMode === 'signin' 
-            ? 'Enter your credentials to sign in to your account' 
-            : 'Create a new account to use all features'}
+            ? 'Enter your credentials to access your account' 
+            : 'Sign up to start using all features'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -106,46 +113,74 @@ export function Auth() {
                 placeholder="Your name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                className="bg-muted/30"
               />
             </div>
           )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+            <div className="relative">
+              <Input
+                id="email"
+                type="email"
+                placeholder="your@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="bg-muted/30 pl-10"
+              />
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                className="bg-muted/30 pl-10"
+              />
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Button 
+                type="button" 
+                variant="ghost" 
+                size="icon" 
+                className="absolute right-1 top-1 h-8 w-8 text-muted-foreground"
+                onClick={toggleShowPassword}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
             {authMode === 'signup' && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Password must be at least 6 characters long
               </p>
             )}
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button 
+            type="submit" 
+            className="w-full bg-sidebar hover:bg-sidebar-accent text-white"
+            disabled={loading}
+          >
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {loading ? 'Processing...' : authMode === 'signin' ? 'Sign In' : 'Sign Up'}
+            {loading ? 'Processing...' : authMode === 'signin' ? 'Sign In' : 'Create Account'}
           </Button>
         </form>
       </CardContent>
       <CardFooter>
-        <Button variant="ghost" onClick={toggleAuthMode} className="w-full">
-          {authMode === 'signin' ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+        <Button 
+          variant="ghost" 
+          onClick={toggleAuthMode} 
+          className="w-full text-sm hover:bg-muted/20"
+        >
+          {authMode === 'signin' 
+            ? "Don't have an account? Sign Up" 
+            : "Already have an account? Sign In"}
         </Button>
       </CardFooter>
     </Card>
