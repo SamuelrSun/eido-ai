@@ -74,9 +74,10 @@ export const classOpenAIConfigService = {
    */
   saveConfigForClass: async (classTitle: string, config: OpenAIConfig): Promise<void> => {
     try {
-      const { user } = await supabase.auth.getUser();
+      // Fix: Get the user data properly from the session
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!user) {
+      if (!session?.user) {
         throw new Error('User must be authenticated to save configurations');
       }
       
@@ -88,7 +89,7 @@ export const classOpenAIConfigService = {
           api_key: config.apiKey,
           vector_store_id: config.vectorStoreId,
           assistant_id: config.assistantId,
-          user_id: user.id,
+          user_id: session.user.id,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'class_title'
