@@ -70,6 +70,9 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     isEditing ? !!(initialData?.openAIConfig?.apiKey || initialData?.openAIConfig?.vectorStoreId || initialData?.openAIConfig?.assistantId) : false
   );
 
+  console.log("Initial emoji:", initialData?.emoji);
+  console.log("Current emoji state:", emoji);
+
   // Fetch config from Supabase when editing
   useEffect(() => {
     const fetchConfig = async () => {
@@ -94,13 +97,16 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
   // Set default emoji only for new classes and only if no emoji is explicitly set
   useEffect(() => {
     if (title && !emoji && !isEditing) {
-      setEmoji(getEmojiForClass(title));
+      const generatedEmoji = getEmojiForClass(title);
+      console.log(`Generated emoji for ${title}:`, generatedEmoji);
+      setEmoji(generatedEmoji);
     }
   }, [title, emoji, isEditing]);
 
   // Update values when initialData changes (important for edit mode)
   useEffect(() => {
-    if (initialData && isEditing) {
+    if (initialData) {
+      console.log("Setting initial data:", initialData);
       setTitle(initialData.title || "");
       setProfessor(initialData.professor || "");
       setClassTime(initialData.classTime || "");
@@ -113,7 +119,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
       setEmoji(initialData.emoji || "");
       setShowOpenAIConfig(!!(initialData.openAIConfig?.apiKey || initialData.openAIConfig?.vectorStoreId || initialData.openAIConfig?.assistantId));
     }
-  }, [initialData, isEditing]);
+  }, [initialData]);
 
   // Update parent component whenever form data changes
   useEffect(() => {
@@ -135,17 +141,9 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
           vectorStoreId: vectorStoreId,
           assistantId: assistantId
         };
-
-        // Also save this config to our service for future use
-        if (title) {
-          try {
-            await classOpenAIConfigService.saveConfigForClass(title, classData.openAIConfig, color, emoji, professor, classTime, classroom);
-          } catch (error) {
-            console.error("Error saving OpenAI config:", error);
-          }
-        }
       }
       
+      console.log("Updating class data:", classData);
       onClassCreate(classData);
     };
     
@@ -159,6 +157,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
   };
 
   const handleSelectEmoji = (selectedEmoji: string) => {
+    console.log("Selected emoji:", selectedEmoji);
     setEmoji(selectedEmoji);
     setShowEmojiPicker(false);
   };

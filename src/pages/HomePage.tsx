@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CreateClassDialog, ClassData } from "@/components/class/CreateClassDialog";
 import { useToast } from "@/hooks/use-toast";
 import { EditClassDialog } from "@/components/class/EditClassDialog";
-import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
+import { classOpenAIConfigService, ClassConfig } from "@/services/classOpenAIConfig";
 import { getEmojiForClass } from "@/utils/emojiUtils";
 
 interface ClassOption {
@@ -27,25 +28,9 @@ interface ClassOption {
   };
 }
 
-// Interface for the data shape returned from Supabase
-interface ClassConfigFromDB {
-  api_key: string;
-  assistant_id: string;
-  class_time: string;
-  class_title: string;
-  classroom: string;
-  created_at: string;
-  emoji: string;
-  id: string;
-  professor: string;
-  updated_at: string;
-  user_id: string;
-  vector_store_id: string;
-  color?: string; // Make this optional since it might not exist in older records
-}
+const DEFAULT_CLASS_WIDGETS = ["supertutor", "database"];
 
 const HomePage = () => {
-  
   const [userName, setUserName] = useState<string>("Student");
   const [recentlyViewed, setRecentlyViewed] = useState<{title: string, path: string}[]>([]);
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
@@ -55,96 +40,87 @@ const HomePage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   
-  // Default widgets for a class
-  const DEFAULT_CLASS_WIDGETS = ["supertutor", "database"];
-  
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        setIsLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
+  // Function to fetch all user data
+  const fetchUserData = async () => {
+    try {
+      setIsLoading(true);
+      console.log("Fetching user profile and classes");
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Fetch user profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
           
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', user.id)
-            .single();
-            
-          if (profile?.full_name) {
-            // Get the first name from the full name
-            const firstName = profile.full_name.split(' ')[0];
-            setUserName(firstName);
-          } else {
-            // Fallback to email if no name is available
-            const emailName = user.email?.split('@')[0] || "Student";
-            setUserName(emailName);
-          }
-          
-          // Fetch user's classes from the class_openai_configs table
-          const { data: classConfigs, error: classConfigsError } = await supabase
-            .from('class_openai_configs')
-            .select('*')
-            .eq('user_id', user.id);
-            
-          if (classConfigsError) {
-            console.error("Error fetching class configs:", classConfigsError);
-          } else if (classConfigs && classConfigs.length > 0) {
-            // Transform the class configs into ClassOption objects
-            const userClasses = classConfigs.map((config: ClassConfigFromDB) => {
-              // Generate colors if not already set
-              const colors = ["blue-300", "emerald-300", "rose-300", "amber-200", "violet-300", "indigo-300"];
-              const randomColor = colors[Math.floor(Math.random() * colors.length)];
-              
-              // Use stored emoji or generate one based on class title
-              const classEmoji = config.emoji || getEmojiForClass(config.class_title);
-              
-              return {
-                title: config.class_title,
-                professor: config.professor || "",
-                classTime: config.class_time || "",
-                classroom: config.classroom || "",
-                emoji: classEmoji,
-                link: "/super-stu",
-                // Use the color from the database if it exists, otherwise use a random one
-                color: config.color || randomColor, 
-                enabledWidgets: DEFAULT_CLASS_WIDGETS,
-                openAIConfig: {
-                  apiKey: config.api_key,
-                  vectorStoreId: config.vector_store_id,
-                  assistantId: config.assistant_id
-                }
-              };
-            });
-            
-            setClassOptions(userClasses);
-          } else {
-            // No classes found, leave the classOptions empty
-            setClassOptions([]);
-          }
+        if (profile?.full_name) {
+          // Get the first name from the full name
+          const firstName = profile.full_name.split(' ')[0];
+          setUserName(firstName);
+        } else {
+          // Fallback to email if no name is available
+          const emailName = user.email?.split('@')[0] || "Student";
+          setUserName(emailName);
         }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load your profile data",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
+        
+        // Fetch all classes using the service
+        const userClasses = await classOpenAIConfigService.getAllClasses();
+        
+        if (userClasses && userClasses.length > 0) {
+          console.log(`Found ${userClasses.length} classes for the user`);
+          
+          // Transform ClassConfig objects to ClassOption objects
+          const classOptions = userClasses.map((config): ClassOption => {
+            // Generate a random color if not already set
+            const colors = ["blue-300", "emerald-300", "rose-300", "amber-200", "violet-300", "indigo-300"];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            
+            // Use stored emoji or generate one based on class title
+            const classEmoji = config.emoji || getEmojiForClass(config.title);
+            
+            return {
+              title: config.title,
+              professor: config.professor || "",
+              classTime: config.classTime || "",
+              classroom: config.classroom || "",
+              emoji: classEmoji,
+              link: "/super-stu",
+              color: config.color || randomColor, 
+              enabledWidgets: DEFAULT_CLASS_WIDGETS,
+              openAIConfig: config.openAIConfig
+            };
+          });
+          
+          setClassOptions(classOptions);
+        } else {
+          console.log("No classes found for user");
+          setClassOptions([]);
+        }
       }
-    };
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load your profile data",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    fetchUserProfile();
+  useEffect(() => {
+    fetchUserData();
     
     // Clear active class when on homepage
     sessionStorage.removeItem('activeClass');
-  }, [toast]);
+  }, []);
 
-  
   const handleCreateClass = async (classData: ClassData) => {
     try {
       // Get current user
@@ -162,13 +138,14 @@ const HomePage = () => {
       // Ensure we have an emoji (either from form or generated)
       const classEmoji = classData.emoji || getEmojiForClass(classData.title);
       
+      // Add the new class to the UI immediately
       const newClass: ClassOption = {
         title: classData.title,
         professor: classData.professor,
         classTime: classData.classTime,
         classroom: classData.classroom,
         emoji: classEmoji,
-        link: "/super-stu", // Always navigate to Super Tutor
+        link: "/super-stu",
         color: classData.color,
         enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
         openAIConfig: classData.openAIConfig
@@ -179,28 +156,23 @@ const HomePage = () => {
       // Store OpenAI configuration and class info in Supabase
       if (classData.title) {
         try {
-          // Save class and OpenAI config data
-          const { error } = await supabase.from('class_openai_configs').insert({
-            user_id: user.id,
-            class_title: classData.title,
-            professor: classData.professor,
-            class_time: classData.classTime,
-            classroom: classData.classroom,
-            color: classData.color,
-            emoji: classEmoji,
-            api_key: classData.openAIConfig?.apiKey || null,
-            vector_store_id: classData.openAIConfig?.vectorStoreId || null,
-            assistant_id: classData.openAIConfig?.assistantId || null
-          });
+          // Save class and OpenAI config data using our service
+          await classOpenAIConfigService.saveConfigForClass(
+            classData.title,
+            classData.openAIConfig || {},
+            classData.color,
+            classEmoji,
+            classData.professor,
+            classData.classTime,
+            classData.classroom
+          );
           
-          if (error) throw error;
-          
-          console.log('Class data saved:', classData.title);
+          console.log('Class data saved successfully:', classData.title);
         } catch (error) {
           console.error('Error storing class data:', error);
           toast({
             title: "Warning",
-            description: "Failed to save class information. You may need to sign in.",
+            description: "Failed to save class information. You may need to sign in again.",
             variant: "destructive"
           });
         }
@@ -236,7 +208,7 @@ const HomePage = () => {
         return;
       }
       
-      // Update the class in the array
+      // Update the class in the UI immediately
       setClassOptions(prev => 
         prev.map(classItem => 
           classItem.title === selectedClassToEdit.title 
@@ -255,32 +227,29 @@ const HomePage = () => {
         )
       );
       
-      // Update class data in Supabase
+      // Update class data in Supabase using our service
       try {
-        const { error } = await supabase
-          .from('class_openai_configs')
-          .update({
-            class_title: classData.title,
-            professor: classData.professor,
-            class_time: classData.classTime,
-            classroom: classData.classroom,
-            color: classData.color,
-            emoji: classData.emoji,
-            api_key: classData.openAIConfig?.apiKey || null,
-            vector_store_id: classData.openAIConfig?.vectorStoreId || null,
-            assistant_id: classData.openAIConfig?.assistantId || null
-          })
-          .eq('user_id', user.id)
-          .eq('class_title', selectedClassToEdit.title);
-          
-        if (error) throw error;
+        await classOpenAIConfigService.saveConfigForClass(
+          classData.title,
+          classData.openAIConfig || {},
+          classData.color,
+          classData.emoji,
+          classData.professor,
+          classData.classTime,
+          classData.classroom
+        );
+        
+        // If the title changed, delete the old class
+        if (selectedClassToEdit.title !== classData.title) {
+          await classOpenAIConfigService.deleteClass(selectedClassToEdit.title);
+        }
         
         console.log('Class data updated for:', classData.title);
       } catch (error) {
         console.error('Error updating class data:', error);
         toast({
           title: "Warning",
-          description: "Failed to update class information. You may need to sign in.",
+          description: "Failed to update class information. You may need to sign in again.",
           variant: "destructive"
         });
       }
@@ -306,17 +275,8 @@ const HomePage = () => {
     if (!selectedClassToEdit) return;
     
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "You must be signed in to delete a class",
-          variant: "destructive"
-        });
-        return;
-      }
+      // Delete using our service
+      await classOpenAIConfigService.deleteClass(selectedClassToEdit.title);
       
       // Check if the deleted class is the active class
       const activeClass = sessionStorage.getItem('activeClass');
@@ -332,25 +292,10 @@ const HomePage = () => {
         }
       }
       
-      // Remove the class from the array
+      // Remove the class from the UI
       setClassOptions(prev => 
         prev.filter(classItem => classItem.title !== selectedClassToEdit.title)
       );
-      
-      // Delete from Supabase
-      try {
-        const { error } = await supabase
-          .from('class_openai_configs')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('class_title', selectedClassToEdit.title);
-          
-        if (error) throw error;
-        
-        console.log('Class deleted:', selectedClassToEdit.title);
-      } catch (error) {
-        console.error('Error deleting class:', error);
-      }
       
       toast({
         title: "Class deleted",
