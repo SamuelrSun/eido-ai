@@ -1,6 +1,8 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserProfile } from "@/components/auth/UserProfile";
+import { PasswordChangeForm } from "@/components/auth/PasswordChangeForm";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,7 +87,9 @@ const AccountPage = () => {
         <div className="md:col-span-1">
           <UserProfile />
         </div>
-        <div className="md:col-span-3">
+        <div className="md:col-span-3 space-y-6">
+          <PasswordChangeForm />
+          
           <Card>
             <CardHeader>
               <CardTitle>Account Settings</CardTitle>
