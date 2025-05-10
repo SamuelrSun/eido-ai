@@ -189,7 +189,8 @@ export const quizRepository = {
         coverage: quiz.coverage,
         createdAt: quiz.created_at,
         updatedAt: quiz.updated_at,
-        userId: quiz.user_id
+        userId: quiz.user_id,
+        classTitle: quiz.class_title
       };
     } catch (error) {
       console.error('Error fetching quiz:', error);

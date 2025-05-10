@@ -23,16 +23,18 @@ interface CustomDatabase extends Database {
           nextReview: Date;
           lastReviewed?: Date;
           reviewCount?: number;
+          deck_id: string;
         };
         Insert: {
           id?: string;
           front: string;
           back: string;
-          deckId: string;
+          deckId?: string;
           difficulty: string;
           nextReview: Date;
           lastReviewed?: Date;
           reviewCount?: number;
+          deck_id: string;
         };
         Update: {
           id?: string;
@@ -43,6 +45,7 @@ interface CustomDatabase extends Database {
           nextReview?: Date;
           lastReviewed?: Date;
           reviewCount?: number;
+          deck_id?: string;
         };
       };
       decks: {
@@ -56,6 +59,8 @@ interface CustomDatabase extends Database {
           cardCount: number;
           dueCards: number;
           newCards: number;
+          user_id?: string;
+          class_title?: string;
         };
         Insert: {
           id?: string;
@@ -67,6 +72,8 @@ interface CustomDatabase extends Database {
           cardCount: number;
           dueCards: number;
           newCards: number;
+          user_id?: string;
+          class_title?: string;
         };
         Update: {
           id?: string;
@@ -78,6 +85,8 @@ interface CustomDatabase extends Database {
           cardCount?: number;
           dueCards?: number;
           newCards?: number;
+          user_id?: string;
+          class_title?: string;
         };
       };
       api_keys: {
@@ -127,6 +136,47 @@ interface CustomDatabase extends Database {
           embedding?: any;
           user_id?: string;
           created_at?: string;
+        };
+      };
+      quizzes: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          question_count: number;
+          time_estimate: number;
+          difficulty: string;
+          coverage: string;
+          created_at: string;
+          updated_at: string;
+          user_id?: string;
+          class_title?: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description: string;
+          question_count: number;
+          time_estimate: number;
+          difficulty: string;
+          coverage: string;
+          created_at?: string;
+          updated_at?: string;
+          user_id?: string;
+          class_title?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          description?: string;
+          question_count?: number;
+          time_estimate?: number;
+          difficulty?: string;
+          coverage?: string;
+          created_at?: string;
+          updated_at?: string;
+          user_id?: string;
+          class_title?: string;
         };
       };
     };

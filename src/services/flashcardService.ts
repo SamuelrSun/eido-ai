@@ -85,7 +85,7 @@ export const flashcardService = {
         new_cards: deck.newCards,
         user_id: deck.userId,
         class_title: classTitle // Add class_title to associate with specific class
-      } as any)
+      })
       .select()
       .single();
 
@@ -126,7 +126,7 @@ export const flashcardService = {
 
     const { error } = await supabase
       .from('flashcards')
-      .insert(flashcardsToInsert as any[]);
+      .insert(flashcardsToInsert);
 
     if (error) {
       console.error("Error saving flashcards:", error);
