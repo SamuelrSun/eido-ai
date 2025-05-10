@@ -193,13 +193,13 @@ const SuperTutor = () => {
               )}
             </div>
           ) : openAIConfig?.vectorStoreId ? (
-            <div className={`${connectError ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'} border rounded-md p-4 text-sm`}>
+            <div className={`${connectError ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'} border rounded-md p-4 text-sm`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Database className={`h-4 w-4 ${connectError ? 'text-amber-600' : 'text-green-600'}`} />
+                  <Database className={`h-4 w-4 ${connectError ? 'text-amber-600' : 'text-blue-600'}`} />
                   <p className="font-medium">{connectError ? 'Vector store connectivity issue' : `Using custom knowledge base for ${activeClass}`}</p>
                 </div>
-                <Badge variant={connectError ? "outline" : "default"} className="text-xs">
+                <Badge variant={connectError ? "outline" : "default"} className={connectError ? "" : "bg-blue-500"}>
                   {openAIConfig.vectorStoreId.substring(0, 8)}...
                 </Badge>
               </div>
@@ -216,7 +216,7 @@ const SuperTutor = () => {
                   </Button>
                 </div>
               ) : (
-                <p className="text-xs text-green-600 mt-1">
+                <p className="text-xs text-blue-600 mt-1">
                   Responses will be based on your class materials
                 </p>
               )}
