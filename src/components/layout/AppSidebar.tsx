@@ -1,4 +1,3 @@
-
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -254,7 +253,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
         </ul>
       </nav>
       
-      {/* Account section */}
+      {/* Modified Account section */}
       <div className="mt-auto border-t border-sidebar-border/50 px-2 py-4">
         {!loading && !user && (
           <NavLink
@@ -273,42 +272,24 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
         )}
         
         {!loading && user && (
-          <>
-            <p className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/70 uppercase">
-              Account
-            </p>
-            <ul className="space-y-2">
-              {accountNavItems.map((item) => (
-                <li key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    className={({ isActive }) => 
-                      `flex items-center px-4 py-2 rounded-md transition-colors ${
-                        isActive 
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
-                          : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                      }`
-                    }
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-            
-            <div className="mt-4 p-2 border-t border-sidebar-border/50">
-              <div className="flex items-center">
-                <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
-                  <span className="text-xs font-medium">{user.email?.charAt(0).toUpperCase() || "U"}</span>
-                </div>
-                <div className="ml-2 overflow-hidden">
-                  <p className="font-medium truncate">{user.email}</p>
-                  <p className="text-xs opacity-70 truncate">Signed In</p>
-                </div>
-              </div>
+          <NavLink 
+            to="/account"
+            className={({ isActive }) => 
+              `flex items-center p-2 rounded-md transition-colors ${
+                isActive 
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+              }`
+            }
+          >
+            <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
+              <span className="text-xs font-medium">{user.email?.charAt(0).toUpperCase() || "U"}</span>
             </div>
-          </>
+            <div className="ml-2 overflow-hidden">
+              <p className="font-medium truncate">{user.email}</p>
+              <p className="text-xs opacity-70 truncate">Signed In</p>
+            </div>
+          </NavLink>
         )}
       </div>
       
