@@ -70,7 +70,7 @@ const SuperTutor = () => {
           </p>
         </div>
       ) : activeClass ? (
-        <Alert variant="warning" className="bg-amber-50 border-amber-200">
+        <Alert variant="default" className="bg-amber-50 border-amber-200">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No custom knowledge base</AlertTitle>
           <AlertDescription>
