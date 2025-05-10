@@ -123,7 +123,7 @@ export function Auth() {
         <CardDescription className="text-center">
           {authMode === 'signin' 
             ? 'Enter your credentials to access your account' 
-            : 'Sign up to access the beta'}
+            : 'Sign up to start using all features'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -208,11 +208,11 @@ export function Auth() {
 
           {authMode === 'signin' && (
             <div className="space-y-2">
-              <Label htmlFor="betaAccessCode">Beta Access Code</Label>
+              <Label htmlFor="betaAccessCode">Access Code</Label>
               <Input
                 id="betaAccessCode"
                 type="text"
-                placeholder="Enter your beta access code"
+                placeholder="Enter your access code"
                 value={betaAccessCode}
                 onChange={(e) => setBetaAccessCode(e.target.value)}
                 className="bg-muted/30"
