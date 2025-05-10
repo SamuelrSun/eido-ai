@@ -72,7 +72,7 @@ const HomePage = () => {
         const userClasses = await classOpenAIConfigService.getAllClasses();
         
         if (userClasses && userClasses.length > 0) {
-          console.log(`Found ${userClasses.length} classes for the user`);
+          console.log(`Found ${userClasses.length} classes for the user:`, userClasses);
           
           // Transform ClassConfig objects to ClassOption objects
           const classOptions = userClasses.map((config): ClassOption => {
@@ -96,6 +96,7 @@ const HomePage = () => {
             };
           });
           
+          console.log("Transformed class options:", classOptions);
           setClassOptions(classOptions);
         } else {
           console.log("No classes found for user");

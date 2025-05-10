@@ -1,192 +1,99 @@
 /**
- * Maps class titles to relevant emojis based on educational keywords
+ * Generates an appropriate emoji for a class based on its title
+ * @param classTitle The title of the class
+ * @returns An appropriate emoji
  */
-const subjectEmojiMap: Record<string, string> = {
-  // STEM Fields
-  // Mathematics
-  'math': '🧮',
-  'mathematics': '🧮',
-  'statistics': '📊',
-  'calculus': '📈',
-  'algebra': '🔢',
-  'geometry': '📐',
-  'trigonometry': '📏',
-  'probability': '🎲',
-  
-  // Sciences
-  'physics': '⚛️',
-  'chemistry': '🧪',
-  'biology': '🧬',
-  'anatomy': '🦴',
-  'physiology': '🫀',
-  'astronomy': '🔭',
-  'earth science': '🌏',
-  'geology': '🪨',
-  'science': '🔬',
-  'lab': '🧪',
-  'experiment': '⚗️',
-  'microbiology': '🦠',
-  'genetics': '🧬',
-  'ecology': '🌿',
-  
-  // Computer & Technology
-  'computer science': '💻',
-  'programming': '👨‍💻',
-  'code': '💻',
-  'software': '👨‍💻',
-  'web': '🌐',
-  'data': '📊',
-  'database': '🗄️',
-  'algorithm': '🧠',
-  'engineering': '⚙️',
-  'robotics': '🤖',
-  'artificial intelligence': '🤖',
-  'ai': '🤖',
-  'machine learning': '🧠',
-  'cybersecurity': '🔒',
-  'networking': '🔌',
-  'technology': '📱',
-  
-  // Humanities
-  'literature': '📚',
-  'english': '📝',
-  'writing': '✍️',
-  'poetry': '📜',
-  'fiction': '📖',
-  'reading': '📚',
-  'history': '🏛️',
-  'civilization': '🏺',
-  'archaeology': '🏺',
-  'philosophy': '🧠',
-  'ethics': '⚖️',
-  'art': '🎨',
-  'music': '🎵',
-  'theater': '🎭',
-  'drama': '🎭',
-  'film': '🎬',
-  'cinema': '🎬',
-  'dance': '💃',
-  'classics': '🏛️',
-  
-  // Languages
-  'language': '🗣️',
-  'spanish': '🗣️',
-  'french': '🗣️',
-  'german': '🗣️',
-  'chinese': '🗣️',
-  'japanese': '🗣️',
-  'latin': '🗣️',
-  'russian': '🗣️',
-  'arabic': '🗣️',
-  'greek': '🗣️',
-  'italian': '🗣️',
-  'portuguese': '🗣️',
-  'linguistics': '🔤',
-  'speech': '🎤',
-  'communication': '🗣️',
-  
-  // Business and Economics
-  'business': '💼',
-  'economics': '📈',
-  'finance': '💰',
-  'accounting': '🧮',
-  'marketing': '📢',
-  'management': '👔',
-  'entrepreneurship': '💡',
-  'commerce': '💹',
-  'trade': '💱',
-  'investment': '💲',
-  'banking': '🏦',
-  
-  // Social Sciences
-  'psychology': '🧠',
-  'sociology': '👥',
-  'anthropology': '🏺',
-  'political': '🏛️',
-  'politics': '🏛️',
-  'government': '🏛️',
-  'geography': '🌍',
-  'urban studies': '🏙️',
-  'law': '⚖️',
-  'criminology': '🕵️',
-  'international': '🌐',
-  'social': '👥',
-  
-  // Health and Medicine
-  'health': '❤️',
-  'medicine': '💊',
-  'nursing': '🩺',
-  'pharmacy': '💊',
-  'nutrition': '🥗',
-  'kinesiology': '🏃',
-  'physical therapy': '💆',
-  'public health': '🏥',
-  'medical': '🩺',
-  'healthcare': '🏥',
-  
-  // Physical Education
-  'physical': '🏃',
-  'sport': '⚽',
-  'fitness': '💪',
-  'yoga': '🧘',
-  'athletics': '🏅',
-  'recreation': '🎯',
-  'exercise': '🏋️',
-  'training': '⛹️',
-  'coaching': '📋',
-  
-  // Educational
-  'education': '🎓',
-  'teaching': '👨‍🏫',
-  'learning': '📚',
-  'study': '📖',
-  'research': '🔎',
-  'thesis': '📑',
-  'dissertation': '📜',
-  'academic': '🎓',
-  'school': '🏫',
-  'college': '🏛️',
-  'university': '🏛️',
-  'seminar': '👨‍🏫',
-  'tutorial': '👩‍🏫',
-  
-  // Other Disciplines
-  'journalism': '📰',
-  'media': '📱',
-  'photography': '📷',
-  'design': '✏️',
-  'architecture': '🏛️',
-  'religion': '🙏',
-  'theology': '📿',
-  'agriculture': '🌱',
-  'environment': '🌱',
-  'sustainability': '♻️',
-  'urban planning': '🏙️'
-};
+export const getEmojiForClass = (classTitle: string): string => {
+  const title = classTitle.toLowerCase();
 
-// Default emojis to use if no match is found - now educational-focused
-const defaultEmojis = ['📚', '🎓', '✏️', '📝', '💡', '🧠', '🎯', '📊', '🔍', '📋', '💻', '⚗️'];
-
-/**
- * Get a relevant emoji for a class title
- * @param title The class title
- * @returns An emoji that matches the class subject
- */
-export function getEmojiForClass(title: string): string {
-  if (!title) return '📚'; // Default emoji
-  
-  const lowercaseTitle = title.toLowerCase();
-  
-  // Check for keyword matches in the title
-  for (const [keyword, emoji] of Object.entries(subjectEmojiMap)) {
-    if (lowercaseTitle.includes(keyword.toLowerCase())) {
-      return emoji;
-    }
+  // STEM subjects
+  if (title.includes('math') || title.includes('calculus') || title.includes('algebra') || title.includes('geometry')) {
+    return '🧮';
   }
-  
-  // If no match found, use a default emoji based on the first character of the title
-  // This ensures consistency for the same class title
-  const charCode = title.charCodeAt(0);
-  const index = charCode % defaultEmojis.length;
-  return defaultEmojis[index];
-}
+  if (title.includes('computer') || title.includes('programming') || title.includes('code') || title.includes('software')) {
+    return '💻';
+  }
+  if (title.includes('physics') || title.includes('astronomy') || title.includes('space')) {
+    return '🔭';
+  }
+  if (title.includes('chemistry') || title.includes('organic')) {
+    return '🧪';
+  }
+  if (title.includes('biology') || title.includes('life science')) {
+    return '🧬';
+  }
+  if (title.includes('engineering') || title.includes('mechanical')) {
+    return '⚙️';
+  }
+  if (title.includes('statistics') || title.includes('data science')) {
+    return '📊';
+
+  // Humanities
+  } else if (title.includes('history') || title.includes('ancient') || title.includes('medieval')) {
+    return '📜';
+  } else if (title.includes('literature') || title.includes('english') || title.includes('writing')) {
+    return '📚';
+  } else if (title.includes('philosophy') || title.includes('ethics')) {
+    return '🧠';
+  } else if (title.includes('psychology') || title.includes('behavior')) {
+    return '🧠';
+  } else if (title.includes('sociology') || title.includes('cultural')) {
+    return '👥';
+
+  // Languages
+  } else if (title.includes('spanish') || title.includes('español')) {
+    return '🇪🇸';
+  } else if (title.includes('french') || title.includes('français')) {
+    return '🇫🇷';
+  } else if (title.includes('german') || title.includes('deutsch')) {
+    return '🇩🇪';
+  } else if (title.includes('chinese') || title.includes('mandarin')) {
+    return '🇨🇳';
+  } else if (title.includes('japanese') || title.includes('nihongo')) {
+    return '🇯🇵';
+
+  // Business & Economics
+  } else if (title.includes('economics') || title.includes('econ')) {
+    return '📈';
+  } else if (title.includes('business') || title.includes('management')) {
+    return '💼';
+  } else if (title.includes('marketing') || title.includes('advertis')) {
+    return '📣';
+  } else if (title.includes('finance') || title.includes('accounting')) {
+    return '💰';
+
+  // Arts
+  } else if (title.includes('art') || title.includes('painting') || title.includes('drawing')) {
+    return '🎨';
+  } else if (title.includes('music') || title.includes('instrument')) {
+    return '🎵';
+  } else if (title.includes('theater') || title.includes('drama')) {
+    return '🎭';
+  } else if (title.includes('film') || title.includes('cinema')) {
+    return '🎬';
+  } else if (title.includes('photography')) {
+    return '📷';
+
+  // Sciences
+  } else if (title.includes('medicine') || title.includes('medical') || title.includes('health')) {
+    return '⚕️';
+  } else if (title.includes('earth') || title.includes('geography') || title.includes('geology')) {
+    return '🌎';
+  } else if (title.includes('environment') || title.includes('ecology')) {
+    return '🌱';
+
+  // Other common subjects
+  } else if (title.includes('law') || title.includes('legal')) {
+    return '⚖️';
+  } else if (title.includes('physical') || title.includes('gym') || title.includes('sport')) {
+    return '🏃';
+  } else if (title.includes('nutrition') || title.includes('food')) {
+    return '🍎';
+  } else if (title.includes('religion') || title.includes('theology')) {
+    return '🙏';
+  }
+
+  // Default educational emoji if no specific match
+  const defaultEmojis = ['📚', '📝', '✏️', '🎓', '🧠', '📊', '📈', '🔬', '📓', '🔍'];
+  return defaultEmojis[Math.floor(Math.random() * defaultEmojis.length)];
+};
