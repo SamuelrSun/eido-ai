@@ -1,5 +1,5 @@
 
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
   MessageCircle, 
@@ -32,8 +32,9 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isWidgetsDialogOpen, setIsWidgetsDialogOpen] = useState(false);
-  const [activeClassName, setActiveClassName] = useState<string>("Current Class");
+  const [activeClassName, setActiveClassName] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { enabledWidgets, isLoading: widgetsLoading } = useClassWidgets();
   
   useEffect(() => {
@@ -66,13 +67,26 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Define all navigation items - widgets and core features
+  // When on homepage, clear active class
+  useEffect(() => {
+    if (location.pathname === '/') {
+      setActiveClassName(null);
+    }
+  }, [location.pathname]);
+
+  // Define all navigation items - core features
   const coreNavItems = [
     {
       icon: <Home className="mr-2 h-5 w-5" />,
       label: "Home",
       to: "/",
       exact: true
+    },
+    {
+      icon: <Calendar className="mr-2 h-5 w-5" />,
+      label: "Calendar",
+      to: "/calendar",
+      exact: false
     }
   ];
   
@@ -100,12 +114,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       label: "Quizzes",
       to: "/quizzes",
       widgetId: "quizzes" as WidgetType
-    },
-    {
-      icon: <Calendar className="mr-2 h-5 w-5" />,
-      label: "Calendar",
-      to: "/calendar",
-      widgetId: "calendar" as WidgetType
     },
     {
       icon: <FileInput className="mr-2 h-5 w-5" />,
@@ -168,62 +176,67 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             </li>
           ))}
           
-          {/* Class name display */}
-          <div className="mt-4 px-4 py-2">
-            <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
-              Current Class
-            </h3>
-            <p className="text-sm text-sidebar-foreground font-medium py-1 truncate">
-              {activeClassName}
-            </p>
-          </div>
-          
-          {/* Widgets section with heading and add button */}
-          <div className="pt-2">
-            <div className="px-4 py-2 flex justify-between items-center">
-              <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
-                Class Widgets
-              </h3>
-              <Button 
-                onClick={() => setIsWidgetsDialogOpen(true)}
-                variant="ghost"
-                size="sm"
-                className="flex items-center gap-1 h-7 text-sidebar-foreground hover:text-primary hover:bg-sidebar-accent/80"
-              >
-                <LayoutGrid className="h-4 w-4" />
-                <span>Add</span>
-              </Button>
-            </div>
-            
-            {widgetsLoading ? (
-              <div className="flex items-center justify-center p-4">
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                <span className="text-xs text-muted-foreground">Loading...</span>
+          {/* Only show class section if a class is active */}
+          {activeClassName && (
+            <>
+              {/* Class name display */}
+              <div className="mt-4 px-4 py-2">
+                <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
+                  Active Class
+                </h3>
+                <p className="text-sm text-sidebar-foreground font-medium py-1 truncate">
+                  {activeClassName}
+                </p>
               </div>
-            ) : visibleWidgetNavItems.length > 0 ? (
-              visibleWidgetNavItems.map((item) => (
-                <li key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    className={({ isActive }) => 
-                      `flex items-center px-4 py-2 rounded-md transition-colors ${
-                        isActive 
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
-                          : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                      }`
-                    }
+              
+              {/* Widgets section with heading and add button */}
+              <div className="pt-2">
+                <div className="px-4 py-2 flex justify-between items-center">
+                  <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
+                    Class Widgets
+                  </h3>
+                  <Button 
+                    onClick={() => setIsWidgetsDialogOpen(true)}
+                    variant="ghost"
+                    size="sm"
+                    className="flex items-center gap-1 h-7 text-sidebar-foreground hover:text-primary hover:bg-sidebar-accent/80"
                   >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </NavLink>
-                </li>
-              ))
-            ) : (
-              <p className="text-xs text-muted-foreground px-4 py-2">
-                No widgets added yet
-              </p>
-            )}
-          </div>
+                    <LayoutGrid className="h-4 w-4" />
+                    <span>Add</span>
+                  </Button>
+                </div>
+                
+                {widgetsLoading ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <span className="text-xs text-muted-foreground">Loading...</span>
+                  </div>
+                ) : visibleWidgetNavItems.length > 0 ? (
+                  visibleWidgetNavItems.map((item) => (
+                    <li key={item.to}>
+                      <NavLink
+                        to={item.to}
+                        className={({ isActive }) => 
+                          `flex items-center px-4 py-2 rounded-md transition-colors ${
+                            isActive 
+                              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                              : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                          }`
+                        }
+                      >
+                        {item.icon}
+                        <span>{item.label}</span>
+                      </NavLink>
+                    </li>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground px-4 py-2">
+                    No widgets added yet
+                  </p>
+                )}
+              </div>
+            </>
+          )}
         </ul>
       </nav>
       
@@ -290,7 +303,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
         open={isWidgetsDialogOpen} 
         onOpenChange={setIsWidgetsDialogOpen} 
         classMode={true}
-        currentClassName={activeClassName}
+        currentClassName={activeClassName || ""}
       />
     </div>
   );

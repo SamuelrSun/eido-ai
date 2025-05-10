@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { Menu } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
@@ -11,18 +11,26 @@ import { ClassWidgetsProvider } from "@/hooks/use-class-widgets";
 export function AppLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeClass, setActiveClass] = useState<any>(null);
+  const location = useLocation();
 
-  // Load active class from session storage
+  // Load active class from session storage and handle homepage clearing
   useEffect(() => {
-    const storedActiveClass = sessionStorage.getItem('activeClass');
-    if (storedActiveClass) {
-      try {
-        setActiveClass(JSON.parse(storedActiveClass));
-      } catch (e) {
-        console.error("Error parsing stored active class", e);
+    if (location.pathname === '/') {
+      // Clear active class when on homepage
+      setActiveClass(null);
+      sessionStorage.removeItem('activeClass');
+    } else {
+      // Get active class from session storage on other pages
+      const storedActiveClass = sessionStorage.getItem('activeClass');
+      if (storedActiveClass) {
+        try {
+          setActiveClass(JSON.parse(storedActiveClass));
+        } catch (e) {
+          console.error("Error parsing stored active class", e);
+        }
       }
     }
-  }, []);
+  }, [location.pathname]);
 
   return (
     <WidgetsProvider>

@@ -42,7 +42,7 @@ const HomePage = () => {
       title: "ITP457: Advanced Network Security",
       description: "Learn about network vulnerabilities, encryption, and security protocols",
       emoji: "🔒",
-      link: "/calendar",
+      link: "/super-stu",
       color: "blue-500",
       enabledWidgets: ["supertutor", "database", "flashcards", "quizzes"]
     },
@@ -50,7 +50,7 @@ const HomePage = () => {
       title: "ITP216: Applied Python Concepts",
       description: "Master Python programming with practical applications and projects",
       emoji: "🐍",
-      link: "/calendar",
+      link: "/super-stu",
       color: "green-500",
       enabledWidgets: ["supertutor", "database", "practice"]
     },
@@ -58,7 +58,7 @@ const HomePage = () => {
       title: "IR330: Politics of the World Economy",
       description: "Explore global economic systems, international trade, and policy analysis",
       emoji: "🌐",
-      link: "/calendar",
+      link: "/super-stu",
       color: "red-500",
       enabledWidgets: ["supertutor", "database", "calendar"]
     },
@@ -66,7 +66,7 @@ const HomePage = () => {
       title: "ITP104: Intro to Web Development",
       description: "Learn HTML, CSS, and JavaScript fundamentals for web development",
       emoji: "🌐",
-      link: "/calendar",
+      link: "/super-stu",
       color: "yellow-500",
       enabledWidgets: ["supertutor", "database", "practice"]
     },
@@ -74,7 +74,7 @@ const HomePage = () => {
       title: "BAEP470: The Entrepreneurial Mindset",
       description: "Develop strategies for innovation and business development",
       emoji: "💼",
-      link: "/calendar",
+      link: "/super-stu",
       color: "purple-500",
       enabledWidgets: ["supertutor", "database", "flashcards"]
     },
@@ -82,14 +82,11 @@ const HomePage = () => {
       title: "BISC110: Good Genes, Bad Genes",
       description: "Explore genetics principles and their impact on health and society",
       emoji: "🧬",
-      link: "/calendar",
+      link: "/super-stu",
       color: "pink-500",
       enabledWidgets: ["supertutor", "database", "quizzes"]
     }
   ]);
-  
-  // Add state for the current active class
-  const [activeClass, setActiveClass] = useState<ClassOption | null>(null);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -119,24 +116,9 @@ const HomePage = () => {
 
     fetchUserProfile();
     
-    // Set first class as active by default if we have classes and no active class
-    if (!activeClass && classOptions.length > 0) {
-      setActiveClass(classOptions[0]);
-      
-      // Store the active class in session storage
-      sessionStorage.setItem('activeClass', JSON.stringify(classOptions[0]));
-    } else {
-      // Try to load active class from session storage
-      const storedActiveClass = sessionStorage.getItem('activeClass');
-      if (storedActiveClass && !activeClass) {
-        try {
-          setActiveClass(JSON.parse(storedActiveClass));
-        } catch (e) {
-          console.error("Error parsing stored active class", e);
-        }
-      }
-    }
-  }, [activeClass, classOptions]);
+    // Clear active class when on homepage
+    sessionStorage.removeItem('activeClass');
+  }, []);
 
   const handleCreateClass = (classData: ClassData) => {
     // Get an appropriate emoji for the class
@@ -147,19 +129,13 @@ const HomePage = () => {
       title: classData.title,
       description: classData.description,
       emoji: randomEmoji,
-      link: "/calendar",
+      link: "/super-stu", // Always navigate to Super Tutor
       color: classData.color,
       enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
       openAIConfig: classData.openAIConfig
     };
     
     setClassOptions(prev => [newClass, ...prev]);
-    
-    // Set the new class as active
-    setActiveClass(newClass);
-    
-    // Store the active class in session storage
-    sessionStorage.setItem('activeClass', JSON.stringify(newClass));
     
     // Store class-specific configurations
     if (classData.openAIConfig) {
@@ -191,13 +167,10 @@ const HomePage = () => {
 
   const handleClassClick = (classOption: ClassOption) => {
     // Set the selected class as active
-    setActiveClass(classOption);
-    
-    // Store the active class in session storage
     sessionStorage.setItem('activeClass', JSON.stringify(classOption));
     
-    // Navigate to the class page (we will continue to use calendar for now)
-    navigate(classOption.link);
+    // Navigate to Super Tutor
+    navigate("/super-stu");
   };
 
   return (
@@ -206,7 +179,7 @@ const HomePage = () => {
       <div className="flex justify-between items-center">
         <PageHeader 
           title={`Hello, ${userName}!`}
-          description={activeClass ? `Currently in: ${activeClass.title}` : "Which class would you like to study today?"}
+          description="Which class would you like to study today?"
         />
         <Button 
           onClick={() => setIsCreateClassOpen(true)}
@@ -225,7 +198,7 @@ const HomePage = () => {
             className="cursor-pointer"
             onClick={() => handleClassClick(option)}
           >
-            <Card className={`h-full transition-all hover:shadow-md ${activeClass?.title === option.title ? `border-${option.color} ring-1 ring-${option.color}` : `hover:border-${option.color}`}`}>
+            <Card className={`h-full transition-all hover:shadow-md hover:border-${option.color}`}>
               <CardHeader>
                 <div className={`mb-4 p-2 bg-${option.color}/10 rounded-lg w-fit`}>
                   <span className="text-4xl">{option.emoji}</span>
@@ -235,7 +208,7 @@ const HomePage = () => {
               </CardHeader>
               <CardFooter>
                 <Button variant="ghost" className={`group text-${option.color}`}>
-                  {activeClass?.title === option.title ? 'Current class' : 'Enter class'}
+                  Enter class
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Button>
               </CardFooter>
