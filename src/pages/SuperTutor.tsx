@@ -59,13 +59,13 @@ const SuperTutor = () => {
             // Test vector store connectivity if available
             if (config.vectorStoreId && config.apiKey) {
               try {
-                // Simple connectivity test
+                // Simple connectivity test with corrected beta header
                 const testResponse = await fetch(`https://api.openai.com/v1/vector_stores/${config.vectorStoreId}`, {
                   method: 'GET',
                   headers: {
                     'Authorization': `Bearer ${config.apiKey}`,
                     'Content-Type': 'application/json',
-                    'OpenAI-Beta': 'vectorstores=v1'
+                    'OpenAI-Beta': 'vector_stores=v1' // FIXED: Updated from 'vectorstores=v1' to 'vector_stores=v1'
                   }
                 });
                 
@@ -227,6 +227,18 @@ const SuperTutor = () => {
       </div>
     </div>
   );
+
+  function handleGoToFlashcards() {
+    navigate("/flashcards");
+  }
+
+  function handleSetupAPIKey() {
+    navigate("/settings");
+  }
+
+  function openOpenAIDocs() {
+    window.open("https://platform.openai.com/docs/api-reference/vector-stores", "_blank");
+  }
 };
 
 export default SuperTutor;

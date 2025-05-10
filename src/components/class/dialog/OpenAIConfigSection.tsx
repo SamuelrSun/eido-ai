@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Code, Info, Database, Bot } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -104,8 +103,8 @@ export function OpenAIConfigSection({
               onChange={(e) => onVectorStoreIdChange(e.target.value)}
               className="font-mono"
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              <strong>Important:</strong> This connects the AI to your class's specific knowledge base. Without this, the AI will use general knowledge.
+            <p className="text-xs text-blue-600 mt-1 font-medium">
+              Important: Vector Store IDs use the format "vs_..." and use the API header 'OpenAI-Beta': 'vector_stores=v1'
             </p>
           </div>
           

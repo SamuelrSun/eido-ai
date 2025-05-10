@@ -47,13 +47,13 @@ serve(async (req) => {
         console.log(`Attempting vector store retrieval with ID: ${vectorStoreId}`);
         
         // First step: Make a retrieval request to the vector store
-        // Fix: Use the correct full URL format with https:// prefix
+        // Using the correct full URL and updated beta header format
         const retrievalResponse = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/query`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${openAIApiKey}`,
             'Content-Type': 'application/json',
-            'OpenAI-Beta': 'vectorstores=v1' // Add the correct beta header for vector stores API
+            'OpenAI-Beta': 'vector_stores=v1' // FIXED: Updated from 'vectorstores=v1' to 'vector_stores=v1'
           },
           body: JSON.stringify({
             query: message,
