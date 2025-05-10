@@ -35,7 +35,7 @@ const App = () => (
             {/* Protected routes */}
             <Route element={<AuthGuard />}>
               <Route element={<AppLayout />}>
-                <Route path="/" element={<HomePage />} />
+                <Route path="/" element={<HomePage key="home-main" />} />
                 <Route path="/super-stu" element={<SuperTutor />} />
                 <Route path="/database" element={<DatabasePage />} />
                 <Route path="/flashcards" element={<FlashcardsPage />} />

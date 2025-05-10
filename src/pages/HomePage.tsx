@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0); // Added to force refresh
 
   // Function to fetch all user data
   const fetchUserData = async () => {
@@ -55,7 +57,7 @@ const HomePage = () => {
           .from('profiles')
           .select('full_name')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
           
         if (profile?.full_name) {
           // Get the first name from the full name
@@ -67,7 +69,7 @@ const HomePage = () => {
           setUserName(emailName);
         }
         
-        // Fetch all classes using the service
+        // Force clean fetch of classes with no caching
         console.log('Calling classOpenAIConfigService.getAllClasses()');
         const userClasses = await classOpenAIConfigService.getAllClasses();
         console.log('Retrieved classes:', userClasses);
@@ -123,7 +125,7 @@ const HomePage = () => {
     
     // Clear active class when on homepage
     sessionStorage.removeItem('activeClass');
-  }, []);
+  }, [refreshTrigger]); // Added refreshTrigger to dependencies
 
   const handleCreateClass = async (classData: ClassData) => {
     try {
@@ -177,8 +179,8 @@ const HomePage = () => {
           
           console.log('Class data saved successfully:', classData.title);
           
-          // Refresh class data just to be sure
-          fetchUserData();
+          // Force a refresh of data by incrementing the refreshTrigger
+          setRefreshTrigger(prev => prev + 1);
           
         } catch (error) {
           console.error('Error storing class data:', error);
@@ -257,6 +259,9 @@ const HomePage = () => {
         }
         
         console.log('Class data updated for:', classData.title);
+        
+        // Force a refresh of data by incrementing the refreshTrigger
+        setRefreshTrigger(prev => prev + 1);
       } catch (error) {
         console.error('Error updating class data:', error);
         toast({
@@ -313,6 +318,9 @@ const HomePage = () => {
         title: "Class deleted",
         description: `${selectedClassToEdit.title} has been deleted.`
       });
+      
+      // Force a refresh of data by incrementing the refreshTrigger
+      setRefreshTrigger(prev => prev + 1);
       
       // Reset state
       setSelectedClassToEdit(null);
