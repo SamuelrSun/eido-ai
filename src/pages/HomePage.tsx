@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { ArrowRight, BookPlus, PlusCircle, Search } from "lucide-react";
+import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Link, useNavigate } from "react-router-dom";
@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateClassDialog, ClassData } from "@/components/class/CreateClassDialog";
 import { useToast } from "@/hooks/use-toast";
+import { EditClassDialog } from "@/components/class/EditClassDialog";
 
 interface ClassOption {
   title: string;
@@ -31,6 +32,8 @@ const HomePage = () => {
     { title: "VPN Concepts", path: "/super-stu" }
   ]);
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
+  const [isEditClassOpen, setIsEditClassOpen] = useState(false);
+  const [selectedClassToEdit, setSelectedClassToEdit] = useState<ClassOption | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -165,6 +168,80 @@ const HomePage = () => {
     });
   };
 
+  const handleUpdateClass = (classData: ClassData) => {
+    if (!selectedClassToEdit) return;
+    
+    // Update the class in the array
+    setClassOptions(prev => 
+      prev.map(classItem => 
+        classItem.title === selectedClassToEdit.title 
+          ? {
+              ...classItem,
+              title: classData.title,
+              description: classData.description,
+              color: classData.color,
+              enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
+              openAIConfig: classData.openAIConfig
+            }
+          : classItem
+      )
+    );
+    
+    // Update class-specific configurations in localStorage
+    if (classData.openAIConfig) {
+      try {
+        const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
+        
+        // Remove existing config for this class if title hasn't changed
+        const filteredConfigs = existingConfigs.filter(
+          (config: any) => config.title !== selectedClassToEdit.title
+        );
+        
+        // Add the updated config
+        filteredConfigs.push({
+          id: Date.now().toString(),
+          title: classData.title,
+          openAIConfig: classData.openAIConfig
+        });
+        
+        localStorage.setItem('classOpenAIConfigs', JSON.stringify(filteredConfigs));
+      } catch (error) {
+        console.error('Error updating OpenAI configuration:', error);
+      }
+    }
+    
+    // Reset state
+    setSelectedClassToEdit(null);
+  };
+
+  const handleDeleteClass = () => {
+    if (!selectedClassToEdit) return;
+    
+    // Remove the class from the array
+    setClassOptions(prev => 
+      prev.filter(classItem => classItem.title !== selectedClassToEdit.title)
+    );
+    
+    // Remove class-specific configurations from localStorage
+    try {
+      const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
+      const filteredConfigs = existingConfigs.filter(
+        (config: any) => config.title !== selectedClassToEdit.title
+      );
+      localStorage.setItem('classOpenAIConfigs', JSON.stringify(filteredConfigs));
+    } catch (error) {
+      console.error('Error removing OpenAI configuration:', error);
+    }
+    
+    // Reset state
+    setSelectedClassToEdit(null);
+  };
+
+  const handleEditClass = (classOption: ClassOption) => {
+    setSelectedClassToEdit(classOption);
+    setIsEditClassOpen(true);
+  };
+
   const handleClassClick = (classOption: ClassOption) => {
     // Set the selected class as active
     sessionStorage.setItem('activeClass', JSON.stringify(classOption));
@@ -195,10 +272,23 @@ const HomePage = () => {
         {classOptions.map((option, index) => (
           <div
             key={index} 
-            className="cursor-pointer"
-            onClick={() => handleClassClick(option)}
+            className="cursor-pointer relative"
           >
-            <Card className={`h-full transition-all hover:shadow-md hover:border-${option.color}`}>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="absolute top-2 right-2 z-10"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditClass(option);
+              }}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+            <Card 
+              className={`h-full transition-all hover:shadow-md hover:border-${option.color}`}
+              onClick={() => handleClassClick(option)}
+            >
               <CardHeader>
                 <div className={`mb-4 p-2 bg-${option.color}/10 rounded-lg w-fit`}>
                   <span className="text-4xl">{option.emoji}</span>
@@ -305,6 +395,23 @@ const HomePage = () => {
         onOpenChange={setIsCreateClassOpen}
         onClassCreate={handleCreateClass}
       />
+
+      {/* Edit Class Dialog */}
+      {selectedClassToEdit && (
+        <EditClassDialog
+          open={isEditClassOpen}
+          onOpenChange={setIsEditClassOpen}
+          initialData={{
+            title: selectedClassToEdit.title,
+            description: selectedClassToEdit.description,
+            color: selectedClassToEdit.color,
+            enabledWidgets: selectedClassToEdit.enabledWidgets,
+            openAIConfig: selectedClassToEdit.openAIConfig
+          }}
+          onClassUpdate={handleUpdateClass}
+          onClassDelete={handleDeleteClass}
+        />
+      )}
     </div>
   );
 };

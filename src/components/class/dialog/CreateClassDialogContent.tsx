@@ -13,6 +13,8 @@ import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
 interface CreateClassDialogContentProps {
   onClassCreate: (classData: ClassData) => void;
   onCancel: () => void;
+  initialData?: ClassData;
+  isEditing?: boolean;
 }
 
 const availableWidgets = [
@@ -48,18 +50,34 @@ const colorOptions = [
   { value: "pink-500", label: "Pink", className: "bg-pink-500" },
 ];
 
-export function CreateClassDialogContent({ onClassCreate, onCancel }: CreateClassDialogContentProps) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [color, setColor] = useState("blue-500");
-  const [selectedWidgets, setSelectedWidgets] = useState<string[]>(["flashcards", "quizzes"]);
+export function CreateClassDialogContent({ onClassCreate, onCancel, initialData, isEditing = false }: CreateClassDialogContentProps) {
+  const [title, setTitle] = useState(initialData?.title || "");
+  const [description, setDescription] = useState(initialData?.description || "");
+  const [color, setColor] = useState(initialData?.color || "blue-500");
+  const [selectedWidgets, setSelectedWidgets] = useState<string[]>(initialData?.enabledWidgets || ["flashcards", "quizzes"]);
   const [isUploading, setIsUploading] = useState(false);
   
   // OpenAI configuration states
-  const [openAIApiKey, setOpenAIApiKey] = useState("");
-  const [vectorStoreId, setVectorStoreId] = useState("");
-  const [assistantId, setAssistantId] = useState("");
-  const [showOpenAIConfig, setShowOpenAIConfig] = useState(false);
+  const [openAIApiKey, setOpenAIApiKey] = useState(initialData?.openAIConfig?.apiKey || "");
+  const [vectorStoreId, setVectorStoreId] = useState(initialData?.openAIConfig?.vectorStoreId || "");
+  const [assistantId, setAssistantId] = useState(initialData?.openAIConfig?.assistantId || "");
+  const [showOpenAIConfig, setShowOpenAIConfig] = useState(
+    isEditing ? !!(initialData?.openAIConfig?.apiKey || initialData?.openAIConfig?.vectorStoreId || initialData?.openAIConfig?.assistantId) : false
+  );
+
+  // Update values when initialData changes (important for edit mode)
+  useEffect(() => {
+    if (initialData && isEditing) {
+      setTitle(initialData.title || "");
+      setDescription(initialData.description || "");
+      setColor(initialData.color || "blue-500");
+      setSelectedWidgets(initialData.enabledWidgets || ["flashcards", "quizzes"]);
+      setOpenAIApiKey(initialData.openAIConfig?.apiKey || "");
+      setVectorStoreId(initialData.openAIConfig?.vectorStoreId || "");
+      setAssistantId(initialData.openAIConfig?.assistantId || "");
+      setShowOpenAIConfig(!!(initialData.openAIConfig?.apiKey || initialData.openAIConfig?.vectorStoreId || initialData.openAIConfig?.assistantId));
+    }
+  }, [initialData, isEditing]);
 
   // Update parent component whenever form data changes
   useEffect(() => {
