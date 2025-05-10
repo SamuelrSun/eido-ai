@@ -1,12 +1,48 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChatBot } from "@/components/chat/ChatBot";
 import { FileUpload } from "@/components/chat/FileUpload";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { classOpenAIConfigService, OpenAIConfig } from "@/services/classOpenAIConfig";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, KeyRound, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const CybersecurityCoach = () => {
+  const navigate = useNavigate();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
+  const [openAIConfig, setOpenAIConfig] = useState<OpenAIConfig | undefined>(undefined);
+  const [activeClass, setActiveClass] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Load the active class and its OpenAI configuration
+  useEffect(() => {
+    async function loadClassConfig() {
+      try {
+        setIsLoading(true);
+        
+        const activeClassData = sessionStorage.getItem('activeClass');
+        if (activeClassData) {
+          const parsedClass = JSON.parse(activeClassData);
+          setActiveClass(parsedClass.title || null);
+          
+          // Get the OpenAI configuration for the active class
+          const config = await classOpenAIConfigService.getActiveClassConfig();
+          setOpenAIConfig(config);
+          
+          console.log("Loaded OpenAI config for Cybersecurity Coach:", config);
+        }
+      } catch (error) {
+        console.error("Error loading active class:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    loadClassConfig();
+  }, []);
 
   const handleFileUpload = (file: File) => {
     setUploadedFile(file);
@@ -17,6 +53,10 @@ const CybersecurityCoach = () => {
   const handleResponseGenerationState = (isGenerating: boolean) => {
     setIsGeneratingResponse(isGenerating);
   };
+  
+  const handleSetupAPIKey = () => {
+    navigate("/settings");
+  };
 
   return (
     <div className="space-y-6">
@@ -24,6 +64,34 @@ const CybersecurityCoach = () => {
         title="Cybersecurity Coach"
         description="Ask questions and get tailored cybersecurity guidance from our AI coach, trained on your organization's training materials."
       />
+      
+      {!openAIConfig?.apiKey && !isLoading && (
+        <Alert variant="destructive" className="bg-red-50 border-red-200">
+          <KeyRound className="h-4 w-4" />
+          <AlertTitle>OpenAI API Key Required</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            <p>An OpenAI API key is required to use the Cybersecurity Coach. Please set up your API key in the class settings.</p>
+            <Button size="sm" variant="outline" className="w-fit flex items-center gap-2" onClick={handleSetupAPIKey}>
+              <Settings className="h-4 w-4" />
+              Set up API Key
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {openAIConfig?.apiKey && !openAIConfig.apiKey.startsWith('sk-') && (
+        <Alert variant="destructive" className="bg-red-50 border-red-200">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Invalid API Key Format</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            <p>Your OpenAI API key appears to be invalid. OpenAI API keys typically start with "sk-". Please update it in settings.</p>
+            <Button size="sm" variant="outline" className="w-fit flex items-center gap-2" onClick={handleSetupAPIKey}>
+              <Settings className="h-4 w-4" />
+              Update API Key
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       
       <div className="my-6">
         <h2 className="text-lg font-medium mb-2">Upload Training Materials</h2>
@@ -37,6 +105,9 @@ const CybersecurityCoach = () => {
         <ChatBot 
           disableToasts={true}
           onResponseGenerationStateChange={handleResponseGenerationState}
+          knowledgeBase={activeClass || "Cybersecurity Fundamentals"}
+          openAIConfig={openAIConfig}
+          title={activeClass ? `${activeClass} Security Coach` : "Security Assistant"}
           loadingIndicator={
             isGeneratingResponse && (
               <div className="flex items-center justify-center py-4">

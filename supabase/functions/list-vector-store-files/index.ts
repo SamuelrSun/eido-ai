@@ -2,10 +2,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 
-// OpenAI API Key is set directly for development
-// In production, store this securely in Supabase secrets
-const openaiApiKey = "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";
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -14,6 +10,22 @@ serve(async (req) => {
 
   try {
     console.log("Function invoked: list-vector-store-files");
+
+    // Get API key from request if provided, otherwise use environment variable
+    const requestData = await req.json().catch(() => ({}));
+    const openAIApiKey = requestData.apiKey || Deno.env.get("OPENAI_API_KEY");
+
+    if (!openAIApiKey) {
+      return new Response(
+        JSON.stringify({ 
+          error: "OpenAI API key not provided. Please check your class settings."
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
     
     // Call the OpenAI API to list files in the vector store
     // Using the assistants endpoint which handles vector stores
@@ -21,7 +33,7 @@ serve(async (req) => {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiApiKey}`
+        "Authorization": `Bearer ${openAIApiKey}`
       }
     });
 

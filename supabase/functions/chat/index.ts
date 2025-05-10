@@ -170,6 +170,8 @@ serve(async (req) => {
         
         const lastMessage = assistantMessages[0].content[0].text.value;
         
+        console.log("Successfully used assistant for response generation");
+        
         return new Response(
           JSON.stringify({ 
             response: lastMessage,
@@ -186,7 +188,7 @@ serve(async (req) => {
         // Fall back to regular API call if assistant fails
         console.log('Falling back to standard completion API');
       }
-    } 
+    }
     // If no assistant but vector store is provided
     else if (vectorStoreId) {
       console.log('No valid assistant available, falling back to standard completion API with system message mentioning vector store');
@@ -255,6 +257,8 @@ serve(async (req) => {
     if (!data || !data.choices || !data.choices.length || !data.choices[0].message) {
       throw new Error('Invalid response from OpenAI API');
     }
+    
+    console.log("Used fallback completion API successfully");
     
     return new Response(
       JSON.stringify({ 
