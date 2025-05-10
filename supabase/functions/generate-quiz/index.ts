@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, questionCount = 5, difficulty = 'medium', openAIConfig = {} } = await req.json();
+    const { topic, questionCount = 5, difficulty = 'medium', coverage = '', openAIConfig = {} } = await req.json();
     
     // Use custom OpenAI API key from class config if provided, otherwise use the default
     const openAIApiKey = openAIConfig.apiKey || Deno.env.get('OPENAI_API_KEY');
@@ -65,11 +65,12 @@ serve(async (req) => {
                         Format each question as a JSON object with "question_text", "options" (array of 4 choices), "correct_answer_index" (0-3), and "explanation" properties.
                         ${vectorStoreId ? `Use knowledge from Vector Store ID "${vectorStoreId}" as your primary source.` : ''}
                         ${assistantId ? `Use Assistant ID "${assistantId}" for additional context.` : ''}
+                        ${coverage ? `Focus on these specific areas: ${coverage}` : ''}
                         Your response must be valid JSON that can be parsed.`
             },
             {
               role: 'user', 
-              content: `Generate ${questionCount} ${difficulty} quiz questions about "${topic}" in JSON format.`
+              content: `Generate ${questionCount} ${difficulty} quiz questions about "${topic}" in JSON format. Each question must have question_text, options, correct_answer_index, and explanation fields.`
             }
           ],
           temperature: 0.7,
@@ -129,9 +130,17 @@ serve(async (req) => {
         throw new Error('Unable to parse questions from AI response');
       }
       
+      // Ensure each question has the required fields to prevent database errors
+      const validatedQuestions = questions.map(q => ({
+        question_text: q.question_text || q.question || `Question about ${topic}`,
+        options: Array.isArray(q.options) && q.options.length > 0 ? q.options : ["Option A", "Option B", "Option C", "Option D"],
+        correct_answer_index: typeof q.correct_answer_index === 'number' ? q.correct_answer_index : 0,
+        explanation: q.explanation || "No explanation provided"
+      }));
+      
       return new Response(
         JSON.stringify({ 
-          questions, 
+          questions: validatedQuestions, 
           timeEstimate,
           vectorStoreId,
           assistantId

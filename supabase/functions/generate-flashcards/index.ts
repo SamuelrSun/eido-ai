@@ -124,9 +124,15 @@ serve(async (req) => {
         throw new Error('Unable to parse flashcards from AI response');
       }
       
+      // Validate the flashcard format
+      const validatedFlashcards = flashcards.map(card => ({
+        front: card.front || `Question about ${title}`,
+        back: card.back || "Answer not available"
+      }));
+      
       return new Response(
         JSON.stringify({ 
-          flashcards,
+          flashcards: validatedFlashcards,
           vectorStoreId,
           assistantId 
         }),

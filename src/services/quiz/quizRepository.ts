@@ -42,15 +42,21 @@ export const quizRepository = {
 
       // Now that we have the quiz ID, save the questions
       for (const question of quiz.questions) {
+        // Make sure question text isn't null before saving
+        if (!question.question) {
+          console.error("Skipping question with null text:", question);
+          continue;
+        }
+
         const { error: questionError } = await supabase
           .from('quiz_questions')
           .insert({
             quiz_id: data.id,
             question_text: question.question,
-            options: question.options,
-            correct_answer_index: question.correctAnswerIndex,
-            explanation: question.explanation
-          });
+            options: question.options || ["No option provided"],
+            correct_answer_index: question.correctAnswerIndex ?? 0,
+            explanation: question.explanation || "No explanation provided"
+          } as any);
 
         if (questionError) throw questionError;
       }

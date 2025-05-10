@@ -27,14 +27,34 @@ export const quizGenerator = {
 
       const { data, error } = await supabase.functions.invoke('generate-quiz', {
         body: {
-          ...params,
+          topic: params.title, // Ensure we pass the correct parameter name
+          questionCount: params.questionCount,
+          difficulty: params.difficulty,
+          coverage: params.coverage,
           openAIConfig: classConfig // Pass the class-specific configuration
         }
       });
 
       if (error) throw new Error(error.message || 'Failed to generate quiz');
       
-      return data;
+      // Validate the response data structure
+      if (!data || !data.questions || !Array.isArray(data.questions)) {
+        console.error("Invalid quiz data received:", data);
+        throw new Error("Received invalid quiz data format from API");
+      }
+      
+      // Transform the data to match our expected format
+      const formattedQuestions: QuizQuestion[] = data.questions.map(q => ({
+        question: q.question_text || q.question,
+        options: q.options || [],
+        correctAnswerIndex: q.correct_answer_index !== undefined ? q.correct_answer_index : 0,
+        explanation: q.explanation || "No explanation provided"
+      }));
+      
+      return {
+        questions: formattedQuestions,
+        timeEstimate: data.timeEstimate || 5 * params.questionCount
+      };
     } catch (error) {
       console.error('Error generating quiz:', error);
       throw error;
