@@ -2,15 +2,14 @@
 import { useState, useEffect } from "react";
 import { 
   BookOpen, 
-  Calendar, 
   Check, 
-  SquareCheck, 
   X,
   Search,
   Database,
   Info,
   Loader2,
-  FileInput
+  FileInput,
+  SquareCheck
 } from "lucide-react";
 import {
   Dialog,
@@ -101,12 +100,6 @@ export function AddWidgetsDialog({
       name: "Quizzes",
       description: "Test your knowledge with quizzes",
       icon: SquareCheck,
-    },
-    {
-      id: "calendar" as WidgetType,
-      name: "Calendar",
-      description: "Schedule and manage your classes",
-      icon: Calendar,
     },
     {
       id: "supertutor" as WidgetType,

@@ -1,4 +1,3 @@
-
 import { createContext, useState, useContext, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -19,8 +18,8 @@ const WidgetsContext = createContext<WidgetsContextType>({
   isLoading: true,
 });
 
-// Default widgets that are enabled for all users
-const DEFAULT_WIDGETS: WidgetType[] = ["flashcards", "calendar"];
+// Default widgets that are enabled for all users - removed calendar since it's now a default feature
+const DEFAULT_WIDGETS: WidgetType[] = ["flashcards"];
 
 export const useWidgets = () => useContext(WidgetsContext);
 
@@ -100,7 +99,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
             // Convert string array to WidgetType array with type safety
             const widgets = data.enabled_widgets
               .filter((widget: string) => 
-                ["flashcards", "quizzes", "calendar", "supertutor", "database", "practice"].includes(widget)
+                ["flashcards", "quizzes", "supertutor", "database", "practice"].includes(widget)
               ) as WidgetType[];
             
             setEnabledWidgets(widgets);
