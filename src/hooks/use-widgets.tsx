@@ -225,34 +225,58 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
         if (user) {
           // Save to database for authenticated users
           console.log("Saving to database for user:", user.id);
-          try {
-            const { error } = await supabase
+          
+          // First check if there's an existing entry
+          const { data: existingData, error: fetchError } = await supabase
+            .from('user_widgets')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (fetchError && fetchError.code !== 'PGRST116') {
+            console.error("Error checking for existing widgets:", fetchError);
+            throw fetchError;
+          }
+          
+          // Determine whether to insert or update
+          if (existingData) {
+            // Update existing entry
+            const { error: updateError } = await supabase
               .from('user_widgets')
-              .upsert({
+              .update({
+                enabled_widgets: enabledWidgets,
+                updated_at: new Date().toISOString()
+              })
+              .eq('user_id', user.id);
+              
+            if (updateError) {
+              console.error("Error updating widgets in database:", updateError);
+              throw updateError;
+            }
+          } else {
+            // Insert new entry
+            const { error: insertError } = await supabase
+              .from('user_widgets')
+              .insert({
                 user_id: user.id,
                 enabled_widgets: enabledWidgets,
-                updated_at: new Date().toISOString(),
-              }, { onConflict: 'user_id' });
+                updated_at: new Date().toISOString()
+              });
               
-            if (error) {
-              console.error("Error saving widgets to database:", error);
-              throw error;
+            if (insertError) {
+              console.error("Error inserting widgets to database:", insertError);
+              throw insertError;
             }
-          } catch (dbError) {
-            console.error("Database error while saving widgets:", dbError);
-            toast({
-              title: "Warning",
-              description: "Your widget preferences were saved locally but not to your account",
-              variant: "default",
-            });
           }
+          
+          console.log("Successfully saved widgets to database for user:", user.id);
         }
       } catch (error: any) {
         console.error("Error saving widgets:", error);
         toast({
-          title: "Error saving widgets",
-          description: error.message || "Failed to save your widget preferences",
-          variant: "destructive",
+          title: "Warning",
+          description: "Your widget preferences were saved locally but not to your account",
+          variant: "default",
         });
       }
     };
