@@ -66,7 +66,7 @@ export function Auth() {
         } else if (error.message.includes("User already registered")) {
           errorMessage = "An account with this email already exists. Please sign in instead.";
         } else if (error.message.includes("Password should be")) {
-          errorMessage = "Password should be at least 6 characters long.";
+          errorMessage = "Password should be at least 10 characters long.";
         } else {
           errorMessage = error.message;
         }
@@ -138,11 +138,11 @@ export function Auth() {
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
+                placeholder="••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={10}
                 className="bg-muted/30 pl-10"
               />
               <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -158,7 +158,7 @@ export function Auth() {
             </div>
             {authMode === 'signup' && (
               <p className="text-xs text-muted-foreground mt-1">
-                Password must be at least 6 characters long
+                Password must be at least 10 characters long
               </p>
             )}
           </div>
