@@ -14,7 +14,7 @@ const AuthPage = () => {
             <img 
               src="/eido-icon.png" 
               alt="Eido Logo" 
-              className="h-12 w-12 object-contain"
+              className="h-20 w-20 object-contain" // Increased from h-12 w-12 to h-20 w-20
             />
           </div>
           <h1 className="text-3xl font-bold text-center mb-2">Welcome to Eido</h1>
