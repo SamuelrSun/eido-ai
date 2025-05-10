@@ -1,48 +1,89 @@
-
 /**
- * Maps class titles to relevant emojis based on keywords
+ * Maps class titles to relevant emojis based on educational keywords
  */
 const subjectEmojiMap: Record<string, string> = {
-  // Sciences
-  'physics': '⚛️',
-  'chemistry': '🧪',
-  'biology': '🧬',
-  'astronomy': '🔭',
+  // STEM Fields
+  // Mathematics
   'math': '🧮',
   'mathematics': '🧮',
   'statistics': '📊',
   'calculus': '📈',
   'algebra': '🔢',
   'geometry': '📐',
+  'trigonometry': '📏',
+  'probability': '🎲',
+  
+  // Sciences
+  'physics': '⚛️',
+  'chemistry': '🧪',
+  'biology': '🧬',
+  'anatomy': '🦴',
+  'physiology': '🫀',
+  'astronomy': '🔭',
+  'earth science': '🌏',
+  'geology': '🪨',
   'science': '🔬',
+  'lab': '🧪',
+  'experiment': '⚗️',
+  'microbiology': '🦠',
+  'genetics': '🧬',
+  'ecology': '🌿',
   
-  // Humanities
-  'literature': '📚',
-  'english': '📝',
-  'history': '🏛️',
-  'philosophy': '🧠',
-  'art': '🎨',
-  'music': '🎵',
-  'language': '🗣️',
-  'spanish': '🇪🇸',
-  'french': '🇫🇷',
-  'german': '🇩🇪',
-  'chinese': '🇨🇳',
-  'japanese': '🇯🇵',
-  
-  // Technology and Computer
-  'computer': '💻',
+  // Computer & Technology
+  'computer science': '💻',
   'programming': '👨‍💻',
   'code': '💻',
   'software': '👨‍💻',
   'web': '🌐',
   'data': '📊',
   'database': '🗄️',
+  'algorithm': '🧠',
   'engineering': '⚙️',
   'robotics': '🤖',
   'artificial intelligence': '🤖',
   'ai': '🤖',
+  'machine learning': '🧠',
+  'cybersecurity': '🔒',
+  'networking': '🔌',
   'technology': '📱',
+  
+  // Humanities
+  'literature': '📚',
+  'english': '📝',
+  'writing': '✍️',
+  'poetry': '📜',
+  'fiction': '📖',
+  'reading': '📚',
+  'history': '🏛️',
+  'civilization': '🏺',
+  'archaeology': '🏺',
+  'philosophy': '🧠',
+  'ethics': '⚖️',
+  'art': '🎨',
+  'music': '🎵',
+  'theater': '🎭',
+  'drama': '🎭',
+  'film': '🎬',
+  'cinema': '🎬',
+  'dance': '💃',
+  'classics': '🏛️',
+  
+  // Languages
+  'language': '🗣️',
+  'spanish': '🗣️',
+  'french': '🗣️',
+  'german': '🗣️',
+  'chinese': '🗣️',
+  'japanese': '🗣️',
+  'latin': '🗣️',
+  'russian': '🗣️',
+  'arabic': '🗣️',
+  'greek': '🗣️',
+  'italian': '🗣️',
+  'portuguese': '🗣️',
+  'linguistics': '🔤',
+  'speech': '🎤',
+  'communication': '🗣️',
   
   // Business and Economics
   'business': '💼',
@@ -51,6 +92,11 @@ const subjectEmojiMap: Record<string, string> = {
   'accounting': '🧮',
   'marketing': '📢',
   'management': '👔',
+  'entrepreneurship': '💡',
+  'commerce': '💹',
+  'trade': '💱',
+  'investment': '💲',
+  'banking': '🏦',
   
   // Social Sciences
   'psychology': '🧠',
@@ -58,44 +104,68 @@ const subjectEmojiMap: Record<string, string> = {
   'anthropology': '🏺',
   'political': '🏛️',
   'politics': '🏛️',
+  'government': '🏛️',
   'geography': '🌍',
+  'urban studies': '🏙️',
+  'law': '⚖️',
+  'criminology': '🕵️',
+  'international': '🌐',
+  'social': '👥',
   
   // Health and Medicine
   'health': '❤️',
   'medicine': '💊',
   'nursing': '🩺',
-  'anatomy': '🦴',
-  'physiology': '🫀',
+  'pharmacy': '💊',
   'nutrition': '🥗',
+  'kinesiology': '🏃',
+  'physical therapy': '💆',
+  'public health': '🏥',
+  'medical': '🩺',
+  'healthcare': '🏥',
   
   // Physical Education
   'physical': '🏃',
   'sport': '⚽',
   'fitness': '💪',
-  'dance': '💃',
   'yoga': '🧘',
+  'athletics': '🏅',
+  'recreation': '🎯',
+  'exercise': '🏋️',
+  'training': '⛹️',
+  'coaching': '📋',
   
-  // Miscellaneous
-  'writing': '✍️',
-  'communication': '🗣️',
+  // Educational
+  'education': '🎓',
+  'teaching': '👨‍🏫',
+  'learning': '📚',
+  'study': '📖',
   'research': '🔎',
-  'design': '✏️',
+  'thesis': '📑',
+  'dissertation': '📜',
+  'academic': '🎓',
+  'school': '🏫',
+  'college': '🏛️',
+  'university': '🏛️',
+  'seminar': '👨‍🏫',
+  'tutorial': '👩‍🏫',
+  
+  // Other Disciplines
   'journalism': '📰',
   'media': '📱',
   'photography': '📷',
+  'design': '✏️',
+  'architecture': '🏛️',
   'religion': '🙏',
-  'ethics': '⚖️',
-  'law': '⚖️',
+  'theology': '📿',
+  'agriculture': '🌱',
   'environment': '🌱',
-  'ecology': '🌿',
-  'theater': '🎭',
-  'drama': '🎭',
-  'film': '🎬',
-  'cinema': '🎬'
+  'sustainability': '♻️',
+  'urban planning': '🏙️'
 };
 
-// Default emojis to use if no match is found
-const defaultEmojis = ['📚', '🎓', '✏️', '📝', '💡', '🧠', '🎯', '📊', '🔍', '📋'];
+// Default emojis to use if no match is found - now educational-focused
+const defaultEmojis = ['📚', '🎓', '✏️', '📝', '💡', '🧠', '🎯', '📊', '🔍', '📋', '💻', '⚗️'];
 
 /**
  * Get a relevant emoji for a class title
