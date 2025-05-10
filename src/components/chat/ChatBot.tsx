@@ -41,7 +41,7 @@ export function ChatBot({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSendMessage = async (messageText: string = inputValue) => {
+  const handleSendMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
 
     // Add user message to chat
@@ -97,11 +97,6 @@ export function ChatBot({
     }
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    setInputValue(suggestion);
-    handleSendMessage(suggestion);
-  };
-
   return (
     <div className="flex flex-col h-[600px] max-h-[80vh]">
       <div className="pb-4 border-b">
@@ -113,7 +108,7 @@ export function ChatBot({
         {messages.map((message, index) => (
           <ChatMessage
             key={index}
-            message={message.content}
+            content={message.content}
             isUser={message.role === "user"}
           />
         ))}
@@ -132,7 +127,7 @@ export function ChatBot({
                       key={i}
                       variant="outline"
                       size="sm"
-                      onClick={() => handleSuggestionClick(suggestion)}
+                      onClick={() => handleSendMessage(suggestion)}
                       className="text-xs"
                     >
                       {suggestion}
@@ -148,27 +143,11 @@ export function ChatBot({
       </div>
 
       <div className="pt-4 border-t mt-auto">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSendMessage();
-          }}
-          className="flex items-center gap-2"
-        >
-          <ChatInput
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            disabled={isLoading}
-            placeholder={placeholder}
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!inputValue.trim() || isLoading}
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
+        <ChatInput 
+          onSend={handleSendMessage} 
+          suggestions={[]} 
+          isLoading={isLoading} 
+        />
       </div>
     </div>
   );
