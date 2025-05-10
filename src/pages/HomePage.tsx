@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -86,13 +85,12 @@ const HomePage = () => {
               
               return {
                 title: config.class_title,
-                // Add null checks/default values for properties that might not exist in the database response
-                professor: (config as any).professor || "",
-                classTime: (config as any).class_time || "",
-                classroom: (config as any).classroom || "",
+                professor: config.professor || "",
+                classTime: config.class_time || "",
+                classroom: config.classroom || "",
                 emoji: classEmoji,
                 link: "/super-stu",
-                color: (config as any).color || randomColor,
+                color: config.color || randomColor,
                 enabledWidgets: DEFAULT_CLASS_WIDGETS,
                 openAIConfig: {
                   apiKey: config.api_key,
@@ -217,9 +215,6 @@ const HomePage = () => {
         return;
       }
       
-      // Ensure we have an emoji (either from form or generated)
-      const classEmoji = classData.emoji || getEmojiForClass(classData.title);
-      
       // Update the class in the array
       setClassOptions(prev => 
         prev.map(classItem => 
@@ -231,7 +226,7 @@ const HomePage = () => {
                 classTime: classData.classTime,
                 classroom: classData.classroom,
                 color: classData.color,
-                emoji: classEmoji,
+                emoji: classData.emoji,
                 enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
                 openAIConfig: classData.openAIConfig
               }
@@ -249,7 +244,7 @@ const HomePage = () => {
             class_time: classData.classTime,
             classroom: classData.classroom,
             color: classData.color,
-            emoji: classEmoji,
+            emoji: classData.emoji,
             api_key: classData.openAIConfig?.apiKey || null,
             vector_store_id: classData.openAIConfig?.vectorStoreId || null,
             assistant_id: classData.openAIConfig?.assistantId || null
@@ -532,6 +527,7 @@ const HomePage = () => {
             classroom: selectedClassToEdit.classroom,
             color: selectedClassToEdit.color,
             enabledWidgets: selectedClassToEdit.enabledWidgets,
+            emoji: selectedClassToEdit.emoji,
             openAIConfig: selectedClassToEdit.openAIConfig
           }}
           onClassUpdate={handleUpdateClass}

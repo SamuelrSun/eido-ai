@@ -89,12 +89,12 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     fetchConfig();
   }, [initialData, isEditing]);
 
-  // Update emoji when title changes (only if emoji is not set or we're not in edit mode)
+  // Set default emoji only for new classes and only if no emoji is explicitly set
   useEffect(() => {
-    if (title && (!emoji || (!isEditing && !initialData?.emoji))) {
+    if (title && !emoji && !isEditing) {
       setEmoji(getEmojiForClass(title));
     }
-  }, [title, emoji, isEditing, initialData?.emoji]);
+  }, [title, emoji, isEditing]);
 
   // Update values when initialData changes (important for edit mode)
   useEffect(() => {
@@ -108,7 +108,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
       setOpenAIApiKey(initialData.openAIConfig?.apiKey || "");
       setVectorStoreId(initialData.openAIConfig?.vectorStoreId || "");
       setAssistantId(initialData.openAIConfig?.assistantId || "");
-      setEmoji(initialData.emoji || getEmojiForClass(initialData.title || ""));
+      setEmoji(initialData.emoji || "");
       setShowOpenAIConfig(!!(initialData.openAIConfig?.apiKey || initialData.openAIConfig?.vectorStoreId || initialData.openAIConfig?.assistantId));
     }
   }, [initialData, isEditing]);
@@ -123,7 +123,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
         classroom,
         color,
         enabledWidgets: selectedWidgets,
-        emoji: emoji || getEmojiForClass(title)
+        emoji
       };
       
       // Add OpenAI configuration if any fields are provided
@@ -165,10 +165,12 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
           professor={professor}
           classTime={classTime}
           classroom={classroom}
+          emoji={emoji}
           onTitleChange={setTitle}
           onProfessorChange={setProfessor}
           onClassTimeChange={setClassTime}
           onClassroomChange={setClassroom}
+          onEmojiChange={setEmoji}
         />
         
         {/* Color selection */}
