@@ -189,7 +189,7 @@ export function Auth() {
 
           {authMode === 'signup' && (
             <div className="space-y-2">
-              <Label htmlFor="usageDescription">How will you use Eido? (Max 100 words)</Label>
+              <Label htmlFor="usageDescription">How will you use Eido?</Label>
               <Textarea
                 id="usageDescription"
                 placeholder="Share how you plan to use Eido..."
@@ -200,6 +200,9 @@ export function Auth() {
                 maxLength={500}
                 required
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Max 100 words
+              </p>
             </div>
           )}
 
