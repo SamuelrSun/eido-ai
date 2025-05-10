@@ -1,3 +1,4 @@
+
 import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -19,8 +20,9 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useWidgets, WidgetType } from "@/hooks/use-widgets";
+import { WidgetType } from "@/hooks/use-widgets";
 import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
+import { useClassWidgets } from "@/hooks/use-class-widgets";
 
 interface AppSidebarProps {
   onClose: () => void;
@@ -30,8 +32,9 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isWidgetsDialogOpen, setIsWidgetsDialogOpen] = useState(false);
+  const [activeClassName, setActiveClassName] = useState<string>("Current Class");
   const navigate = useNavigate();
-  const { enabledWidgets, isLoading: widgetsLoading } = useWidgets();
+  const { enabledWidgets, isLoading: widgetsLoading } = useClassWidgets();
   
   useEffect(() => {
     const fetchUser = async () => {
@@ -48,6 +51,17 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user || null);
     });
+    
+    // Get active class name from session storage
+    const activeClass = sessionStorage.getItem('activeClass');
+    if (activeClass) {
+      try {
+        const parsedClass = JSON.parse(activeClass);
+        setActiveClassName(parsedClass.title);
+      } catch (e) {
+        console.error("Error parsing active class:", e);
+      }
+    }
     
     return () => subscription.unsubscribe();
   }, []);
@@ -101,7 +115,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     }
   ];
   
-  // Filter widget nav items by enabled widgets
+  // Filter widget nav items by enabled widgets for the current class
   const visibleWidgetNavItems = widgetNavItems.filter(item => 
     enabledWidgets.includes(item.widgetId)
   );
@@ -154,11 +168,21 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             </li>
           ))}
           
+          {/* Class name display */}
+          <div className="mt-4 px-4 py-2">
+            <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
+              Current Class
+            </h3>
+            <p className="text-sm text-sidebar-foreground font-medium py-1 truncate">
+              {activeClassName}
+            </p>
+          </div>
+          
           {/* Widgets section with heading and add button */}
-          <div className="pt-4">
+          <div className="pt-2">
             <div className="px-4 py-2 flex justify-between items-center">
               <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase">
-                Widgets
+                Class Widgets
               </h3>
               <Button 
                 onClick={() => setIsWidgetsDialogOpen(true)}
@@ -265,6 +289,8 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       <AddWidgetsDialog 
         open={isWidgetsDialogOpen} 
         onOpenChange={setIsWidgetsDialogOpen} 
+        classMode={true}
+        currentClassName={activeClassName}
       />
     </div>
   );

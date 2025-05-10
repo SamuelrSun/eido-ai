@@ -19,7 +19,8 @@ export function MaterialsUploadSection({ onUpload }: MaterialsUploadSectionProps
           onClick={onUpload}
         >
           <Upload className="h-6 w-6 mb-2" />
-          <span>Upload course materials, syllabus, etc.</span>
+          <span>Upload syllabus, notes, readings, etc.</span>
+          <span className="text-xs text-muted-foreground mt-1">Files will be processed for your class AI</span>
         </Button>
       </div>
     </div>

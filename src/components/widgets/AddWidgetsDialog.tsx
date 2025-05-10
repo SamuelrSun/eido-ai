@@ -28,14 +28,31 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useWidgets, WidgetType } from "@/hooks/use-widgets";
+import { useClassWidgets } from "@/hooks/use-class-widgets";
 
 interface AddWidgetsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  classMode?: boolean;
+  currentClassName?: string;
 }
 
-export function AddWidgetsDialog({ open, onOpenChange }: AddWidgetsDialogProps) {
-  const { enabledWidgets, toggleWidget, isLoading } = useWidgets();
+export function AddWidgetsDialog({ 
+  open, 
+  onOpenChange,
+  classMode = false,
+  currentClassName = "Current Class"
+}: AddWidgetsDialogProps) {
+  const globalWidgets = useWidgets();
+  const classWidgets = useClassWidgets();
+  
+  // Use either class widgets or global widgets depending on mode
+  const { 
+    enabledWidgets, 
+    toggleWidget, 
+    isLoading 
+  } = classMode ? classWidgets : globalWidgets;
+  
   const [localEnabledWidgets, setLocalEnabledWidgets] = useState<WidgetType[]>(enabledWidgets);
 
   // Reset local state when dialog opens or enabledWidgets change
@@ -115,9 +132,17 @@ export function AddWidgetsDialog({ open, onOpenChange }: AddWidgetsDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Manage Widgets</DialogTitle>
+          <DialogTitle>
+            {classMode 
+              ? `Manage Widgets for ${currentClassName}` 
+              : "Manage Widgets"
+            }
+          </DialogTitle>
           <DialogDescription>
-            Enable or disable widgets for your dashboard.
+            {classMode
+              ? "Enable or disable widgets for this class."
+              : "Enable or disable widgets for your dashboard."
+            }
           </DialogDescription>
         </DialogHeader>
         

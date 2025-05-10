@@ -3,11 +3,25 @@ import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateClassDialog, ClassData } from "@/components/class/CreateClassDialog";
 import { useToast } from "@/hooks/use-toast";
+
+interface ClassOption {
+  title: string;
+  description: string;
+  emoji: string;
+  link: string;
+  color: string;
+  enabledWidgets: string[];
+  openAIConfig?: {
+    apiKey?: string;
+    vectorStoreId?: string;
+    assistantId?: string;
+  };
+}
 
 const HomePage = () => {
   const [userName, setUserName] = useState<string>("Student");
@@ -18,51 +32,64 @@ const HomePage = () => {
   ]);
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
   
-  const [classOptions, setClassOptions] = useState([
+  // Default widgets for a class
+  const DEFAULT_CLASS_WIDGETS = ["supertutor", "database"];
+  
+  const [classOptions, setClassOptions] = useState<ClassOption[]>([
     {
       title: "ITP457: Advanced Network Security",
       description: "Learn about network vulnerabilities, encryption, and security protocols",
       emoji: "🔒",
       link: "/calendar",
-      color: "blue-500"
+      color: "blue-500",
+      enabledWidgets: ["supertutor", "database", "flashcards", "quizzes"]
     },
     {
       title: "ITP216: Applied Python Concepts",
       description: "Master Python programming with practical applications and projects",
       emoji: "🐍",
       link: "/calendar",
-      color: "green-500"
+      color: "green-500",
+      enabledWidgets: ["supertutor", "database", "practice"]
     },
     {
       title: "IR330: Politics of the World Economy",
       description: "Explore global economic systems, international trade, and policy analysis",
       emoji: "🌐",
       link: "/calendar",
-      color: "red-500"
+      color: "red-500",
+      enabledWidgets: ["supertutor", "database", "calendar"]
     },
     {
       title: "ITP104: Intro to Web Development",
       description: "Learn HTML, CSS, and JavaScript fundamentals for web development",
       emoji: "🌐",
       link: "/calendar",
-      color: "yellow-500"
+      color: "yellow-500",
+      enabledWidgets: ["supertutor", "database", "practice"]
     },
     {
       title: "BAEP470: The Entrepreneurial Mindset",
       description: "Develop strategies for innovation and business development",
       emoji: "💼",
       link: "/calendar",
-      color: "purple-500"
+      color: "purple-500",
+      enabledWidgets: ["supertutor", "database", "flashcards"]
     },
     {
       title: "BISC110: Good Genes, Bad Genes",
       description: "Explore genetics principles and their impact on health and society",
       emoji: "🧬",
       link: "/calendar",
-      color: "pink-500"
+      color: "pink-500",
+      enabledWidgets: ["supertutor", "database", "quizzes"]
     }
   ]);
+  
+  // Add state for the current active class
+  const [activeClass, setActiveClass] = useState<ClassOption | null>(null);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -91,25 +118,50 @@ const HomePage = () => {
     };
 
     fetchUserProfile();
-  }, []);
+    
+    // Set first class as active by default if we have classes and no active class
+    if (!activeClass && classOptions.length > 0) {
+      setActiveClass(classOptions[0]);
+      
+      // Store the active class in session storage
+      sessionStorage.setItem('activeClass', JSON.stringify(classOptions[0]));
+    } else {
+      // Try to load active class from session storage
+      const storedActiveClass = sessionStorage.getItem('activeClass');
+      if (storedActiveClass && !activeClass) {
+        try {
+          setActiveClass(JSON.parse(storedActiveClass));
+        } catch (e) {
+          console.error("Error parsing stored active class", e);
+        }
+      }
+    }
+  }, [activeClass, classOptions]);
 
   const handleCreateClass = (classData: ClassData) => {
     // Get an appropriate emoji for the class
     const emojis = ["📚", "🎓", "✏️", "📝", "🔬", "🎨", "🧮", "🔍", "📊", "💡"];
     const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
     
-    const newClass = {
+    const newClass: ClassOption = {
       title: classData.title,
       description: classData.description,
       emoji: randomEmoji,
       link: "/calendar",
       color: classData.color,
-      openAIConfig: classData.openAIConfig // Store the OpenAI configuration
+      enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
+      openAIConfig: classData.openAIConfig
     };
     
     setClassOptions(prev => [newClass, ...prev]);
     
-    // If OpenAI configuration was provided, store it securely
+    // Set the new class as active
+    setActiveClass(newClass);
+    
+    // Store the active class in session storage
+    sessionStorage.setItem('activeClass', JSON.stringify(newClass));
+    
+    // Store class-specific configurations
     if (classData.openAIConfig) {
       try {
         // Store in localStorage for now as a temporary solution
@@ -137,13 +189,24 @@ const HomePage = () => {
     });
   };
 
+  const handleClassClick = (classOption: ClassOption) => {
+    // Set the selected class as active
+    setActiveClass(classOption);
+    
+    // Store the active class in session storage
+    sessionStorage.setItem('activeClass', JSON.stringify(classOption));
+    
+    // Navigate to the class page (we will continue to use calendar for now)
+    navigate(classOption.link);
+  };
+
   return (
     <div className="space-y-8 pb-8">
       {/* Hero Section with personalized greeting */}
       <div className="flex justify-between items-center">
         <PageHeader 
           title={`Hello, ${userName}!`}
-          description="Which class would you like to study today?"
+          description={activeClass ? `Currently in: ${activeClass.title}` : "Which class would you like to study today?"}
         />
         <Button 
           onClick={() => setIsCreateClassOpen(true)}
@@ -157,8 +220,12 @@ const HomePage = () => {
       {/* Class Options */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {classOptions.map((option, index) => (
-          <Link to={option.link} key={index} className="block">
-            <Card className={`h-full transition-all hover:shadow-md hover:border-${option.color}`}>
+          <div
+            key={index} 
+            className="cursor-pointer"
+            onClick={() => handleClassClick(option)}
+          >
+            <Card className={`h-full transition-all hover:shadow-md ${activeClass?.title === option.title ? `border-${option.color} ring-1 ring-${option.color}` : `hover:border-${option.color}`}`}>
               <CardHeader>
                 <div className={`mb-4 p-2 bg-${option.color}/10 rounded-lg w-fit`}>
                   <span className="text-4xl">{option.emoji}</span>
@@ -168,12 +235,12 @@ const HomePage = () => {
               </CardHeader>
               <CardFooter>
                 <Button variant="ghost" className={`group text-${option.color}`}>
-                  Enter class
+                  {activeClass?.title === option.title ? 'Current class' : 'Enter class'}
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Button>
               </CardFooter>
             </Card>
-          </Link>
+          </div>
         ))}
       </div>
 
