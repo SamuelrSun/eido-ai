@@ -219,7 +219,7 @@ export const classOpenAIConfigService = {
         return [];
       }
       
-      // Fetch from Supabase
+      // Fetch from Supabase - use explicit type to include color field
       const { data, error } = await supabase
         .from('class_openai_configs')
         .select('*')
@@ -242,13 +242,15 @@ export const classOpenAIConfigService = {
         console.log(`Found ${data.length} classes in Supabase`);
         
         // Transform the database objects into ClassConfig objects
+        // Explicitly handle each field to avoid TypeScript errors
         return data.map(item => ({
           id: item.id,
           title: item.class_title,
           professor: item.professor || undefined,
           classTime: item.class_time || undefined,
           classroom: item.classroom || undefined,
-          color: item.color || 'blue-300', // Add default color if not present
+          // Explicitly cast and handle the color field
+          color: (item as any).color || 'blue-300', // Temporary type assertion
           emoji: item.emoji || undefined,
           openAIConfig: {
             apiKey: item.api_key || undefined,
