@@ -69,6 +69,10 @@ export const flashcardService = {
    * Save a new deck to the database
    */
   saveDeck: async (deck: Omit<Deck, 'id' | 'updatedAt'>): Promise<Deck> => {
+    // Get the active class from session storage
+    const activeClass = sessionStorage.getItem('activeClass');
+    const classTitle = activeClass ? JSON.parse(activeClass).title : null;
+    
     // Create an object with snake_case properties for the database
     const { data, error } = await supabase
       .from('decks')
@@ -79,8 +83,9 @@ export const flashcardService = {
         card_count: deck.cardCount,
         due_cards: deck.dueCards,
         new_cards: deck.newCards,
-        user_id: deck.userId
-      } as any) // Use type assertion to bypass TypeScript error
+        user_id: deck.userId,
+        class_title: classTitle // Add class_title to associate with specific class
+      } as any)
       .select()
       .single();
 
@@ -99,7 +104,8 @@ export const flashcardService = {
       dueCards: data.due_cards,
       newCards: data.new_cards,
       updatedAt: new Date(data.updated_at),
-      userId: data.user_id
+      userId: data.user_id,
+      classTitle: data.class_title
     };
 
     return savedDeck;
@@ -120,8 +126,7 @@ export const flashcardService = {
 
     const { error } = await supabase
       .from('flashcards')
-      .insert(flashcardsToInsert as any[]) // Use type assertion to bypass TypeScript error
-      ;
+      .insert(flashcardsToInsert as any[]);
 
     if (error) {
       console.error("Error saving flashcards:", error);
@@ -130,12 +135,24 @@ export const flashcardService = {
   },
 
   /**
-   * Fetch all decks from the database
+   * Fetch all decks from the database for the current active class
    */
   fetchDecks: async (): Promise<Deck[]> => {
+    // Get the active class from session storage
+    const activeClass = sessionStorage.getItem('activeClass');
+    const classTitle = activeClass ? JSON.parse(activeClass).title : null;
+    
+    // If no active class, return an empty array
+    if (!classTitle) {
+      console.log("No active class found, returning empty decks array");
+      return [];
+    }
+    
+    // Fetch decks filtered by class_title
     const { data, error } = await supabase
       .from('decks')
       .select('*')
+      .eq('class_title', classTitle)
       .order('updated_at', { ascending: false });
 
     if (error) {
@@ -152,7 +169,8 @@ export const flashcardService = {
       dueCards: deck.due_cards,
       newCards: deck.new_cards,
       updatedAt: new Date(deck.updated_at),
-      userId: deck.user_id
+      userId: deck.user_id,
+      classTitle: deck.class_title
     }));
   },
   

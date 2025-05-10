@@ -18,6 +18,10 @@ export const quizRepository = {
         throw new Error("You must be logged in to save a quiz");
       }
       
+      // Get the active class
+      const activeClass = sessionStorage.getItem('activeClass');
+      const classTitle = activeClass ? JSON.parse(activeClass).title : null;
+      
       // Insert the quiz into the quizzes table
       const { data, error } = await supabase
         .from('quizzes')
@@ -28,7 +32,8 @@ export const quizRepository = {
           time_estimate: quiz.timeEstimate,
           difficulty: quiz.difficulty,
           coverage: quiz.coverage,
-          user_id: session.user.id // Set the user_id to the current user's ID
+          user_id: session.user.id, // Set the user_id to the current user's ID
+          class_title: classTitle // Associate with the current class
         })
         .select()
         .single();
@@ -61,7 +66,8 @@ export const quizRepository = {
         coverage: data.coverage,
         createdAt: data.created_at,
         updatedAt: data.updated_at,
-        userId: data.user_id
+        userId: data.user_id,
+        classTitle: data.class_title
       };
     } catch (error) {
       console.error('Error saving quiz:', error);
@@ -70,7 +76,7 @@ export const quizRepository = {
   },
   
   /**
-   * Fetch all quizzes for the current user
+   * Fetch all quizzes for the current user and active class
    */
   fetchQuizzes: async (): Promise<Quiz[]> => {
     try {
@@ -81,10 +87,21 @@ export const quizRepository = {
         return [];
       }
 
+      // Get the active class
+      const activeClass = sessionStorage.getItem('activeClass');
+      const classTitle = activeClass ? JSON.parse(activeClass).title : null;
+      
+      // If no active class, return an empty array
+      if (!classTitle) {
+        console.log("No active class found, returning empty quizzes array");
+        return [];
+      }
+
       const { data: quizzes, error } = await supabase
         .from('quizzes')
         .select('*')
         .eq('user_id', session.user.id) // Only fetch quizzes for the current user
+        .eq('class_title', classTitle) // Only fetch quizzes for the current class
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -117,7 +134,8 @@ export const quizRepository = {
             coverage: quiz.coverage,
             createdAt: quiz.created_at,
             updatedAt: quiz.updated_at,
-            userId: quiz.user_id
+            userId: quiz.user_id,
+            classTitle: quiz.class_title
           };
         })
       );

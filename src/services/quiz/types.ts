@@ -20,6 +20,7 @@ export interface Quiz {
   createdAt: string;
   updatedAt: string;
   userId?: string;
+  classTitle?: string; // Add class title to the Quiz interface
 }
 
 export interface QuizGenerationParams {

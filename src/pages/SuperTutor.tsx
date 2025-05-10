@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { classOpenAIConfigService, OpenAIConfig } from "@/services/classOpenAIConfig";
-import { Database, AlertCircle, KeyRound, Settings, Bot, ExternalLink } from "lucide-react";
+import { AlertCircle, KeyRound, Settings, Bot, ExternalLink, Database } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -163,44 +163,26 @@ const SuperTutor = () => {
         <div className="h-8 w-full bg-gray-100 animate-pulse rounded"></div>
       ) : (
         <>
-          {openAIConfig?.assistantId ? (
+          {(openAIConfig?.assistantId || openAIConfig?.vectorStoreId) && (
             <div className={`${connectError ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'} border rounded-md p-4 text-sm`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Bot className={`h-4 w-4 ${connectError ? 'text-amber-600' : 'text-blue-600'}`} />
-                  <p className="font-medium">{connectError ? 'Assistant connectivity issue' : `Using custom assistant for ${activeClass}`}</p>
+                  {openAIConfig?.assistantId ? (
+                    <Bot className={`h-4 w-4 ${connectError ? 'text-amber-600' : 'text-blue-600'}`} />
+                  ) : (
+                    <Database className={`h-4 w-4 ${connectError ? 'text-amber-600' : 'text-blue-600'}`} />
+                  )}
+                  <p className="font-medium">
+                    {connectError 
+                      ? 'Connectivity issue' 
+                      : `Using ${openAIConfig?.assistantId ? 'custom assistant' : 'custom knowledge base'} for ${activeClass}`}
+                  </p>
                 </div>
-                <Badge variant={connectError ? "outline" : "default"} className={connectError ? "" : "bg-blue-500"}>
-                  {openAIConfig.assistantId.substring(0, 8)}...
-                </Badge>
-              </div>
-              {connectError ? (
-                <div className="mt-2">
-                  <p className="text-xs text-amber-700">{connectError}</p>
-                  <Button 
-                    variant="link" 
-                    size="sm" 
-                    className="px-0 h-auto text-xs flex items-center gap-1 text-amber-700" 
-                    onClick={openOpenAIDocs}
-                  >
-                    View OpenAI Assistant docs <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-xs text-blue-600 mt-1">
-                  Responses will be based on your class materials using a specialized assistant
-                </p>
-              )}
-            </div>
-          ) : openAIConfig?.vectorStoreId ? (
-            <div className={`${connectError ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'} border rounded-md p-4 text-sm`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Database className={`h-4 w-4 ${connectError ? 'text-amber-600' : 'text-blue-600'}`} />
-                  <p className="font-medium">{connectError ? 'Vector store connectivity issue' : `Using custom knowledge base for ${activeClass}`}</p>
-                </div>
-                <Badge variant={connectError ? "outline" : "default"} className={connectError ? "" : "bg-blue-500"}>
-                  {openAIConfig.vectorStoreId.substring(0, 8)}...
+                <Badge 
+                  variant={connectError ? "outline" : "default"} 
+                  className={connectError ? "" : "bg-blue-500"}
+                >
+                  {(openAIConfig?.assistantId || openAIConfig?.vectorStoreId || "").substring(0, 8)}...
                 </Badge>
               </div>
               {connectError ? (
@@ -221,7 +203,9 @@ const SuperTutor = () => {
                 </p>
               )}
             </div>
-          ) : activeClass ? (
+          )}
+          
+          {activeClass && !openAIConfig?.assistantId && !openAIConfig?.vectorStoreId && (
             <Alert variant="default" className="bg-amber-50 border-amber-200">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>No custom knowledge base</AlertTitle>
@@ -229,7 +213,7 @@ const SuperTutor = () => {
                 This class isn't connected to an assistant. Responses will use OpenAI's general knowledge, not your class materials.
               </AlertDescription>
             </Alert>
-          ) : null}
+          )}
         </>
       )}
 

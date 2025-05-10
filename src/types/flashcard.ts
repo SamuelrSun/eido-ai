@@ -35,6 +35,7 @@ export interface Deck {
   dueCards: number;
   newCards: number;
   cards?: Flashcard[];
+  classTitle?: string; // Add class title to the Deck interface
 }
 
 /**
