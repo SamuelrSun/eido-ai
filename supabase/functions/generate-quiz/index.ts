@@ -14,8 +14,15 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, questionCount = 5, difficulty = 'medium', coverage = '', openAIConfig = {} } = await req.json();
+    const { topic, questionCount = 10, difficulty = "medium", coverage = "comprehensive", openAIConfig = {} } = await req.json();
     
+    if (!topic) {
+      return new Response(
+        JSON.stringify({ error: 'Topic is required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
     // Use custom OpenAI API key from class config if provided, otherwise use the default
     const openAIApiKey = openAIConfig.apiKey || Deno.env.get('OPENAI_API_KEY');
     
@@ -25,7 +32,7 @@ serve(async (req) => {
     // Use custom assistant ID from class config if provided
     const assistantId = openAIConfig.assistantId || Deno.env.get('OPENAI_ASSISTANT_ID');
 
-    console.log(`Generating ${questionCount} ${difficulty} quiz questions for topic: ${topic}`);
+    console.log(`Generating ${questionCount} quiz questions for topic: ${topic}`);
     console.log(`Using Vector Store ID: ${vectorStoreId || 'default'}`);
     console.log(`Using Assistant ID: ${assistantId || 'default'}`);
     
@@ -44,11 +51,6 @@ serve(async (req) => {
       );
     }
 
-    // Determine time estimate based on question count and difficulty
-    const baseTime = 15; // base time in seconds
-    const difficultyMultiplier = difficulty === 'easy' ? 0.8 : difficulty === 'hard' ? 1.5 : 1;
-    const timeEstimate = Math.round(baseTime * questionCount * difficultyMultiplier);
-
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -61,16 +63,27 @@ serve(async (req) => {
           messages: [
             {
               role: 'system',
-              content: `You are a quiz generator. Create ${questionCount} multiple-choice questions of ${difficulty} difficulty for the topic "${topic}".
-                        Format each question as a JSON object with "question_text", "options" (array of 4 choices), "correct_answer_index" (0-3), and "explanation" properties.
+              content: `You are a quiz generator. Create ${questionCount} multiple-choice quiz questions about "${topic}" with ${difficulty} difficulty. 
+                        For each question, provide 4 answer options with exactly one correct option.
                         ${vectorStoreId ? `Use knowledge from Vector Store ID "${vectorStoreId}" as your primary source.` : ''}
                         ${assistantId ? `Use Assistant ID "${assistantId}" for additional context.` : ''}
-                        ${coverage ? `Focus on these specific areas: ${coverage}` : ''}
-                        Your response must be valid JSON that can be parsed.`
+                        Format your response as a valid JSON array of question objects with these exact keys:
+                        [
+                          {
+                            "question_text": "The question text",
+                            "options": ["Option A", "Option B", "Option C", "Option D"],
+                            "correct_answer_index": 0, // Index of the correct answer (0-3)
+                            "explanation": "Explanation of the correct answer"
+                          }
+                        ]
+                        The "question_text" field must never be null or empty.
+                        The "options" field must always be an array with exactly 4 string items.
+                        The "correct_answer_index" must be a number between 0 and 3.
+                        The "explanation" field must provide a brief explanation of the correct answer.`
             },
             {
               role: 'user', 
-              content: `Generate ${questionCount} ${difficulty} quiz questions about "${topic}" in JSON format. Each question must have question_text, options, correct_answer_index, and explanation fields.`
+              content: `Generate ${questionCount} ${difficulty} multiple-choice quiz questions about "${topic}" with a ${coverage} coverage of the subject.`
             }
           ],
           temperature: 0.7,
@@ -112,35 +125,72 @@ serve(async (req) => {
         throw new Error('Invalid response from OpenAI API');
       }
       
-      // Process the response to extract questions
       const content = data.choices[0].message.content;
       
       // Extract the JSON array from the content
       let questions = [];
       try {
-        // Find anything that looks like a JSON array in the response
-        const jsonMatch = content.match(/\[\s*{[\s\S]*}\s*\]/);
-        if (jsonMatch) {
-          questions = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error('Could not find valid JSON in response');
+        // Try to parse the content as JSON directly first
+        try {
+          questions = JSON.parse(content);
+        } catch {
+          // If direct parsing fails, try to extract JSON array from the text
+          const jsonMatch = content.match(/\[\s*{[\s\S]*}\s*\]/);
+          if (jsonMatch) {
+            questions = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('Could not find valid JSON in response');
+          }
         }
       } catch (jsonError) {
         console.error('Error parsing questions JSON:', jsonError);
         throw new Error('Unable to parse questions from AI response');
       }
       
-      // Ensure each question has the required fields to prevent database errors
-      const validatedQuestions = questions.map(q => ({
-        question_text: q.question_text || q.question || `Question about ${topic}`,
-        options: Array.isArray(q.options) && q.options.length > 0 ? q.options : ["Option A", "Option B", "Option C", "Option D"],
-        correct_answer_index: typeof q.correct_answer_index === 'number' ? q.correct_answer_index : 0,
-        explanation: q.explanation || "No explanation provided"
-      }));
+      // Validate the question format
+      const validatedQuestions = questions.map((q, index) => {
+        // Ensure we have valid question text
+        if (!q.question_text) {
+          console.warn(`Question ${index} is missing question_text, adding default`);
+          q.question_text = `Question ${index + 1} about ${topic}`;
+        }
+        
+        // Ensure options are valid
+        if (!Array.isArray(q.options) || q.options.length < 4) {
+          console.warn(`Question ${index} has invalid options, adding defaults`);
+          q.options = q.options || [];
+          while (q.options.length < 4) {
+            q.options.push(`Option ${q.options.length + 1}`);
+          }
+        }
+        
+        // Ensure correct_answer_index is valid
+        if (typeof q.correct_answer_index !== 'number' || q.correct_answer_index < 0 || q.correct_answer_index > 3) {
+          console.warn(`Question ${index} has invalid correct_answer_index, defaulting to 0`);
+          q.correct_answer_index = 0;
+        }
+        
+        // Ensure explanation exists
+        if (!q.explanation) {
+          q.explanation = "No explanation provided";
+        }
+        
+        return q;
+      });
+      
+      // Calculate a time estimate based on question count and difficulty
+      const difficultyMultiplier = {
+        easy: 0.8,
+        medium: 1.0,
+        hard: 1.2,
+        expert: 1.5
+      };
+      
+      const timeEstimate = Math.ceil(questionCount * (difficultyMultiplier[difficulty] || 1) * 0.5); // minutes
       
       return new Response(
         JSON.stringify({ 
-          questions: validatedQuestions, 
+          questions: validatedQuestions,
           timeEstimate,
           vectorStoreId,
           assistantId
