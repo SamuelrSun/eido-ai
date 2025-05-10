@@ -72,7 +72,7 @@ export function OpenAIConfigSection({
             </Label>
             <Input 
               id="openai-api-key"
-              type="password"
+              type="text" 
               placeholder="sk-..." 
               value={openAIApiKey}
               onChange={(e) => onApiKeyChange(e.target.value)}
