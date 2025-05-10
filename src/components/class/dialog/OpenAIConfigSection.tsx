@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Code, Info } from "lucide-react";
+import { Code, Info, Database, Bot } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -85,30 +85,33 @@ export function OpenAIConfigSection({
           
           <div>
             <Label htmlFor="vector-store-id" className="flex items-center gap-1">
+              <Database className="h-4 w-4 mr-1" />
               Vector Store ID
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
-                <TooltipContent>
-                  The ID of your OpenAI vector store that contains specialized knowledge for this class.
+                <TooltipContent className="max-w-sm">
+                  <p>The ID of your OpenAI vector store that contains specialized knowledge for this class.</p>
+                  <p className="mt-1">This is <strong>essential</strong> for the AI to answer questions based on your class materials.</p>
                 </TooltipContent>
               </Tooltip>
             </Label>
             <Input 
               id="vector-store-id"
-              placeholder="vs-..." 
+              placeholder="vs_..." 
               value={vectorStoreId}
               onChange={(e) => onVectorStoreIdChange(e.target.value)}
               className="font-mono"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Connects the AI to a knowledge base specifically for this class's content.
+              <strong>Important:</strong> This connects the AI to your class's specific knowledge base. Without this, the AI will use general knowledge.
             </p>
           </div>
           
           <div>
             <Label htmlFor="assistant-id" className="flex items-center gap-1">
+              <Bot className="h-4 w-4 mr-1" />
               Assistant ID
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -121,7 +124,7 @@ export function OpenAIConfigSection({
             </Label>
             <Input 
               id="assistant-id"
-              placeholder="asst-..." 
+              placeholder="asst_..." 
               value={assistantId}
               onChange={(e) => onAssistantIdChange(e.target.value)}
               className="font-mono"
@@ -129,6 +132,16 @@ export function OpenAIConfigSection({
             <p className="text-xs text-muted-foreground mt-1">
               Uses an AI assistant fine-tuned for this class's subject matter.
             </p>
+          </div>
+
+          <div className="p-3 bg-blue-50 rounded-md border border-blue-100">
+            <h4 className="text-sm font-medium text-blue-800">How to use your class's own knowledge base:</h4>
+            <ol className="text-xs text-blue-700 mt-2 space-y-1 list-decimal list-inside">
+              <li>Create a vector store in OpenAI and upload your class materials</li>
+              <li>Copy the Vector Store ID (starts with "vs_") and paste it above</li>
+              <li>Optionally create an Assistant and connect it to your vector store</li>
+              <li>Now all AI features will use your class-specific knowledge</li>
+            </ol>
           </div>
         </div>
       )}

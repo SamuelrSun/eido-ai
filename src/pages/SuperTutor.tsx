@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { classOpenAIConfigService, OpenAIConfig } from "@/services/classOpenAIConfig";
+import { Database, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const SuperTutor = () => {
   const navigate = useNavigate();
@@ -32,6 +34,9 @@ const SuperTutor = () => {
         
         if (config) {
           console.log(`Loaded OpenAI config for class: ${parsedClass.title}`);
+          if (config.vectorStoreId) {
+            console.log(`Using Vector Store ID: ${config.vectorStoreId}`);
+          }
         }
       }
     } catch (error) {
@@ -53,14 +58,26 @@ const SuperTutor = () => {
         }
       />
 
-      {openAIConfig && (
+      {openAIConfig?.vectorStoreId ? (
         <div className="bg-green-50 border border-green-200 rounded-md p-3 text-sm text-green-800">
-          <p className="font-medium">Using custom AI configuration for this class</p>
+          <div className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            <p className="font-medium">Using custom knowledge base for {activeClass}</p>
+          </div>
           <p className="text-xs text-green-600 mt-1">
-            This class has a dedicated AI assistant and knowledge base
+            Vector Store ID: {openAIConfig.vectorStoreId.substring(0, 10)}... • 
+            Responses will be based on your class materials
           </p>
         </div>
-      )}
+      ) : activeClass ? (
+        <Alert variant="warning" className="bg-amber-50 border-amber-200">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No custom knowledge base</AlertTitle>
+          <AlertDescription>
+            This class isn't connected to a vector store. Responses will use OpenAI's general knowledge, not your class materials.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <div className="flex flex-col gap-4 mb-6">
         <Button onClick={handleGoToFlashcards} className="w-fit">

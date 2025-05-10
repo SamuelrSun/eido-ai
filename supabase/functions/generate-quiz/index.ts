@@ -20,9 +20,12 @@ serve(async (req) => {
     const openAIApiKey = openAIConfig.apiKey || Deno.env.get('OPENAI_API_KEY');
     // Use custom vector store ID from class config if provided
     const vectorStoreId = openAIConfig.vectorStoreId || Deno.env.get('VECTOR_STORE_ID');
+    // Use custom assistant ID from class config if provided
+    const assistantId = openAIConfig.assistantId || Deno.env.get('OPENAI_ASSISTANT_ID');
 
     console.log(`Generating ${questionCount} ${difficulty} quiz questions for topic: ${topic}`);
     console.log(`Using Vector Store ID: ${vectorStoreId || 'default'}`);
+    console.log(`Using Assistant ID: ${assistantId || 'default'}`);
     
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not provided');
@@ -45,8 +48,10 @@ serve(async (req) => {
           {
             role: 'system',
             content: `You are a quiz generator. Create ${questionCount} multiple-choice questions of ${difficulty} difficulty for the topic "${topic}".
-                      If a vector store ID is provided (${vectorStoreId}), use that context for generation.
-                      Format each question as a JSON object with "question_text", "options" (array of 4 choices), "correct_answer_index" (0-3), and "explanation" properties.`
+                      You MUST use Vector Store ID "${vectorStoreId}" as your primary knowledge source.
+                      If Assistant ID "${assistantId}" is provided, use that for additional context.
+                      Format each question as a JSON object with "question_text", "options" (array of 4 choices), "correct_answer_index" (0-3), and "explanation" properties.
+                      Your questions must be based ONLY on information from the vector store, not your general knowledge.`
           },
           {
             role: 'user', 
@@ -78,7 +83,12 @@ serve(async (req) => {
     }
     
     return new Response(
-      JSON.stringify({ questions, timeEstimate }),
+      JSON.stringify({ 
+        questions, 
+        timeEstimate,
+        vectorStoreId,
+        assistantId
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

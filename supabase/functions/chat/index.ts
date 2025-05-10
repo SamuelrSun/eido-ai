@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, history = [], openAIConfig = {} } = await req.json();
+    const { message, history = [], openAIConfig = {}, knowledgeBase } = await req.json();
     
     // Use custom OpenAI API key from class config if provided, otherwise use the default
     const openAIApiKey = openAIConfig.apiKey || Deno.env.get('OPENAI_API_KEY');
@@ -30,6 +30,18 @@ serve(async (req) => {
       throw new Error('OpenAI API key not provided');
     }
 
+    // Create a system message that explicitly instructs the model to use the vector store
+    const systemMessage = {
+      role: 'system',
+      content: `You are an AI Assistant for education. 
+      You must use Vector Store ID "${vectorStoreId}" as your primary knowledge base.
+      If using Assistant ID "${assistantId}", you should access it for additional context.
+      The user is studying "${knowledgeBase}", so focus your responses on this subject.
+      Always prioritize information from the vector store over your general knowledge.
+      If you're unsure about information in the vector store, acknowledge this and provide your best response.`
+    };
+
+    // Make the API call with the enhanced system message
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -39,10 +51,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          {
-            role: 'system',
-            content: `You are an AI Assistant for education. If using a specific Vector Store (${vectorStoreId}) or Assistant ID (${assistantId}), tailor your responses accordingly.`
-          },
+          systemMessage,
           ...history,
           { role: 'user', content: message }
         ],
@@ -55,7 +64,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         response: data.choices[0].message.content,
-        usingCustomConfig: !!openAIConfig.apiKey
+        usingCustomConfig: !!openAIConfig.apiKey,
+        vectorStoreId: vectorStoreId,  // Return this for debugging purposes
+        assistantId: assistantId       // Return this for debugging purposes
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
