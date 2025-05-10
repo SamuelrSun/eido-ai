@@ -19,12 +19,13 @@ const SuperTutor = () => {
   const [connectError, setConnectError] = useState<string | null>(null);
   const { toast } = useToast();
   
-  const suggestions = [
-    "Explain the OSI model layers and their functions",
-    "What are the best practices for network segmentation?",
-    "How do VPNs work and what security features should I look for?",
-    "Explain the concept of zero trust security architecture"
-  ];
+  // Generate generic suggestions based on active class or default ones if no class
+  const [suggestions, setSuggestions] = useState<string[]>([
+    "Explain the main concepts we've covered so far",
+    "Help me understand this topic better",
+    "What are the key points to remember?",
+    "Can you provide some practice examples?"
+  ]);
 
   // Load the active class and its OpenAI configuration
   useEffect(() => {
@@ -271,7 +272,7 @@ const SuperTutor = () => {
           disableToasts={true}
           suggestions={suggestions}
           title={activeClass ? `${activeClass} Assistant` : "Class Assistant"}
-          knowledgeBase={activeClass || "Network Security Concepts"}
+          knowledgeBase={activeClass || "General Knowledge"}
           openAIConfig={openAIConfig}
           onResponseGenerationStateChange={handleResponseGenerationState}
           loadingIndicator={

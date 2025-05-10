@@ -9,7 +9,6 @@ import { AuthGuard } from "./components/auth/AuthGuard";
 import { WidgetsProvider } from "./hooks/use-widgets";
 import HomePage from "./pages/HomePage";
 import SuperTutor from "./pages/SuperTutor";
-import SecureCoach from "./pages/SecureCoach";
 import AuthPage from "./pages/AuthPage";
 import AccountPage from "./pages/AccountPage";
 import NotFound from "./pages/NotFound";
@@ -18,7 +17,6 @@ import FlashcardsPage from "./pages/FlashcardsPage";
 import QuizzesPage from "./pages/QuizzesPage";
 import QuizSessionPage from "./pages/QuizSessionPage";
 import CalendarPage from "./pages/CalendarPage";
-import CybersecurityCoach from "./pages/CybersecurityCoach";
 import PracticePage from "./pages/PracticePage";
 
 const queryClient = new QueryClient();
@@ -39,14 +37,12 @@ const App = () => (
               <Route element={<AppLayout />}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/super-stu" element={<SuperTutor />} />
-                <Route path="/secure-coach" element={<SecureCoach />} />
                 <Route path="/database" element={<DatabasePage />} />
                 <Route path="/flashcards" element={<FlashcardsPage />} />
                 <Route path="/quizzes" element={<QuizzesPage />} />
                 <Route path="/quizzes/:quizId" element={<QuizSessionPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/account" element={<AccountPage />} />
-                <Route path="/cybersecurity-coach" element={<CybersecurityCoach />} />
                 <Route path="/practice" element={<PracticePage />} />
               </Route>
             </Route>
