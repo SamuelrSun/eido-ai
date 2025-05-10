@@ -54,7 +54,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     {
       icon: <Search className="mr-2 h-5 w-5" />,
       label: "Super Tutor",
-      to: "/super-stu",
+      to: "/super-tutor",
       widgetId: "supertutor" as WidgetType
     },
     {

@@ -1,3 +1,4 @@
+
 import { createContext, useState, useContext, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +41,7 @@ export const ClassWidgetsProvider = ({
 }: ClassWidgetsProviderProps) => {
   const { toast } = useToast();
   const [localIsLoading, setLocalIsLoading] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   
   const storageKey = classId ? `session:class_widgets_${classId}` : undefined;
   
@@ -56,6 +58,8 @@ export const ClassWidgetsProvider = ({
 
   // Load class widgets from session storage or use defaults
   useEffect(() => {
+    if (initialLoadDone) return; // Prevent re-loading after initial load
+    
     const loadClassWidgets = () => {
       setLocalIsLoading(true);
       try {
@@ -69,6 +73,7 @@ export const ClassWidgetsProvider = ({
                 setWidgets(parsedWidgets);
                 console.log(`Loaded widgets for class ${classId}:`, parsedWidgets);
                 setLocalIsLoading(false);
+                setInitialLoadDone(true);
                 return;
               }
             } catch (e) {
@@ -86,6 +91,7 @@ export const ClassWidgetsProvider = ({
               setWidgets(parsedClass.enabledWidgets);
               console.log('Using widgets from active class:', parsedClass.enabledWidgets);
               setLocalIsLoading(false);
+              setInitialLoadDone(true);
               return;
             }
           } catch (e) {
@@ -101,15 +107,18 @@ export const ClassWidgetsProvider = ({
         setWidgets(defaultWidgets);
       } finally {
         setLocalIsLoading(false);
+        setInitialLoadDone(true);
       }
     };
 
     loadClassWidgets();
-  }, [classId, defaultWidgets, setWidgets]);
+  }, [classId, defaultWidgets, setWidgets, initialLoadDone]);
 
   // Save widgets to session storage when they change
   useEffect(() => {
-    if (!localIsLoading && !baseIsLoading && classId) {
+    if (!initialLoadDone) return; // Don't save during initial load
+    
+    if (classId) {
       try {
         sessionStorage.setItem(`class_widgets_${classId}`, JSON.stringify(enabledWidgets));
         
@@ -135,7 +144,7 @@ export const ClassWidgetsProvider = ({
         });
       }
     }
-  }, [enabledWidgets, classId, localIsLoading, baseIsLoading, toast]);
+  }, [enabledWidgets, classId, toast, initialLoadDone]);
 
   // Custom toggle wrapper
   const toggleWidget = (widget: WidgetType) => {

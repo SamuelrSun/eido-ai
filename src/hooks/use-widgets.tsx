@@ -30,6 +30,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const { toast } = useToast();
   const [localIsLoading, setLocalIsLoading] = useState<boolean>(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   
   const {
     enabledWidgets,
@@ -64,6 +65,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
           setWidgets(DEFAULT_WIDGETS);
         }
         setLocalIsLoading(false);
+        setInitialLoadDone(true);
       }
     });
 
@@ -77,6 +79,8 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
 
   // Load user widgets when user changes
   useEffect(() => {
+    if (initialLoadDone) return; // Prevent reloading after initial load
+    
     const loadUserWidgets = async () => {
       setLocalIsLoading(true);
       
@@ -146,18 +150,19 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
         setWidgets(DEFAULT_WIDGETS);
       } finally {
         setLocalIsLoading(false);
+        setInitialLoadDone(true);
       }
     };
 
     // Load widgets whenever user state changes
     loadUserWidgets();
-  }, [user, toast, setWidgets]);
+  }, [user, toast, setWidgets, initialLoadDone]);
 
   // Save widget changes to database when they change
   useEffect(() => {
+    if (!initialLoadDone) return; // Avoid saving during initial load
+    
     const saveWidgets = async () => {
-      if (localIsLoading || baseIsLoading) return; // Avoid saving during initial load
-      
       try {
         console.log("Saving widgets:", enabledWidgets);
         
@@ -194,7 +199,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
     if (!localIsLoading && !baseIsLoading) {
       saveWidgets();
     }
-  }, [enabledWidgets, user, localIsLoading, baseIsLoading, toast]);
+  }, [enabledWidgets, user, localIsLoading, baseIsLoading, toast, initialLoadDone]);
 
   // Custom toggle wrapper that handles database updates
   const toggleWidget = (widget: WidgetType) => {
