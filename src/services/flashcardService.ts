@@ -74,19 +74,21 @@ export const flashcardService = {
     const classTitle = activeClass ? JSON.parse(activeClass).title : null;
     
     // Create an object with snake_case properties for the database
-    // Make sure we're using the field names expected by the database
+    // Make sure we're using field names as expected by the database schema
+    const dbDeck = {
+      title: deck.title,
+      description: deck.description,
+      color: deck.color,
+      card_count: deck.cardCount,
+      due_cards: deck.dueCards,
+      new_cards: deck.newCards,
+      user_id: deck.userId,
+      class_title: classTitle // Add class_title to associate with specific class
+    };
+
     const { data, error } = await supabase
       .from('decks')
-      .insert({
-        title: deck.title,
-        description: deck.description,
-        color: deck.color,
-        card_count: deck.cardCount,
-        due_cards: deck.dueCards,
-        new_cards: deck.newCards,
-        user_id: deck.userId,
-        class_title: classTitle // Add class_title to associate with specific class
-      })
+      .insert(dbDeck)
       .select()
       .single();
 
@@ -123,7 +125,8 @@ export const flashcardService = {
       front: card.front,
       back: card.back,
       difficulty: 'medium',
-      next_review: new Date().toISOString()
+      next_review: new Date().toISOString(),
+      review_count: 0
     }));
 
     const { error } = await supabase
