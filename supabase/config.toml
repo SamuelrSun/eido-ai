@@ -45,10 +45,6 @@ name = "generate-quiz"
 verify_jwt = true
 
 [[functions]]
-name = "process-syllabus"
-verify_jwt = true
-
-[[functions]]
 name = "list-vector-store-files"
 verify_jwt = true
 

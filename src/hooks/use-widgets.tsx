@@ -1,8 +1,9 @@
+
 import { createContext, useState, useContext, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-export type WidgetType = "flashcards" | "quizzes" | "calendar" | "supertutor" | "database" | "practice";
+export type WidgetType = "flashcards" | "quizzes" | "supertutor" | "database";
 
 interface WidgetsContextType {
   enabledWidgets: WidgetType[];
@@ -99,7 +100,7 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
             // Convert string array to WidgetType array with type safety
             const widgets = data.enabled_widgets
               .filter((widget: string) => 
-                ["flashcards", "quizzes", "supertutor", "database", "practice"].includes(widget)
+                ["flashcards", "quizzes", "supertutor", "database"].includes(widget)
               ) as WidgetType[];
             
             setEnabledWidgets(widgets);

@@ -5,9 +5,7 @@ import {
   Search,
   BookOpen,
   SquareCheck,
-  Calendar,
-  Database,
-  FileInput
+  Database
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
@@ -41,12 +39,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       label: "Home",
       to: "/",
       exact: true
-    },
-    {
-      icon: <Calendar className="mr-2 h-5 w-5" />,
-      label: "Calendar",
-      to: "/calendar",
-      exact: false
     }
   ];
   
@@ -75,12 +67,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       label: "Quizzes",
       to: "/quizzes",
       widgetId: "quizzes" as WidgetType
-    },
-    {
-      icon: <FileInput className="mr-2 h-5 w-5" />,
-      label: "Practice",
-      to: "/practice",
-      widgetId: "practice" as WidgetType
     }
   ];
   
