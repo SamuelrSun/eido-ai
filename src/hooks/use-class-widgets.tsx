@@ -57,7 +57,7 @@ export const ClassWidgetsProvider = ({
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load class widgets from database or session storage
+  // Load class widgets from database
   useEffect(() => {
     const loadClassWidgets = async () => {
       setIsLoading(true);
@@ -67,7 +67,7 @@ export const ClassWidgetsProvider = ({
           console.log(`Attempting to load widgets for class ${classId} from database`);
           const { data, error } = await supabase
             .from('class_openai_configs')
-            .select('class_title')
+            .select('*')
             .eq('class_title', classId)
             .eq('user_id', user.id)
             .maybeSingle();
@@ -76,58 +76,39 @@ export const ClassWidgetsProvider = ({
             console.error("Error loading class from database:", error);
             throw error;
           } else if (data) {
-            console.log(`Found class ${classId} in database`);
-            // If class exists in database, try to load from session storage first
-            const storedWidgets = sessionStorage.getItem(`class_widgets_${classId}`);
-            if (storedWidgets) {
-              try {
-                const parsedWidgets = JSON.parse(storedWidgets);
-                setEnabledWidgets(parsedWidgets);
-                console.log(`Loaded widgets for class ${classId} from session:`, parsedWidgets);
-                setIsLoading(false);
-                return;
-              } catch (error) {
-                console.error("Error parsing stored widgets:", error);
-              }
-            }
-          }
-        }
-        
-        // Try to load from classId session storage
-        if (classId) {
-          const storedWidgets = sessionStorage.getItem(`class_widgets_${classId}`);
-          if (storedWidgets) {
+            console.log(`Found class ${classId} in database:`, data);
+            
+            // Try to update active class in session storage
             try {
-              const parsedWidgets = JSON.parse(storedWidgets);
-              setEnabledWidgets(parsedWidgets);
-              console.log(`Loaded widgets for class ${classId}:`, parsedWidgets);
-              setIsLoading(false);
-              return;
-            } catch (error) {
-              console.error("Error parsing stored widgets:", error);
+              const activeClass = sessionStorage.getItem('activeClass');
+              if (activeClass) {
+                const parsedClass = JSON.parse(activeClass);
+                if (parsedClass.title === classId) {
+                  // If the active class is this class, load the enabled widgets from database
+                  const storedWidgets = data.enabled_widgets || defaultWidgets;
+                  setEnabledWidgets(storedWidgets);
+                  console.log(`Loaded widgets for class ${classId} from database:`, storedWidgets);
+                  setIsLoading(false);
+                  return;
+                }
+              }
+            } catch (e) {
+              console.error("Error updating active class:", e);
             }
+            
+            // If no enabled_widgets found in the database record, use defaults
+            setEnabledWidgets(defaultWidgets);
+            console.log(`No widgets found in database for class ${classId}, using defaults:`, defaultWidgets);
+          } else {
+            // Class not found in database, use defaults
+            setEnabledWidgets(defaultWidgets);
+            console.log(`Class ${classId} not found in database, using defaults:`, defaultWidgets);
           }
+        } else {
+          // No user authenticated or no class ID, use defaults
+          setEnabledWidgets(defaultWidgets);
+          console.log('No user or classId, using default widgets:', defaultWidgets);
         }
-        
-        // Try to load from active class
-        const activeClass = sessionStorage.getItem('activeClass');
-        if (activeClass) {
-          try {
-            const parsedClass = JSON.parse(activeClass);
-            if (parsedClass.enabledWidgets) {
-              setEnabledWidgets(parsedClass.enabledWidgets);
-              console.log('Using widgets from active class:', parsedClass.enabledWidgets);
-              setIsLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.error("Error parsing active class:", e);
-          }
-        }
-        
-        // Fall back to defaults
-        setEnabledWidgets(defaultWidgets);
-        console.log('Using default widgets:', defaultWidgets);
       } catch (error) {
         console.error("Error loading class widgets:", error);
         setEnabledWidgets(defaultWidgets);
@@ -139,11 +120,42 @@ export const ClassWidgetsProvider = ({
     loadClassWidgets();
   }, [classId, defaultWidgets, user]);
 
-  // Save widgets to session storage when they change
+  // Save widgets to database when they change
   useEffect(() => {
-    if (!isLoading && classId) {
+    const saveWidgets = async () => {
+      if (isLoading || !user || !classId) return;
+      
       try {
-        sessionStorage.setItem(`class_widgets_${classId}`, JSON.stringify(enabledWidgets));
+        console.log(`Saving widgets for class ${classId} to database:`, enabledWidgets);
+        
+        // Try to update in database
+        const { error } = await supabase
+          .from('class_openai_configs')
+          .update({ 
+            enabled_widgets: enabledWidgets,
+            updated_at: new Date().toISOString()
+          })
+          .eq('class_title', classId)
+          .eq('user_id', user.id);
+          
+        if (error) {
+          // If update fails, it might be because the record doesn't exist yet
+          console.log('Update failed, trying to insert:', error);
+          
+          // Try to insert a new record
+          const { error: insertError } = await supabase
+            .from('class_openai_configs')
+            .insert({ 
+              class_title: classId,
+              user_id: user.id,
+              enabled_widgets: enabledWidgets 
+            });
+            
+          if (insertError) {
+            console.error("Error inserting class widgets to database:", insertError);
+            throw insertError;
+          }
+        }
         
         // Also update the active class if this is the active class
         const activeClass = sessionStorage.getItem('activeClass');
@@ -166,8 +178,10 @@ export const ClassWidgetsProvider = ({
           variant: "destructive",
         });
       }
-    }
-  }, [enabledWidgets, classId, isLoading, toast]);
+    };
+
+    saveWidgets();
+  }, [enabledWidgets, classId, isLoading, toast, user]);
 
   const toggleWidget = (widget: WidgetType) => {
     console.log("Toggling widget for class:", widget);

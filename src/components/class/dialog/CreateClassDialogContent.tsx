@@ -90,6 +90,24 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
             setAssistantId(config.assistantId || "");
             setShowOpenAIConfig(true);
           }
+          
+          // Fetch the class record to get any other data
+          const { data, error } = await supabase
+            .from('class_openai_configs')
+            .select('*')
+            .eq('class_title', initialData.title)
+            .eq('user_id', user.id)
+            .maybeSingle();
+            
+          if (!error && data) {
+            // Set data from database
+            setColor(data.color || initialData.color || "blue-300");
+            setEmoji(data.emoji || initialData.emoji || "");
+            setProfessor(data.professor || initialData.professor || "");
+            setClassTime(data.class_time || initialData.classTime || "");
+            setClassroom(data.classroom || initialData.classroom || "");
+            setSelectedWidgets(data.enabled_widgets || initialData.enabledWidgets || ["flashcards", "quizzes"]);
+          }
         } catch (error) {
           console.error("Error fetching OpenAI config:", error);
         }
@@ -151,7 +169,23 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     
     console.log("Updating class data:", classData);
     onClassCreate(classData);
-  }, [title, professor, classTime, classroom, color, selectedWidgets, emoji, openAIApiKey, vectorStoreId, assistantId, onClassCreate]);
+    
+    // If user is authenticated and in edit mode, also save to database
+    if (user && isEditing && title) {
+      classOpenAIConfigService.saveConfigForClass(
+        title, 
+        classData.openAIConfig || {}, 
+        color,
+        emoji,
+        professor,
+        classTime,
+        classroom,
+        selectedWidgets
+      ).catch(error => {
+        console.error("Error saving class config:", error);
+      });
+    }
+  }, [title, professor, classTime, classroom, color, selectedWidgets, emoji, openAIApiKey, vectorStoreId, assistantId, onClassCreate, user, isEditing]);
 
   const handleToggleWidget = (id: string) => {
     setSelectedWidgets(prev =>

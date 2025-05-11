@@ -9,7 +9,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CreateClassDialogContent } from "./dialog/CreateClassDialogContent";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface CreateClassDialogProps {
   open: boolean;
@@ -37,13 +40,55 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
   const [isFormValid, setIsFormValid] = useState(false);
   // Reference to form data for submission
   const [formData, setFormData] = useState<ClassData | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const { toast } = useToast();
   
-  const handleSubmit = () => {
+  // Check for authenticated user
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+    };
+    
+    checkAuth();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
+  
+  const handleSubmit = async () => {
     if (formData && formData.title.trim()) {
-      onClassCreate(formData);
-      onOpenChange(false);
-      setFormData(null);
-      setIsFormValid(false);
+      try {
+        // If user is authenticated, save to database first
+        if (user) {
+          await classOpenAIConfigService.saveConfigForClass(
+            formData.title, 
+            formData.openAIConfig || {},
+            formData.color,
+            formData.emoji,
+            formData.professor,
+            formData.classTime,
+            formData.classroom,
+            formData.enabledWidgets
+          );
+        }
+        
+        // Then call the parent callback
+        onClassCreate(formData);
+        onOpenChange(false);
+        setFormData(null);
+        setIsFormValid(false);
+      } catch (error) {
+        console.error("Error saving class:", error);
+        toast({
+          title: "Error creating class",
+          description: "There was a problem saving your class data.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -77,7 +122,7 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
           <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!isFormValid}>
+          <Button onClick={handleSubmit} disabled={!isFormValid || (user === null)}>
             Create Class
           </Button>
         </DialogFooter>

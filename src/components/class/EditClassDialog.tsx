@@ -13,6 +13,8 @@ import { useState, useEffect } from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ClassData } from "./CreateClassDialog";
 import { useToast } from "@/hooks/use-toast";
+import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EditClassDialogProps {
   open: boolean;
@@ -35,6 +37,23 @@ export function EditClassDialog({
   const [formData, setFormData] = useState<ClassData | null>(null);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const { toast } = useToast();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    // Check for authenticated user
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+    };
+    
+    checkAuth();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (initialData && open) {
@@ -43,14 +62,38 @@ export function EditClassDialog({
     }
   }, [initialData, open]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (formData && formData.title.trim()) {
-      onClassUpdate(formData);
-      onOpenChange(false);
-      toast({
-        title: "Class updated",
-        description: `${formData.title} has been updated successfully.`
-      });
+      try {
+        // If user is authenticated, save to database first
+        if (user) {
+          await classOpenAIConfigService.saveConfigForClass(
+            formData.title, 
+            formData.openAIConfig || {},
+            formData.color,
+            formData.emoji,
+            formData.professor,
+            formData.classTime,
+            formData.classroom,
+            formData.enabledWidgets
+          );
+        }
+        
+        // Then call the parent callback
+        onClassUpdate(formData);
+        onOpenChange(false);
+        toast({
+          title: "Class updated",
+          description: `${formData.title} has been updated successfully.`
+        });
+      } catch (error) {
+        console.error("Error updating class:", error);
+        toast({
+          title: "Error updating class",
+          description: "There was a problem saving your class data.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -63,14 +106,29 @@ export function EditClassDialog({
     setIsFormValid(!!data.title.trim());
   };
 
-  const handleDelete = () => {
-    onClassDelete();
-    setShowDeleteAlert(false);
-    onOpenChange(false);
-    toast({
-      title: "Class deleted",
-      description: `${initialData.title} has been removed from your dashboard.`
-    });
+  const handleDelete = async () => {
+    try {
+      // If user is authenticated, delete from database first
+      if (user && initialData.title) {
+        await classOpenAIConfigService.deleteClass(initialData.title);
+      }
+      
+      // Then call the parent callback
+      onClassDelete();
+      setShowDeleteAlert(false);
+      onOpenChange(false);
+      toast({
+        title: "Class deleted",
+        description: `${initialData.title} has been removed from your dashboard.`
+      });
+    } catch (error) {
+      console.error("Error deleting class:", error);
+      toast({
+        title: "Error deleting class",
+        description: "There was a problem removing your class data.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -103,7 +161,7 @@ export function EditClassDialog({
                 Delete Class
               </Button>
             </div>
-            <Button onClick={handleSubmit} disabled={!isFormValid}>
+            <Button onClick={handleSubmit} disabled={!isFormValid || (user === null)}>
               Update Class
             </Button>
           </DialogFooter>
