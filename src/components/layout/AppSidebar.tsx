@@ -50,7 +50,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     }
   ];
   
-  // Define all possible widget nav items
   const widgetNavItems = [
     {
       icon: <Search className="mr-2 h-5 w-5" />,
@@ -83,9 +82,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       widgetId: "practice" as WidgetType
     }
   ];
-  
-  console.log("Active class name:", activeClassName);
-  console.log("Enabled widgets in sidebar:", enabledWidgets);
   
   // Filter widget nav items by enabled widgets for the current class
   const visibleWidgetNavItems = widgetNavItems.filter(item => 

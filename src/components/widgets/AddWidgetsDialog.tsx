@@ -80,21 +80,6 @@ export function AddWidgetsDialog({
     toEnable.forEach(w => toggleWidget(w));
     toDisable.forEach(w => toggleWidget(w));
     
-    // Update active class in session storage if in class mode
-    if (classMode) {
-      try {
-        const activeClass = sessionStorage.getItem('activeClass');
-        if (activeClass) {
-          const parsedClass = JSON.parse(activeClass);
-          parsedClass.enabledWidgets = localEnabledWidgets;
-          sessionStorage.setItem('activeClass', JSON.stringify(parsedClass));
-          console.log('Updated active class widgets:', localEnabledWidgets);
-        }
-      } catch (error) {
-        console.error("Error updating active class widgets:", error);
-      }
-    }
-    
     onOpenChange(false);
   };
 

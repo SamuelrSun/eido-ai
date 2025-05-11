@@ -45,23 +45,7 @@ export const ClassWidgetsProvider = ({
     const loadClassWidgets = () => {
       setIsLoading(true);
       try {
-        // Try to load from active class first (most up-to-date source)
-        const activeClass = sessionStorage.getItem('activeClass');
-        if (activeClass) {
-          try {
-            const parsedClass = JSON.parse(activeClass);
-            if (parsedClass.enabledWidgets && Array.isArray(parsedClass.enabledWidgets)) {
-              console.log('Using widgets from active class:', parsedClass.enabledWidgets);
-              setEnabledWidgets(parsedClass.enabledWidgets);
-              setIsLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.error("Error parsing active class:", e);
-          }
-        }
-        
-        // Then try to load from session storage using class ID
+        // Try to load from session storage using class ID
         if (classId) {
           const storedWidgets = sessionStorage.getItem(`class_widgets_${classId}`);
           if (storedWidgets) {
@@ -70,6 +54,22 @@ export const ClassWidgetsProvider = ({
             console.log(`Loaded widgets for class ${classId}:`, parsedWidgets);
             setIsLoading(false);
             return;
+          }
+        }
+        
+        // Try to load from active class
+        const activeClass = sessionStorage.getItem('activeClass');
+        if (activeClass) {
+          try {
+            const parsedClass = JSON.parse(activeClass);
+            if (parsedClass.enabledWidgets) {
+              setEnabledWidgets(parsedClass.enabledWidgets);
+              console.log('Using widgets from active class:', parsedClass.enabledWidgets);
+              setIsLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.error("Error parsing active class:", e);
           }
         }
         

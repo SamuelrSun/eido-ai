@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from "react";
-import { BookOpen, SquareCheck } from "lucide-react";
+import { BookOpen, Calendar, SquareCheck } from "lucide-react";
 import { ClassInfoSection } from "./ClassInfoSection";
 import { ColorSelectionSection } from "./ColorSelectionSection";
 import { OpenAIConfigSection } from "./OpenAIConfigSection";
@@ -31,6 +32,13 @@ const availableWidgets = [
     description: "Test your knowledge with adaptive quizzes",
     path: "/quizzes",
     icon: <SquareCheck className="h-5 w-5" />,
+  },
+  {
+    id: "calendar",
+    name: "Calendar",
+    description: "Track deadlines, exams and important dates",
+    path: "/calendar",
+    icon: <Calendar className="h-5 w-5" />,
   },
 ];
 
