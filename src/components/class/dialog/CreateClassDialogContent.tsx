@@ -72,6 +72,8 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
 
   console.log("Initial emoji:", initialData?.emoji);
   console.log("Current emoji state:", emoji);
+  console.log("Initial widgets:", initialData?.enabledWidgets);
+  console.log("Current widgets state:", selectedWidgets);
 
   // Check for authenticated user
   useEffect(() => {
@@ -120,9 +122,14 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
             setClassTime(configData.class_time || initialData.classTime || "");
             setClassroom(configData.classroom || initialData.classroom || "");
             
-            // For enabled_widgets, we need to handle it differently since it might not exist in the database schema
-            const enabledWidgets = configData.enabled_widgets || initialData.enabledWidgets || ["flashcards", "quizzes"];
-            setSelectedWidgets(Array.isArray(enabledWidgets) ? enabledWidgets : ["flashcards", "quizzes"]);
+            // For enabled_widgets, make sure it exists and is an array
+            if (configData.enabled_widgets && Array.isArray(configData.enabled_widgets)) {
+              setSelectedWidgets(configData.enabled_widgets);
+              console.log("Setting widgets from DB:", configData.enabled_widgets);
+            } else {
+              setSelectedWidgets(initialData.enabledWidgets || ["flashcards", "quizzes"]);
+              console.log("Setting widgets from initialData or default:", initialData.enabledWidgets || ["flashcards", "quizzes"]);
+            }
           }
         } catch (error) {
           console.error("Error fetching OpenAI config:", error);
@@ -150,7 +157,14 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
       setProfessor(initialData.professor || "");
       setClassTime(initialData.classTime || "");
       setClassroom(initialData.classroom || "");
-      setSelectedWidgets(initialData.enabledWidgets || ["flashcards", "quizzes"]);
+      
+      // Ensure enabledWidgets is always an array
+      if (initialData.enabledWidgets && Array.isArray(initialData.enabledWidgets)) {
+        setSelectedWidgets(initialData.enabledWidgets);
+      } else {
+        setSelectedWidgets(["flashcards", "quizzes"]);
+      }
+      
       setOpenAIApiKey(initialData.openAIConfig?.apiKey || "");
       setVectorStoreId(initialData.openAIConfig?.vectorStoreId || "");
       setAssistantId(initialData.openAIConfig?.assistantId || "");
@@ -163,12 +177,15 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
   useEffect(() => {
     if (!title) return;
     
+    // Ensure selectedWidgets is always an array
+    const safeSelectedWidgets = Array.isArray(selectedWidgets) ? selectedWidgets : ["flashcards", "quizzes"];
+    
     const classData: ClassData = {
       title,
       professor,
       classTime,
       classroom,
-      enabledWidgets: selectedWidgets,
+      enabledWidgets: safeSelectedWidgets,
       emoji
     };
     
@@ -193,7 +210,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
         professor,
         classTime,
         classroom,
-        selectedWidgets
+        safeSelectedWidgets
       ).catch(error => {
         console.error("Error saving class config:", error);
       });
@@ -201,9 +218,18 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
   }, [title, professor, classTime, classroom, selectedWidgets, emoji, openAIApiKey, vectorStoreId, assistantId, onClassCreate, user, isEditing]);
 
   const handleToggleWidget = (id: string) => {
-    setSelectedWidgets(prev =>
-      prev.includes(id) ? prev.filter(widgetId => widgetId !== id) : [...prev, id]
-    );
+    console.log("Toggle widget:", id);
+    console.log("Current widgets:", selectedWidgets);
+    
+    setSelectedWidgets(prev => {
+      // Ensure prev is an array
+      const safeWidgets = Array.isArray(prev) ? prev : ["flashcards", "quizzes"];
+      
+      // Toggle the widget
+      return safeWidgets.includes(id) 
+        ? safeWidgets.filter(widgetId => widgetId !== id) 
+        : [...safeWidgets, id];
+    });
   };
 
   const handleSelectEmoji = (selectedEmoji: string) => {

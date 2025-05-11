@@ -99,6 +99,7 @@ export type Database = {
           classroom: string | null
           created_at: string | null
           emoji: string | null
+          enabled_widgets: string[] | null
           id: string
           professor: string | null
           updated_at: string | null
@@ -113,6 +114,7 @@ export type Database = {
           classroom?: string | null
           created_at?: string | null
           emoji?: string | null
+          enabled_widgets?: string[] | null
           id?: string
           professor?: string | null
           updated_at?: string | null
@@ -127,6 +129,7 @@ export type Database = {
           classroom?: string | null
           created_at?: string | null
           emoji?: string | null
+          enabled_widgets?: string[] | null
           id?: string
           professor?: string | null
           updated_at?: string | null

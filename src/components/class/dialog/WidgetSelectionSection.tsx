@@ -27,6 +27,9 @@ export function WidgetSelectionSection({
 }: WidgetSelectionSectionProps) {
   const [isAddWidgetsOpen, setIsAddWidgetsOpen] = useState(false);
   
+  // Ensure selectedWidgets is always an array
+  const safeSelectedWidgets = Array.isArray(selectedWidgets) ? selectedWidgets : ["flashcards", "quizzes"];
+  
   // Display only the recommended widgets (limit to 3)
   const recommendedWidgets = availableWidgets.slice(0, 3);
   
@@ -41,7 +44,7 @@ export function WidgetSelectionSection({
             name={widget.name}
             description={widget.description}
             icon={widget.icon}
-            isSelected={selectedWidgets.includes(widget.id)}
+            isSelected={safeSelectedWidgets.includes(widget.id)}
             onToggle={onToggleWidget}
           />
         ))}

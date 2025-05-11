@@ -35,13 +35,10 @@ export interface ClassData {
 }
 
 export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateClassDialogProps) {
-  // State to track form validity (for the create button)
   const [isFormValid, setIsFormValid] = useState(false);
-  // Reference to form data for submission
   const [formData, setFormData] = useState<ClassData | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
   const { toast } = useToast();
   
   // Check for authenticated user
@@ -49,19 +46,17 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        console.log("Auth session check:", session);
+        console.log("Auth session check in CreateClassDialog:", session);
         setUser(session?.user || null);
-        setAuthChecked(true);
       } catch (error) {
-        console.error("Error checking auth:", error);
-        setAuthChecked(true);
+        console.error("Error checking auth in CreateClassDialog:", error);
       }
     };
     
     checkAuth();
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state change:", event, session?.user?.id);
+      console.log("Auth state change in CreateClassDialog:", event, session?.user?.id);
       setUser(session?.user || null);
     });
     
@@ -101,7 +96,7 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
         formData.professor,
         formData.classTime,
         formData.classroom,
-        formData.enabledWidgets
+        formData.enabledWidgets || ["flashcards", "quizzes"]
       );
       
       // Then call the parent callback

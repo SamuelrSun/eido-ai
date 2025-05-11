@@ -128,7 +128,7 @@ export const classOpenAIConfigService = {
         professor: professor,
         class_time: classTime,
         classroom: classroom,
-        enabled_widgets: enabledWidgets || [],
+        enabled_widgets: enabledWidgets || ["flashcards", "quizzes"],
         user_id: session.user.id,
         updated_at: new Date().toISOString()
       };
