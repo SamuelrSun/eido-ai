@@ -148,11 +148,12 @@ export function EditClassDialog({
     
     try {
       setIsDeleting(true);
-      // Delete from database first
+      setShowDeleteAlert(false); // Close the confirmation dialog immediately
+      
+      // Delete from database first - with proper error handling
       await classOpenAIConfigService.deleteClass(initialData.title);
       
-      // Close the alert and dialog immediately
-      setShowDeleteAlert(false);
+      // Close the dialog immediately
       onOpenChange(false);
       
       // Then call the parent callback
@@ -169,6 +170,7 @@ export function EditClassDialog({
         description: error.message || "There was a problem removing your class data.",
         variant: "destructive",
       });
+      // Don't close the dialog if there's an error
     } finally {
       setIsDeleting(false);
     }
@@ -176,7 +178,15 @@ export function EditClassDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog 
+        open={open} 
+        onOpenChange={(newOpen) => {
+          // Only allow changes if not in the middle of an operation
+          if (!isDeleting && !isSaving) {
+            onOpenChange(newOpen);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-2xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Edit Class</DialogTitle>
@@ -202,7 +212,7 @@ export function EditClassDialog({
                 onClick={() => setShowDeleteAlert(true)}
                 disabled={isDeleting || isSaving}
               >
-                Delete Class
+                {isDeleting ? "Deleting..." : "Delete Class"}
               </Button>
             </div>
             <Button 
@@ -215,7 +225,15 @@ export function EditClassDialog({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+      <AlertDialog 
+        open={showDeleteAlert} 
+        onOpenChange={(newOpen) => {
+          // Only allow changes if not in the middle of deleting
+          if (!isDeleting) {
+            setShowDeleteAlert(newOpen);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>

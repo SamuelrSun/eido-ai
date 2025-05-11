@@ -313,33 +313,34 @@ export const classOpenAIConfigService = {
       
       console.log(`User authenticated, deleting class for user: ${session.user.id}`);
       
-      // Delete from Supabase
-      const { error } = await supabase
+      // Delete from Supabase with better error handling
+      const { error, count } = await supabase
         .from('class_openai_configs')
-        .delete()
+        .delete({ count: 'exact' }) // Get count of affected rows
         .eq('class_title', classTitle)
         .eq('user_id', session.user.id);
         
       if (error) {
         console.error('Error deleting class from Supabase:', error);
         throw new Error(`Failed to delete class: ${error.message}`);
-      } else {
-        console.log(`Successfully deleted class '${classTitle}' from Supabase`);
-        
-        // Also clean up session storage if this was the active class
-        try {
-          const activeClass = sessionStorage.getItem('activeClass');
-          if (activeClass) {
-            const parsedClass = JSON.parse(activeClass);
-            if (parsedClass.title === classTitle) {
-              sessionStorage.removeItem('activeClass');
-              console.log('Removed deleted class from session storage');
-            }
+      } 
+      
+      console.log(`Successfully deleted ${count} class record(s) with title '${classTitle}' from Supabase`);
+      
+      // Also clean up session storage if this was the active class
+      try {
+        const activeClass = sessionStorage.getItem('activeClass');
+        if (activeClass) {
+          const parsedClass = JSON.parse(activeClass);
+          if (parsedClass.title === classTitle) {
+            sessionStorage.removeItem('activeClass');
+            console.log('Removed deleted class from session storage');
           }
-        } catch (e) {
-          console.error('Error cleaning up session storage:', e);
         }
+      } catch (e) {
+        console.error('Error cleaning up session storage:', e);
       }
+      
     } catch (error: any) {
       console.error('Error deleting class:', error);
       throw new Error(error.message || 'Error deleting class');

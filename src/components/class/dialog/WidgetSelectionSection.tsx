@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
@@ -26,7 +26,7 @@ export function WidgetSelectionSection({
   availableWidgets,
   onToggleWidget
 }: WidgetSelectionSectionProps) {
-  const [isAddWidgetsOpen, setIsAddWidgetsOpen] = useState(false);
+  const [isAddWidgetsOpen, setIsAddWidgetsOpen] = React.useState(false);
   const { toast } = useToast();
   
   // Ensure selectedWidgets is always an array with default values if not

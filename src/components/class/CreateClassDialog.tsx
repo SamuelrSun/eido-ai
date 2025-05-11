@@ -117,10 +117,15 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
         enabledWidgets: safeEnabledWidgets
       };
       
-      onClassCreate(safeFormData);
+      // Close dialog first before notifying parent component
       onOpenChange(false);
+      
+      // Then notify the parent component
+      onClassCreate(safeFormData);
+      
       setFormData(null);
       setIsFormValid(false);
+      
       toast({
         title: "Class created successfully",
         description: `${formData.title} has been added to your dashboard.`,
@@ -149,11 +154,14 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
   };
 
   return (
-    <Dialog open={open} onOpenChange={(newOpen) => {
-      if (!isSubmitting) {
-        onOpenChange(newOpen);
-      }
-    }}>
+    <Dialog 
+      open={open} 
+      onOpenChange={(newOpen) => {
+        if (!isSubmitting) {
+          onOpenChange(newOpen);
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-2xl max-h-[90vh]">
         <DialogHeader className="text-left">
           <DialogTitle>Create New Class</DialogTitle>
