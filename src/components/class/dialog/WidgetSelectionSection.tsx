@@ -27,11 +27,13 @@ export function WidgetSelectionSection({
 }: WidgetSelectionSectionProps) {
   const [isAddWidgetsOpen, setIsAddWidgetsOpen] = useState(false);
   
-  // Ensure selectedWidgets is always an array
+  // Ensure selectedWidgets is always an array with default values if not
   const safeSelectedWidgets = Array.isArray(selectedWidgets) ? selectedWidgets : ["flashcards", "quizzes"];
   
   // Display only the recommended widgets (limit to 3)
   const recommendedWidgets = availableWidgets.slice(0, 3);
+  
+  console.log("Widget selection current widgets:", safeSelectedWidgets);
   
   return (
     <div>
@@ -45,7 +47,10 @@ export function WidgetSelectionSection({
             description={widget.description}
             icon={widget.icon}
             isSelected={safeSelectedWidgets.includes(widget.id)}
-            onToggle={onToggleWidget}
+            onToggle={() => {
+              console.log(`Toggling widget ${widget.id}, current state: ${safeSelectedWidgets.includes(widget.id) ? 'selected' : 'not selected'}`);
+              onToggleWidget(widget.id);
+            }}
           />
         ))}
         

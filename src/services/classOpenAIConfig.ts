@@ -100,6 +100,11 @@ export const classOpenAIConfigService = {
     classroom?: string, 
     enabledWidgets?: string[]
   ): Promise<void> => {
+    if (!classTitle) {
+      console.error("Cannot save class with empty title");
+      throw new Error("Class title is required");
+    }
+    
     try {
       console.log(`Saving OpenAI config for class: ${classTitle}`, { 
         config, 
@@ -118,6 +123,9 @@ export const classOpenAIConfigService = {
         throw new Error('Authentication required to save class configuration');
       }
       
+      // Ensure enabled_widgets is always an array
+      const safeEnabledWidgets = Array.isArray(enabledWidgets) ? enabledWidgets : ["flashcards", "quizzes"];
+      
       // Ensure all the data is correctly formatted
       const classData = {
         class_title: classTitle,
@@ -128,13 +136,12 @@ export const classOpenAIConfigService = {
         professor: professor,
         class_time: classTime,
         classroom: classroom,
-        enabled_widgets: enabledWidgets || ["flashcards", "quizzes"],
+        enabled_widgets: safeEnabledWidgets,
         user_id: session.user.id,
         updated_at: new Date().toISOString()
       };
       
       console.log('Saving class data to Supabase:', classData);
-      console.log('User ID for save operation:', session.user.id);
       
       // First check if the record already exists
       const { data, error: fetchError } = await supabase
@@ -281,30 +288,50 @@ export const classOpenAIConfigService = {
    * @param classTitle The title of the class to delete
    */
   deleteClass: async (classTitle: string): Promise<void> => {
+    if (!classTitle || typeof classTitle !== 'string') {
+      console.error('Invalid class title provided for deletion:', classTitle);
+      throw new Error('Valid class title is required for deletion');
+    }
+    
     try {
-      console.log(`Deleting class: ${classTitle}`);
+      console.log(`Attempting to delete class: ${classTitle}`);
       
       // Get the user data from the session
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Always try to delete from Supabase if user is authenticated
-      if (session?.user) {
-        // Delete from Supabase
-        const { error } = await supabase
-          .from('class_openai_configs')
-          .delete()
-          .eq('class_title', classTitle)
-          .eq('user_id', session.user.id);
-          
-        if (error) {
-          console.error('Error deleting class from Supabase:', error);
-          throw error;
-        } else {
-          console.log(`Successfully deleted class '${classTitle}' from Supabase`);
-        }
+      if (!session?.user) {
+        console.error('No authenticated user found when deleting class');
+        throw new Error('Authentication required to delete class configuration');
+      }
+      
+      console.log(`User authenticated, deleting class for user: ${session.user.id}`);
+      
+      // Delete from Supabase
+      const { error } = await supabase
+        .from('class_openai_configs')
+        .delete()
+        .eq('class_title', classTitle)
+        .eq('user_id', session.user.id);
+        
+      if (error) {
+        console.error('Error deleting class from Supabase:', error);
+        throw error;
       } else {
-        console.warn('User not authenticated, cannot delete class data');
-        throw new Error('User must be authenticated to delete class data');
+        console.log(`Successfully deleted class '${classTitle}' from Supabase`);
+        
+        // Also clean up session storage if this was the active class
+        try {
+          const activeClass = sessionStorage.getItem('activeClass');
+          if (activeClass) {
+            const parsedClass = JSON.parse(activeClass);
+            if (parsedClass.title === classTitle) {
+              sessionStorage.removeItem('activeClass');
+              console.log('Removed deleted class from session storage');
+            }
+          }
+        } catch (e) {
+          console.error('Error cleaning up session storage:', e);
+        }
       }
     } catch (error) {
       console.error('Error deleting class:', error);

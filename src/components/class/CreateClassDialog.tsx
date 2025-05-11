@@ -63,6 +63,15 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
     return () => subscription.unsubscribe();
   }, []);
   
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setFormData(null);
+      setIsFormValid(false);
+      setIsSubmitting(false);
+    }
+  }, [open]);
+  
   const handleSubmit = async () => {
     if (!formData || !formData.title.trim()) {
       toast({
@@ -80,13 +89,16 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
       if (!user) {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
-          throw new Error("User must be authenticated to create a class");
+          throw new Error("You must be signed in to create a class");
         }
         setUser(session.user);
       }
       
       console.log("Creating class with user:", user?.id);
       console.log("Class data:", formData);
+      
+      // Ensure enabledWidgets is always an array
+      const safeEnabledWidgets = Array.isArray(formData.enabledWidgets) ? formData.enabledWidgets : ["flashcards", "quizzes"];
       
       // Save to database
       await classOpenAIConfigService.saveConfigForClass(
@@ -96,11 +108,16 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
         formData.professor,
         formData.classTime,
         formData.classroom,
-        formData.enabledWidgets || ["flashcards", "quizzes"]
+        safeEnabledWidgets
       );
       
-      // Then call the parent callback
-      onClassCreate(formData);
+      // Then call the parent callback with safe data
+      const safeFormData = {
+        ...formData,
+        enabledWidgets: safeEnabledWidgets
+      };
+      
+      onClassCreate(safeFormData);
       onOpenChange(false);
       setFormData(null);
       setIsFormValid(false);
@@ -132,7 +149,11 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(newOpen) => {
+      if (!isSubmitting) {
+        onOpenChange(newOpen);
+      }
+    }}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh]">
         <DialogHeader className="text-left">
           <DialogTitle>Create New Class</DialogTitle>

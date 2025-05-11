@@ -175,6 +175,9 @@ const HomePage = () => {
       const classEmoji = classData.emoji || getEmojiForClass(classData.title);
       console.log("Using emoji:", classEmoji);
       
+      // Ensure enabledWidgets is always an array
+      const safeEnabledWidgets = Array.isArray(classData.enabledWidgets) ? classData.enabledWidgets : ["flashcards", "quizzes"];
+      
       // Add the new class to the UI immediately for better user experience
       const newClass: ClassOption = {
         title: classData.title,
@@ -183,7 +186,7 @@ const HomePage = () => {
         classroom: classData.classroom,
         emoji: classEmoji,
         link: "/super-stu",
-        enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
+        enabledWidgets: safeEnabledWidgets,
         openAIConfig: classData.openAIConfig
       };
       
@@ -201,7 +204,7 @@ const HomePage = () => {
             classData.professor,
             classData.classTime,
             classData.classroom,
-            classData.enabledWidgets
+            safeEnabledWidgets
           );
           
           console.log('Class data saved successfully:', classData.title);
@@ -209,6 +212,12 @@ const HomePage = () => {
           // Force a refresh of data by incrementing the refreshTrigger
           setRefreshTrigger(prev => prev + 1);
           
+          toast({
+            title: "Class created!",
+            description: `${classData.title} has been added to your dashboard.`
+          });
+          
+          setIsCreateClassOpen(false);
         } catch (error) {
           console.error('Error storing class data:', error);
           toast({
@@ -218,13 +227,6 @@ const HomePage = () => {
           });
         }
       }
-      
-      toast({
-        title: "Class created!",
-        description: `${classData.title} has been added to your dashboard.`
-      });
-      
-      setIsCreateClassOpen(false);
     } catch (error) {
       console.error("Error creating class:", error);
       toast({
@@ -252,6 +254,9 @@ const HomePage = () => {
         return;
       }
       
+      // Ensure enabledWidgets is always an array
+      const safeEnabledWidgets = Array.isArray(classData.enabledWidgets) ? classData.enabledWidgets : ["flashcards", "quizzes"];
+      
       // Update the class in the UI immediately
       setClassOptions(prev => 
         prev.map(classItem => 
@@ -263,7 +268,7 @@ const HomePage = () => {
                 classTime: classData.classTime,
                 classroom: classData.classroom,
                 emoji: classData.emoji,
-                enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
+                enabledWidgets: safeEnabledWidgets,
                 openAIConfig: classData.openAIConfig
               }
             : classItem
@@ -279,7 +284,7 @@ const HomePage = () => {
           classData.professor,
           classData.classTime,
           classData.classroom,
-          classData.enabledWidgets
+          safeEnabledWidgets
         );
         
         // If the title changed, delete the old class
@@ -291,6 +296,15 @@ const HomePage = () => {
         
         // Force a refresh of data by incrementing the refreshTrigger
         setRefreshTrigger(prev => prev + 1);
+      
+        toast({
+          title: "Class updated",
+          description: `${classData.title} has been updated.`
+        });
+        
+        // Reset state
+        setSelectedClassToEdit(null);
+        setIsEditClassOpen(false);
       } catch (error) {
         console.error('Error updating class data:', error);
         toast({
@@ -299,15 +313,6 @@ const HomePage = () => {
           variant: "destructive"
         });
       }
-      
-      toast({
-        title: "Class updated",
-        description: `${classData.title} has been updated.`
-      });
-      
-      // Reset state
-      setSelectedClassToEdit(null);
-      setIsEditClassOpen(false);
     } catch (error) {
       console.error("Error updating class:", error);
       toast({

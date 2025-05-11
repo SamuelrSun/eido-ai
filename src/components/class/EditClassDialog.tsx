@@ -38,6 +38,8 @@ export function EditClassDialog({
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     // Check for authenticated user
@@ -63,36 +65,53 @@ export function EditClassDialog({
   }, [initialData, open]);
 
   const handleSubmit = async () => {
-    if (formData && formData.title.trim()) {
-      try {
-        // If user is authenticated, save to database first
-        if (user) {
-          await classOpenAIConfigService.saveConfigForClass(
-            formData.title, 
-            formData.openAIConfig || {},
-            formData.emoji,
-            formData.professor,
-            formData.classTime,
-            formData.classroom,
-            formData.enabledWidgets
-          );
-        }
-        
-        // Then call the parent callback
-        onClassUpdate(formData);
-        onOpenChange(false);
-        toast({
-          title: "Class updated",
-          description: `${formData.title} has been updated successfully.`
-        });
-      } catch (error) {
-        console.error("Error updating class:", error);
-        toast({
-          title: "Error updating class",
-          description: "There was a problem saving your class data.",
-          variant: "destructive",
-        });
-      }
+    if (!formData || !formData.title.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please provide a title for your class.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to update your class.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      setIsSaving(true);
+      // If user is authenticated, save to database first
+      await classOpenAIConfigService.saveConfigForClass(
+        formData.title, 
+        formData.openAIConfig || {},
+        formData.emoji,
+        formData.professor,
+        formData.classTime,
+        formData.classroom,
+        formData.enabledWidgets
+      );
+      
+      // Then call the parent callback
+      onClassUpdate(formData);
+      onOpenChange(false);
+      toast({
+        title: "Class updated",
+        description: `${formData.title} has been updated successfully.`
+      });
+    } catch (error: any) {
+      console.error("Error updating class:", error);
+      toast({
+        title: "Error updating class",
+        description: error.message || "There was a problem saving your class data.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -106,11 +125,28 @@ export function EditClassDialog({
   };
 
   const handleDelete = async () => {
+    if (!initialData?.title) {
+      toast({
+        title: "Error deleting class",
+        description: "No class title provided for deletion.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to delete your class.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
-      // If user is authenticated, delete from database first
-      if (user && initialData.title) {
-        await classOpenAIConfigService.deleteClass(initialData.title);
-      }
+      setIsDeleting(true);
+      // Delete from database first
+      await classOpenAIConfigService.deleteClass(initialData.title);
       
       // Then call the parent callback
       onClassDelete();
@@ -120,13 +156,15 @@ export function EditClassDialog({
         title: "Class deleted",
         description: `${initialData.title} has been removed from your dashboard.`
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting class:", error);
       toast({
         title: "Error deleting class",
-        description: "There was a problem removing your class data.",
+        description: error.message || "There was a problem removing your class data.",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -150,18 +188,22 @@ export function EditClassDialog({
           
           <DialogFooter className="flex justify-between sm:justify-between mt-4 pt-2 border-t">
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleCancel}>
+              <Button variant="outline" onClick={handleCancel} disabled={isDeleting || isSaving}>
                 Cancel
               </Button>
               <Button 
                 variant="destructive" 
                 onClick={() => setShowDeleteAlert(true)}
+                disabled={isDeleting || isSaving}
               >
                 Delete Class
               </Button>
             </div>
-            <Button onClick={handleSubmit} disabled={!isFormValid || (user === null)}>
-              Update Class
+            <Button 
+              onClick={handleSubmit} 
+              disabled={!isFormValid || !user || isDeleting || isSaving}
+            >
+              {isSaving ? "Updating..." : "Update Class"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -177,12 +219,13 @@ export function EditClassDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
             >
-              Delete
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
