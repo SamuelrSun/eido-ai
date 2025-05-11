@@ -20,18 +20,18 @@ interface ClassWidgetsProviderProps {
 
 // Enhanced interface to match the database response
 interface ClassOpenAIConfigRow {
-  api_key: string;
-  assistant_id: string;
-  class_time: string;
+  api_key?: string;
+  assistant_id?: string;
+  class_time?: string;
   class_title: string;
-  classroom: string;
-  created_at: string;
-  emoji: string;
+  classroom?: string;
+  created_at?: string;
+  emoji?: string;
   id: string;
-  professor: string;
-  updated_at: string;
-  user_id: string;
-  vector_store_id: string;
+  professor?: string;
+  updated_at?: string;
+  user_id?: string;
+  vector_store_id?: string;
   enabled_widgets?: string[];
 }
 
@@ -61,13 +61,19 @@ export const ClassWidgetsProvider = ({
   // Check for authenticated user
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log("Auth session in class widgets:", session?.user?.id);
+        setUser(session?.user || null);
+      } catch (error) {
+        console.error("Error checking auth in class widgets:", error);
+      }
     };
     
     checkAuth();
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state change in class widgets:", event, session?.user?.id);
       setUser(session?.user || null);
     });
     
@@ -81,7 +87,7 @@ export const ClassWidgetsProvider = ({
       try {
         // Always try to load from database if user is authenticated and class ID exists
         if (user && classId) {
-          console.log(`Attempting to load widgets for class ${classId} from database`);
+          console.log(`Attempting to load widgets for class ${classId} from database with user ID ${user.id}`);
           const { data, error } = await supabase
             .from('class_openai_configs')
             .select('*')
@@ -105,7 +111,7 @@ export const ClassWidgetsProvider = ({
                   const configData = data as ClassOpenAIConfigRow;
                   
                   // Check if enabled_widgets exists in the database response
-                  if (configData.enabled_widgets) {
+                  if (configData.enabled_widgets && Array.isArray(configData.enabled_widgets)) {
                     setEnabledWidgets(configData.enabled_widgets as WidgetType[]);
                     console.log(`Loaded widgets for class ${classId} from database:`, configData.enabled_widgets);
                     setIsLoading(false);
@@ -128,7 +134,11 @@ export const ClassWidgetsProvider = ({
         } else {
           // No user authenticated or no class ID, use defaults
           setEnabledWidgets(defaultWidgets);
-          console.log('No user or classId, using default widgets:', defaultWidgets);
+          if (!user) {
+            console.log('No user authenticated in class widgets, using default widgets:', defaultWidgets);
+          } else if (!classId) {
+            console.log('No classId provided in class widgets, using default widgets:', defaultWidgets);
+          }
         }
       } catch (error) {
         console.error("Error loading class widgets:", error);
@@ -148,6 +158,7 @@ export const ClassWidgetsProvider = ({
       
       try {
         console.log(`Saving widgets for class ${classId} to database:`, enabledWidgets);
+        console.log(`User ID for save: ${user.id}`);
         
         // Try to update in database
         const { error } = await supabase

@@ -232,7 +232,9 @@ export const supabase = createClient<CustomDatabase>(
   SUPABASE_PUBLISHABLE_KEY,
   {
     auth: {
-      persistSession: true
+      persistSession: true,
+      autoRefreshToken: true,
+      storageKey: 'supabase-auth'
     }
   }
 );

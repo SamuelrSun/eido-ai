@@ -41,18 +41,27 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
   const [formData, setFormData] = useState<ClassData | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const { toast } = useToast();
   
   // Check for authenticated user
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log("Auth session check:", session);
+        setUser(session?.user || null);
+        setAuthChecked(true);
+      } catch (error) {
+        console.error("Error checking auth:", error);
+        setAuthChecked(true);
+      }
     };
     
     checkAuth();
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state change:", event, session?.user?.id);
       setUser(session?.user || null);
     });
     
@@ -60,44 +69,59 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
   }, []);
   
   const handleSubmit = async () => {
-    if (formData && formData.title.trim()) {
-      try {
-        setIsSubmitting(true);
-        
-        // If user is authenticated, save to database first
-        if (user) {
-          await classOpenAIConfigService.saveConfigForClass(
-            formData.title, 
-            formData.openAIConfig || {},
-            formData.emoji,
-            formData.professor,
-            formData.classTime,
-            formData.classroom,
-            formData.enabledWidgets
-          );
-        } else {
+    if (!formData || !formData.title.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please provide a title for your class.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      
+      // Double-check authentication
+      if (!user) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
           throw new Error("User must be authenticated to create a class");
         }
-        
-        // Then call the parent callback
-        onClassCreate(formData);
-        onOpenChange(false);
-        setFormData(null);
-        setIsFormValid(false);
-        toast({
-          title: "Class created successfully",
-          description: `${formData.title} has been added to your dashboard.`,
-        });
-      } catch (error) {
-        console.error("Error saving class:", error);
-        toast({
-          title: "Error creating class",
-          description: "There was a problem saving your class data. Please make sure you're signed in and try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsSubmitting(false);
+        setUser(session.user);
       }
+      
+      console.log("Creating class with user:", user?.id);
+      console.log("Class data:", formData);
+      
+      // Save to database
+      await classOpenAIConfigService.saveConfigForClass(
+        formData.title, 
+        formData.openAIConfig || {},
+        formData.emoji,
+        formData.professor,
+        formData.classTime,
+        formData.classroom,
+        formData.enabledWidgets
+      );
+      
+      // Then call the parent callback
+      onClassCreate(formData);
+      onOpenChange(false);
+      setFormData(null);
+      setIsFormValid(false);
+      toast({
+        title: "Class created successfully",
+        description: `${formData.title} has been added to your dashboard.`,
+      });
+    } catch (error: any) {
+      console.error("Error saving class:", error);
+      toast({
+        title: "Error creating class",
+        description: error.message || "There was a problem saving your class data. Please make sure you're signed in and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -133,7 +157,7 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={!isFormValid || (user === null) || isSubmitting}
+            disabled={!isFormValid || !user || isSubmitting}
           >
             {isSubmitting ? "Creating..." : "Create Class"}
           </Button>

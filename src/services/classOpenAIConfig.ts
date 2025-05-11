@@ -52,32 +52,36 @@ export const classOpenAIConfigService = {
       // Always try to get from Supabase first
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (session?.user) {
-        console.log('User authenticated, fetching from Supabase');
-        const { data, error } = await supabase
-          .from('class_openai_configs')
-          .select('*') 
-          .eq('class_title', classTitle)
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        
-        if (error) {
-          console.error('Error retrieving OpenAI configuration from Supabase:', error);
-        } else if (data) {
-          console.log(`Found OpenAI config for class '${classTitle}' in Supabase:`, data);
-          return {
-            apiKey: data.api_key,
-            vectorStoreId: data.vector_store_id,
-            assistantId: data.assistant_id
-          };
-        }
+      if (!session?.user) {
+        console.error('No authenticated user found when getting class config');
+        throw new Error('Authentication required to access class configuration');
+      }
+      
+      console.log('User authenticated, fetching from Supabase with user ID:', session.user.id);
+      const { data, error } = await supabase
+        .from('class_openai_configs')
+        .select('*') 
+        .eq('class_title', classTitle)
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error retrieving OpenAI configuration from Supabase:', error);
+        throw error;
+      } else if (data) {
+        console.log(`Found OpenAI config for class '${classTitle}' in Supabase:`, data);
+        return {
+          apiKey: data.api_key,
+          vectorStoreId: data.vector_store_id,
+          assistantId: data.assistant_id
+        };
       }
       
       console.log(`No OpenAI config found for class '${classTitle}'`);
       return undefined;
     } catch (error) {
       console.error('Error retrieving OpenAI configuration:', error);
-      return undefined;
+      throw error;
     }
   },
 
@@ -109,63 +113,65 @@ export const classOpenAIConfigService = {
       // Get the user data properly from the session
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Always try to save to Supabase if user is authenticated
-      if (session?.user) {
-        // Ensure all the data is correctly formatted
-        const classData = {
-          class_title: classTitle,
-          api_key: config.apiKey,
-          vector_store_id: config.vectorStoreId,
-          assistant_id: config.assistantId,
-          emoji: emoji,
-          professor: professor,
-          class_time: classTime,
-          classroom: classroom,
-          enabled_widgets: enabledWidgets,
-          user_id: session.user.id,
-          updated_at: new Date().toISOString()
-        };
-        
-        console.log('Saving class data to Supabase:', classData);
-        
-        // First check if the record already exists
-        const { data, error: fetchError } = await supabase
-          .from('class_openai_configs')
-          .select('id')
-          .eq('class_title', classTitle)
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-          
-        if (fetchError) {
-          console.error('Error checking if class exists:', fetchError);
-          throw fetchError;
-        }
-          
-        let result;
-        if (data) {
-          // If the record exists, update it
-          result = await supabase
-            .from('class_openai_configs')
-            .update(classData)
-            .eq('id', data.id)
-            .eq('user_id', session.user.id);
-        } else {
-          // If the record doesn't exist, insert it
-          result = await supabase
-            .from('class_openai_configs')
-            .insert(classData);
-        }
-        
-        if (result.error) {
-          console.error('Error saving OpenAI configuration to Supabase:', result.error);
-          throw result.error;
-        }
-        
-        console.log(`Successfully saved OpenAI config for class '${classTitle}' to Supabase`);
-      } else {
-        console.warn('User not authenticated, cannot save class data');
-        throw new Error('User must be authenticated to save class data');
+      if (!session?.user) {
+        console.error('No authenticated user found when saving class config');
+        throw new Error('Authentication required to save class configuration');
       }
+      
+      // Ensure all the data is correctly formatted
+      const classData = {
+        class_title: classTitle,
+        api_key: config.apiKey,
+        vector_store_id: config.vectorStoreId,
+        assistant_id: config.assistantId,
+        emoji: emoji,
+        professor: professor,
+        class_time: classTime,
+        classroom: classroom,
+        enabled_widgets: enabledWidgets || [],
+        user_id: session.user.id,
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('Saving class data to Supabase:', classData);
+      console.log('User ID for save operation:', session.user.id);
+      
+      // First check if the record already exists
+      const { data, error: fetchError } = await supabase
+        .from('class_openai_configs')
+        .select('id')
+        .eq('class_title', classTitle)
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+        
+      if (fetchError) {
+        console.error('Error checking if class exists:', fetchError);
+        throw fetchError;
+      }
+        
+      let result;
+      if (data) {
+        // If the record exists, update it
+        console.log(`Updating existing class with ID ${data.id}`);
+        result = await supabase
+          .from('class_openai_configs')
+          .update(classData)
+          .eq('id', data.id)
+          .eq('user_id', session.user.id);
+      } else {
+        // If the record doesn't exist, insert it
+        console.log('Inserting new class record');
+        result = await supabase
+          .from('class_openai_configs')
+          .insert(classData);
+      }
+      
+      if (result.error) {
+        console.error('Error saving OpenAI configuration to Supabase:', result.error);
+        throw result.error;
+      }
+      
+      console.log(`Successfully saved OpenAI config for class '${classTitle}' to Supabase`);
     } catch (error) {
       console.error('Error saving OpenAI configuration:', error);
       throw error;

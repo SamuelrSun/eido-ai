@@ -20,18 +20,18 @@ interface CreateClassDialogContentProps {
 
 // Interface for database row response
 interface ClassOpenAIConfigRow {
-  api_key: string;
-  assistant_id: string;
-  class_time: string;
+  api_key?: string;
+  assistant_id?: string;
+  class_time?: string;
   class_title: string;
-  classroom: string;
-  created_at: string;
-  emoji: string;
+  classroom?: string;
+  created_at?: string;
+  emoji?: string;
   id: string;
-  professor: string;
-  updated_at: string;
-  user_id: string;
-  vector_store_id: string;
+  professor?: string;
+  updated_at?: string;
+  user_id?: string;
+  vector_store_id?: string;
   enabled_widgets?: string[];
 }
 
@@ -76,8 +76,13 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
   // Check for authenticated user
   useEffect(() => {
     const checkAuth = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
+      try {
+        const { data } = await supabase.auth.getUser();
+        console.log("Auth user in dialog content:", data.user?.id);
+        setUser(data.user);
+      } catch (error) {
+        console.error("Error checking auth in dialog content:", error);
+      }
     };
     
     checkAuth();
@@ -88,6 +93,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     const fetchConfig = async () => {
       if (initialData && isEditing && initialData.title && user) {
         try {
+          console.log(`Fetching config for ${initialData.title} with user ID ${user.id}`);
           const config = await classOpenAIConfigService.getConfigForClass(initialData.title);
           if (config) {
             setOpenAIApiKey(config.apiKey || "");
