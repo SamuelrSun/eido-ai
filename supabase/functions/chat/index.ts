@@ -41,6 +41,14 @@ serve(async (req) => {
       );
     }
 
+    // Citation instructions to include in both approaches
+    const citationInstructions = `
+      Always cite your sources clearly. Begin your response with "According to [file name]..." when all information comes from one file.
+      If using multiple sources, cite each fact with "(Source: [file name], [section/heading if available])" at the end of each point.
+      For bullet points, include the source at the end of each bullet in parentheses.
+      Be specific about which file and section the information comes from.
+    `;
+
     // If assistant ID is provided, use it (this is the preferred method for vector stores with assistants API)
     if (assistantId) {
       try {
@@ -66,7 +74,9 @@ serve(async (req) => {
         const threadData = await threadResponse.json();
         const threadId = threadData.id;
         
-        // Add message to thread
+        // Add message to thread with citation instructions
+        const enhancedMessage = `${message}\n\nPlease remember to: ${citationInstructions}`;
+        
         const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
           method: 'POST',
           headers: {
@@ -76,7 +86,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             role: 'user',
-            content: message
+            content: enhancedMessage
           }),
         });
 
@@ -95,7 +105,8 @@ serve(async (req) => {
             'OpenAI-Beta': 'assistants=v2'  // Updated beta header
           },
           body: JSON.stringify({
-            assistant_id: assistantId
+            assistant_id: assistantId,
+            instructions: `You are an AI Assistant for education. The user is studying "${knowledgeBase}". ${citationInstructions}`
           }),
         });
 
@@ -202,7 +213,9 @@ serve(async (req) => {
       The user is studying "${knowledgeBase}", so focus your responses on this subject.
       ${vectorStoreId ? `Note: I was unable to access the vector store (${vectorStoreId}) directly, so I'm using my general knowledge.` : ''}
       ${assistantId ? `Note: I was unable to use the specialized assistant (${assistantId}), so I'm using my general capabilities.` : ''}
-      Provide the most helpful and accurate information you can based on what you know.`
+      Provide the most helpful and accurate information you can based on what you know.
+      
+      ${citationInstructions}`
     };
 
     // Make the API call with the enhanced system message

@@ -35,7 +35,8 @@ export const quizGenerator = {
           difficulty: params.difficulty,
           coverage: params.coverage,
           openAIConfig: classConfig, // Pass the class-specific configuration
-          useRAG: true // Explicitly request to use RAG
+          useRAG: true, // Explicitly request to use RAG
+          citeSources: true // Request source citations in explanations
         }
       });
 
