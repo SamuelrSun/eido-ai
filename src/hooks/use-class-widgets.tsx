@@ -74,16 +74,21 @@ export const ClassWidgetsProvider = ({
             
           if (error) {
             console.error("Error loading class from database:", error);
+            throw error;
           } else if (data) {
             console.log(`Found class ${classId} in database`);
             // If class exists in database, try to load from session storage first
             const storedWidgets = sessionStorage.getItem(`class_widgets_${classId}`);
             if (storedWidgets) {
-              const parsedWidgets = JSON.parse(storedWidgets);
-              setEnabledWidgets(parsedWidgets);
-              console.log(`Loaded widgets for class ${classId} from session:`, parsedWidgets);
-              setIsLoading(false);
-              return;
+              try {
+                const parsedWidgets = JSON.parse(storedWidgets);
+                setEnabledWidgets(parsedWidgets);
+                console.log(`Loaded widgets for class ${classId} from session:`, parsedWidgets);
+                setIsLoading(false);
+                return;
+              } catch (error) {
+                console.error("Error parsing stored widgets:", error);
+              }
             }
           }
         }
@@ -92,11 +97,15 @@ export const ClassWidgetsProvider = ({
         if (classId) {
           const storedWidgets = sessionStorage.getItem(`class_widgets_${classId}`);
           if (storedWidgets) {
-            const parsedWidgets = JSON.parse(storedWidgets);
-            setEnabledWidgets(parsedWidgets);
-            console.log(`Loaded widgets for class ${classId}:`, parsedWidgets);
-            setIsLoading(false);
-            return;
+            try {
+              const parsedWidgets = JSON.parse(storedWidgets);
+              setEnabledWidgets(parsedWidgets);
+              console.log(`Loaded widgets for class ${classId}:`, parsedWidgets);
+              setIsLoading(false);
+              return;
+            } catch (error) {
+              console.error("Error parsing stored widgets:", error);
+            }
           }
         }
         

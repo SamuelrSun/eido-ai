@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,8 +50,9 @@ const HomePage = () => {
       setIsLoading(true);
       console.log("Fetching user profile and classes");
       
-      const { data: { user, session } } = await supabase.auth.getUser();
-      setUserAuthenticated(!!session?.user);
+      const { data } = await supabase.auth.getUser();
+      const user = data.user;
+      setUserAuthenticated(!!user);
       
       if (user) {
         // Fetch user profile
@@ -163,7 +165,8 @@ const HomePage = () => {
       console.log("Creating class with data:", classData);
       
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
+      const user = data.user;
       
       if (!user) {
         toast({
@@ -217,33 +220,9 @@ const HomePage = () => {
           console.error('Error storing class data:', error);
           toast({
             title: "Warning",
-            description: "Failed to save class information to the server. A local version has been saved.",
+            description: "Failed to save class information to the server. Please try again.",
             variant: "destructive"
           });
-          
-          // Still update localStorage manually as a fallback
-          try {
-            const storedConfig = {
-              id: Date.now().toString(),
-              title: classData.title,
-              professor: classData.professor,
-              classTime: classData.classTime,
-              classroom: classData.classroom,
-              color: classData.color,
-              emoji: classEmoji,
-              openAIConfig: classData.openAIConfig || {}
-            };
-            
-            const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
-            existingConfigs.push(storedConfig);
-            localStorage.setItem('classOpenAIConfigs', JSON.stringify(existingConfigs));
-            
-            // Force refresh with localStorage only
-            setForceLocalStorageOnly(true);
-            setRefreshTrigger(prev => prev + 1);
-          } catch (localStoreError) {
-            console.error('Failed to save to localStorage:', localStoreError);
-          }
         }
       }
       
@@ -268,7 +247,8 @@ const HomePage = () => {
     
     try {
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
+      const user = data.user;
       
       if (!user) {
         toast({
@@ -323,36 +303,9 @@ const HomePage = () => {
         console.error('Error updating class data:', error);
         toast({
           title: "Warning",
-          description: "Failed to update class information on the server. Local changes were made.",
+          description: "Failed to update class information on the server. Please try again.",
           variant: "destructive"
         });
-        
-        // Manual localStorage update as fallback
-        try {
-          const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
-          const updatedConfigs = existingConfigs.map(config => 
-            config.title === selectedClassToEdit.title
-              ? {
-                  ...config,
-                  title: classData.title,
-                  professor: classData.professor,
-                  classTime: classData.classTime,
-                  classroom: classData.classroom,
-                  color: classData.color,
-                  emoji: classData.emoji,
-                  openAIConfig: classData.openAIConfig || {}
-                }
-              : config
-          );
-          
-          localStorage.setItem('classOpenAIConfigs', JSON.stringify(updatedConfigs));
-          
-          // Force refresh with localStorage only
-          setForceLocalStorageOnly(true);
-          setRefreshTrigger(prev => prev + 1);
-        } catch (localStoreError) {
-          console.error('Failed to update localStorage:', localStoreError);
-        }
       }
       
       toast({
@@ -412,35 +365,11 @@ const HomePage = () => {
       setIsEditClassOpen(false);
     } catch (error) {
       console.error("Error deleting class:", error);
-      
-      // Try fallback to localStorage
-      try {
-        const existingConfigs = JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]');
-        const updatedConfigs = existingConfigs.filter(config => config.title !== selectedClassToEdit?.title);
-        localStorage.setItem('classOpenAIConfigs', JSON.stringify(updatedConfigs));
-        
-        // Force UI update
-        setClassOptions(prev => 
-          prev.filter(classItem => classItem.title !== selectedClassToEdit?.title)
-        );
-        
-        toast({
-          title: "Class deleted locally",
-          description: `${selectedClassToEdit?.title} has been removed from your local data.`
-        });
-        
-        // Reset state and force refresh
-        setSelectedClassToEdit(null);
-        setIsEditClassOpen(false);
-        setForceLocalStorageOnly(true);
-        setRefreshTrigger(prev => prev + 1);
-      } catch (localStoreError) {
-        toast({
-          title: "Error",
-          description: "Failed to delete class",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Error",
+        description: "Failed to delete class. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 

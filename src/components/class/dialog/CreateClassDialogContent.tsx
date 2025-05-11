@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { BookOpen, SquareCheck } from "lucide-react";
 import { ClassInfoSection } from "./ClassInfoSection";
@@ -9,6 +10,7 @@ import { ClassData } from "../CreateClassDialog";
 import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
 import { getEmojiForClass } from "@/utils/emojiUtils";
 import { EmojiPicker } from "./EmojiPicker";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CreateClassDialogContentProps {
   onClassCreate: (classData: ClassData) => void;
@@ -61,14 +63,25 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
   const [showOpenAIConfig, setShowOpenAIConfig] = useState(
     isEditing ? !!(initialData?.openAIConfig?.apiKey || initialData?.openAIConfig?.vectorStoreId || initialData?.openAIConfig?.assistantId) : false
   );
+  const [user, setUser] = useState<any>(null);
 
   console.log("Initial emoji:", initialData?.emoji);
   console.log("Current emoji state:", emoji);
 
+  // Check for authenticated user
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
+    };
+    
+    checkAuth();
+  }, []);
+
   // Fetch config from Supabase when editing
   useEffect(() => {
     const fetchConfig = async () => {
-      if (initialData && isEditing && initialData.title) {
+      if (initialData && isEditing && initialData.title && user) {
         try {
           const config = await classOpenAIConfigService.getConfigForClass(initialData.title);
           if (config) {
@@ -84,7 +97,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
     };
     
     fetchConfig();
-  }, [initialData, isEditing]);
+  }, [initialData, isEditing, user]);
 
   // Set default emoji only for new classes and only if no emoji is explicitly set
   useEffect(() => {
@@ -115,31 +128,29 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
 
   // Update parent component whenever form data changes
   useEffect(() => {
-    const updateClassData = async () => {
-      const classData: ClassData = {
-        title,
-        professor,
-        classTime,
-        classroom,
-        color,
-        enabledWidgets: selectedWidgets,
-        emoji
-      };
-      
-      // Add OpenAI configuration if any fields are provided
-      if (openAIApiKey || vectorStoreId || assistantId) {
-        classData.openAIConfig = {
-          apiKey: openAIApiKey,
-          vectorStoreId: vectorStoreId,
-          assistantId: assistantId
-        };
-      }
-      
-      console.log("Updating class data:", classData);
-      onClassCreate(classData);
+    if (!title) return;
+    
+    const classData: ClassData = {
+      title,
+      professor,
+      classTime,
+      classroom,
+      color,
+      enabledWidgets: selectedWidgets,
+      emoji
     };
     
-    updateClassData();
+    // Add OpenAI configuration if any fields are provided
+    if (openAIApiKey || vectorStoreId || assistantId) {
+      classData.openAIConfig = {
+        apiKey: openAIApiKey,
+        vectorStoreId: vectorStoreId,
+        assistantId: assistantId
+      };
+    }
+    
+    console.log("Updating class data:", classData);
+    onClassCreate(classData);
   }, [title, professor, classTime, classroom, color, selectedWidgets, emoji, openAIApiKey, vectorStoreId, assistantId, onClassCreate]);
 
   const handleToggleWidget = (id: string) => {
