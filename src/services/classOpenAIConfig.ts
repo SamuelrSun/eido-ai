@@ -128,16 +128,37 @@ export const classOpenAIConfigService = {
         
         console.log('Saving class data to Supabase:', classData);
         
-        // Save to Supabase
-        const { error } = await supabase
+        // First check if the record already exists
+        const { data, error: fetchError } = await supabase
           .from('class_openai_configs')
-          .upsert(classData, {
-            onConflict: 'class_title,user_id'
-          });
+          .select('id')
+          .eq('class_title', classTitle)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+          
+        if (fetchError) {
+          console.error('Error checking if class exists:', fetchError);
+          throw fetchError;
+        }
+          
+        let result;
+        if (data) {
+          // If the record exists, update it
+          result = await supabase
+            .from('class_openai_configs')
+            .update(classData)
+            .eq('id', data.id)
+            .eq('user_id', session.user.id);
+        } else {
+          // If the record doesn't exist, insert it
+          result = await supabase
+            .from('class_openai_configs')
+            .insert(classData);
+        }
         
-        if (error) {
-          console.error('Error saving OpenAI configuration to Supabase:', error);
-          throw error;
+        if (result.error) {
+          console.error('Error saving OpenAI configuration to Supabase:', result.error);
+          throw result.error;
         }
         
         console.log(`Successfully saved OpenAI config for class '${classTitle}' to Supabase`);

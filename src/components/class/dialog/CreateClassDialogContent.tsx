@@ -32,7 +32,7 @@ interface ClassOpenAIConfigRow {
   updated_at: string;
   user_id: string;
   vector_store_id: string;
-  enabled_widgets?: string[]; // Added to match database column
+  enabled_widgets?: string[];
 }
 
 const availableWidgets = [

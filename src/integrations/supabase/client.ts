@@ -55,7 +55,6 @@ interface CustomDatabase extends Database {
           description: string;
           userId?: string;
           updatedAt: Date;
-          color: string;
           cardCount: number;
           dueCards: number;
           newCards: number;
@@ -68,7 +67,6 @@ interface CustomDatabase extends Database {
           description: string;
           userId?: string;
           updatedAt?: Date;
-          color: string;
           cardCount: number;
           dueCards: number;
           newCards: number;
@@ -81,7 +79,6 @@ interface CustomDatabase extends Database {
           description?: string;
           userId?: string;
           updatedAt?: Date;
-          color?: string;
           cardCount?: number;
           dueCards?: number;
           newCards?: number;
@@ -193,7 +190,7 @@ interface CustomDatabase extends Database {
           user_id?: string;
           created_at?: string;
           updated_at?: string;
-          enabled_widgets?: string[]; // Added this field to match database column
+          enabled_widgets?: string[]; 
         };
         Insert: {
           id?: string;
@@ -208,7 +205,7 @@ interface CustomDatabase extends Database {
           user_id?: string;
           created_at?: string;
           updated_at?: string;
-          enabled_widgets?: string[]; // Added this field to match database column
+          enabled_widgets?: string[]; 
         };
         Update: {
           id?: string;
@@ -223,7 +220,7 @@ interface CustomDatabase extends Database {
           user_id?: string;
           created_at?: string;
           updated_at?: string;
-          enabled_widgets?: string[]; // Added this field to match database column
+          enabled_widgets?: string[]; 
         };
       };
     };

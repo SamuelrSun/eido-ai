@@ -40,6 +40,7 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
   // Reference to form data for submission
   const [formData, setFormData] = useState<ClassData | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   
   // Check for authenticated user
@@ -61,6 +62,8 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
   const handleSubmit = async () => {
     if (formData && formData.title.trim()) {
       try {
+        setIsSubmitting(true);
+        
         // If user is authenticated, save to database first
         if (user) {
           await classOpenAIConfigService.saveConfigForClass(
@@ -72,6 +75,8 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
             formData.classroom,
             formData.enabledWidgets
           );
+        } else {
+          throw new Error("User must be authenticated to create a class");
         }
         
         // Then call the parent callback
@@ -79,13 +84,19 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
         onOpenChange(false);
         setFormData(null);
         setIsFormValid(false);
+        toast({
+          title: "Class created successfully",
+          description: `${formData.title} has been added to your dashboard.`,
+        });
       } catch (error) {
         console.error("Error saving class:", error);
         toast({
           title: "Error creating class",
-          description: "There was a problem saving your class data.",
+          description: "There was a problem saving your class data. Please make sure you're signed in and try again.",
           variant: "destructive",
         });
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -117,11 +128,14 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
         />
         
         <DialogFooter className="flex justify-between sm:justify-between mt-4 pt-2 border-t">
-          <Button variant="outline" onClick={handleCancel}>
+          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!isFormValid || (user === null)}>
-            Create Class
+          <Button 
+            onClick={handleSubmit} 
+            disabled={!isFormValid || (user === null) || isSubmitting}
+          >
+            {isSubmitting ? "Creating..." : "Create Class"}
           </Button>
         </DialogFooter>
       </DialogContent>
