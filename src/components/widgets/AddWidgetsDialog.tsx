@@ -8,7 +8,6 @@ import {
   Database,
   Info,
   Loader2,
-  FileInput,
   SquareCheck
 } from "lucide-react";
 import {
@@ -112,12 +111,6 @@ export function AddWidgetsDialog({
       name: "Database",
       description: "Store and manage your files",
       icon: Database,
-    },
-    {
-      id: "practice" as WidgetType,
-      name: "Practice",
-      description: "Generate worksheets & get feedback",
-      icon: FileInput,
     }
   ];
 

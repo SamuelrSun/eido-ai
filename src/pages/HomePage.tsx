@@ -19,7 +19,6 @@ interface ClassOption {
   classroom?: string;
   emoji: string;
   link: string;
-  color: string;
   enabledWidgets: string[];
   openAIConfig?: {
     apiKey?: string;
@@ -84,10 +83,6 @@ const HomePage = () => {
             
             // Transform ClassConfig objects to ClassOption objects
             const classOptions = userClasses.map((config): ClassOption => {
-              // Generate a random color if not already set
-              const colors = ["blue-300", "emerald-300", "rose-300", "amber-200", "violet-300", "indigo-300"];
-              const randomColor = colors[Math.floor(Math.random() * colors.length)];
-              
               // Use stored emoji or generate one based on class title
               const classEmoji = config.emoji || getEmojiForClass(config.title);
               
@@ -98,8 +93,7 @@ const HomePage = () => {
                 classroom: config.classroom || "",
                 emoji: classEmoji,
                 link: "/super-stu",
-                color: config.color || randomColor, 
-                enabledWidgets: DEFAULT_CLASS_WIDGETS,
+                enabledWidgets: config.enabledWidgets || DEFAULT_CLASS_WIDGETS,
                 openAIConfig: config.openAIConfig
               };
             });
@@ -189,7 +183,6 @@ const HomePage = () => {
         classroom: classData.classroom,
         emoji: classEmoji,
         link: "/super-stu",
-        color: classData.color,
         enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
         openAIConfig: classData.openAIConfig
       };
@@ -204,11 +197,11 @@ const HomePage = () => {
           await classOpenAIConfigService.saveConfigForClass(
             classData.title,
             classData.openAIConfig || {},
-            classData.color,
             classEmoji,
             classData.professor,
             classData.classTime,
-            classData.classroom
+            classData.classroom,
+            classData.enabledWidgets
           );
           
           console.log('Class data saved successfully:', classData.title);
@@ -269,7 +262,6 @@ const HomePage = () => {
                 professor: classData.professor,
                 classTime: classData.classTime,
                 classroom: classData.classroom,
-                color: classData.color,
                 emoji: classData.emoji,
                 enabledWidgets: classData.enabledWidgets || DEFAULT_CLASS_WIDGETS,
                 openAIConfig: classData.openAIConfig
@@ -283,11 +275,11 @@ const HomePage = () => {
         await classOpenAIConfigService.saveConfigForClass(
           classData.title,
           classData.openAIConfig || {},
-          classData.color,
           classData.emoji,
           classData.professor,
           classData.classTime,
-          classData.classroom
+          classData.classroom,
+          classData.enabledWidgets
         );
         
         // If the title changed, delete the old class
@@ -448,11 +440,11 @@ const HomePage = () => {
                 <Settings className="h-4 w-4" />
               </Button>
               <Card 
-                className="h-full transition-all hover:shadow-md hover:border-blue-300"
+                className="h-full transition-all hover:shadow-md hover:border-primary"
                 onClick={() => handleClassClick(option)}
               >
                 <CardHeader>
-                  <div className="mb-4 p-2 bg-blue-300/20 rounded-lg w-fit">
+                  <div className="mb-4 p-2 bg-primary/20 rounded-lg w-fit">
                     <span className="text-4xl">{option.emoji}</span>
                   </div>
                   <CardTitle>{option.title}</CardTitle>
@@ -471,7 +463,7 @@ const HomePage = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="ghost" className="group text-blue-500">
+                  <Button variant="ghost" className="group text-primary">
                     Enter class
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Button>
@@ -578,7 +570,6 @@ const HomePage = () => {
             professor: selectedClassToEdit.professor,
             classTime: selectedClassToEdit.classTime,
             classroom: selectedClassToEdit.classroom,
-            color: selectedClassToEdit.color,
             enabledWidgets: selectedClassToEdit.enabledWidgets,
             emoji: selectedClassToEdit.emoji,
             openAIConfig: selectedClassToEdit.openAIConfig

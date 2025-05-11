@@ -84,12 +84,13 @@ export const ClassWidgetsProvider = ({
               if (activeClass) {
                 const parsedClass = JSON.parse(activeClass);
                 if (parsedClass.title === classId) {
-                  // If the active class is this class, load the enabled widgets from database
-                  const storedWidgets = data.enabled_widgets || defaultWidgets;
-                  setEnabledWidgets(storedWidgets);
-                  console.log(`Loaded widgets for class ${classId} from database:`, storedWidgets);
-                  setIsLoading(false);
-                  return;
+                  // Check if enabled_widgets exists in the database response
+                  if (data.enabled_widgets) {
+                    setEnabledWidgets(data.enabled_widgets);
+                    console.log(`Loaded widgets for class ${classId} from database:`, data.enabled_widgets);
+                    setIsLoading(false);
+                    return;
+                  }
                 }
               }
             } catch (e) {

@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { BookOpen, SquareCheck } from "lucide-react";
 import { ClassInfoSection } from "./ClassInfoSection";
-import { ColorSelectionSection } from "./ColorSelectionSection";
 import { OpenAIConfigSection } from "./OpenAIConfigSection";
 import { WidgetSelectionSection } from "./WidgetSelectionSection";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,22 +35,11 @@ const availableWidgets = [
   }
 ];
 
-// Updated pastel and sophisticated color options
-const colorOptions = [
-  { value: "blue-300", label: "Blue", className: "bg-blue-300" },
-  { value: "emerald-300", label: "Emerald", className: "bg-emerald-300" },
-  { value: "rose-300", label: "Rose", className: "bg-rose-300" },
-  { value: "amber-200", label: "Amber", className: "bg-amber-200" },
-  { value: "violet-300", label: "Violet", className: "bg-violet-300" },
-  { value: "indigo-300", label: "Indigo", className: "bg-indigo-300" },
-];
-
 export function CreateClassDialogContent({ onClassCreate, onCancel, initialData, isEditing = false }: CreateClassDialogContentProps) {
   const [title, setTitle] = useState(initialData?.title || "");
   const [professor, setProfessor] = useState(initialData?.professor || "");
   const [classTime, setClassTime] = useState(initialData?.classTime || "");
   const [classroom, setClassroom] = useState(initialData?.classroom || "");
-  const [color, setColor] = useState(initialData?.color || "blue-300");
   const [selectedWidgets, setSelectedWidgets] = useState<string[]>(initialData?.enabledWidgets || ["flashcards", "quizzes"]);
   const [emoji, setEmoji] = useState(initialData?.emoji || "");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -101,12 +89,14 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
             
           if (!error && data) {
             // Set data from database
-            setColor(data.color || initialData.color || "blue-300");
             setEmoji(data.emoji || initialData.emoji || "");
             setProfessor(data.professor || initialData.professor || "");
             setClassTime(data.class_time || initialData.classTime || "");
             setClassroom(data.classroom || initialData.classroom || "");
-            setSelectedWidgets(data.enabled_widgets || initialData.enabledWidgets || ["flashcards", "quizzes"]);
+            
+            // For enabled_widgets, we need to handle it differently since it might not exist in the database schema
+            const enabledWidgets = data.enabled_widgets || initialData.enabledWidgets || ["flashcards", "quizzes"];
+            setSelectedWidgets(Array.isArray(enabledWidgets) ? enabledWidgets : ["flashcards", "quizzes"]);
           }
         } catch (error) {
           console.error("Error fetching OpenAI config:", error);
@@ -134,7 +124,6 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
       setProfessor(initialData.professor || "");
       setClassTime(initialData.classTime || "");
       setClassroom(initialData.classroom || "");
-      setColor(initialData.color || "blue-300");
       setSelectedWidgets(initialData.enabledWidgets || ["flashcards", "quizzes"]);
       setOpenAIApiKey(initialData.openAIConfig?.apiKey || "");
       setVectorStoreId(initialData.openAIConfig?.vectorStoreId || "");
@@ -153,7 +142,6 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
       professor,
       classTime,
       classroom,
-      color,
       enabledWidgets: selectedWidgets,
       emoji
     };
@@ -175,7 +163,6 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
       classOpenAIConfigService.saveConfigForClass(
         title, 
         classData.openAIConfig || {}, 
-        color,
         emoji,
         professor,
         classTime,
@@ -185,7 +172,7 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
         console.error("Error saving class config:", error);
       });
     }
-  }, [title, professor, classTime, classroom, color, selectedWidgets, emoji, openAIApiKey, vectorStoreId, assistantId, onClassCreate, user, isEditing]);
+  }, [title, professor, classTime, classroom, selectedWidgets, emoji, openAIApiKey, vectorStoreId, assistantId, onClassCreate, user, isEditing]);
 
   const handleToggleWidget = (id: string) => {
     setSelectedWidgets(prev =>
@@ -215,13 +202,6 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
           onClassroomChange={setClassroom}
           onEmojiChange={setEmoji}
           onEmojiPickerOpen={() => setShowEmojiPicker(true)}
-        />
-        
-        {/* Color selection */}
-        <ColorSelectionSection 
-          color={color}
-          colorOptions={colorOptions}
-          onColorChange={setColor}
         />
         
         {/* Emoji Picker Dialog */}

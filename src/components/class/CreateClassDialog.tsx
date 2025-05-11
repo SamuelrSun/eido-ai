@@ -25,7 +25,6 @@ export interface ClassData {
   professor?: string;
   classTime?: string;
   classroom?: string;
-  color: string;
   emoji?: string;
   enabledWidgets: string[];
   openAIConfig?: {
@@ -67,7 +66,6 @@ export function CreateClassDialog({ open, onOpenChange, onClassCreate }: CreateC
           await classOpenAIConfigService.saveConfigForClass(
             formData.title, 
             formData.openAIConfig || {},
-            formData.color,
             formData.emoji,
             formData.professor,
             formData.classTime,

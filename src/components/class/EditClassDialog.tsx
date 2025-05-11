@@ -70,7 +70,6 @@ export function EditClassDialog({
           await classOpenAIConfigService.saveConfigForClass(
             formData.title, 
             formData.openAIConfig || {},
-            formData.color,
             formData.emoji,
             formData.professor,
             formData.classTime,

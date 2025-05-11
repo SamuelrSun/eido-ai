@@ -13,7 +13,6 @@ export interface ClassConfig {
   professor?: string;
   classTime?: string;
   classroom?: string;
-  color?: string;
   emoji?: string;
   enabledWidgets?: string[];
   openAIConfig: OpenAIConfig;
@@ -31,7 +30,6 @@ interface ClassConfigDBRow {
   assistant_id?: string;
   user_id?: string;
   emoji?: string;
-  color?: string;
   enabled_widgets?: string[];
   created_at?: string;
   updated_at?: string;
@@ -89,9 +87,24 @@ export const classOpenAIConfigService = {
    * @param classTitle The title of the class
    * @param config The OpenAI configuration
    */
-  saveConfigForClass: async (classTitle: string, config: OpenAIConfig, color?: string, emoji?: string, professor?: string, classTime?: string, classroom?: string, enabledWidgets?: string[]): Promise<void> => {
+  saveConfigForClass: async (
+    classTitle: string, 
+    config: OpenAIConfig, 
+    emoji?: string, 
+    professor?: string, 
+    classTime?: string, 
+    classroom?: string, 
+    enabledWidgets?: string[]
+  ): Promise<void> => {
     try {
-      console.log(`Saving OpenAI config for class: ${classTitle}`, { config, color, emoji, professor, classTime, classroom, enabledWidgets });
+      console.log(`Saving OpenAI config for class: ${classTitle}`, { 
+        config, 
+        emoji, 
+        professor, 
+        classTime, 
+        classroom, 
+        enabledWidgets 
+      });
       
       // Get the user data properly from the session
       const { data: { session } } = await supabase.auth.getSession();
@@ -105,7 +118,6 @@ export const classOpenAIConfigService = {
           vector_store_id: config.vectorStoreId,
           assistant_id: config.assistantId,
           emoji: emoji,
-          color: color,
           professor: professor,
           class_time: classTime,
           classroom: classroom,
@@ -211,7 +223,6 @@ export const classOpenAIConfigService = {
             professor: item.professor || undefined,
             classTime: item.class_time || undefined,
             classroom: item.classroom || undefined,
-            color: item.color || 'blue-300', // Default color if not in database
             emoji: item.emoji || undefined,
             enabledWidgets: item.enabled_widgets || [],
             openAIConfig: {
