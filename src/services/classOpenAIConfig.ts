@@ -173,7 +173,8 @@ export const classOpenAIConfigService = {
       } else {
         // If the record doesn't exist, insert it
         console.log('Inserting new class record');
-        classData.created_at = new Date().toISOString(); // Add created_at for new records
+        // For new records, we use the same classData but don't manually set created_at
+        // Supabase will automatically set it with the default now() value
         result = await supabase
           .from('class_openai_configs')
           .insert(classData);
