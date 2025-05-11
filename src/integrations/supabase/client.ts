@@ -179,6 +179,53 @@ interface CustomDatabase extends Database {
           class_title?: string;
         };
       };
+      class_openai_configs: {
+        Row: {
+          id: string;
+          class_title: string;
+          professor?: string;
+          class_time?: string;
+          classroom?: string;
+          emoji?: string;
+          api_key?: string;
+          vector_store_id?: string;
+          assistant_id?: string;
+          user_id?: string;
+          created_at?: string;
+          updated_at?: string;
+          enabled_widgets?: string[]; // Added this field to match database column
+        };
+        Insert: {
+          id?: string;
+          class_title: string;
+          professor?: string;
+          class_time?: string;
+          classroom?: string;
+          emoji?: string;
+          api_key?: string;
+          vector_store_id?: string;
+          assistant_id?: string;
+          user_id?: string;
+          created_at?: string;
+          updated_at?: string;
+          enabled_widgets?: string[]; // Added this field to match database column
+        };
+        Update: {
+          id?: string;
+          class_title?: string;
+          professor?: string;
+          class_time?: string;
+          classroom?: string;
+          emoji?: string;
+          api_key?: string;
+          vector_store_id?: string;
+          assistant_id?: string;
+          user_id?: string;
+          created_at?: string;
+          updated_at?: string;
+          enabled_widgets?: string[]; // Added this field to match database column
+        };
+      };
     };
   };
 }

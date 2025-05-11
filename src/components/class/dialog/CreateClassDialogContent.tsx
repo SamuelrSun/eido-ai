@@ -18,6 +18,23 @@ interface CreateClassDialogContentProps {
   isEditing?: boolean;
 }
 
+// Interface for database row response
+interface ClassOpenAIConfigRow {
+  api_key: string;
+  assistant_id: string;
+  class_time: string;
+  class_title: string;
+  classroom: string;
+  created_at: string;
+  emoji: string;
+  id: string;
+  professor: string;
+  updated_at: string;
+  user_id: string;
+  vector_store_id: string;
+  enabled_widgets?: string[]; // Added to match database column
+}
+
 const availableWidgets = [
   {
     id: "flashcards",
@@ -88,14 +105,17 @@ export function CreateClassDialogContent({ onClassCreate, onCancel, initialData,
             .maybeSingle();
             
           if (!error && data) {
+            // Cast data as our enhanced interface
+            const configData = data as ClassOpenAIConfigRow;
+            
             // Set data from database
-            setEmoji(data.emoji || initialData.emoji || "");
-            setProfessor(data.professor || initialData.professor || "");
-            setClassTime(data.class_time || initialData.classTime || "");
-            setClassroom(data.classroom || initialData.classroom || "");
+            setEmoji(configData.emoji || initialData.emoji || "");
+            setProfessor(configData.professor || initialData.professor || "");
+            setClassTime(configData.class_time || initialData.classTime || "");
+            setClassroom(configData.classroom || initialData.classroom || "");
             
             // For enabled_widgets, we need to handle it differently since it might not exist in the database schema
-            const enabledWidgets = data.enabled_widgets || initialData.enabledWidgets || ["flashcards", "quizzes"];
+            const enabledWidgets = configData.enabled_widgets || initialData.enabledWidgets || ["flashcards", "quizzes"];
             setSelectedWidgets(Array.isArray(enabledWidgets) ? enabledWidgets : ["flashcards", "quizzes"]);
           }
         } catch (error) {

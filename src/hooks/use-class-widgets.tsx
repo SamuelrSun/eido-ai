@@ -18,6 +18,23 @@ interface ClassWidgetsProviderProps {
   defaultWidgets?: WidgetType[];
 }
 
+// Enhanced interface to match the database response
+interface ClassOpenAIConfigRow {
+  api_key: string;
+  assistant_id: string;
+  class_time: string;
+  class_title: string;
+  classroom: string;
+  created_at: string;
+  emoji: string;
+  id: string;
+  professor: string;
+  updated_at: string;
+  user_id: string;
+  vector_store_id: string;
+  enabled_widgets?: string[]; // Added to match database column
+}
+
 // Default widgets for any class
 export const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"];
 
@@ -84,10 +101,13 @@ export const ClassWidgetsProvider = ({
               if (activeClass) {
                 const parsedClass = JSON.parse(activeClass);
                 if (parsedClass.title === classId) {
+                  // Cast data as our enhanced interface
+                  const configData = data as ClassOpenAIConfigRow;
+                  
                   // Check if enabled_widgets exists in the database response
-                  if (data.enabled_widgets) {
-                    setEnabledWidgets(data.enabled_widgets);
-                    console.log(`Loaded widgets for class ${classId} from database:`, data.enabled_widgets);
+                  if (configData.enabled_widgets) {
+                    setEnabledWidgets(configData.enabled_widgets as WidgetType[]);
+                    console.log(`Loaded widgets for class ${classId} from database:`, configData.enabled_widgets);
                     setIsLoading(false);
                     return;
                   }
