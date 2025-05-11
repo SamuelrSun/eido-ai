@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
 import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface Widget {
   id: string;
@@ -26,6 +27,7 @@ export function WidgetSelectionSection({
   onToggleWidget
 }: WidgetSelectionSectionProps) {
   const [isAddWidgetsOpen, setIsAddWidgetsOpen] = useState(false);
+  const { toast } = useToast();
   
   // Ensure selectedWidgets is always an array with default values if not
   const safeSelectedWidgets = Array.isArray(selectedWidgets) ? selectedWidgets : ["flashcards", "quizzes"];
@@ -33,7 +35,18 @@ export function WidgetSelectionSection({
   // Display only the recommended widgets (limit to 3)
   const recommendedWidgets = availableWidgets.slice(0, 3);
   
-  console.log("Widget selection current widgets:", safeSelectedWidgets);
+  const handleToggleWidget = (id: string) => {
+    try {
+      onToggleWidget(id);
+    } catch (error) {
+      console.error(`Error toggling widget ${id}:`, error);
+      toast({
+        title: "Error updating widget",
+        description: "Failed to update widget selection. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
   
   return (
     <div>
@@ -47,10 +60,7 @@ export function WidgetSelectionSection({
             description={widget.description}
             icon={widget.icon}
             isSelected={safeSelectedWidgets.includes(widget.id)}
-            onToggle={() => {
-              console.log(`Toggling widget ${widget.id}, current state: ${safeSelectedWidgets.includes(widget.id) ? 'selected' : 'not selected'}`);
-              onToggleWidget(widget.id);
-            }}
+            onToggle={() => handleToggleWidget(widget.id)}
           />
         ))}
         

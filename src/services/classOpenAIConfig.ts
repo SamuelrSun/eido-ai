@@ -46,6 +46,11 @@ export const classOpenAIConfigService = {
    * @returns The OpenAI configuration for the class, or undefined if not found
    */
   getConfigForClass: async (classTitle: string): Promise<OpenAIConfig | undefined> => {
+    if (!classTitle) {
+      console.error("Cannot get config for class with empty title");
+      return undefined;
+    }
+    
     try {
       console.log(`Attempting to fetch OpenAI config for class: ${classTitle}`);
       
@@ -129,13 +134,13 @@ export const classOpenAIConfigService = {
       // Ensure all the data is correctly formatted
       const classData = {
         class_title: classTitle,
-        api_key: config.apiKey,
-        vector_store_id: config.vectorStoreId,
-        assistant_id: config.assistantId,
-        emoji: emoji,
-        professor: professor,
-        class_time: classTime,
-        classroom: classroom,
+        api_key: config.apiKey || null,
+        vector_store_id: config.vectorStoreId || null,
+        assistant_id: config.assistantId || null,
+        emoji: emoji || null,
+        professor: professor || null,
+        class_time: classTime || null,
+        classroom: classroom || null,
         enabled_widgets: safeEnabledWidgets,
         user_id: session.user.id,
         updated_at: new Date().toISOString()
@@ -168,6 +173,7 @@ export const classOpenAIConfigService = {
       } else {
         // If the record doesn't exist, insert it
         console.log('Inserting new class record');
+        classData.created_at = new Date().toISOString(); // Add created_at for new records
         result = await supabase
           .from('class_openai_configs')
           .insert(classData);
@@ -315,7 +321,7 @@ export const classOpenAIConfigService = {
         
       if (error) {
         console.error('Error deleting class from Supabase:', error);
-        throw error;
+        throw new Error(`Failed to delete class: ${error.message}`);
       } else {
         console.log(`Successfully deleted class '${classTitle}' from Supabase`);
         
@@ -333,9 +339,9 @@ export const classOpenAIConfigService = {
           console.error('Error cleaning up session storage:', e);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting class:', error);
-      throw error;
+      throw new Error(error.message || 'Error deleting class');
     }
   },
 

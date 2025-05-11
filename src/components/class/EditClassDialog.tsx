@@ -98,11 +98,14 @@ export function EditClassDialog({
       
       // Then call the parent callback
       onClassUpdate(formData);
-      onOpenChange(false);
+      
       toast({
         title: "Class updated",
         description: `${formData.title} has been updated successfully.`
       });
+      
+      // Close the dialog immediately after successful update
+      onOpenChange(false);
     } catch (error: any) {
       console.error("Error updating class:", error);
       toast({
@@ -148,10 +151,13 @@ export function EditClassDialog({
       // Delete from database first
       await classOpenAIConfigService.deleteClass(initialData.title);
       
-      // Then call the parent callback
-      onClassDelete();
+      // Close the alert and dialog immediately
       setShowDeleteAlert(false);
       onOpenChange(false);
+      
+      // Then call the parent callback
+      onClassDelete();
+      
       toast({
         title: "Class deleted",
         description: `${initialData.title} has been removed from your dashboard.`
