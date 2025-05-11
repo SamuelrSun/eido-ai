@@ -48,41 +48,31 @@ export const classOpenAIConfigService = {
     try {
       console.log(`Attempting to fetch OpenAI config for class: ${classTitle}`);
       
-      // First try to get from Supabase
-      const { data, error } = await supabase
-        .from('class_openai_configs')
-        .select('*') 
-        .eq('class_title', classTitle)
-        .maybeSingle();
+      // Always try to get from Supabase first
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (error) {
-        console.error('Error retrieving OpenAI configuration from Supabase:', error);
+      if (session?.user) {
+        console.log('User authenticated, fetching from Supabase');
+        const { data, error } = await supabase
+          .from('class_openai_configs')
+          .select('*') 
+          .eq('class_title', classTitle)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
         
-        // Fallback to localStorage (for backward compatibility)
-        const storedConfigs = localStorage.getItem('classOpenAIConfigs');
-        if (storedConfigs) {
-          const configs: ClassConfig[] = JSON.parse(storedConfigs);
-          const classConfig = configs.find(config => config.title === classTitle);
-          
-          if (classConfig?.openAIConfig) {
-            console.log(`Found OpenAI config for class '${classTitle}' in localStorage`);
-            return classConfig.openAIConfig;
-          }
+        if (error) {
+          console.error('Error retrieving OpenAI configuration from Supabase:', error);
+        } else if (data) {
+          console.log(`Found OpenAI config for class '${classTitle}' in Supabase:`, data);
+          return {
+            apiKey: data.api_key,
+            vectorStoreId: data.vector_store_id,
+            assistantId: data.assistant_id
+          };
         }
-        
-        return undefined;
       }
       
-      if (data) {
-        console.log(`Found OpenAI config for class '${classTitle}' in Supabase:`, data);
-        return {
-          apiKey: data.api_key,
-          vectorStoreId: data.vector_store_id,
-          assistantId: data.assistant_id
-        };
-      }
-      
-      // If not found in Supabase, try localStorage
+      // Fallback to localStorage (for backward compatibility or offline mode)
       const storedConfigs = localStorage.getItem('classOpenAIConfigs');
       if (storedConfigs) {
         const configs: ClassConfig[] = JSON.parse(storedConfigs);
@@ -115,46 +105,47 @@ export const classOpenAIConfigService = {
       // Get the user data properly from the session
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session?.user) {
-        throw new Error('User must be authenticated to save configurations');
+      // Always try to save to Supabase if user is authenticated
+      if (session?.user) {
+        // Ensure all the data is correctly formatted
+        const classData = {
+          class_title: classTitle,
+          api_key: config.apiKey,
+          vector_store_id: config.vectorStoreId,
+          assistant_id: config.assistantId,
+          emoji: emoji,
+          professor: professor,
+          class_time: classTime,
+          classroom: classroom,
+          user_id: session.user.id,
+          updated_at: new Date().toISOString()
+        };
+        
+        console.log('Saving class data to Supabase:', classData);
+        
+        // Save to Supabase
+        const { error } = await supabase
+          .from('class_openai_configs')
+          .upsert(classData, {
+            onConflict: 'class_title,user_id'
+          });
+        
+        if (error) {
+          console.error('Error saving OpenAI configuration to Supabase:', error);
+          throw error;
+        }
+        
+        console.log(`Successfully saved OpenAI config for class '${classTitle}' to Supabase`);
+      } else {
+        console.warn('User not authenticated, only saving to localStorage');
       }
-      
-      // Ensure all the data is correctly formatted
-      const classData = {
-        class_title: classTitle,
-        api_key: config.apiKey,
-        vector_store_id: config.vectorStoreId,
-        assistant_id: config.assistantId,
-        emoji: emoji,
-        professor: professor,
-        class_time: classTime,
-        classroom: classroom,
-        user_id: session.user.id,
-        updated_at: new Date().toISOString()
-      };
-      
-      console.log('Saving class data to Supabase:', classData);
-      
-      // Save to Supabase
-      const { error } = await supabase
-        .from('class_openai_configs')
-        .upsert(classData, {
-          onConflict: 'class_title,user_id'
-        });
-      
-      if (error) {
-        console.error('Error saving OpenAI configuration to Supabase:', error);
-        throw error;
-      }
-      
-      console.log(`Successfully saved OpenAI config for class '${classTitle}' to Supabase`);
       
       // Also save to localStorage as a backup/fallback
       try {
         const classConfig: ClassConfig = {
           id: Date.now().toString(),
           title: classTitle,
-          color: color,
+          color: color || 'blue-300',
           emoji: emoji,
           professor: professor,
           classTime: classTime,
@@ -173,9 +164,8 @@ export const classOpenAIConfigService = {
         // Save to localStorage
         localStorage.setItem('classOpenAIConfigs', JSON.stringify(filteredConfigs));
         console.log(`Saved backup to localStorage for class '${classTitle}'`);
-        
       } catch (localError) {
-        // Just log the error but continue since Supabase save was successful
+        // Just log the error but continue since we tried Supabase save first
         console.warn('Error saving OpenAI configuration to localStorage (backup):', localError);
       }
     } catch (error) {
@@ -230,76 +220,55 @@ export const classOpenAIConfigService = {
    */
   getAllClasses: async (): Promise<ClassConfig[]> => {
     try {
-      console.log('Fetching all classes from Supabase');
-      
       // Get the user data from the session
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session?.user) {
-        console.warn('User not authenticated, cannot fetch classes from Supabase');
-        // Still try localStorage in this case
-        const storedConfigs = localStorage.getItem('classOpenAIConfigs');
-        if (storedConfigs) {
-          console.log('Using localStorage for class data (user not authenticated)');
-          return JSON.parse(storedConfigs);
-        }
-        return [];
-      }
-      
-      console.log('User authenticated, fetching classes from Supabase for user:', session.user.id);
-      
-      // Fetch from Supabase with explicit type for database rows
-      const { data, error } = await supabase
-        .from('class_openai_configs')
-        .select('*')
-        .eq('user_id', session.user.id);
+      // Always try Supabase first if user is authenticated
+      if (session?.user) {
+        console.log('User authenticated, fetching classes from Supabase for user:', session.user.id);
         
-      if (error) {
-        console.error('Error fetching classes from Supabase:', error);
-        
-        // Fallback to localStorage
-        const storedConfigs = localStorage.getItem('classOpenAIConfigs');
-        if (storedConfigs) {
-          console.log('Falling back to localStorage for class data after Supabase error');
-          return JSON.parse(storedConfigs);
-        }
-        
-        return [];
-      }
-      
-      if (data && data.length > 0) {
-        console.log(`Found ${data.length} classes in Supabase:`, data);
-        
-        // Transform the database objects into ClassConfig objects with explicit typing
-        const classConfigs = data.map((item: ClassConfigDBRow) => ({
-          id: item.id,
-          title: item.class_title,
-          professor: item.professor || undefined,
-          classTime: item.class_time || undefined,
-          classroom: item.classroom || undefined,
-          color: 'blue-300', // Default color since it's not in database
-          emoji: item.emoji || undefined,
-          openAIConfig: {
-            apiKey: item.api_key || undefined,
-            vectorStoreId: item.vector_store_id || undefined,
-            assistantId: item.assistant_id || undefined
+        // Fetch from Supabase with explicit type for database rows
+        const { data, error } = await supabase
+          .from('class_openai_configs')
+          .select('*')
+          .eq('user_id', session.user.id);
+          
+        if (error) {
+          console.error('Error fetching classes from Supabase:', error);
+        } else if (data && data.length > 0) {
+          console.log(`Found ${data.length} classes in Supabase:`, data);
+          
+          // Transform the database objects into ClassConfig objects with explicit typing
+          const classConfigs = data.map((item: ClassConfigDBRow) => ({
+            id: item.id,
+            title: item.class_title,
+            professor: item.professor || undefined,
+            classTime: item.class_time || undefined,
+            classroom: item.classroom || undefined,
+            color: 'blue-300', // Default color since it's not in database
+            emoji: item.emoji || undefined,
+            openAIConfig: {
+              apiKey: item.api_key || undefined,
+              vectorStoreId: item.vector_store_id || undefined,
+              assistantId: item.assistant_id || undefined
+            }
+          }));
+          
+          console.log('Transformed class configs:', classConfigs);
+          
+          // Also sync with localStorage for backup
+          try {
+            localStorage.setItem('classOpenAIConfigs', JSON.stringify(classConfigs));
+          } catch (localError) {
+            console.warn('Error syncing to localStorage:', localError);
           }
-        }));
-        
-        console.log('Transformed class configs:', classConfigs);
-        
-        // Also sync with localStorage for backup
-        try {
-          localStorage.setItem('classOpenAIConfigs', JSON.stringify(classConfigs));
-        } catch (localError) {
-          console.warn('Error syncing to localStorage:', localError);
+          
+          return classConfigs;
         }
-        
-        return classConfigs;
       }
       
-      // If no data in Supabase, try localStorage
-      console.log('No classes found in Supabase, checking localStorage');
+      // Fallback to localStorage if no data in Supabase or user not authenticated
+      console.log('No classes found in Supabase or user not authenticated, checking localStorage');
       const storedConfigs = localStorage.getItem('classOpenAIConfigs');
       if (storedConfigs) {
         const parsedConfigs = JSON.parse(storedConfigs);
@@ -339,23 +308,23 @@ export const classOpenAIConfigService = {
       // Get the user data from the session
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session?.user) {
-        throw new Error('User must be authenticated to delete configurations');
+      // Always try to delete from Supabase if user is authenticated
+      if (session?.user) {
+        // Delete from Supabase
+        const { error } = await supabase
+          .from('class_openai_configs')
+          .delete()
+          .eq('class_title', classTitle)
+          .eq('user_id', session.user.id);
+          
+        if (error) {
+          console.error('Error deleting class from Supabase:', error);
+        } else {
+          console.log(`Successfully deleted class '${classTitle}' from Supabase`);
+        }
+      } else {
+        console.warn('User not authenticated, only deleting from localStorage');
       }
-      
-      // Delete from Supabase
-      const { error } = await supabase
-        .from('class_openai_configs')
-        .delete()
-        .eq('class_title', classTitle)
-        .eq('user_id', session.user.id);
-        
-      if (error) {
-        console.error('Error deleting class from Supabase:', error);
-        throw error;
-      }
-      
-      console.log(`Successfully deleted class '${classTitle}' from Supabase`);
       
       // Also remove from localStorage
       try {

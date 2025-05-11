@@ -39,13 +39,56 @@ export const ClassWidgetsProvider = ({
   const [enabledWidgets, setEnabledWidgets] = useState<WidgetType[]>(defaultWidgets);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [user, setUser] = useState<any>(null);
 
-  // Load class widgets from session storage or use defaults
+  // Check for authenticated user
   useEffect(() => {
-    const loadClassWidgets = () => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+    };
+    
+    checkAuth();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load class widgets from database or session storage
+  useEffect(() => {
+    const loadClassWidgets = async () => {
       setIsLoading(true);
       try {
-        // Try to load from session storage using class ID
+        // Always try to load from database if user is authenticated and class ID exists
+        if (user && classId) {
+          console.log(`Attempting to load widgets for class ${classId} from database`);
+          const { data, error } = await supabase
+            .from('class_openai_configs')
+            .select('class_title')
+            .eq('class_title', classId)
+            .eq('user_id', user.id)
+            .maybeSingle();
+            
+          if (error) {
+            console.error("Error loading class from database:", error);
+          } else if (data) {
+            console.log(`Found class ${classId} in database`);
+            // If class exists in database, try to load from session storage first
+            const storedWidgets = sessionStorage.getItem(`class_widgets_${classId}`);
+            if (storedWidgets) {
+              const parsedWidgets = JSON.parse(storedWidgets);
+              setEnabledWidgets(parsedWidgets);
+              console.log(`Loaded widgets for class ${classId} from session:`, parsedWidgets);
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
+        
+        // Try to load from classId session storage
         if (classId) {
           const storedWidgets = sessionStorage.getItem(`class_widgets_${classId}`);
           if (storedWidgets) {
@@ -85,7 +128,7 @@ export const ClassWidgetsProvider = ({
     };
 
     loadClassWidgets();
-  }, [classId, defaultWidgets]);
+  }, [classId, defaultWidgets, user]);
 
   // Save widgets to session storage when they change
   useEffect(() => {

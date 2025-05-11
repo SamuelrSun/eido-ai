@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,7 +41,7 @@ const HomePage = () => {
   
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
-  const [forceLocalStorageOnly, setForceLocalStorageOnly] = useState(false);
+  const [userAuthenticated, setUserAuthenticated] = useState<boolean>(false);
 
   // Function to fetch all user data
   const fetchUserData = async () => {
@@ -50,7 +49,8 @@ const HomePage = () => {
       setIsLoading(true);
       console.log("Fetching user profile and classes");
       
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user, session } } = await supabase.auth.getUser();
+      setUserAuthenticated(!!session?.user);
       
       if (user) {
         // Fetch user profile
@@ -73,9 +73,7 @@ const HomePage = () => {
         try {
           // Force clean fetch of classes with no caching
           console.log('Calling classOpenAIConfigService.getAllClasses()');
-          const userClasses = forceLocalStorageOnly ? 
-            JSON.parse(localStorage.getItem('classOpenAIConfigs') || '[]') :
-            await classOpenAIConfigService.getAllClasses();
+          const userClasses = await classOpenAIConfigService.getAllClasses();
             
           console.log('Retrieved classes:', userClasses);
           
@@ -118,8 +116,6 @@ const HomePage = () => {
             variant: "destructive"
           });
           
-          // Try using localStorage only if Supabase fetch fails
-          setForceLocalStorageOnly(true);
           setRefreshTrigger(prev => prev + 1);
         }
       } else {
@@ -142,6 +138,24 @@ const HomePage = () => {
     
     // Clear active class when on homepage
     sessionStorage.removeItem('activeClass');
+    
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        console.log('Auth state changed:', event);
+        setUserAuthenticated(!!session);
+        // Refresh user data when auth state changes
+        fetchUserData();
+      } else if (event === 'SIGNED_OUT') {
+        setUserAuthenticated(false);
+        // Reset to local storage values on logout
+        fetchUserData();
+      }
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [refreshTrigger]); // Added refreshTrigger to dependencies
 
   const handleCreateClass = async (classData: ClassData) => {
