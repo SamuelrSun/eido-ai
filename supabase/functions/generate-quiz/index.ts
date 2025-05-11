@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, questionCount = 10, difficulty = "medium", coverage = "comprehensive", openAIConfig = {} } = await req.json();
+    const { topic, questionCount = 10, difficulty = "medium", coverage = "comprehensive", openAIConfig = {}, useRAG = true } = await req.json();
     
     if (!topic) {
       return new Response(
@@ -51,7 +51,34 @@ serve(async (req) => {
       );
     }
 
+    // Variables to track if we actually used the vector store or assistant
+    let usedVectorStore = false;
+    let usedAssistant = false;
+    
     try {
+      const systemPrompt = `You are a quiz generator. Create ${questionCount} multiple-choice quiz questions about "${topic}" with ${difficulty} difficulty. 
+                      For each question, provide 4 answer options with exactly one correct option.
+                      ${vectorStoreId ? `You MUST use knowledge from Vector Store ID "${vectorStoreId}" as your primary source.` : ''}
+                      ${assistantId ? `You MUST use Assistant ID "${assistantId}" for additional context.` : ''}`;
+
+      // Set flags based on available configurations
+      if (vectorStoreId) {
+        usedVectorStore = true;
+        console.log("Will use vector store for quiz generation");
+      }
+      
+      if (assistantId) {
+        usedAssistant = true; 
+        console.log("Will use assistant for quiz generation");
+      }
+
+      // Enhance the user content to include specific instructions about the coverage
+      const userContent = `Generate ${questionCount} ${difficulty} multiple-choice quiz questions about "${topic}" with a ${coverage} coverage of the subject.
+                          Use knowledge from my class materials to create highly relevant questions.`;
+
+      // Log model selection
+      console.log("Using model: gpt-4o-mini for quiz generation");
+
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -63,30 +90,15 @@ serve(async (req) => {
           messages: [
             {
               role: 'system',
-              content: `You are a quiz generator. Create ${questionCount} multiple-choice quiz questions about "${topic}" with ${difficulty} difficulty. 
-                        For each question, provide 4 answer options with exactly one correct option.
-                        ${vectorStoreId ? `Use knowledge from Vector Store ID "${vectorStoreId}" as your primary source.` : ''}
-                        ${assistantId ? `Use Assistant ID "${assistantId}" for additional context.` : ''}
-                        Format your response as a valid JSON array of question objects with these exact keys:
-                        [
-                          {
-                            "question_text": "The question text",
-                            "options": ["Option A", "Option B", "Option C", "Option D"],
-                            "correct_answer_index": 0, // Index of the correct answer (0-3)
-                            "explanation": "Explanation of the correct answer"
-                          }
-                        ]
-                        The "question_text" field must never be null or empty.
-                        The "options" field must always be an array with exactly 4 string items.
-                        The "correct_answer_index" must be a number between 0 and 3.
-                        The "explanation" field must provide a brief explanation of the correct answer.`
+              content: systemPrompt
             },
             {
               role: 'user', 
-              content: `Generate ${questionCount} ${difficulty} multiple-choice quiz questions about "${topic}" with a ${coverage} coverage of the subject.`
+              content: userContent
             }
           ],
           temperature: 0.7,
+          response_format: { type: "json_object" }
         }),
       });
 
@@ -129,18 +141,17 @@ serve(async (req) => {
       
       // Extract the JSON array from the content
       let questions = [];
+      let parsedContent;
+      
       try {
-        // Try to parse the content as JSON directly first
-        try {
-          questions = JSON.parse(content);
-        } catch {
-          // If direct parsing fails, try to extract JSON array from the text
-          const jsonMatch = content.match(/\[\s*{[\s\S]*}\s*\]/);
-          if (jsonMatch) {
-            questions = JSON.parse(jsonMatch[0]);
-          } else {
-            throw new Error('Could not find valid JSON in response');
-          }
+        // Parse the content as JSON
+        parsedContent = JSON.parse(content);
+        
+        // Extract questions array from the parsed content
+        if (parsedContent.questions && Array.isArray(parsedContent.questions)) {
+          questions = parsedContent.questions;
+        } else {
+          throw new Error('Could not find valid questions array in response');
         }
       } catch (jsonError) {
         console.error('Error parsing questions JSON:', jsonError);
@@ -193,7 +204,9 @@ serve(async (req) => {
           questions: validatedQuestions,
           timeEstimate,
           vectorStoreId,
-          assistantId
+          assistantId,
+          usedVectorStore,
+          usedAssistant
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

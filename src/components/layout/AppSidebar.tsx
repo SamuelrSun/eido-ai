@@ -34,7 +34,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     widgetsLoading
   } = useSidebarState();
 
-  // Define all navigation items - core features including Calendar
+  // Define all navigation items - core features
   const coreNavItems = [
     {
       icon: <Home className="mr-2 h-5 w-5" />,
@@ -50,6 +50,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     }
   ];
   
+  // Define all possible widget navigation items
   const widgetNavItems = [
     {
       icon: <Search className="mr-2 h-5 w-5" />,

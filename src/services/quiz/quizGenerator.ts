@@ -15,6 +15,8 @@ export const quizGenerator = {
       // Get class-specific OpenAI configuration if available
       const classConfig = await classOpenAIConfigService.getActiveClassConfig();
       console.log("Using class config for quiz generation:", classConfig ? "YES" : "NO");
+      
+      // Log helpful information for debugging
       if (classConfig?.apiKey) {
         console.log("API key is configured for quiz generation");
       }
@@ -25,13 +27,15 @@ export const quizGenerator = {
         console.log(`Using assistant ID for quiz: ${classConfig.assistantId}`);
       }
 
+      // Call the edge function with enhanced params
       const { data, error } = await supabase.functions.invoke('generate-quiz', {
         body: {
-          topic: params.title, // Ensure we pass the correct parameter name
+          topic: params.title, // Topic is the quiz title
           questionCount: params.questionCount,
           difficulty: params.difficulty,
           coverage: params.coverage,
-          openAIConfig: classConfig // Pass the class-specific configuration
+          openAIConfig: classConfig, // Pass the class-specific configuration
+          useRAG: true // Explicitly request to use RAG
         }
       });
 
