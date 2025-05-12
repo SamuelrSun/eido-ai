@@ -1,16 +1,17 @@
-
-import React from "react";
+import * as React from "react"
 
 interface PageHeaderProps {
-  title: string;
-  description: string;
+  title: string
+  description?: string
 }
 
 export function PageHeader({ title, description }: PageHeaderProps) {
   return (
-    <div>
-      <h1 className="text-3xl font-bold">{title}</h1>
-      <p className="text-muted-foreground mt-1">{description}</p>
+    <div className="space-y-1">
+      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      {description && (
+        <p className="text-sm text-muted-foreground">{description}</p>
+      )}
     </div>
-  );
+  )
 }

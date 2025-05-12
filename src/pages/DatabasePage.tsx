@@ -8,8 +8,6 @@ import {
   Folder,
   MoreHorizontal,
   Trash,
-  Edit,
-  Plus,
   ArrowUp,
   Loader2,
   ChevronRight,
