@@ -1,13 +1,15 @@
+// src/components/chat/ChatBot.tsx
 import { useState, useRef, useEffect } from "react";
-import { Send, Database, Bot, AlertCircle } from "lucide-react";
+import { Send, Database as DatabaseIcon, Bot, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { OpenAIConfig } from "@/services/classOpenAIConfig";
+import type { OpenAIConfig } from "@/services/classOpenAIConfig";
 import { Badge } from "@/components/ui/badge";
-import { Alert } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area"; // Added import for ScrollArea
 
 export interface Message {
   role: "user" | "assistant" | "system";
@@ -29,7 +31,7 @@ interface ChatBotProps {
 export function ChatBot({
   title = "AI Chat",
   subtitle = "Ask me anything",
-  placeholder = "Send a message...",
+  placeholder = "Send a message...", // This prop will be passed to ChatInput
   suggestions = [],
   knowledgeBase,
   openAIConfig,
@@ -38,53 +40,47 @@ export function ChatBot({
   onResponseGenerationStateChange
 }: ChatBotProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [activeVectorStore, setActiveVectorStore] = useState<string | null>(null);
-  const [activeAssistant, setActiveAssistant] = useState<string | null>(null);
-  const [usedVectorStore, setUsedVectorStore] = useState(false);
-  const [usedAssistant, setUsedAssistant] = useState(false);
+  const [chatMode, setChatMode] = useState<"assistant" | "fallback" | "error" | "idle">("idle");
+  const [currentAssistantId, setCurrentAssistantId] = useState<string | null>(null);
+  const [currentVectorStoreId, setCurrentVectorStoreId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Scroll to bottom of messages only when new messages are added
   useEffect(() => {
-    // Only scroll when there are actual messages
     if (messages.length > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // Update the response generation state when loading changes
   useEffect(() => {
-    if (onResponseGenerationStateChange) {
-      onResponseGenerationStateChange(isLoading);
-    }
+    onResponseGenerationStateChange?.(isLoading);
   }, [isLoading, onResponseGenerationStateChange]);
+
+  useEffect(() => {
+    setCurrentAssistantId(openAIConfig?.assistantId || null);
+    setCurrentVectorStoreId(openAIConfig?.vectorStoreId || null);
+    if (openAIConfig?.assistantId) {
+        setChatMode("idle");
+    } else {
+        setChatMode("fallback");
+    }
+  }, [openAIConfig]);
 
   const handleSendMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
-    
-    // Clear previous error state
-    setErrorMessage(null);
 
-    // Add user message to chat
+    setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
     setMessages(prev => [...prev, userMessage]);
-    setInputValue("");
     setIsLoading(true);
+    setChatMode("idle");
 
     try {
-      console.log("Using custom OpenAI config:", openAIConfig ? "Yes" : "No");
-      if (openAIConfig) {
-        console.log("Vector Store ID:", openAIConfig.vectorStoreId);
-        console.log("Assistant ID:", openAIConfig.assistantId);
-        console.log("API Key provided:", openAIConfig.apiKey ? "Yes" : "No");
-      }
-      
-      // Call the Supabase Edge Function with the class-specific OpenAI configuration
-      const { data, error } = await supabase.functions.invoke("chat", {
+      console.log("ChatBot: Sending message. Using OpenAIConfig:", openAIConfig);
+      const { data, error: functionError } = await supabase.functions.invoke("chat", {
         body: {
           message: messageText,
           history: messages,
@@ -93,90 +89,91 @@ export function ChatBot({
         }
       });
 
-      if (error) {
-        console.error("Edge function error:", error);
-        throw new Error(`Edge function error: ${error.message}`);
+      if (functionError) {
+        console.error("ChatBot: Edge function invocation error:", functionError);
+        throw new Error(`Service connection error: ${functionError.message}`);
       }
 
       if (data.error) {
-        console.error("API response error:", data.error);
+        console.error("ChatBot: API response error from Edge Function:", data.error);
         setErrorMessage(data.error);
-        throw new Error(data.error);
+        setChatMode("error");
+        const aiErrorMessage: Message = { role: "assistant", content: `Sorry, I encountered an issue: ${data.error}` };
+        setMessages(prev => [...prev, aiErrorMessage]);
+        if (!disableToasts) {
+            toast({ title: "AI Response Error", description: data.error, variant: "destructive" });
+        }
+        return;
       }
 
-      // Add AI response to chat
       const aiMessage: Message = { role: "assistant", content: data.response };
       setMessages(prev => [...prev, aiMessage]);
-      
-      // Store the active vector store and assistant IDs for display
-      setActiveVectorStore(data.vectorStoreId || null);
-      setActiveAssistant(data.assistantId || null);
-      setUsedVectorStore(data.usedVectorStore || false);
-      setUsedAssistant(data.usedAssistant || false);
-      
-      // All toasts are now permanently disabled by setting disableToasts to true
-      // and adding false to the condition to ensure it's always false
 
-    } catch (error: any) {
-      console.error("Error getting AI response:", error);
-      
-      let errorMessage = "Failed to get a response from AI.";
-      
-      // Provide more user-friendly error messages based on common issues
-      if (error.message?.includes("Invalid OpenAI API key") || 
-          error.message?.includes("Authentication error")) {
-        errorMessage = "Invalid OpenAI API key. Please check your class settings and update the API key.";
-      } else if (error.message?.includes("OpenAI API key not provided")) {
-        errorMessage = "No OpenAI API key found. Please add an API key in your class settings.";
-      } else if (error.message?.includes("rate limit")) {
-        errorMessage = "OpenAI API rate limit exceeded. Please try again in a few minutes.";
-      } else if (error.message?.includes("Edge function")) {
-        errorMessage = "Connection issue with the AI service. Please check your internet connection and try again.";
-      } else if (error.message?.includes("vector store")) {
-        errorMessage = "Failed to connect to your class knowledge base. Using general knowledge instead.";
+      setCurrentAssistantId(data.assistantId || null);
+      setCurrentVectorStoreId(data.vectorStoreId || null);
+
+      if (data.usedAssistant) {
+        setChatMode("assistant");
+      } else if (data.usedFallback) {
+        setChatMode("fallback");
       }
-      
-      setErrorMessage(errorMessage);
-      
-      // All toasts are now permanently disabled
 
-      // Add error message to chat
-      const errorMessageContent: Message = {
-        role: "assistant",
-        content: `Sorry, I couldn't process your request. ${errorMessage}`
-      };
-      setMessages(prev => [...prev, errorMessageContent]);
+    } catch (error: unknown) {
+      let friendlyErrorMessage = "Failed to get a response. Please try again.";
+      if (error instanceof Error) {
+        console.error("ChatBot: Error getting AI response:", error.message);
+        if (error.message.includes("Service connection error")) {
+            friendlyErrorMessage = "Could not connect to the AI service. Please check your internet connection.";
+        } else if (error.message.includes("Assistant run timed out")) {
+            friendlyErrorMessage = "The AI took too long to respond. Please try again.";
+        } else {
+            friendlyErrorMessage = error.message;
+        }
+      } else {
+        console.error("ChatBot: Unknown error getting AI response:", error);
+      }
+      setErrorMessage(friendlyErrorMessage);
+      setChatMode("error");
+      const aiErrorMessage: Message = { role: "assistant", content: `Sorry, I couldn't process your request. ${friendlyErrorMessage}` };
+      setMessages(prev => [...prev, aiErrorMessage]);
+      if (!disableToasts) {
+        toast({ title: "Chat Error", description: friendlyErrorMessage, variant: "destructive" });
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-[600px] max-h-[80vh]">
+    <div className="flex flex-col h-[calc(100vh-250px)] max-h-[700px] min-h-[400px]">
       <div className="pb-4 border-b">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">{title}</h2>
-          
           <div className="flex gap-2">
-            {activeVectorStore && (
-              <Badge variant={usedVectorStore ? "default" : "outline"} className="flex items-center gap-1">
-                <Database className="h-3 w-3" />
-                <span className="text-xs">{usedVectorStore ? "Using" : "Has"} Knowledge Base</span>
+            {chatMode === "assistant" && currentAssistantId && (
+              <Badge variant="default" className="flex items-center gap-1 bg-blue-500 text-white">
+                <Bot className="h-3 w-3" />
+                <span className="text-xs">Using Assistant</span>
               </Badge>
             )}
-            
-            {activeAssistant && (
-              <Badge variant={usedAssistant ? "default" : "outline"} className="flex items-center gap-1">
-                <Bot className="h-3 w-3" />
-                <span className="text-xs">{usedAssistant ? "Using" : "Has"} Assistant</span>
+            {chatMode === "fallback" && (
+              <Badge variant="outline" className="flex items-center gap-1 border-amber-500 text-amber-700">
+                <AlertCircle className="h-3 w-3" />
+                <span className="text-xs">General Knowledge</span>
               </Badge>
+            )}
+            {currentVectorStoreId && (
+                 <Badge variant="outline" className="flex items-center gap-1">
+                    <DatabaseIcon className="h-3 w-3" />
+                    <span className="text-xs">VS: ...{currentVectorStoreId.slice(-6)}</span>
+                 </Badge>
             )}
           </div>
         </div>
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-4 space-y-4 scrollbar-thin">
+      <ScrollArea className="flex-1 py-4 space-y-4">
         {messages.map((message, index) => (
           <ChatMessage
             key={index}
@@ -185,46 +182,24 @@ export function ChatBot({
           />
         ))}
 
-        {errorMessage && messages.length > 0 && (
+        {errorMessage && chatMode === "error" && !isLoading && (
           <Alert variant="destructive" className="mx-4 my-2">
             <AlertCircle className="h-4 w-4" />
-            <div className="ml-2 text-sm">{errorMessage}</div>
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{errorMessage}</AlertDescription>
           </Alert>
         )}
 
-        {/* Custom loading indicator */}
         {isLoading && loadingIndicator}
 
-        {messages.length === 0 && (
-          <div className="p-4">
-            <p className="text-sm text-center text-muted-foreground mb-4">
-              I can help answer questions about {knowledgeBase || "various topics"}
+        {messages.length === 0 && !isLoading && (
+          <div className="p-4 text-center">
+            <p className="text-sm text-muted-foreground mb-4">
+              {knowledgeBase ? `I can help answer questions about ${knowledgeBase}.` : "How can I help you today?"}
             </p>
-            
-            {openAIConfig?.vectorStoreId && (
-              <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4 text-sm text-green-800">
-                <p className="font-medium flex items-center gap-2">
-                  <Database className="h-4 w-4" />
-                  Using dedicated knowledge base
-                </p>
-                <p className="text-xs text-green-600 mt-1">
-                  Answers will be based on your class materials
-                </p>
-              </div>
-            )}
-            
-            {!openAIConfig?.apiKey && (
-              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-4 text-sm text-amber-800">
-                <p className="font-medium">No OpenAI API key configured</p>
-                <p className="text-xs text-amber-700 mt-1">
-                  Please add an API key in your class settings for this feature to work
-                </p>
-              </div>
-            )}
-            
             {suggestions.length > 0 && (
               <div className="space-y-2">
-                <p className="text-sm text-center font-medium">Try asking:</p>
+                <p className="text-sm font-medium">Try asking:</p>
                 <div className="flex flex-wrap gap-2 justify-center">
                   {suggestions.map((suggestion, i) => (
                     <Button
@@ -233,6 +208,7 @@ export function ChatBot({
                       size="sm"
                       onClick={() => handleSendMessage(suggestion)}
                       className="text-xs"
+                      disabled={isLoading}
                     >
                       {suggestion}
                     </Button>
@@ -242,16 +218,14 @@ export function ChatBot({
             )}
           </div>
         )}
-
-        {/* Keep the ref but don't force scroll on initial render */}
         <div ref={messagesEndRef} />
-      </div>
+      </ScrollArea>
 
       <div className="pt-4 border-t mt-auto">
-        <ChatInput 
-          onSend={handleSendMessage} 
-          suggestions={[]} 
-          isLoading={isLoading} 
+        <ChatInput
+          onSend={handleSendMessage}
+          isLoading={isLoading}
+          placeholder={placeholder} // placeholder prop is passed here
         />
       </div>
     </div>
