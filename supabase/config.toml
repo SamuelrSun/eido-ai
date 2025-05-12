@@ -1,4 +1,3 @@
-
 project_id = "uzdtqomtbrccinrkhzme"
 
 [api]
@@ -12,7 +11,7 @@ port = 54322
 [studio]
 enabled = true
 port = 54323
-api_url = "http://localhost"
+api_url = "http://localhost" # This is for local dev, ensure it's correct for your setup
 
 [inbucket]
 enabled = true
@@ -20,7 +19,7 @@ port = 54324
 
 [auth]
 enabled = true
-site_url = "http://localhost:5173"
+site_url = "http://localhost:5173" # For local dev, your React app's URL
 
 [storage]
 enabled = true
@@ -29,25 +28,35 @@ enabled = true
 enabled = true
 port = 54327
 
-[experimental]
-multiservice = true
+# [experimental] # Section can be removed if empty, or if 'multiservice' was the only key
+# multiservice = true # REMOVE THIS LINE
 
-[[functions]]
-name = "chat"
+# Corrected functions configuration
+[functions.chat]
+verify_jwt = true # Assuming you want to verify JWT for this function
+
+[functions.generate-flashcards]
 verify_jwt = true
 
-[[functions]]
-name = "generate-flashcards"
+[functions.generate-quiz]
 verify_jwt = true
 
-[[functions]]
-name = "generate-quiz"
+[functions.list-vector-store-files]
 verify_jwt = true
 
-[[functions]]
-name = "list-vector-store-files"
-verify_jwt = true
+[functions.process-syllabus]
+verify_jwt = true # Or false if it doesn't need user context beyond what's passed
 
-[[functions]]
-name = "upload-to-vector-store"
+[functions.upload-to-vector-store]
+verify_jwt = true # Or false if it's a more general utility not tied to a specific user session for the call itself
+
+# Add your new function here
+[functions.provision-class-resources]
+# verify_jwt = true # If called by an authenticated client
+# verify_jwt = false # If it's a more backend process or uses service_role for all its auth needs internally
+# For the provision-class-resources function, since it's called by the client after a user action
+# and uses a service_role key internally for DB updates, setting verify_jwt = true is reasonable
+# to ensure only authenticated users can trigger it. The --no-verify-jwt flag on deploy
+# is separate and affects how Supabase itself handles the function's invocation permissions at the gateway.
+# Let's assume true for now, as it's generally safer for client-invoked functions.
 verify_jwt = true

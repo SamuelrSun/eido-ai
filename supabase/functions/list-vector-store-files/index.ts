@@ -1,102 +1,101 @@
+// supabase/functions/list-vector-store-files/index.ts
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders } from "../_shared/cors.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { corsHeaders } from "../_shared/cors.ts"; // Ensure this path is correct
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    console.log("Function invoked: list-vector-store-files");
-
-    // Get API key from request if provided, otherwise use environment variable
-    const requestData = await req.json().catch(() => ({}));
-    const openAIApiKey = requestData.apiKey || Deno.env.get("OPENAI_API_KEY");
-
-    if (!openAIApiKey) {
-      return new Response(
-        JSON.stringify({ 
-          error: "OpenAI API key not provided. Please check your class settings."
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        }
-      );
+    // 1. Get OpenAI API Key from environment variables (secrets)
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiApiKey) {
+      console.error("OPENAI_API_KEY environment variable not set.");
+      throw new Error('Server configuration error: OpenAI API key is missing.');
     }
-    
-    // Call the OpenAI API to list files in the vector store
-    // Using the assistants endpoint which handles vector stores
-    const response = await fetch(`https://api.openai.com/v1/files?purpose=assistants`, {
+
+    // 2. Parse request body to get vectorStoreId
+    // Expecting: { vectorStoreId: string }
+    // If calling via GET, you might pass it as a query parameter,
+    // but for consistency with other functions, let's assume POST with JSON body.
+    // If you prefer GET, this part needs to change to read URL parameters.
+    let vectorStoreId: string | null = null;
+    if (req.method === "POST") {
+        const body = await req.json().catch(() => ({}));
+        vectorStoreId = body.vectorStoreId;
+    } else if (req.method === "GET") {
+        const url = new URL(req.url);
+        vectorStoreId = url.searchParams.get("vectorStoreId");
+    }
+
+
+    if (!vectorStoreId || typeof vectorStoreId !== 'string') {
+      throw new Error('vectorStoreId is required (either in JSON body for POST or as a query parameter "vectorStoreId" for GET).');
+    }
+
+    console.log(`Listing files for Vector Store ID: ${vectorStoreId}`);
+
+    // 3. Call the OpenAI API to list files in the specified vector store
+    // API: GET /v1/vector_stores/{vector_store_id}/files
+    // Note: This endpoint supports pagination (after, before, limit, order).
+    // For simplicity, this example fetches the default first page.
+    // You might want to add pagination support if a vector store can have many files.
+    const response = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
       method: "GET",
       headers: {
+        "Authorization": `Bearer ${openaiApiKey}`,
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${openAIApiKey}`
-      }
+        "OpenAI-Beta": "assistants=v2", // Required for Vector Stores API
+      },
     });
 
     const responseText = await response.text();
     let responseData;
-    
+
     try {
-      // Try to parse the response as JSON
       responseData = JSON.parse(responseText);
     } catch (parseError) {
       console.error("Failed to parse OpenAI API response as JSON:", responseText.substring(0, 200));
-      
-      // Return a structured error with the response text details
-      return new Response(
-        JSON.stringify({ 
-          error: "Failed to parse OpenAI API response",
-          responseStatus: response.status,
-          responseDetails: responseText.substring(0, 500)  // Include part of the response for debugging
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
-        }
-      );
+      throw new Error(`Failed to parse OpenAI API response. Status: ${response.status}. Response: ${responseText.substring(0, 200)}`);
     }
-    
+
     if (!response.ok) {
-      console.error("OpenAI API error:", responseData);
-      
-      let errorMessage = `OpenAI API returned ${response.status}`;
-      if (responseData.error?.message) {
-        errorMessage = responseData.error.message;
-      }
-      
+      console.error(`OpenAI API error when listing files for Vector Store ${vectorStoreId}:`, responseData);
+      const errorMessage = responseData.error?.message || `OpenAI API returned ${response.status}`;
       throw new Error(errorMessage);
     }
-      
-    console.log("Retrieved files from OpenAI:", JSON.stringify({
-      fileCount: responseData.data?.length || 0,
-      hasData: !!responseData.data
-    }));
 
-    // Return the list of files
+    console.log(`Retrieved ${responseData.data?.length || 0} files from Vector Store ID: ${vectorStoreId}`);
+
+    // 4. Return the list of files
     return new Response(
       JSON.stringify({
-        files: responseData.data || [],
+        files: responseData.data || [], // The list of VectorStoreFile objects
         count: responseData.data?.length || 0,
+        vectorStoreId: vectorStoreId,
+        // has_more: responseData.has_more, // Include if you implement pagination
+        // first_id: responseData.first_id,
+        // last_id: responseData.last_id,
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       }
-    )
+    );
+
   } catch (error) {
-    console.error('Error listing vector store files:', error);
+    console.error('Error in list-vector-store-files function:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message || 'An unknown error occurred while listing vector store files'
+      JSON.stringify({
+        error: error.message,
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: error.message.includes("required") ? 400 : 500, // 400 for bad request, 500 for server errors
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
-    )
+    );
   }
-})
+});
