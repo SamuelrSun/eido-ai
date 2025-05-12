@@ -1,477 +1,354 @@
-
-import { useEffect, useState } from "react";
-import { ArrowRight, BookPlus, PlusCircle, Search, Settings } from "lucide-react";
+// src/pages/HomePage.tsx
+import { useEffect, useState, useCallback } from "react";
+import { ArrowRight, PlusCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Link, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { supabase } from "@/integrations/supabase/client";
-import { CreateClassDialog, ClassData } from "@/components/class/CreateClassDialog";
+import { supabase } from "@/integrations/supabase/client"; // Ensure this path is correct
+import { CreateClassDialog, ClassData as CreateClassDialogClassData } from "@/components/class/CreateClassDialog";
 import { useToast } from "@/hooks/use-toast";
 import { EditClassDialog } from "@/components/class/EditClassDialog";
-import { classOpenAIConfigService, ClassConfig } from "@/services/classOpenAIConfig";
+import { classOpenAIConfigService, ClassConfig, OpenAIConfig } from "@/services/classOpenAIConfig"; // Import updated types
 import { getEmojiForClass } from "@/utils/emojiUtils";
+import type { User } from "@supabase/supabase-js";
+import type { WidgetType } from "@/hooks/use-widgets"; // Import WidgetType
 
+// Updated ClassOption interface to align with ClassConfig and new data structure
 interface ClassOption {
+  class_id: string; // Now using class_id as the primary identifier
   title: string;
-  professor?: string;
-  classTime?: string;
-  classroom?: string;
+  professor?: string | null;
+  classTime?: string | null;
+  classroom?: string | null;
   emoji: string;
-  link: string;
-  enabledWidgets: string[];
-  openAIConfig?: {
-    apiKey?: string;
-    vectorStoreId?: string;
-    assistantId?: string;
-  };
+  link: string; // Default link, e.g., to Super Tutor
+  enabledWidgets: WidgetType[]; // Changed from string[] to WidgetType[]
+  openAIConfig?: OpenAIConfig; // Uses the updated OpenAIConfig (no apiKey)
+  created_at?: string | null;
+  updated_at?: string | null;
+  user_id?: string | null;
 }
 
-const DEFAULT_CLASS_WIDGETS = ["supertutor", "database"];
+const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"]; // Typed as WidgetType[]
 
 const HomePage = () => {
   const [userName, setUserName] = useState<string>("Student");
-  const [recentlyViewed, setRecentlyViewed] = useState<{title: string, path: string}[]>([]);
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
   const [isEditClassOpen, setIsEditClassOpen] = useState(false);
   const [selectedClassToEdit, setSelectedClassToEdit] = useState<ClassOption | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
-  
-  const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
-  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
-  const [userAuthenticated, setUserAuthenticated] = useState<boolean>(false);
 
-  // Function to fetch all user data
-  const fetchUserData = async () => {
+  const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+
+  // Function to fetch all user data (profile and classes)
+  const fetchUserDataAndClasses = useCallback(async (currentUser: User | null) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      console.log("Fetching user profile and classes");
-      
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-      setUserAuthenticated(!!user);
-      
-      if (user) {
+      if (currentUser) {
         // Fetch user profile
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name')
-          .eq('id', user.id)
+          .eq('user_id', currentUser.id)
           .maybeSingle();
-          
+
         if (profile?.full_name) {
-          // Get the first name from the full name
           const firstName = profile.full_name.split(' ')[0];
           setUserName(firstName);
         } else {
-          // Fallback to email if no name is available
-          const emailName = user.email?.split('@')[0] || "Student";
+          const emailName = currentUser.email?.split('@')[0] || "Student";
           setUserName(emailName);
         }
-        
-        try {
-          // Force clean fetch of classes with no caching
-          console.log('Calling classOpenAIConfigService.getAllClasses()');
-          const userClasses = await classOpenAIConfigService.getAllClasses();
-            
-          console.log('Retrieved classes:', userClasses);
-          
-          if (userClasses && userClasses.length > 0) {
-            console.log(`Found ${userClasses.length} classes for the user:`, userClasses);
-            
-            // Transform ClassConfig objects to ClassOption objects
-            const classOptions = userClasses.map((config): ClassOption => {
-              // Use stored emoji or generate one based on class title
-              const classEmoji = config.emoji || getEmojiForClass(config.title);
-              
-              return {
-                title: config.title,
-                professor: config.professor || "",
-                classTime: config.classTime || "",
-                classroom: config.classroom || "",
-                emoji: classEmoji,
-                link: "/super-stu",
-                enabledWidgets: config.enabledWidgets || DEFAULT_CLASS_WIDGETS,
-                openAIConfig: config.openAIConfig
-              };
-            });
-            
-            console.log("Transformed class options:", classOptions);
-            setClassOptions(classOptions);
-          } else {
-            console.log("No classes found for user");
-            setClassOptions([]);
-          }
-        } catch (fetchError) {
-          console.error("Error fetching class data:", fetchError);
-          toast({
-            title: "Warning",
-            description: "Failed to load class data. Trying alternate method.",
-            variant: "destructive"
-          });
-          
-          setRefreshTrigger(prev => prev + 1);
+
+        // Fetch classes
+        const userClasses: ClassConfig[] = await classOpenAIConfigService.getAllClasses();
+        console.log('Retrieved classes from service:', userClasses);
+
+        if (userClasses && userClasses.length > 0) {
+          const transformedOptions: ClassOption[] = userClasses.map((config): ClassOption => ({
+            class_id: config.class_id,
+            title: config.title,
+            professor: config.professor,
+            classTime: config.classTime,
+            classroom: config.classroom,
+            emoji: config.emoji || getEmojiForClass(config.title),
+            link: "/super-stu",
+            enabledWidgets: (config.enabledWidgets || DEFAULT_CLASS_WIDGETS) as WidgetType[], // Cast to WidgetType[]
+            openAIConfig: config.openAIConfig,
+            created_at: config.created_at,
+            updated_at: config.updated_at,
+            user_id: config.user_id,
+          }));
+          setClassOptions(transformedOptions);
+        } else {
+          setClassOptions([]);
         }
       } else {
-        console.log("No authenticated user found");
+        setUserName("Student");
+        setClassOptions([]);
       }
     } catch (error) {
-      console.error("Error fetching user data:", error);
+      console.error("Error fetching user data and classes:", error);
       toast({
-        title: "Error",
-        description: "Failed to load your profile data. Please try refreshing the page.",
+        title: "Error Loading Data",
+        description: "Failed to load your profile or class data. Please try refreshing.",
         variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
+  // Effect for initial data load and auth changes
   useEffect(() => {
-    fetchUserData();
-    
-    // Clear active class when on homepage
-    sessionStorage.removeItem('activeClass');
-    
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        console.log('Auth state changed:', event);
-        setUserAuthenticated(!!session);
-        // Refresh user data when auth state changes
-        fetchUserData();
-      } else if (event === 'SIGNED_OUT') {
-        setUserAuthenticated(false);
-        // Reset to local storage values on logout
-        fetchUserData();
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+      fetchUserDataAndClasses(currentUser);
+      if (_event === 'SIGNED_OUT') {
+        sessionStorage.removeItem('activeClass');
+        navigate("/auth");
       }
     });
-    
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [refreshTrigger]); // Added refreshTrigger to dependencies
 
-  const handleCreateClass = async (classData: ClassData) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+      fetchUserDataAndClasses(currentUser);
+    });
+    
+    sessionStorage.removeItem('activeClass');
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [fetchUserDataAndClasses, navigate]);
+
+
+  const handleCreateClass = async (classDialogData: CreateClassDialogClassData) => {
+    if (!user) {
+      toast({ title: "Authentication Error", description: "You must be signed in.", variant: "destructive" });
+      return;
+    }
     try {
-      console.log("Creating class with data:", classData);
-      
-      // Get current user
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-      
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "You must be signed in to create a class. Please sign in and try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Ensure we have an emoji (either from form or generated)
-      const classEmoji = classData.emoji || getEmojiForClass(classData.title);
-      console.log("Using emoji:", classEmoji);
-      
-      // Ensure enabledWidgets is always an array
-      const safeEnabledWidgets = Array.isArray(classData.enabledWidgets) ? classData.enabledWidgets : ["flashcards", "quizzes"];
-      
-      // Add the new class to the UI immediately for better user experience
-      const newClass: ClassOption = {
-        title: classData.title,
-        professor: classData.professor,
-        classTime: classData.classTime,
-        classroom: classData.classroom,
-        emoji: classEmoji,
+      const newDbClassRecord = await classOpenAIConfigService.saveConfigForClass(
+        classDialogData.title,
+        classDialogData.openAIConfig || {},
+        classDialogData.emoji || getEmojiForClass(classDialogData.title),
+        classDialogData.professor,
+        classDialogData.classTime,
+        classDialogData.classroom,
+        classDialogData.enabledWidgets as WidgetType[] // Cast to WidgetType[]
+      );
+
+      const newClassOption: ClassOption = {
+        class_id: newDbClassRecord.class_id,
+        title: newDbClassRecord.class_title,
+        professor: newDbClassRecord.professor,
+        classTime: newDbClassRecord.class_time,
+        classroom: newDbClassRecord.classroom,
+        emoji: newDbClassRecord.emoji || getEmojiForClass(newDbClassRecord.class_title),
         link: "/super-stu",
-        enabledWidgets: safeEnabledWidgets,
-        openAIConfig: classData.openAIConfig
+        enabledWidgets: (newDbClassRecord.enabled_widgets || DEFAULT_CLASS_WIDGETS) as WidgetType[], // Cast
+        openAIConfig: {
+          assistantId: newDbClassRecord.assistant_id,
+          vectorStoreId: newDbClassRecord.vector_store_id,
+        },
+        created_at: newDbClassRecord.created_at,
+        updated_at: newDbClassRecord.updated_at,
+        user_id: newDbClassRecord.user_id,
       };
-      
-      setClassOptions(prev => [newClass, ...prev]);
-      
-      // Store OpenAI configuration and class info in Supabase
-      if (classData.title) {
-        try {
-          console.log("Saving class data using classOpenAIConfigService");
-          // Save class and OpenAI config data using our service
-          await classOpenAIConfigService.saveConfigForClass(
-            classData.title,
-            classData.openAIConfig || {},
-            classEmoji,
-            classData.professor,
-            classData.classTime,
-            classData.classroom,
-            safeEnabledWidgets
-          );
-          
-          console.log('Class data saved successfully:', classData.title);
-          
-          // Force a refresh of data by incrementing the refreshTrigger
-          setRefreshTrigger(prev => prev + 1);
-          
-          toast({
-            title: "Class created!",
-            description: `${classData.title} has been added to your dashboard.`
-          });
-          
-          setIsCreateClassOpen(false);
-        } catch (error) {
-          console.error('Error storing class data:', error);
-          toast({
-            title: "Warning",
-            description: "Failed to save class information to the server. Please try again.",
-            variant: "destructive"
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error creating class:", error);
+
+      setClassOptions(prev => [newClassOption, ...prev]);
+      setIsCreateClassOpen(false);
       toast({
-        title: "Error",
-        description: "Failed to create class. Please try again.",
-        variant: "destructive"
+        title: "Class Created!",
+        description: `${newClassOption.title} has been added. AI features are being set up.`,
       });
+      setTimeout(() => fetchUserDataAndClasses(user), 3000);
+
+    } catch (error) {
+      console.error("Error in handleCreateClass:", error);
+      toast({ title: "Error Creating Class", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     }
   };
 
-  const handleUpdateClass = async (classData: ClassData) => {
-    if (!selectedClassToEdit) return;
-    
+  const handleUpdateClass = async (classDialogData: CreateClassDialogClassData) => {
+    if (!selectedClassToEdit || !user) return;
+
     try {
-      // Get current user
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-      
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "You must be signed in to update a class",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Ensure enabledWidgets is always an array
-      const safeEnabledWidgets = Array.isArray(classData.enabledWidgets) ? classData.enabledWidgets : ["flashcards", "quizzes"];
-      
-      // Update the class in the UI immediately
-      setClassOptions(prev => 
-        prev.map(classItem => 
-          classItem.title === selectedClassToEdit.title 
-            ? {
-                ...classItem,
-                title: classData.title,
-                professor: classData.professor,
-                classTime: classData.classTime,
-                classroom: classData.classroom,
-                emoji: classData.emoji,
-                enabledWidgets: safeEnabledWidgets,
-                openAIConfig: classData.openAIConfig
-              }
-            : classItem
-        )
+      const updatedDbClassRecord = await classOpenAIConfigService.saveConfigForClass(
+        classDialogData.title, 
+        classDialogData.openAIConfig || {},
+        classDialogData.emoji,
+        classDialogData.professor,
+        classDialogData.classTime,
+        classDialogData.classroom,
+        classDialogData.enabledWidgets as WidgetType[] // Cast
       );
       
-      // Update class data in Supabase using our service
-      try {
-        await classOpenAIConfigService.saveConfigForClass(
-          classData.title,
-          classData.openAIConfig || {},
-          classData.emoji,
-          classData.professor,
-          classData.classTime,
-          classData.classroom,
-          safeEnabledWidgets
-        );
-        
-        // If the title changed, delete the old class
-        if (selectedClassToEdit.title !== classData.title) {
-          await classOpenAIConfigService.deleteClass(selectedClassToEdit.title);
-        }
-        
-        console.log('Class data updated for:', classData.title);
-        
-        // Force a refresh of data by incrementing the refreshTrigger
-        setRefreshTrigger(prev => prev + 1);
-      
-        toast({
-          title: "Class updated",
-          description: `${classData.title} has been updated.`
-        });
-        
-        // Reset state
-        setSelectedClassToEdit(null);
-        setIsEditClassOpen(false);
-      } catch (error) {
-        console.error('Error updating class data:', error);
-        toast({
-          title: "Warning",
-          description: "Failed to update class information on the server. Please try again.",
-          variant: "destructive"
-        });
+      if (selectedClassToEdit.title !== classDialogData.title && selectedClassToEdit.class_id !== updatedDbClassRecord.class_id) {
+         // If title changed AND it resulted in a new record (ID changed), delete the old one.
+         // This assumes saveConfigForClass might return a new record if title changes significantly
+         // or if it's treated as a unique key for lookup before update.
+         // A more direct approach would be to update by class_id in the service.
+         await classOpenAIConfigService.deleteClass(selectedClassToEdit.class_id);
       }
+
+       const updatedClassOption: ClassOption = {
+        class_id: updatedDbClassRecord.class_id, 
+        title: updatedDbClassRecord.class_title,
+        professor: updatedDbClassRecord.professor,
+        classTime: updatedDbClassRecord.class_time,
+        classroom: updatedDbClassRecord.classroom,
+        emoji: updatedDbClassRecord.emoji || getEmojiForClass(updatedDbClassRecord.class_title),
+        link: "/super-stu",
+        enabledWidgets: (updatedDbClassRecord.enabled_widgets || DEFAULT_CLASS_WIDGETS) as WidgetType[], // Cast
+        openAIConfig: {
+          assistantId: updatedDbClassRecord.assistant_id,
+          vectorStoreId: updatedDbClassRecord.vector_store_id,
+        },
+        created_at: updatedDbClassRecord.created_at,
+        updated_at: updatedDbClassRecord.updated_at,
+        user_id: updatedDbClassRecord.user_id,
+      };
+
+      setClassOptions(prev =>
+        prev.map(opt => (opt.class_id === selectedClassToEdit.class_id ? updatedClassOption : opt))
+      );
+
+      setIsEditClassOpen(false);
+      setSelectedClassToEdit(null);
+      toast({ title: "Class Updated", description: `${updatedClassOption.title} has been updated.` });
+      fetchUserDataAndClasses(user); 
+
     } catch (error) {
-      console.error("Error updating class:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update class",
-        variant: "destructive"
-      });
+      console.error("Error in handleUpdateClass:", error);
+      toast({ title: "Error Updating Class", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     }
   };
 
   const handleDeleteClass = async () => {
-    if (!selectedClassToEdit) return;
-    
+    if (!selectedClassToEdit || !user) return;
     try {
-      // Delete using our service
-      await classOpenAIConfigService.deleteClass(selectedClassToEdit.title);
+      await classOpenAIConfigService.deleteClass(selectedClassToEdit.class_id); 
+
+      setClassOptions(prev => prev.filter(opt => opt.class_id !== selectedClassToEdit.class_id));
       
-      // Check if the deleted class is the active class
-      const activeClass = sessionStorage.getItem('activeClass');
-      if (activeClass) {
-        try {
-          const parsedClass = JSON.parse(activeClass);
-          // If the active class is being deleted, remove it from session storage
-          if (parsedClass.title === selectedClassToEdit.title) {
-            sessionStorage.removeItem('activeClass');
+      const activeClassJSON = sessionStorage.getItem('activeClass');
+      if (activeClassJSON) {
+          const parsedActiveClass = JSON.parse(activeClassJSON);
+          if (parsedActiveClass.class_id === selectedClassToEdit.class_id) {
+              sessionStorage.removeItem('activeClass');
           }
-        } catch (error) {
-          console.error("Error parsing active class:", error);
-        }
       }
-      
-      // Remove the class from the UI
-      setClassOptions(prev => 
-        prev.filter(classItem => classItem.title !== selectedClassToEdit.title)
-      );
-      
-      toast({
-        title: "Class deleted",
-        description: `${selectedClassToEdit.title} has been deleted.`
-      });
-      
-      // Force a refresh of data by incrementing the refreshTrigger
-      setRefreshTrigger(prev => prev + 1);
-      
-      // Reset state
-      setSelectedClassToEdit(null);
+
       setIsEditClassOpen(false);
+      setSelectedClassToEdit(null);
+      toast({ title: "Class Deleted", description: `${selectedClassToEdit.title} has been removed.` });
     } catch (error) {
-      console.error("Error deleting class:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete class. Please try again.",
-        variant: "destructive"
-      });
+      console.error("Error in handleDeleteClass:", error);
+      toast({ title: "Error Deleting Class", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     }
   };
 
-  const handleEditClass = (classOption: ClassOption) => {
+  const handleEditClassClick = (classOption: ClassOption) => {
     setSelectedClassToEdit(classOption);
     setIsEditClassOpen(true);
   };
 
   const handleClassClick = (classOption: ClassOption) => {
-    // Set the selected class as active
     sessionStorage.setItem('activeClass', JSON.stringify(classOption));
-    
-    // Navigate to Super Tutor
-    navigate("/super-stu");
-  };
-
-  // Function to reset all data (for troubleshooting)
-  const handleResetAllData = async () => {
-    try {
-      await classOpenAIConfigService.clearAllData();
-      toast({
-        title: "Data reset",
-        description: "All local class data has been reset. Refreshing..."
-      });
-      setRefreshTrigger(prev => prev + 1);
-    } catch (error) {
-      console.error("Error resetting data:", error);
-    }
+    navigate(classOption.link); 
   };
 
   return (
     <div className="space-y-8 pb-8">
-      {/* Hero Section with personalized greeting */}
       <div className="flex justify-between items-center">
-        <PageHeader 
+        <PageHeader
           title={`Hello, ${userName}!`}
           description="Which class would you like to study today?"
         />
-        <Button 
+        <Button
           onClick={() => setIsCreateClassOpen(true)}
           className="flex items-center gap-2"
+          disabled={!user} 
         >
           <PlusCircle className="h-4 w-4" />
           Add Class
         </Button>
       </div>
 
-      {/* Class Options */}
       {isLoading ? (
         <div className="py-12 flex justify-center">
-          <div className="animate-pulse space-y-4">
-            <div className="h-12 w-64 bg-gray-200 rounded"></div>
+          <div className="animate-pulse space-y-4 w-full">
+            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-40 w-full bg-gray-200 rounded"></div>
+                <div key={i} className="h-48 bg-gray-200 rounded-lg"></div>
               ))}
             </div>
           </div>
         </div>
+      ) : !user ? (
+         <div className="py-12 text-center border border-dashed rounded-lg p-6">
+          <div className="text-4xl mb-4">🔑</div>
+          <h3 className="text-lg font-medium mb-2">Please Sign In</h3>
+          <p className="text-muted-foreground mb-6">
+            Sign in to create and access your classes.
+          </p>
+          <Button onClick={() => navigate("/auth")}>Go to Sign In</Button>
+        </div>
       ) : classOptions.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {classOptions.map((option, index) => (
+          {classOptions.map((option) => (
             <div
-              key={`${option.title}-${index}`}
-              className="cursor-pointer relative"
+              key={option.class_id} 
+              className="cursor-pointer relative group" 
             >
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
-                className="absolute top-2 right-2 z-10"
+                className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditClass(option);
+                  e.stopPropagation(); 
+                  handleEditClassClick(option);
                 }}
               >
                 <Settings className="h-4 w-4" />
               </Button>
-              <Card 
-                className="h-full transition-all hover:shadow-md hover:border-primary"
+              <Card
+                className="h-full transition-all hover:shadow-lg hover:border-primary flex flex-col"
                 onClick={() => handleClassClick(option)}
               >
-                <CardHeader>
-                  <div className="mb-4 p-2 bg-primary/20 rounded-lg w-fit">
+                <CardHeader className="flex-shrink-0">
+                  <div className="mb-4 p-3 bg-primary/10 rounded-lg w-fit">
                     <span className="text-4xl">{option.emoji}</span>
                   </div>
-                  <CardTitle>{option.title}</CardTitle>
+                  <CardTitle className="truncate" title={option.title}>{option.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="text-sm space-y-1">
+                <CardContent className="pt-0 flex-grow">
+                  <div className="text-sm space-y-1 text-muted-foreground">
                     {option.professor && (
-                      <p className="text-muted-foreground"><span className="font-medium text-foreground">Professor:</span> {option.professor}</p>
+                      <p><span className="font-medium text-foreground">Professor:</span> {option.professor}</p>
                     )}
                     {option.classTime && (
-                      <p className="text-muted-foreground"><span className="font-medium text-foreground">Time:</span> {option.classTime}</p>
+                      <p><span className="font-medium text-foreground">Time:</span> {option.classTime}</p>
                     )}
                     {option.classroom && (
-                      <p className="text-muted-foreground"><span className="font-medium text-foreground">Location:</span> {option.classroom}</p>
+                      <p><span className="font-medium text-foreground">Location:</span> {option.classroom}</p>
                     )}
                   </div>
                 </CardContent>
-                <CardFooter>
-                  <Button variant="ghost" className="group text-primary">
+                <CardFooter className="flex-shrink-0">
+                  <div className="text-primary font-medium flex items-center group-hover:underline">
                     Enter class
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </Button>
+                  </div>
                 </CardFooter>
               </Card>
             </div>
@@ -480,11 +357,11 @@ const HomePage = () => {
       ) : (
         <div className="py-12 text-center border border-dashed rounded-lg p-6">
           <div className="text-4xl mb-4">👋</div>
-          <h3 className="text-lg font-medium mb-2">Welcome to your personal dashboard</h3>
+          <h3 className="text-lg font-medium mb-2">Welcome to your dashboard!</h3>
           <p className="text-muted-foreground mb-6">
-            You don't have any classes yet. Click the "Add Class" button to create your first class.
+            You don't have any classes yet. Click "Add Class" to create your first one.
           </p>
-          <Button 
+          <Button
             onClick={() => setIsCreateClassOpen(true)}
             className="flex items-center gap-2"
           >
@@ -494,90 +371,44 @@ const HomePage = () => {
         </div>
       )}
 
-      {/* Quick Actions */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <Link to="/account">
-            <Card className="hover:bg-gray-50 text-center p-6">
-              <div className="flex flex-col items-center space-y-2">
-                <div className="p-2 bg-blue-50 rounded-full">
-                  <span className="text-2xl">📊</span>
+      {user && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <Link to="/account" className="block">
+              <Card className="hover:bg-accent text-center p-6 h-full flex flex-col justify-center items-center">
+                <div className="p-3 bg-primary/10 rounded-full mb-2 w-fit">
+                  <span className="text-2xl">👤</span>
                 </div>
-                <span className="font-medium">My Progress</span>
-              </div>
-            </Card>
-          </Link>
-          <Link to="/flashcards">
-            <Card className="hover:bg-gray-50 text-center p-6">
-              <div className="flex flex-col items-center space-y-2">
-                <div className="p-2 bg-blue-50 rounded-full">
-                  <span className="text-2xl">🔖</span>
-                </div>
-                <span className="font-medium">Create Flashcards</span>
-              </div>
-            </Card>
-          </Link>
-          <Link to="/quizzes">
-            <Card className="hover:bg-gray-50 text-center p-6">
-              <div className="flex flex-col items-center space-y-2">
-                <div className="p-2 bg-blue-50 rounded-full">
-                  <span className="text-2xl">📝</span>
-                </div>
-                <span className="font-medium">Take a Quiz</span>
-              </div>
-            </Card>
-          </Link>
-        </div>
-      </div>
-
-      {/* Troubleshooting option - only visible in dev mode */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-8 pt-4 border-t">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleResetAllData}
-            className="text-red-500 border-red-200"
-          >
-            Reset All Class Data (Dev Only)
-          </Button>
+                <span className="font-medium">My Account</span>
+              </Card>
+            </Link>
+          </div>
         </div>
       )}
 
-      {/* Help CTA */}
-      <div className="bg-cybercoach-blue-dark text-white p-6 rounded-xl text-center">
-        <h2 className="text-2xl font-bold mb-2">Need help with your studies?</h2>
-        <p className="mb-6 text-blue-100">
-          Super Tutor's AI assistant can explain complex topics, help with assignments, and quiz you on key concepts.
-        </p>
-        <Link to="/super-stu">
-          <Button size="lg" className="bg-cybercoach-blue-light hover:bg-cybercoach-blue text-white">
-            Talk to Super Tutor Now
-          </Button>
-        </Link>
-      </div>
 
-      {/* Create Class Dialog */}
-      <CreateClassDialog 
+      <CreateClassDialog
         open={isCreateClassOpen}
         onOpenChange={setIsCreateClassOpen}
         onClassCreate={handleCreateClass}
       />
 
-      {/* Edit Class Dialog */}
       {selectedClassToEdit && (
         <EditClassDialog
           open={isEditClassOpen}
           onOpenChange={setIsEditClassOpen}
-          initialData={{
+          initialData={{ 
             title: selectedClassToEdit.title,
             professor: selectedClassToEdit.professor,
             classTime: selectedClassToEdit.classTime,
             classroom: selectedClassToEdit.classroom,
-            enabledWidgets: selectedClassToEdit.enabledWidgets,
             emoji: selectedClassToEdit.emoji,
-            openAIConfig: selectedClassToEdit.openAIConfig
+            enabledWidgets: selectedClassToEdit.enabledWidgets, // This should now be WidgetType[]
+            openAIConfig: selectedClassToEdit.openAIConfig ? {
+                assistantId: selectedClassToEdit.openAIConfig.assistantId,
+                vectorStoreId: selectedClassToEdit.openAIConfig.vectorStoreId,
+            } : undefined,
           }}
           onClassUpdate={handleUpdateClass}
           onClassDelete={handleDeleteClass}
