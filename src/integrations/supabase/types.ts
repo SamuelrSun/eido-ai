@@ -187,10 +187,12 @@ export type Database = {
           class_id: string | null
           created_at: string
           database_id: string | null
+          document_title: string | null
           file_id: string
           folder_id: string | null
           last_modified: string
           name: string
+          openai_file_id: string | null
           size: number
           status: string | null
           tags: string[] | null
@@ -203,10 +205,12 @@ export type Database = {
           class_id?: string | null
           created_at?: string
           database_id?: string | null
+          document_title?: string | null
           file_id?: string
           folder_id?: string | null
           last_modified?: string
           name: string
+          openai_file_id?: string | null
           size: number
           status?: string | null
           tags?: string[] | null
@@ -219,10 +223,12 @@ export type Database = {
           class_id?: string | null
           created_at?: string
           database_id?: string | null
+          document_title?: string | null
           file_id?: string
           folder_id?: string | null
           last_modified?: string
           name?: string
+          openai_file_id?: string | null
           size?: number
           status?: string | null
           tags?: string[] | null
