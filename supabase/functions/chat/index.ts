@@ -1,293 +1,180 @@
+// supabase/functions/chat/index.ts
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { corsHeaders } from "../_shared/cors.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ASSISTANT_RUN_TIMEOUT = 45000;
+
+interface FileCitationAnnotation {
+  type: "file_citation";
+  text: string;
+  start_index: number;
+  end_index: number;
+  file_citation: { file_id: string; quote?: string; };
+}
+interface FilePathAnnotation {
+  type: "file_path";
+  text: string;
+  start_index: number;
+  end_index: number;
+  file_path: { file_id: string; };
+}
+type Annotation = FileCitationAnnotation | FilePathAnnotation;
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
+  let supabaseAdminClient: any;
+
   try {
-    const { message, history = [], openAIConfig = {}, knowledgeBase } = await req.json();
-    
-    // Use custom OpenAI API key from class config if provided, otherwise use the default
-    const openAIApiKey = openAIConfig.apiKey || Deno.env.get('OPENAI_API_KEY');
-    // Use custom assistant ID from class config if provided
-    const assistantId = openAIConfig.assistantId || Deno.env.get('OPENAI_ASSISTANT_ID');
-    // Use custom vector store ID from class config if provided
-    const vectorStoreId = openAIConfig.vectorStoreId || Deno.env.get('VECTOR_STORE_ID');
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiApiKey) throw new Error('Server configuration error: OpenAI API key is missing.');
 
-    console.log("Using AssistantID:", assistantId);
-    console.log("Using VectorStoreID:", vectorStoreId);
-    
-    if (!openAIApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not provided. Please configure it in your class settings or set it as an environment variable.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseServiceRoleKey) throw new Error("Server configuration error: Supabase connection details missing.");
+    supabaseAdminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    // Validate API key format - accepting both sk-org and standard sk- keys
-    if (!openAIApiKey.startsWith('sk-')) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid OpenAI API key format. Keys should start with "sk-"' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
+    const { message, history = [], openAIConfig = {}, knowledgeBase = "the current topic" } = await req.json();
+    if (!message) throw new Error("User message is required.");
 
-    // Citation instructions to include in both approaches
+    const assistantId = openAIConfig.assistantId;
+    const vectorStoreId = openAIConfig.vectorStoreId;
+
+    console.log(`Chat request for: "${knowledgeBase}". AssistantID: ${assistantId || 'N/A'}`);
+
+    // Modified instructions for the LLM
     const citationInstructions = `
-      Always cite your sources clearly. Begin your response with "According to [file name]..." when all information comes from one file.
-      If using multiple sources, cite each fact with "(Source: [file name], [section/heading if available])" at the end of each point.
-      For bullet points, include the source at the end of each bullet in parentheses.
-      Be specific about which file and section the information comes from.
+      When you use information from provided files, your response will contain annotations.
+      These annotations will be automatically replaced by the system with proper citations in the format (Document Title | filename.pdf).
+      Focus on answering the question accurately using the file content. You do not need to manually create citation strings or include raw file paths in your narrative text.
+      If you naturally mention a document, that's fine, but the system will handle the formal citation placeholders.
     `;
 
-    // If assistant ID is provided, use it (this is the preferred method for vector stores with assistants API)
     if (assistantId) {
       try {
-        console.log(`Attempting to use assistant with ID: ${assistantId}`);
-        
-        // Create a thread
         const threadResponse = await fetch('https://api.openai.com/v1/threads', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
-            'OpenAI-Beta': 'assistants=v2'  // Using the updated beta header
-          },
-          body: JSON.stringify({}),
+          headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'assistants=v2' },
+          body: JSON.stringify({ messages: [...history.map(h => ({ role: h.role, content: h.content })), { role: 'user', content: message }] }),
         });
+        if (!threadResponse.ok) throw new Error(`Failed to create assistant thread: ${await threadResponse.text()}`);
+        const thread = await threadResponse.json();
+        const threadId = thread.id;
 
-        if (!threadResponse.ok) {
-          const errorText = await threadResponse.text();
-          console.error('Failed to create thread:', errorText);
-          throw new Error(`Failed to create assistant thread: ${errorText}`);
-        }
-
-        const threadData = await threadResponse.json();
-        const threadId = threadData.id;
-        
-        // Add message to thread with citation instructions
-        const enhancedMessage = `${message}\n\nPlease remember to: ${citationInstructions}`;
-        
-        const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
-            'OpenAI-Beta': 'assistants=v2'  // Updated beta header
-          },
-          body: JSON.stringify({
-            role: 'user',
-            content: enhancedMessage
-          }),
-        });
-
-        if (!messageResponse.ok) {
-          const errorText = await messageResponse.text();
-          console.error('Failed to add message:', errorText);
-          throw new Error(`Failed to add message to thread: ${errorText}`);
-        }
-
-        // Run the assistant
         const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
-            'OpenAI-Beta': 'assistants=v2'  // Updated beta header
-          },
-          body: JSON.stringify({
-            assistant_id: assistantId,
-            instructions: `You are an AI Assistant for education. The user is studying "${knowledgeBase}". ${citationInstructions}`
-          }),
+          headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'assistants=v2' },
+          body: JSON.stringify({ assistant_id: assistantId, instructions: `You are an AI Tutor for the class: "${knowledgeBase}". ${citationInstructions} Please be helpful and clear.` }),
         });
+        if (!runResponse.ok) throw new Error(`Failed to run assistant: ${await runResponse.text()}`);
+        let run = await runResponse.json();
 
-        if (!runResponse.ok) {
-          const errorText = await runResponse.text();
-          console.error('Failed to run assistant:', errorText);
-          throw new Error(`Failed to run assistant: ${errorText}`);
-        }
-
-        const runData = await runResponse.json();
-        let runStatus = runData.status;
-        let runId = runData.id;
-        
-        // Poll for completion (with timeout)
         const startTime = Date.now();
-        const maxWaitTime = 30000; // 30 seconds max wait
-        
-        while (runStatus === 'queued' || runStatus === 'in_progress') {
-          // Check timeout
-          if (Date.now() - startTime > maxWaitTime) {
-            throw new Error('Assistant run timed out');
+        while (['queued', 'in_progress', 'cancelling'].includes(run.status)) {
+          if (Date.now() - startTime > ASSISTANT_RUN_TIMEOUT) {
+            await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${run.id}/cancel`, { method: 'POST', headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' }});
+            throw new Error('Assistant run timed out.');
           }
-          
-          // Wait before polling again
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Check run status
-          const runCheckResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
-            headers: {
-              'Authorization': `Bearer ${openAIApiKey}`,
-              'OpenAI-Beta': 'assistants=v2'  // Updated beta header
-            },
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          const runStatusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${run.id}`, { headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' } });
+          if (!runStatusResponse.ok) throw new Error(`Failed to check assistant run status: ${await runStatusResponse.text()}`);
+          run = await runStatusResponse.json();
+        }
+
+        if (run.status === 'completed') {
+          const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages?order=desc`, {
+            headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' },
           });
-          
-          if (!runCheckResponse.ok) {
-            const errorText = await runCheckResponse.text();
-            console.error('Failed to check run status:', errorText);
-            throw new Error(`Failed to check assistant run status: ${errorText}`);
+          if (!messagesResponse.ok) throw new Error(`Failed to get assistant messages: ${await messagesResponse.text()}`);
+          const messagesData = await messagesResponse.json();
+          let assistantMessageContent = "";
+          const latestAssistantMessages = messagesData.data?.filter((msg: any) => msg.role === 'assistant');
+
+          if (latestAssistantMessages && latestAssistantMessages.length > 0) {
+            const latestMsg = latestAssistantMessages[0];
+            if (latestMsg.content && latestMsg.content.length > 0 && latestMsg.content[0].type === 'text') {
+              let rawText = latestMsg.content[0].text.value;
+              const annotations: Annotation[] = latestMsg.content[0].text.annotations || [];
+              annotations.sort((a, b) => b.start_index - a.start_index);
+
+              for (const annotation of annotations) {
+                let openAIFileId: string | undefined;
+                if (annotation.type === "file_citation") openAIFileId = annotation.file_citation.file_id;
+                else if (annotation.type === "file_path") openAIFileId = annotation.file_path.file_id;
+
+                if (openAIFileId) {
+                  console.log(`Processing annotation for OpenAI File ID: ${openAIFileId}, Annotation text: "${annotation.text}"`);
+                  const { data: fileData, error: dbError } = await supabaseAdminClient
+                    .from('files')
+                    .select('name, document_title') // 'name' is filename.pdf, 'document_title' is user-friendly
+                    .eq('openai_file_id', openAIFileId)
+                    .single();
+
+                  let citationText = `(Source: ${openAIFileId})`; // Fallback
+                  if (dbError) {
+                    console.error(`DB lookup error for OpenAI file ID ${openAIFileId}:`, dbError.message);
+                  } else if (fileData) {
+                    const docTitle = fileData.document_title || fileData.name; // Use document_title or fallback to filename
+                    const fileName = fileData.name; // This is the actual filename.pdf
+                    citationText = `(${docTitle} | ${fileName})`;
+                    console.log(`Constructed citation for ${openAIFileId}: ${citationText}`);
+                  } else {
+                     console.warn(`No file record found in DB for OpenAI file ID ${openAIFileId}. Using fallback citation.`);
+                  }
+                  rawText = rawText.substring(0, annotation.start_index) + citationText + rawText.substring(annotation.end_index);
+                }
+              }
+              // Final cleanup of any remaining OpenAI-specific citation prefixes like "【d+:d†" or "d:d†"
+              // This regex looks for patterns like "【1:23†", "1:23†" that might be adjacent to our inserted citation or other text.
+              // It specifically targets those that might be left if the annotation.text was just the filename.
+              assistantMessageContent = rawText.replace(/【\s*\d+:\d+†\s*|\s*\d+:\d+†\s*/g, '');
+            }
           }
-          
-          const runCheckData = await runCheckResponse.json();
-          runStatus = runCheckData.status;
-          
-          if (runStatus === 'completed') {
-            break;
-          } else if (runStatus === 'failed' || runStatus === 'cancelled' || runStatus === 'expired') {
-            throw new Error(`Assistant run ${runStatus}`);
+
+          if (!assistantMessageContent && latestAssistantMessages && latestAssistantMessages.length > 0) {
+            // If content was purely an annotation that got replaced by an empty string (e.g. failed lookup and empty fallback)
+             assistantMessageContent = latestAssistantMessages[0].content[0].text.value || "[Could not retrieve citation details]";
+          } else if (!assistantMessageContent) {
+            throw new Error('No assistant response content received.');
           }
+
+          return new Response(JSON.stringify({ response: assistantMessageContent, assistantId: assistantId, vectorStoreId: vectorStoreId, usedAssistant: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        } else {
+          throw new Error(`Assistant run failed. Status: ${run.status}. ${run.last_error?.message || ''}`);
         }
-        
-        // Get messages (the response)
-        const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'OpenAI-Beta': 'assistants=v2'  // Updated beta header
-          },
-        });
-        
-        if (!messagesResponse.ok) {
-          const errorText = await messagesResponse.text();
-          console.error('Failed to get messages:', errorText);
-          throw new Error(`Failed to get assistant messages: ${errorText}`);
-        }
-        
-        const messagesData = await messagesResponse.json();
-        // Get the last assistant message
-        const assistantMessages = messagesData.data.filter((msg: any) => msg.role === 'assistant');
-        
-        if (assistantMessages.length === 0) {
-          throw new Error('No assistant response received');
-        }
-        
-        const lastMessage = assistantMessages[0].content[0].text.value;
-        
-        console.log("Successfully used assistant for response generation");
-        
-        return new Response(
-          JSON.stringify({ 
-            response: lastMessage,
-            usingCustomConfig: !!openAIConfig.apiKey,
-            vectorStoreId: vectorStoreId,
-            assistantId: assistantId,
-            usedAssistant: true
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-        
       } catch (assistantError) {
-        console.error('Assistant API error:', assistantError);
-        // Fall back to regular API call if assistant fails
-        console.log('Falling back to standard completion API');
+        console.error('Assistant API interaction error:', assistantError);
+        console.warn("Falling back to general knowledge Chat Completions API due to Assistant error.");
       }
     }
-    // If no assistant but vector store is provided
-    else if (vectorStoreId) {
-      console.log('No valid assistant available, falling back to standard completion API with system message mentioning vector store');
-    }
 
-    // Standard completion API as fallback
-    // Create a system message that explicitly instructs the model to use the vector store
-    const systemMessage = {
-      role: 'system',
-      content: `You are an AI Assistant for education. 
-      The user is studying "${knowledgeBase}", so focus your responses on this subject.
-      ${vectorStoreId ? `Note: I was unable to access the vector store (${vectorStoreId}) directly, so I'm using my general knowledge.` : ''}
-      ${assistantId ? `Note: I was unable to use the specialized assistant (${assistantId}), so I'm using my general capabilities.` : ''}
-      Provide the most helpful and accurate information you can based on what you know.
-      
-      ${citationInstructions}`
-    };
+    // Fallback to standard Chat Completions API
+    console.log("Using fallback Chat Completions API.");
+    let systemMessageContent = `You are a helpful AI Tutor. The user is asking about "${knowledgeBase}". Provide clear and concise explanations.`;
+    if (assistantId) systemMessageContent += ` (Note: An attempt to use a specialized class assistant (ID: ${assistantId}) failed, so I am providing a general response.)`;
+    else systemMessageContent += ` (Note: No specific class assistant was configured, so I am providing a general response based on my broad knowledge.)`;
 
-    // Make the API call with the enhanced system message
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          systemMessage,
-          ...history,
-          { role: 'user', content: message }
-        ],
-        temperature: 0.7,
-      }),
+      headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: systemMessageContent }, ...history, { role: 'user', content: message }], temperature: 0.7 }),
     });
+    if (!fallbackResponse.ok) throw new Error(`Fallback OpenAI API error: ${fallbackResponse.status}. ${await fallbackResponse.text()}`);
+    const fallbackData = await fallbackResponse.json();
+    const fallbackMessageContent = fallbackData.choices?.[0]?.message?.content;
+    if (!fallbackMessageContent) throw new Error('Invalid response from fallback OpenAI API');
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      
-      // Provide more helpful error messages based on status code
-      if (response.status === 401) {
-        return new Response(
-          JSON.stringify({ error: 'Authentication error: Invalid OpenAI API key. Please check your API key and try again.' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-        );
-      } else if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'OpenAI API rate limit exceeded. Please try again later.' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
-        );
-      } else if (response.status === 400) {
-        return new Response(
-          JSON.stringify({ error: 'Bad request to OpenAI API. This might be due to an invalid API key format or other parameter issues.' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        );
-      }
-      
-      return new Response(
-        JSON.stringify({ error: `OpenAI API error: ${response.status}. ${errorText}` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
-      );
-    }
+    return new Response(JSON.stringify({ response: fallbackMessageContent, assistantId: assistantId, vectorStoreId: vectorStoreId, usedAssistant: false, usedFallback: true }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const data = await response.json();
-    
-    // Ensure we have a valid response before trying to access properties
-    if (!data || !data.choices || !data.choices.length || !data.choices[0].message) {
-      throw new Error('Invalid response from OpenAI API');
-    }
-    
-    console.log("Used fallback completion API successfully");
-    
-    return new Response(
-      JSON.stringify({ 
-        response: data.choices[0].message.content,
-        usingCustomConfig: !!openAIConfig.apiKey,
-        vectorStoreId: vectorStoreId,
-        assistantId: assistantId,
-        usedFallback: true
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
   } catch (error) {
-    console.error('Error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message || 'An unexpected error occurred' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    console.error('Critical error in chat function:', error);
+    return new Response(JSON.stringify({ error: error.message }),
+      { status: error.message.includes("required") || error.message.includes("OpenAI API key") || error.message.includes("Supabase connection") ? 400 : 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
