@@ -1,5 +1,5 @@
-
-import { 
+// src/components/class/EditClassDialog.tsx
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -10,62 +10,87 @@ import {
 import { Button } from "@/components/ui/button";
 import { CreateClassDialogContent } from "./dialog/CreateClassDialogContent";
 import { useState, useEffect } from "react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+// ClassData is imported from CreateClassDialog to ensure consistency
 import { ClassData } from "./CreateClassDialog";
 import { useToast } from "@/hooks/use-toast";
-import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
+// classOpenAIConfigService is no longer directly called for save/delete from here
+// import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
 import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
+import type { WidgetType } from "@/hooks/use-widgets"; // Import WidgetType
 
 interface EditClassDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onClassUpdate: (classData: ClassData) => void;
-  onClassDelete: () => void;
-  initialData: ClassData;
+  onClassUpdate: (classData: ClassData) => void; // Points to HomePage's handleUpdateClass
+  onClassDelete: () => void; // Points to HomePage's handleDeleteClass
+  initialData: ClassData; // This should now align with the updated ClassData structure
 }
 
-export function EditClassDialog({ 
-  open, 
-  onOpenChange, 
-  onClassUpdate, 
+const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"];
+
+
+export function EditClassDialog({
+  open,
+  onOpenChange,
+  onClassUpdate,
   onClassDelete,
-  initialData 
+  initialData
 }: EditClassDialogProps) {
-  // State to track form validity (for the update button)
   const [isFormValid, setIsFormValid] = useState(false);
-  // Reference to form data for submission
-  const [formData, setFormData] = useState<ClassData | null>(null);
+  // formData will be derived from initialData and updates from CreateClassDialogContent
+  const [formData, setFormData] = useState<ClassData>(initialData);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Check for authenticated user
   useEffect(() => {
-    // Check for authenticated user
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
     };
-    
     checkAuth();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
     });
-    
     return () => subscription.unsubscribe();
   }, []);
 
+  // Update formData when initialData changes (e.g., when dialog is reopened for a different class)
   useEffect(() => {
     if (initialData && open) {
-      setFormData(initialData);
-      setIsFormValid(!!initialData.title.trim());
+      // Ensure enabledWidgets is an array and openAIConfig is structured correctly
+      const sanitizedInitialData: ClassData = {
+        ...initialData,
+        enabledWidgets: Array.isArray(initialData.enabledWidgets) && initialData.enabledWidgets.length > 0
+            ? initialData.enabledWidgets
+            : DEFAULT_CLASS_WIDGETS,
+        openAIConfig: initialData.openAIConfig ? {
+            vectorStoreId: initialData.openAIConfig.vectorStoreId || null,
+            assistantId: initialData.openAIConfig.assistantId || null,
+            // No apiKey
+        } : { vectorStoreId: null, assistantId: null }
+      };
+      setFormData(sanitizedInitialData);
+      setIsFormValid(!!initialData.title?.trim());
     }
   }, [initialData, open]);
 
   const handleSubmit = async () => {
-    if (!formData || !formData.title.trim()) {
+    if (!formData || !formData.title?.trim()) {
       toast({
         title: "Missing information",
         description: "Please provide a title for your class.",
@@ -73,7 +98,6 @@ export function EditClassDialog({
       });
       return;
     }
-
     if (!user) {
       toast({
         title: "Authentication required",
@@ -82,61 +106,46 @@ export function EditClassDialog({
       });
       return;
     }
-    
+
+    setIsSaving(true);
     try {
-      setIsSaving(true);
-      // If user is authenticated, save to database first
-      await classOpenAIConfigService.saveConfigForClass(
-        formData.title, 
-        formData.openAIConfig || {},
-        formData.emoji,
-        formData.professor,
-        formData.classTime,
-        formData.classroom,
-        formData.enabledWidgets
-      );
-      
-      // Then call the parent callback
-      onClassUpdate(formData);
-      
+      // The actual saving/updating is handled by onClassUpdate (HomePage's handleUpdateClass)
+      await onClassUpdate(formData);
+      // HomePage's handleUpdateClass will show its own success toast and potentially close the dialog.
+    } catch (error) {
+      console.error("Error during class update process (dialog level):", error);
       toast({
-        title: "Class updated",
-        description: `${formData.title} has been updated successfully.`
-      });
-      
-      // Close the dialog immediately after successful update
-      onOpenChange(false);
-    } catch (error: any) {
-      console.error("Error updating class:", error);
-      toast({
-        title: "Error updating class",
-        description: error.message || "There was a problem saving your class data.",
+        title: "Error Updating Class",
+        description: "An unexpected error occurred.",
         variant: "destructive",
       });
     } finally {
+      // Parent (HomePage) is responsible for closing the dialog via onOpenChange.
       setIsSaving(false);
     }
   };
 
   const handleCancel = () => {
-    onOpenChange(false);
+    if (!isDeleting && !isSaving) {
+      onOpenChange(false);
+    }
   };
 
+  // This function is called by CreateClassDialogContent whenever its internal form data changes
   const handleFormDataChange = (data: ClassData) => {
     setFormData(data);
-    setIsFormValid(!!data.title.trim());
+    setIsFormValid(!!data.title?.trim());
   };
 
   const handleDelete = async () => {
-    if (!initialData?.title) {
+    if (!initialData?.title) { // Should ideally use class_id if available from initialData
       toast({
         title: "Error deleting class",
-        description: "No class title provided for deletion.",
+        description: "No class identifier provided for deletion.",
         variant: "destructive",
       });
       return;
     }
-    
     if (!user) {
       toast({
         title: "Authentication required",
@@ -145,45 +154,33 @@ export function EditClassDialog({
       });
       return;
     }
-    
+
+    setIsDeleting(true);
     try {
-      setIsDeleting(true);
-      setShowDeleteAlert(false); // Close the confirmation dialog immediately
-      
-      // Delete from database first - with proper error handling
-      await classOpenAIConfigService.deleteClass(initialData.title);
-      
-      // Close the dialog immediately
-      onOpenChange(false);
-      
-      // Then call the parent callback
-      onClassDelete();
-      
+      // The actual deletion is handled by onClassDelete (HomePage's handleDeleteClass)
+      await onClassDelete();
+      // HomePage's handleDeleteClass will show its own success toast and close the dialog.
+      setShowDeleteAlert(false); // Close the confirmation alert
+    } catch (error) {
+      console.error("Error during class deletion process (dialog level):", error);
       toast({
-        title: "Class deleted",
-        description: `${initialData.title} has been removed from your dashboard.`
-      });
-    } catch (error: any) {
-      console.error("Error deleting class:", error);
-      toast({
-        title: "Error deleting class",
-        description: error.message || "There was a problem removing your class data.",
+        title: "Error Deleting Class",
+        description: "An unexpected error occurred.",
         variant: "destructive",
       });
-      // Don't close the dialog if there's an error
     } finally {
+      // Parent (HomePage) is responsible for closing the main dialog via onOpenChange.
       setIsDeleting(false);
     }
   };
 
   return (
     <>
-      <Dialog 
-        open={open} 
-        onOpenChange={(newOpen) => {
-          // Only allow changes if not in the middle of an operation
+      <Dialog
+        open={open}
+        onOpenChange={(newOpenState) => {
           if (!isDeleting && !isSaving) {
-            onOpenChange(newOpen);
+            onOpenChange(newOpenState);
           }
         }}
       >
@@ -191,32 +188,35 @@ export function EditClassDialog({
           <DialogHeader>
             <DialogTitle>Edit Class</DialogTitle>
             <DialogDescription>
-              Update your class settings and enabled tools
+              Update your class settings and enabled tools.
+              {initialData?.title ? ` Editing: ${initialData.title}` : ''}
             </DialogDescription>
           </DialogHeader>
-          
-          <CreateClassDialogContent 
-            onClassCreate={handleFormDataChange}
+
+          {/* Pass the current formData (derived from initialData) to the content component */}
+          {/* CreateClassDialogContent needs to be robust enough to handle pre-filled initialData */}
+          <CreateClassDialogContent
+            onClassCreate={handleFormDataChange} // This updates the formData state in EditClassDialog
             onCancel={handleCancel}
-            initialData={initialData}
+            initialData={formData} // Pass the current formData which is based on initialData
             isEditing={true}
           />
-          
+
           <DialogFooter className="flex justify-between sm:justify-between mt-4 pt-2 border-t">
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleCancel} disabled={isDeleting || isSaving}>
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={() => setShowDeleteAlert(true)}
                 disabled={isDeleting || isSaving}
               >
                 {isDeleting ? "Deleting..." : "Delete Class"}
               </Button>
             </div>
-            <Button 
-              onClick={handleSubmit} 
+            <Button
+              onClick={handleSubmit}
               disabled={!isFormValid || !user || isDeleting || isSaving}
             >
               {isSaving ? "Updating..." : "Update Class"}
@@ -225,12 +225,11 @@ export function EditClassDialog({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog 
-        open={showDeleteAlert} 
-        onOpenChange={(newOpen) => {
-          // Only allow changes if not in the middle of deleting
+      <AlertDialog
+        open={showDeleteAlert}
+        onOpenChange={(newOpenState) => {
           if (!isDeleting) {
-            setShowDeleteAlert(newOpen);
+            setShowDeleteAlert(newOpenState);
           }
         }}
       >
@@ -239,12 +238,12 @@ export function EditClassDialog({
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the class
-              and all associated data.
+              "{initialData?.title || 'this class'}" and all associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogCancel onClick={() => setShowDeleteAlert(false)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isDeleting}
