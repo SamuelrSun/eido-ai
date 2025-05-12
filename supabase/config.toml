@@ -50,6 +50,10 @@ verify_jwt = true # Or false if it doesn't need user context beyond what's passe
 [functions.upload-to-vector-store]
 verify_jwt = true # Or false if it's a more general utility not tied to a specific user session for the call itself
 
+[functions.delete-openai-resources]
+verify_jwt = true # Or false, depending on how you want to secure it.
+                  # True is safer if called from an authenticated client context.
+
 # Add your new function here
 [functions.provision-class-resources]
 # verify_jwt = true # If called by an authenticated client
