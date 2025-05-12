@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { toast } from "@/components/ui/use-toast";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { FileGrid } from "../components/FileGrid";
 import { UploadDialog } from "../components/UploadDialog";
 import { NewFolderDialog } from "../components/NewFolderDialog";

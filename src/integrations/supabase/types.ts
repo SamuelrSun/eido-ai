@@ -9,176 +9,94 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      api_keys: {
+      classes: {
         Row: {
-          created_at: string
-          id: string
-          key_name: string
-          key_value: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          key_name: string
-          key_value: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          key_name?: string
-          key_value?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      beta_access_codes: {
-        Row: {
-          code: string
-          created_at: string
-          id: string
-          is_active: boolean
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-        }
-        Relationships: []
-      }
-      calendar_events: {
-        Row: {
-          class_name: string
-          color: string
-          created_at: string
-          date: string
-          description: string | null
-          id: string
-          title: string
-          user_id: string | null
-        }
-        Insert: {
-          class_name: string
-          color: string
-          created_at?: string
-          date: string
-          description?: string | null
-          id?: string
-          title: string
-          user_id?: string | null
-        }
-        Update: {
-          class_name?: string
-          color?: string
-          created_at?: string
-          date?: string
-          description?: string | null
-          id?: string
-          title?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      class_openai_configs: {
-        Row: {
-          api_key: string | null
           assistant_id: string | null
+          class_id: string
           class_time: string | null
           class_title: string
           classroom: string | null
           created_at: string | null
           emoji: string | null
           enabled_widgets: string[] | null
-          id: string
           professor: string | null
           updated_at: string | null
           user_id: string | null
           vector_store_id: string | null
         }
         Insert: {
-          api_key?: string | null
           assistant_id?: string | null
+          class_id?: string
           class_time?: string | null
           class_title: string
           classroom?: string | null
           created_at?: string | null
           emoji?: string | null
           enabled_widgets?: string[] | null
-          id?: string
           professor?: string | null
           updated_at?: string | null
           user_id?: string | null
           vector_store_id?: string | null
         }
         Update: {
-          api_key?: string | null
           assistant_id?: string | null
+          class_id?: string
           class_time?: string | null
           class_title?: string
           classroom?: string | null
           created_at?: string | null
           emoji?: string | null
           enabled_widgets?: string[] | null
-          id?: string
           professor?: string | null
           updated_at?: string | null
           user_id?: string | null
           vector_store_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "classes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
-      decks: {
+      database: {
         Row: {
-          card_count: number
-          class_title: string | null
-          color: string
+          class_id: string | null
           created_at: string
-          description: string
-          due_cards: number
-          id: string
-          new_cards: number
-          title: string
-          updated_at: string
+          database_id: string
           user_id: string | null
         }
         Insert: {
-          card_count?: number
-          class_title?: string | null
-          color: string
+          class_id?: string | null
           created_at?: string
-          description: string
-          due_cards?: number
-          id?: string
-          new_cards?: number
-          title: string
-          updated_at?: string
+          database_id?: string
           user_id?: string | null
         }
         Update: {
-          card_count?: number
-          class_title?: string | null
-          color?: string
+          class_id?: string | null
           created_at?: string
-          description?: string
-          due_cards?: number
-          id?: string
-          new_cards?: number
-          title?: string
-          updated_at?: string
+          database_id?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "database_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "database_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       embeddings: {
         Row: {
@@ -206,42 +124,71 @@ export type Database = {
       }
       file_folders: {
         Row: {
+          class_id: string | null
           created_at: string
-          id: string
+          database_id: string | null
+          folder_id: string
           name: string
           parent_id: string | null
           user_id: string
         }
         Insert: {
+          class_id?: string | null
           created_at?: string
-          id?: string
+          database_id?: string | null
+          folder_id?: string
           name: string
           parent_id?: string | null
           user_id: string
         }
         Update: {
+          class_id?: string | null
           created_at?: string
-          id?: string
+          database_id?: string | null
+          folder_id?: string
           name?: string
           parent_id?: string | null
           user_id?: string
         }
         Relationships: [
           {
+            foreignKeyName: "file_folders_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "file_folders_database_id_fkey"
+            columns: ["database_id"]
+            isOneToOne: false
+            referencedRelation: "database"
+            referencedColumns: ["database_id"]
+          },
+          {
             foreignKeyName: "file_folders_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "file_folders"
-            referencedColumns: ["id"]
+            referencedColumns: ["folder_id"]
+          },
+          {
+            foreignKeyName: "file_folders_user_id_fkey1"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
       files: {
         Row: {
           category: string | null
+          class_id: string | null
           created_at: string
+          database_id: string | null
+          file_id: string
           folder_id: string | null
-          id: string
           last_modified: string
           name: string
           size: number
@@ -253,9 +200,11 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          class_id?: string | null
           created_at?: string
+          database_id?: string | null
+          file_id?: string
           folder_id?: string | null
-          id?: string
           last_modified?: string
           name: string
           size: number
@@ -267,9 +216,11 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          class_id?: string | null
           created_at?: string
+          database_id?: string | null
+          file_id?: string
           folder_id?: string | null
-          id?: string
           last_modified?: string
           name?: string
           size?: number
@@ -281,58 +232,159 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "files_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "files_database_id_fkey"
+            columns: ["database_id"]
+            isOneToOne: false
+            referencedRelation: "database"
+            referencedColumns: ["database_id"]
+          },
+          {
             foreignKeyName: "files_folder_id_fkey"
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "file_folders"
-            referencedColumns: ["id"]
+            referencedColumns: ["folder_id"]
+          },
+          {
+            foreignKeyName: "files_user_id_fkey1"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      "flashcard-decks": {
+        Row: {
+          card_count: number
+          class_id: string | null
+          class_title: string | null
+          color: string
+          created_at: string
+          description: string
+          due_cards: number
+          flashcard_deck_id: string
+          new_cards: number
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          card_count?: number
+          class_id?: string | null
+          class_title?: string | null
+          color: string
+          created_at?: string
+          description: string
+          due_cards?: number
+          flashcard_deck_id?: string
+          new_cards?: number
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          card_count?: number
+          class_id?: string | null
+          class_title?: string | null
+          color?: string
+          created_at?: string
+          description?: string
+          due_cards?: number
+          flashcard_deck_id?: string
+          new_cards?: number
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flashcard-decks_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "flashcard-decks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
       flashcards: {
         Row: {
           back: string
+          class_id: string | null
           created_at: string
-          deck_id: string
           difficulty: string
+          flashcard_deck_id: string
+          flashcard_id: string
           front: string
-          id: string
           last_reviewed: string | null
           next_review: string
           review_count: number | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           back: string
+          class_id?: string | null
           created_at?: string
-          deck_id: string
           difficulty?: string
+          flashcard_deck_id: string
+          flashcard_id?: string
           front: string
-          id?: string
           last_reviewed?: string | null
           next_review?: string
           review_count?: number | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           back?: string
+          class_id?: string | null
           created_at?: string
-          deck_id?: string
           difficulty?: string
+          flashcard_deck_id?: string
+          flashcard_id?: string
           front?: string
-          id?: string
           last_reviewed?: string | null
           next_review?: string
           review_count?: number | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "flashcards_deck_id_fkey"
-            columns: ["deck_id"]
+            foreignKeyName: "flashcards_class_id_fkey"
+            columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "decks"
-            referencedColumns: ["id"]
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "flashcards_flashcard_deck_id_fkey"
+            columns: ["flashcard_deck_id"]
+            isOneToOne: false
+            referencedRelation: "flashcard-decks"
+            referencedColumns: ["flashcard_deck_id"]
+          },
+          {
+            foreignKeyName: "flashcards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -341,107 +393,135 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           full_name: string | null
-          id: string
           updated_at: string
           usage_description: string | null
+          user_id: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           full_name?: string | null
-          id: string
           updated_at?: string
           usage_description?: string | null
+          user_id: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           full_name?: string | null
-          id?: string
           updated_at?: string
           usage_description?: string | null
+          user_id?: string
         }
         Relationships: []
       }
       quiz_questions: {
         Row: {
+          class_id: string | null
           correct_answer_index: number
           created_at: string
           explanation: string
-          id: string
           options: string[]
           question_text: string
           quiz_id: string
+          quiz_questions_id: string
+          user_id: string | null
         }
         Insert: {
+          class_id?: string | null
           correct_answer_index: number
           created_at?: string
           explanation: string
-          id?: string
           options: string[]
           question_text: string
           quiz_id: string
+          quiz_questions_id?: string
+          user_id?: string | null
         }
         Update: {
+          class_id?: string | null
           correct_answer_index?: number
           created_at?: string
           explanation?: string
-          id?: string
           options?: string[]
           question_text?: string
           quiz_id?: string
+          quiz_questions_id?: string
+          user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "quiz_questions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
           {
             foreignKeyName: "quiz_questions_quiz_id_fkey"
             columns: ["quiz_id"]
             isOneToOne: false
             referencedRelation: "quizzes"
-            referencedColumns: ["id"]
+            referencedColumns: ["quiz_id"]
+          },
+          {
+            foreignKeyName: "quiz_questions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
       quizzes: {
         Row: {
-          class_title: string | null
+          class_id: string | null
           coverage: string
           created_at: string
           description: string
           difficulty: string
-          id: string
           question_count: number
+          quiz_id: string
           time_estimate: number
           title: string
           updated_at: string
           user_id: string | null
         }
         Insert: {
-          class_title?: string | null
+          class_id?: string | null
           coverage: string
           created_at?: string
           description: string
           difficulty?: string
-          id?: string
           question_count?: number
+          quiz_id?: string
           time_estimate?: number
           title: string
           updated_at?: string
           user_id?: string | null
         }
         Update: {
-          class_title?: string | null
+          class_id?: string | null
           coverage?: string
           created_at?: string
           description?: string
           difficulty?: string
-          id?: string
           question_count?: number
+          quiz_id?: string
           time_estimate?: number
           title?: string
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quizzes_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+        ]
       }
       user_storage: {
         Row: {
@@ -457,30 +537,6 @@ export type Database = {
         Update: {
           storage_limit?: number
           storage_used?: number
-          user_id?: string
-        }
-        Relationships: []
-      }
-      user_widgets: {
-        Row: {
-          created_at: string
-          enabled_widgets: string[]
-          id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          enabled_widgets?: string[]
-          id?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          enabled_widgets?: string[]
-          id?: string
-          updated_at?: string
           user_id?: string
         }
         Relationships: []
