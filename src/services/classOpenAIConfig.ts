@@ -4,60 +4,43 @@ import type { User } from '@supabase/supabase-js';
 import type { CustomDatabase } from "@/integrations/supabase/client"; // Ensure this path is correct for your project
 
 // Interface for OpenAI specific configurations for a class
-// API Key is no longer stored or handled on the client-side.
 export interface OpenAIConfig {
   vectorStoreId?: string | null;
   assistantId?: string | null;
 }
 
 // Interface for the application's representation of a class
-// This is what components will typically work with.
 export interface ClassConfig {
-  class_id: string; // Matches 'classes.class_id'
-  title: string;    // Matches 'classes.class_title'
+  class_id: string;
+  title: string;
   professor?: string | null;
   classTime?: string | null;
   classroom?: string | null;
   emoji?: string | null;
-  enabledWidgets?: string[] | null; // Consider using WidgetType[] if defined globally
+  enabledWidgets?: string[] | null;
   openAIConfig: OpenAIConfig;
-  user_id?: string | null; // Added for completeness, though usually implicit from context
+  user_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
 
-// Type alias for the Insert payload for the 'classes' table from CustomDatabase
-// NonNullable is used to ensure we're working with the expected object structure.
 type ClassesDBInsertPayload = NonNullable<CustomDatabase['public']['Tables']['classes']['Insert']>;
-// Type alias for a Row from the 'classes' table
 type ClassesDBRow = NonNullable<CustomDatabase['public']['Tables']['classes']['Row']>;
-
-// For updates, we define a specific payload to only include fields that are intended to be updatable.
 type ClassesDBUpdatePayload = {
-  class_title?: string; // Title might be updatable
+  class_title?: string;
   professor?: string | null;
   class_time?: string | null;
   classroom?: string | null;
   emoji?: string | null;
-  enabled_widgets?: string[] | null; // Or WidgetType[]
-  vector_store_id?: string | null; // Can be updated if manually changed or re-provisioned
-  assistant_id?: string | null;   // Can be updated
-  updated_at: string; // Always update this timestamp
-  // user_id and created_at should not be in an update payload directly
+  enabled_widgets?: string[] | null;
+  vector_store_id?: string | null;
+  assistant_id?: string | null;
+  updated_at: string;
 };
 
-
-/**
- * Service to manage class configurations, including OpenAI resource provisioning.
- */
 export const classOpenAIConfigService = {
-  /**
-   * Get the OpenAI configuration (assistantId, vectorStoreId) for a specific class.
-   *
-   * @param class_id The ID of the class.
-   * @returns The OpenAI configuration for the class, or undefined if not found.
-   */
   getConfigForClass: async (class_id: string): Promise<OpenAIConfig | undefined> => {
+    // ... (previous implementation for getConfigForClass - no changes needed here for this step)
     if (!class_id) {
       console.error("getConfigForClass: class_id is required.");
       return undefined;
@@ -72,7 +55,7 @@ export const classOpenAIConfigService = {
         .from('classes')
         .select('vector_store_id, assistant_id')
         .eq('class_id', class_id)
-        .eq('user_id', user.id) // Ensure the user owns this class record
+        .eq('user_id', user.id)
         .maybeSingle();
 
       if (error) {
@@ -85,34 +68,22 @@ export const classOpenAIConfigService = {
           assistantId: data.assistant_id,
         };
       }
-      return undefined; // Class or config not found
+      return undefined;
     } catch (error) {
       console.error('Exception in getConfigForClass:', error);
-      throw error; // Re-throw to be caught by caller
+      throw error;
     }
   },
 
-  /**
-   * Saves a new class or updates an existing one.
-   * After creating a new class, it triggers the provisioning of OpenAI resources.
-   *
-   * @param classTitle The title of the class.
-   * @param openAIConfigManual Optional manual input for assistant/vector store IDs (mainly for edit).
-   * @param emoji
-   * @param professor
-   * @param classTime
-   * @param classroom
-   * @param enabledWidgets
-   * @returns The created or updated Class database row object.
-   */
   saveConfigForClass: async (
+    // ... (previous implementation for saveConfigForClass - no changes needed here for this step)
     classTitle: string,
     openAIConfigManual: Partial<OpenAIConfig>,
     emoji?: string | null,
     professor?: string | null,
     classTime?: string | null,
     classroom?: string | null,
-    enabledWidgets?: string[] | null // Consider WidgetType[]
+    enabledWidgets?: string[] | null
   ): Promise<ClassesDBRow> => {
     if (!classTitle || typeof classTitle !== 'string' || classTitle.trim() === "") {
         throw new Error("Class title is required and cannot be empty.");
@@ -125,14 +96,10 @@ export const classOpenAIConfigService = {
 
     const safeEnabledWidgets = Array.isArray(enabledWidgets) ? enabledWidgets : ["supertutor", "database"];
 
-    // Check if a class with this title already exists for the user.
-    // For updates, we should ideally use class_id if available to prevent issues if title changes.
-    // This service method might need to be split or take class_id for updates.
-    // For now, it assumes title + user_id can find an existing record for update.
     const { data: existingClass, error: fetchError } = await supabase
       .from('classes')
       .select('class_id')
-      .eq('class_title', classTitle) // This lookup might be problematic if title is being changed
+      .eq('class_title', classTitle)
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -144,10 +111,9 @@ export const classOpenAIConfigService = {
     let savedClassRecord: ClassesDBRow;
 
     if (existingClass?.class_id) {
-      // Update existing class
       console.log(`Updating existing class with class_id: ${existingClass.class_id}`);
       const updatePayload: ClassesDBUpdatePayload = {
-        class_title: classTitle, // Assuming title can be updated
+        class_title: classTitle,
         professor: professor || null,
         class_time: classTime || null,
         classroom: classroom || null,
@@ -161,33 +127,25 @@ export const classOpenAIConfigService = {
       const { data: updateData, error: updateError } = await supabase
         .from('classes')
         .update(updatePayload)
-        .eq('class_id', existingClass.class_id) // Update by specific class_id
-        .eq('user_id', user.id) // Ensure user owns the record
+        .eq('class_id', existingClass.class_id)
+        .eq('user_id', user.id)
         .select()
         .single();
 
-      if (updateError) {
-        console.error('Error updating class in Supabase:', updateError);
-        throw updateError;
-      }
+      if (updateError) throw updateError;
       if (!updateData) throw new Error("Failed to update class, no data returned from Supabase.");
       savedClassRecord = updateData;
-      console.log(`Successfully updated class '${classTitle}' in Supabase.`);
-
     } else {
-      // Insert new class
       console.log('Inserting new class record for title:', classTitle);
       const insertPayload: ClassesDBInsertPayload = {
-        // class_id is generated by DB (if UUID default) or should be provided if not.
-        // Assuming class_id is auto-generated for this example.
         class_title: classTitle,
         professor: professor || null,
         class_time: classTime || null,
         classroom: classroom || null,
         emoji: emoji || null,
         enabled_widgets: safeEnabledWidgets,
-        vector_store_id: null, // Will be set by Edge Function
-        assistant_id: null,    // Will be set by Edge Function
+        vector_store_id: null, 
+        assistant_id: null,   
         user_id: user.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -199,29 +157,20 @@ export const classOpenAIConfigService = {
         .select()
         .single();
 
-      if (insertError) {
-        console.error('Error inserting new class into Supabase:', insertError);
-        throw insertError;
-      }
+      if (insertError) throw insertError;
       if (!insertData) throw new Error("Failed to insert new class, no data returned from Supabase.");
       savedClassRecord = insertData;
-      console.log(`Successfully inserted new class '${classTitle}' with class_id: ${savedClassRecord.class_id}.`);
-
-      // After successful insertion of a NEW class, trigger OpenAI resource provisioning
+      
       try {
         console.log(`Invoking 'provision-class-resources' for new class_id: ${savedClassRecord.class_id}`);
         const { data: provisionData, error: provisionError } = await supabase.functions.invoke(
           'provision-class-resources',
           { body: { class_id: savedClassRecord.class_id, class_title: savedClassRecord.class_title } }
         );
-
         if (provisionError) {
           console.error('Error invoking provision-class-resources Edge Function:', provisionError);
-          // Consider how to handle this: maybe flag the class, or inform the user.
         } else {
           console.log('Successfully invoked provision-class-resources. Response:', provisionData);
-          // The Edge Function updates the class record with assistant_id and vector_store_id.
-          // To reflect this immediately, savedClassRecord would need to be updated or re-fetched.
           if (provisionData && provisionData.success) {
             savedClassRecord.assistant_id = provisionData.assistantId || null;
             savedClassRecord.vector_store_id = provisionData.vectorStoreId || null;
@@ -234,49 +183,27 @@ export const classOpenAIConfigService = {
     return savedClassRecord;
   },
 
-  /**
-   * Get the OpenAI configuration (assistantId, vectorStoreId) for the currently active class
-   * from session storage, falling back to a DB lookup if needed.
-   *
-   * @returns The OpenAIConfig for the active class, or undefined.
-   */
   getActiveClassConfig: async (): Promise<OpenAIConfig | undefined> => {
+    // ... (previous implementation - no changes needed here for this step)
     try {
       const activeClassJSON = sessionStorage.getItem('activeClass');
-      if (!activeClassJSON) {
-        console.log('No active class found in session storage for getActiveClassConfig.');
-        return undefined;
-      }
-
-      // Assuming activeClass in session storage is of type ClassConfig (or a subset like ClassOption from HomePage)
-      const parsedActiveClass = JSON.parse(activeClassJSON) as Partial<ClassConfig & { class_id: string; title: string; openAIConfig?: OpenAIConfig }>;
-
-      // If openAIConfig with IDs is already in the session object
+      if (!activeClassJSON) return undefined;
+      const parsedActiveClass = JSON.parse(activeClassJSON) as Partial<ClassConfig & {class_id: string}>;
       if (parsedActiveClass.openAIConfig && (parsedActiveClass.openAIConfig.assistantId || parsedActiveClass.openAIConfig.vectorStoreId)) {
-        console.log(`Using OpenAI config from active class in session storage: '${parsedActiveClass.title || parsedActiveClass.class_id}'`);
         return parsedActiveClass.openAIConfig;
       }
-      
-      // If not in session, but we have a class_id, fetch from DB
       if (parsedActiveClass.class_id) {
-        console.log(`Fetching config from DB for active class_id: ${parsedActiveClass.class_id}`);
         return await classOpenAIConfigService.getConfigForClass(parsedActiveClass.class_id);
       }
-      
-      // Fallback for older data that might only have title (less ideal, as title might not be unique)
-      if (parsedActiveClass.title && !parsedActiveClass.class_id) {
+      if (parsedActiveClass.title) {
          const { data: { user } } = await supabase.auth.getUser();
          if(user) {
-            const { data: classFromDb, error } = await supabase
+            const { data: classFromDb } = await supabase
                 .from('classes')
                 .select('class_id, vector_store_id, assistant_id')
                 .eq('class_title', parsedActiveClass.title)
                 .eq('user_id', user.id)
                 .maybeSingle();
-            if (error) {
-                console.error("Error fetching class by title for active config:", error);
-                throw error;
-            }
             if(classFromDb) {
                 return {
                     vectorStoreId: classFromDb.vector_store_id,
@@ -285,50 +212,33 @@ export const classOpenAIConfigService = {
             }
          }
       }
-
-      console.log('No OpenAI config found for active class or necessary identifiers missing in session.');
       return undefined;
     } catch (error) {
       console.error('Error retrieving active class OpenAI configuration:', error);
-      return undefined; // Return undefined on error to prevent crashes
+      return undefined;
     }
   },
 
-  /**
-   * Get all classes for the current user.
-   *
-   * @returns Array of ClassConfig objects.
-   */
   getAllClasses: async (): Promise<ClassConfig[]> => {
+    // ... (previous implementation - no changes needed here for this step)
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.log('User not authenticated, cannot fetch classes.');
-      return [];
-    }
-
+    if (!user) return [];
     try {
-      console.log('Fetching all classes from Supabase for user:', user.id);
       const { data, error } = await supabase
         .from('classes')
-        .select('*') // Select all columns from the 'classes' table
+        .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false }); // Order by most recently created
-
-      if (error) {
-        console.error('Error fetching classes from Supabase:', error);
-        throw error;
-      }
-
-      if (data && data.length > 0) {
-        // Transform the database rows into ClassConfig objects
-        const classConfigs: ClassConfig[] = data.map((item: ClassesDBRow) => ({
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      if (data) {
+        return data.map((item: ClassesDBRow) => ({
           class_id: item.class_id,
           title: item.class_title,
           professor: item.professor,
           classTime: item.class_time,
           classroom: item.classroom,
           emoji: item.emoji,
-          enabledWidgets: (item.enabled_widgets || []) as string[], // Ensure it's an array
+          enabledWidgets: (item.enabled_widgets || []) as string[],
           openAIConfig: {
             vectorStoreId: item.vector_store_id,
             assistantId: item.assistant_id,
@@ -337,9 +247,8 @@ export const classOpenAIConfigService = {
           created_at: item.created_at,
           updated_at: item.updated_at,
         }));
-        return classConfigs;
       }
-      return []; // No classes found
+      return [];
     } catch (error) {
       console.error('Error retrieving all classes:', error);
       throw error;
@@ -347,7 +256,7 @@ export const classOpenAIConfigService = {
   },
 
   /**
-   * Delete a class configuration.
+   * Delete a class configuration from Supabase and attempt to delete associated OpenAI resources.
    *
    * @param class_id The ID of the class to delete.
    */
@@ -363,60 +272,115 @@ export const classOpenAIConfigService = {
       throw new Error('Authentication required to delete class configuration');
     }
 
-    try {
-      console.log(`Attempting to delete class with class_id: ${class_id} for user: ${user.id}`);
-      // Note: Deleting associated OpenAI resources (Assistant, Vector Store, Files) is NOT handled here.
-      // This would require additional OpenAI API calls, ideally in a separate Edge Function
-      // that could be triggered by this deletion (e.g., using Supabase database webhooks or called explicitly).
+    let assistantIdToDelete: string | null = null;
+    let vectorStoreIdToDelete: string | null = null;
 
-      const { error, count } = await supabase
+    try {
+      console.log(`Preparing to delete class with class_id: ${class_id} for user: ${user.id}`);
+
+      // Step 1: Fetch the assistant_id and vector_store_id for the class BEFORE deleting it
+      const { data: classDetails, error: fetchDetailsError } = await supabase
+        .from('classes')
+        .select('assistant_id, vector_store_id, class_title')
+        .eq('class_id', class_id)
+        .eq('user_id', user.id)
+        .single(); // Use single to ensure it's the correct unique record
+
+      if (fetchDetailsError) {
+        // If class not found, maybe it's already deleted or an issue. Log and potentially proceed or throw.
+        if (fetchDetailsError.code === 'PGRST116') { // PostgREST error code for "Not Found"
+            console.warn(`Class with class_id ${class_id} not found for user ${user.id}. It might have been already deleted.`);
+            // Optionally, you might want to still try to remove from session storage if it matches a title
+        } else {
+            console.error('Error fetching class details before deletion:', fetchDetailsError);
+            throw new Error(`Failed to fetch details for class ${class_id}: ${fetchDetailsError.message}`);
+        }
+      }
+
+      if (classDetails) {
+        assistantIdToDelete = classDetails.assistant_id;
+        vectorStoreIdToDelete = classDetails.vector_store_id;
+        console.log(`Found OpenAI resource IDs for class ${classDetails.class_title}: Assistant ID - ${assistantIdToDelete}, Vector Store ID - ${vectorStoreIdToDelete}`);
+      }
+
+      // Step 2: Attempt to delete OpenAI resources if IDs were found
+      if (assistantIdToDelete || vectorStoreIdToDelete) {
+        console.log(`Invoking 'delete-openai-resources' Edge Function.`);
+        try {
+          const { data: deleteResourcesData, error: deleteResourcesError } = await supabase.functions.invoke(
+            'delete-openai-resources',
+            {
+              body: {
+                assistantId: assistantIdToDelete,
+                vectorStoreId: vectorStoreIdToDelete,
+              },
+            }
+          );
+          if (deleteResourcesError) {
+            console.error('Error invoking delete-openai-resources Edge Function:', deleteResourcesError);
+            // Log this error but proceed with deleting the DB record.
+            // The user should be informed if cleanup failed.
+          } else {
+            console.log('delete-openai-resources Edge Function invoked successfully. Response:', deleteResourcesData);
+            if (deleteResourcesData && !deleteResourcesData.success) {
+                console.warn('OpenAI resource deletion reported partial or full failure:', deleteResourcesData.details);
+            }
+          }
+        } catch (invokeError) {
+            console.error('Exception calling delete-openai-resources Edge Function:', invokeError);
+        }
+      } else {
+        console.log(`No OpenAI resource IDs found for class_id ${class_id}, skipping OpenAI resource deletion.`);
+      }
+
+      // Step 3: Delete the class record from Supabase database
+      const { error: deleteDbError, count } = await supabase
         .from('classes')
         .delete({ count: 'exact' })
         .eq('class_id', class_id)
-        .eq('user_id', user.id); // Ensure user can only delete their own classes
+        .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error deleting class from Supabase:', error);
-        throw new Error(`Failed to delete class: ${error.message}`);
+      if (deleteDbError) {
+        console.error('Error deleting class from Supabase DB:', deleteDbError);
+        throw new Error(`Failed to delete class from database: ${deleteDbError.message}`);
       }
-      if (count === 0) {
-        console.warn(`No class found with class_id '${class_id}' for user '${user.id}' to delete.`);
-        // Optionally throw an error or handle as a "not found" scenario
-      } else {
-        console.log(`Successfully deleted ${count} class record(s) with class_id '${class_id}'.`);
+      
+      if (count === 0 && classDetails) { // If classDetails were found but delete count is 0
+        console.warn(`Class with class_id '${class_id}' was found but not deleted from DB (count: 0). This might indicate an issue.`);
+      } else if (count > 0) {
+        console.log(`Successfully deleted ${count} class record(s) with class_id '${class_id}' from Supabase DB.`);
       }
 
-      // Clean up session storage if this was the active class
+
+      // Step 4: Clean up session storage if this was the active class
       const activeClassJSON = sessionStorage.getItem('activeClass');
       if (activeClassJSON) {
-        const parsedClass = JSON.parse(activeClassJSON) as Partial<ClassConfig & { class_id: string }>;
-        if (parsedClass.class_id === class_id) {
+        const parsedClass = JSON.parse(activeClassJSON) as Partial<ClassConfig & { class_id: string; title?: string }>;
+        // Check if the deleted class_id matches the one in session storage
+        // Or if title matches (in case class_id wasn't in session storage for some reason)
+        if (parsedClass.class_id === class_id || (classDetails && parsedClass.title === classDetails.class_title)) {
           sessionStorage.removeItem('activeClass');
           console.log('Removed deleted class from active session storage.');
         }
       }
     } catch (error) {
-      console.error('Error deleting class:', error);
-      if (error instanceof Error) throw error; // Re-throw if already an Error instance
+      console.error('Error during deleteClass process:', error);
+      if (error instanceof Error) throw error;
       throw new Error(String(error) || 'Unknown error occurred while deleting class');
     }
   },
 
-  /**
-   * Clear all class data for the current user from the database (for troubleshooting/reset).
-   * This is a destructive operation.
-   */
   clearAllData: async (): Promise<void> => {
+    // ... (previous implementation - no changes needed here for this step)
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.log("No user authenticated. Clearing only session storage related to active class.");
       sessionStorage.removeItem('activeClass');
       return;
     }
-
     try {
-      console.warn(`Attempting to delete ALL classes for user: ${user.id}. This is a destructive operation.`);
-      // Note: This does NOT delete associated OpenAI resources.
+      // Note: This does NOT delete associated OpenAI resources for all classes.
+      // That would require iterating through all classes, getting their IDs, and calling delete-openai-resources for each.
+      console.warn(`Attempting to delete ALL classes for user: ${user.id} from DB. OpenAI resources will NOT be deleted by this action.`);
       const { error } = await supabase
         .from('classes')
         .delete()
@@ -426,7 +390,7 @@ export const classOpenAIConfigService = {
         console.error('Error clearing class data from database:', error);
         throw error;
       }
-      sessionStorage.removeItem('activeClass'); // Also clear active class from session
+      sessionStorage.removeItem('activeClass');
       console.log(`Cleared all database class data and session storage for user: ${user.id}.`);
     } catch (error) {
       console.error('Error clearing all class data:', error);
