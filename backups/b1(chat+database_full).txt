@@ -1024,6 +1024,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
+  // id?: string; 
 }
 
 interface ChatBotProps {
@@ -1031,17 +1032,17 @@ interface ChatBotProps {
   subtitle?: string;
   placeholder?: string;
   suggestions?: string[];
-  knowledgeBase?: string; // This is the class title, used for context
-  openAIConfig?: OpenAIConfig; // Contains assistantId and vectorStoreId
+  knowledgeBase?: string; 
+  openAIConfig?: OpenAIConfig; 
   disableToasts?: boolean;
   loadingIndicator?: React.ReactNode;
   onResponseGenerationStateChange?: (isGenerating: boolean) => void;
-  messages?: Message[]; // For controlled component (external state)
-  onMessagesChange?: (messages: Message[]) => void; // For controlled component (external state)
+  messages?: Message[]; 
+  onMessagesChange?: (messagesOrUpdater: Message[] | ((prevMessages: Message[]) => Message[])) => void;
 }
 
 export function ChatBot({
-  title = "Class AI", // Default title for RAG bot
+  title = "Class AI",
   subtitle = "Ask questions about your class materials",
   placeholder = "Ask about your class materials...",
   suggestions = [],
@@ -1050,8 +1051,8 @@ export function ChatBot({
   disableToasts = false,
   loadingIndicator,
   onResponseGenerationStateChange,
-  messages: externalMessages, // Props for controlled state
-  onMessagesChange          // Props for controlled state
+  messages: externalMessages,
+  onMessagesChange
 }: ChatBotProps) {
   const [internalMessages, setInternalMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -1060,31 +1061,25 @@ export function ChatBot({
   const [currentVectorStoreId, setCurrentVectorStoreId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Determine if we're using internal or external message state
   const messages = externalMessages !== undefined ? externalMessages : internalMessages;
   
-  // Wrapper to update messages, works for both controlled and uncontrolled state
   const setMessagesWrapper = (newMessagesOrFn: Message[] | ((prevMessages: Message[]) => Message[])) => {
-    if (onMessagesChange) { // If component is controlled
-      if (typeof newMessagesOrFn === 'function') {
-        onMessagesChange(newMessagesOrFn(messages)); // Pass current external messages to updater
-      } else {
-        onMessagesChange(newMessagesOrFn);
-      }
-    } else { // If component is uncontrolled
-      // Ensure setInternalMessages receives a function if newMessagesOrFn is a function
-      setInternalMessages(newMessagesOrFn as ((prevMessages: Message[]) => Message[]));
+    if (onMessagesChange) {
+      onMessagesChange(newMessagesOrFn);
+    } else { 
+      setInternalMessages(newMessagesOrFn);
     }
   };
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // const messagesEndRef = useRef<HTMLDivElement>(null); // Ref is not needed if auto-scroll is disabled
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
+  // useEffect(() => {
+  //   // Automatic scrolling to bottom is disabled as per user request
+  //   // if (messages.length > 0 && messagesEndRef.current) {
+  //   //   messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  //   // }
+  // }, [messages]);
 
   useEffect(() => {
     onResponseGenerationStateChange?.(isLoading);
@@ -1094,9 +1089,9 @@ export function ChatBot({
     setCurrentAssistantId(openAIConfig?.assistantId || null);
     setCurrentVectorStoreId(openAIConfig?.vectorStoreId || null);
     if (openAIConfig?.assistantId) {
-        setChatMode("idle"); // Will update to "assistant" if API call succeeds
+        setChatMode("idle");
     } else {
-        setChatMode("fallback"); // No assistant ID means it will use fallback in Edge Function
+        setChatMode("fallback");
     }
   }, [openAIConfig]);
 
@@ -1106,10 +1101,11 @@ export function ChatBot({
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
 
-    const historyForAPI = [...messages]; // History *before* adding the current user's message
-    setMessagesWrapper(prevMessages => [...prevMessages, userMessage]); // Add user message to UI
+    const historyForAPI = [...messages]; 
+    setMessagesWrapper(prevMessages => [...prevMessages, userMessage]); 
+    
     setIsLoading(true);
-    setChatMode("idle"); // Reset chat mode indicator
+    setChatMode("idle"); 
 
     try {
       console.log("ChatBot (RAG): Sending message. Using OpenAIConfig:", openAIConfig);
@@ -1121,7 +1117,7 @@ export function ChatBot({
         body: {
           message: messageText,
           history: historyForAPI, 
-          openAIConfig: openAIConfig, // Contains assistantId, vectorStoreId
+          openAIConfig: openAIConfig, 
           knowledgeBase: knowledgeBase 
         }
       });
@@ -1142,7 +1138,6 @@ export function ChatBot({
         }
         return;
       }
-
       const aiMessage: Message = { role: "assistant", content: data.response };
       setMessagesWrapper(prevMessages => [...prevMessages, aiMessage]);
 
@@ -1182,8 +1177,8 @@ export function ChatBot({
   };
 
   return (
-    <div className="flex flex-col h-full"> {/* Ensure this takes full height if parent allows */}
-      <div className="p-4 sm:p-6 pb-4 border-b">
+    <div className="flex flex-col h-full">
+      <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">{title}</h2>
           <div className="flex gap-2">
@@ -1193,13 +1188,13 @@ export function ChatBot({
                 <span className="text-xs">Using Assistant</span>
               </Badge>
             )}
-            {chatMode === "fallback" && ( // This might occur if assistantId was missing or chat function fell back
+            {chatMode === "fallback" && (
               <Badge variant="outline" className="flex items-center gap-1 border-amber-500 text-amber-700">
                 <AlertCircle className="h-3 w-3" />
                 <span className="text-xs">General Knowledge</span>
               </Badge>
             )}
-            {currentVectorStoreId && ( // Display VS ID if RAG bot is active
+            {currentVectorStoreId && (
                  <Badge variant="outline" className="flex items-center gap-1">
                     <DatabaseIcon className="h-3 w-3" />
                     <span className="text-xs">VS: ...{currentVectorStoreId.slice(-6)}</span>
@@ -1210,57 +1205,60 @@ export function ChatBot({
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {messages.map((message, index) => (
-            <ChatMessage
-              key={index}
-              content={message.content}
-              isUser={message.role === "user"}
-            />
-          ))}
+      <div className="flex-1 h-0 overflow-hidden">
+        <ScrollArea className="h-full p-4">
+          <div className="space-y-4">
+            {messages.map((message, index) => (
+              <ChatMessage
+                key={index} 
+                content={message.content}
+                isUser={message.role === "user"}
+              />
+            ))}
 
-          {errorMessage && chatMode === "error" && !isLoading && (
-            <Alert variant="destructive" className="my-2">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{errorMessage}</AlertDescription>
-            </Alert>
-          )}
+            {errorMessage && chatMode === "error" && !isLoading && (
+              <Alert variant="destructive" className="my-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
 
-          {isLoading && loadingIndicator}
+            {isLoading && loadingIndicator}
 
-          {messages.length === 0 && !isLoading && (
-            <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground mb-4">
-                {knowledgeBase ? `I can help answer questions about ${knowledgeBase}.` : "How can I help you today?"}
-              </p>
-              {suggestions.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Try asking:</p>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {suggestions.map((suggestion, i) => (
-                      <Button
-                        key={i}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSendMessage(suggestion)}
-                        className="text-xs"
-                        disabled={isLoading}
-                      >
-                        {suggestion}
-                      </Button>
-                    ))}
+            {messages.length === 0 && !isLoading && (
+              <div className="text-center py-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  {knowledgeBase ? `I can help answer questions about ${knowledgeBase}.` : "How can I help you today?"}
+                </p>
+                {suggestions.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Try asking:</p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {suggestions.map((suggestion, i) => (
+                        <Button
+                          key={i}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendMessage(suggestion)}
+                          className="text-xs"
+                          disabled={isLoading}
+                        >
+                          {suggestion}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
+                )}
+              </div>
+            )}
+            {/* Empty div at the end of messages for potential manual scrolling focus, if messagesEndRef were used */}
+            {/* <div ref={messagesEndRef} /> */} 
+          </div>
+        </ScrollArea>
+      </div>
 
-      <div className="p-4 border-t mt-auto">
+      <div className="p-4 border-t mt-auto flex-shrink-0">
         <ChatInput
           onSend={handleSendMessage}
           isLoading={isLoading}
@@ -1688,6 +1686,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
+  // id?: string;
 }
 
 interface WebChatBotProps {
@@ -1698,8 +1697,8 @@ interface WebChatBotProps {
   disableToasts?: boolean;
   loadingIndicator?: React.ReactNode;
   onResponseGenerationStateChange?: (isGenerating: boolean) => void;
-  messages?: Message[]; // For controlled component
-  onMessagesChange?: (messages: Message[]) => void; // For controlled component
+  messages?: Message[]; 
+  onMessagesChange?: (messagesOrUpdater: Message[] | ((prevMessages: Message[]) => Message[])) => void;
 }
 
 export function WebChatBot({
@@ -1721,24 +1720,21 @@ export function WebChatBot({
   
   const setMessagesWrapper = (newMessagesOrFn: Message[] | ((prevMessages: Message[]) => Message[])) => {
     if (onMessagesChange) {
-      if (typeof newMessagesOrFn === 'function') {
-        onMessagesChange(newMessagesOrFn(messages)); 
-      } else {
-        onMessagesChange(newMessagesOrFn);
-      }
-    } else {
-      setInternalMessages(newMessagesOrFn as ((prevMessages: Message[]) => Message[]));
+      onMessagesChange(newMessagesOrFn);
+    } else { 
+      setInternalMessages(newMessagesOrFn);
     }
   };
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // const messagesEndRef = useRef<HTMLDivElement>(null); // Ref is not needed if auto-scroll is disabled
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
+  // useEffect(() => {
+  //   // Automatic scrolling to bottom is disabled as per user request
+  //   // if (messages.length > 0 && messagesEndRef.current) {
+  //   //   messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  //   // }
+  // }, [messages]);
 
   useEffect(() => {
     onResponseGenerationStateChange?.(isLoading);
@@ -1748,6 +1744,7 @@ export function WebChatBot({
     if (!messageText.trim()) return;
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
+    
     const historyForAPI = [...messages];
     setMessagesWrapper(prevMessages => [...prevMessages, userMessage]);
     setIsLoading(true);
@@ -1779,9 +1776,7 @@ export function WebChatBot({
   };
 
   return (
-    // Main container: flex flex-col and h-full to take available height from parent
     <div className="flex flex-col h-full w-full">
-      {/* Header: Fixed height, does not grow or shrink */}
       <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">{title}</h2>
@@ -1792,9 +1787,8 @@ export function WebChatBot({
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
-      {/* Message Area: flex-1 makes it take remaining space, h-0 is a flexbox trick, overflow-hidden on parent of ScrollArea */}
       <div className="flex-1 h-0 overflow-hidden">
-        <ScrollArea className="h-full p-4"> {/* ScrollArea takes full height of its parent */}
+        <ScrollArea className="h-full p-4">
           <div className="space-y-4">
             {messages.map((message, index) => (
               <ChatMessage key={index} content={message.content} isUser={message.role === "user"} />
@@ -1822,12 +1816,11 @@ export function WebChatBot({
                 )}
               </div>
             )}
-            <div ref={messagesEndRef} />
+            {/* <div ref={messagesEndRef} /> */}
           </div>
         </ScrollArea>
       </div>
 
-      {/* Input Area: Fixed height, does not grow or shrink */}
       <div className="p-4 border-t flex-shrink-0">
         <ChatInput onSend={handleSendMessage} isLoading={isLoading} placeholder={placeholder} />
       </div>
@@ -3032,47 +3025,71 @@ export function EditClassDialog({
 ================
 File: src/components/layout/sidebar/SidebarAccount.tsx
 ================
+// src/components/layout/sidebar/SidebarAccount.tsx
 import { NavLink } from "react-router-dom";
 import { LogIn } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js"; // Ensure User type is imported
+
+interface ProfileData {
+  full_name: string | null;
+  avatar_url: string | null;
+  // Add other fields from your 'profiles' table if needed
+}
 
 interface SidebarAccountProps {
-  loading: boolean;
-  user: any;
+  loading: boolean; // This prop comes from useSidebarState
+  user: User | null;    // This prop comes from useSidebarState
 }
 
 export function SidebarAccount({ loading, user }: SidebarAccountProps) {
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   
   useEffect(() => {
-    // Fetch profile data when user is available
     const fetchProfile = async () => {
-      if (!user) return;
+      if (!user || !user.id) { // Check if user and user.id exist
+        setProfile(null); // Clear profile if no user
+        return;
+      }
       
       try {
+        // MODIFICATION: Querying 'profiles' table using 'user_id' column
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single() as any;
+          .select('full_name, avatar_url') // Select only needed fields
+          .eq('user_id', user.id) // Match against the 'user_id' column in 'profiles' table
+          .single(); // Expecting a single profile per user
           
         if (error) {
-          console.error("Error fetching profile:", error);
+          // PGRST116 means no row was found, which is not necessarily an error if profile creation is optional/deferred
+          if (error.code === 'PGRST116') {
+            console.log("SidebarAccount: No profile found for user:", user.id);
+            setProfile(null);
+          } else {
+            console.error("SidebarAccount: Error fetching profile:", error);
+            setProfile(null); // Set profile to null on error
+          }
         } else {
-          setProfile(data);
+          setProfile(data as ProfileData);
         }
       } catch (error) {
-        console.error("Error in profile fetch:", error);
+        console.error("SidebarAccount: Exception in profile fetch:", error);
+        setProfile(null); // Set profile to null on exception
       }
     };
     
-    fetchProfile();
-  }, [user]);
+    if (user) { // Only fetch if user object exists
+        fetchProfile();
+    } else {
+        setProfile(null); // Clear profile if user is null (e.g., on logout)
+    }
+
+  }, [user]); // Depend on user object
 
   if (loading) {
-    return null; // Don't render anything while loading
+    return null; 
   }
   
   if (!user) {
@@ -3093,7 +3110,6 @@ export function SidebarAccount({ loading, user }: SidebarAccountProps) {
     );
   }
   
-  // Get user initials for avatar fallback
   const userInitials = profile?.full_name
     ? profile.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
     : user.email?.charAt(0).toUpperCase() || "U";
@@ -3111,12 +3127,12 @@ export function SidebarAccount({ loading, user }: SidebarAccountProps) {
     >
       <Avatar className="w-8 h-8 rounded-full bg-sidebar-accent">
         {profile?.avatar_url && (
-          <AvatarImage src={profile.avatar_url} alt={profile?.full_name || user.email} />
+          <AvatarImage src={profile.avatar_url} alt={profile?.full_name || user.email || "User Avatar"} />
         )}
         <AvatarFallback className="text-xs font-medium">{userInitials}</AvatarFallback>
       </Avatar>
       <div className="ml-2 overflow-hidden">
-        <p className="font-medium truncate">{user.email}</p>
+        <p className="font-medium truncate">{user.email || "User"}</p>
         <p className="text-xs opacity-70 truncate">Signed In</p>
       </div>
     </NavLink>
@@ -9213,6 +9229,8 @@ export const StorageUsage = ({ storage }: StorageUsageProps) => {
 ================
 File: src/features/files/components/UploadDialog.tsx
 ================
+// src/features/files/components/UploadDialog.tsx
+import { useState, ChangeEvent } from "react";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9223,6 +9241,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface UploadDialogProps {
   isOpen: boolean;
@@ -9235,8 +9255,39 @@ export const UploadDialog = ({
   onClose,
   onFileSelect,
 }: UploadDialogProps) => {
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFiles(e.target.files);
+    } else {
+      setSelectedFiles(null);
+    }
+  };
+
+  const handleUploadClick = () => {
+    if (selectedFiles && selectedFiles.length > 0) {
+      onFileSelect(selectedFiles); 
+      onClose(); 
+      setSelectedFiles(null); 
+    } else {
+      toast({
+        title: "No files selected",
+        description: "Please select one or more files to upload.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDialogStateChange = (open: boolean) => {
+    if (!open) {
+      setSelectedFiles(null); 
+    }
+    onClose(); 
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleDialogStateChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Upload Files</DialogTitle>
@@ -9257,11 +9308,11 @@ export const UploadDialog = ({
             <input
               type="file"
               className="hidden"
-              id="file-upload"
-              onChange={(e) => e.target.files && onFileSelect(e.target.files)}
+              id="file-upload-input" // Using the ID from user's provided code
+              onChange={handleFileChange}
               multiple
             />
-            <label htmlFor="file-upload">
+            <label htmlFor="file-upload-input">
               <Button variant="outline" className="mt-2" asChild>
                 <span>
                   <Upload className="h-4 w-4 mr-2" />
@@ -9270,11 +9321,33 @@ export const UploadDialog = ({
               </Button>
             </label>
           </div>
+          
+          {selectedFiles && selectedFiles.length > 0 && (
+            <div className="mt-2 text-sm">
+              <p className="font-medium mb-1">Selected files ({selectedFiles.length}):</p>
+              <ScrollArea className="max-h-24 overflow-y-auto bg-muted/50 p-2 rounded-md">
+                <ul className="list-disc pl-5">
+                  {Array.from(selectedFiles).map((file, index) => (
+                    <li key={`${file.name}-${index}`} className="truncate" title={file.name}>
+                      {file.name}
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={() => handleDialogStateChange(false)}>
             Cancel
+          </Button>
+          <Button 
+            onClick={handleUploadClick} 
+            disabled={!selectedFiles || selectedFiles.length === 0}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Selected Files
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -10245,15 +10318,15 @@ export interface FolderType {
   parent_id: string | null;
   user_id: string;
   created_at: string;
-  class_id: string | null;
-  database_id: string | null;
+  class_id: string | null; // Added from your DatabasePage.tsx usage
+  database_id: string | null; // Added from your DatabasePage.tsx usage
 }
 
 export interface FileType {
   file_id: string; // PK
   name: string;
   size: number;
-  type: string;
+  type: string; // This is the file's MIME type (e.g., "application/pdf", "image/png")
   url?: string | null;
   folder_id: string | null;
   user_id: string;
@@ -10261,19 +10334,20 @@ export interface FileType {
   created_at: string;
   category: string | null;
   tags: string[] | null;
-  status: string | null;
-  class_id: string | null;
-  database_id: string | null;
-  openai_file_id?: string | null; // Added for linking to OpenAI's File ID
-  document_title?: string | null; // Added for user-friendly title for citations
+  status: string | null; // e.g., 'uploading', 'complete', 'error'
+  class_id: string | null; // Added from your DatabasePage.tsx usage
+  database_id: string | null; // Added from your DatabasePage.tsx usage
+  openai_file_id?: string | null; 
+  document_title?: string | null; 
 }
 
 export interface SelectedItem {
-  id: string; // This should be file_id or folder_id
+  id: string; 
   name: string;
-  type: 'file' | 'folder';
-  url?: string | null;
-  size?: number;
+  type: 'file' | 'folder'; // Distinguishes between file and folder item types
+  url?: string | null; // Relevant for files
+  size?: number; // Relevant for files
+  fileMimeType?: string; // MODIFICATION: Added to store the MIME type for files
 }
 
 export interface UserStorage {
@@ -10282,28 +10356,45 @@ export interface UserStorage {
   storage_limit: number;
 }
 
-// Represents a file as returned by OpenAI's Vector Store Files API
-// (via your list-vector-store-files Edge Function)
 export interface VectorStoreFileType {
-  id: string; // This is the OpenAI File ID (file-xxxx) associated with the Vector Store
+  id: string; 
   object: "vector_store.file";
   usage_bytes: number;
-  created_at: number; // Timestamp
+  created_at: number; 
   vector_store_id: string;
   status: "in_progress" | "completed" | "failed" | "cancelled";
   last_error: { code: string; message: string } | null;
-  // These are added client-side after fetching from your DB for better display
-  filename?: string;       // Your original filename
-  document_title?: string; // Your user-friendly document title
+  filename?: string;       
+  document_title?: string; 
 }
 
 ================
 File: src/hooks/use-class-widgets.tsx
 ================
-import { createContext, useState, useContext, useEffect, ReactNode } from "react";
+// src/hooks/use-class-widgets.tsx
+import { createContext, useState, useContext, useEffect, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { WidgetType } from "@/hooks/use-widgets";
+import type { User } from "@supabase/supabase-js"; // Ensure User type is imported
+
+// Interface for the structure of rows from the 'classes' table
+// This should align with your CustomDatabase['public']['Tables']['classes']['Row']
+interface ClassesDBRow {
+  class_id: string; // Primary Key
+  class_title: string;
+  professor?: string | null;
+  class_time?: string | null;
+  classroom?: string | null;
+  vector_store_id?: string | null;
+  assistant_id?: string | null;
+  user_id?: string | null; // Foreign Key to auth.users
+  emoji?: string | null;
+  enabled_widgets?: string[] | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 
 interface ClassWidgetsContextType {
   enabledWidgets: WidgetType[];
@@ -10315,29 +10406,11 @@ interface ClassWidgetsContextType {
 
 interface ClassWidgetsProviderProps {
   children: ReactNode;
-  classId?: string;
+  classId?: string; // This should correspond to class_title for querying
   defaultWidgets?: WidgetType[];
 }
 
-// Enhanced interface to match the database response
-interface ClassOpenAIConfigRow {
-  api_key?: string;
-  assistant_id?: string;
-  class_time?: string;
-  class_title: string;
-  classroom?: string;
-  created_at?: string;
-  emoji?: string;
-  id: string;
-  professor?: string;
-  updated_at?: string;
-  user_id?: string;
-  vector_store_id?: string;
-  enabled_widgets?: string[];
-}
-
-// Default widgets for any class
-export const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["flashcards", "quizzes"];
+export const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"]; // Updated default
 
 const ClassWidgetsContext = createContext<ClassWidgetsContextType>({
   enabledWidgets: DEFAULT_CLASS_WIDGETS,
@@ -10351,247 +10424,184 @@ export const useClassWidgets = () => useContext(ClassWidgetsContext);
 
 export const ClassWidgetsProvider = ({ 
   children, 
-  classId, 
+  classId, // This is expected to be the class_title from activeClass
   defaultWidgets = DEFAULT_CLASS_WIDGETS 
 }: ClassWidgetsProviderProps) => {
   const [enabledWidgets, setEnabledWidgets] = useState<WidgetType[]>(defaultWidgets);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [currentDbClassId, setCurrentDbClassId] = useState<string | null>(null); // Store the actual class_id (PK) from DB
 
-  // Check for authenticated user
   useEffect(() => {
     const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log("Auth session in class widgets:", session?.user?.id);
-        setUser(session?.user || null);
-      } catch (error) {
-        console.error("Error checking auth in class widgets:", error);
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
     };
-    
     checkAuth();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state change in class widgets:", event, session?.user?.id);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
     });
-    
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load class widgets from database
-  useEffect(() => {
-    const loadClassWidgets = async () => {
-      setIsLoading(true);
-      try {
-        // Always try to load from database if user is authenticated and class ID exists
-        if (user && classId) {
-          console.log(`Attempting to load widgets for class ${classId} from database with user ID ${user.id}`);
-          const { data, error } = await supabase
-            .from('class_openai_configs')
-            .select('*')
-            .eq('class_title', classId)
-            .eq('user_id', user.id)
-            .maybeSingle();
-            
-          if (error) {
-            console.error("Error loading class from database:", error);
-            throw error;
-          } else if (data) {
-            console.log(`Found class ${classId} in database:`, data);
-            
-            // Try to update active class in session storage
-            try {
-              const activeClass = sessionStorage.getItem('activeClass');
-              if (activeClass) {
-                const parsedClass = JSON.parse(activeClass);
-                if (parsedClass.title === classId) {
-                  // Cast data as our enhanced interface
-                  const configData = data as ClassOpenAIConfigRow;
-                  
-                  // Check if enabled_widgets exists in the database response
-                  if (configData.enabled_widgets && Array.isArray(configData.enabled_widgets)) {
-                    console.log(`Loaded widgets for class ${classId} from database:`, configData.enabled_widgets);
-                    setEnabledWidgets(configData.enabled_widgets as WidgetType[]);
-                    setIsLoading(false);
-                    return;
-                  }
-                }
-              }
-            } catch (e) {
-              console.error("Error updating active class:", e);
-            }
-            
-            // If no enabled_widgets found in the database record, use defaults
-            console.log(`No valid widgets found in database for class ${classId}, using defaults:`, defaultWidgets);
-            setEnabledWidgets(defaultWidgets);
-          } else {
-            // Class not found in database, use defaults
-            console.log(`Class ${classId} not found in database, using defaults:`, defaultWidgets);
-            setEnabledWidgets(defaultWidgets);
-          }
-        } else {
-          // No user authenticated or no class ID, use defaults
-          if (!user) {
-            console.log('No user authenticated in class widgets, using default widgets:', defaultWidgets);
-          } else if (!classId) {
-            console.log('No classId provided in class widgets, using default widgets:', defaultWidgets);
-          }
-          setEnabledWidgets(defaultWidgets);
-        }
-      } catch (error) {
-        console.error("Error loading class widgets:", error);
-        setEnabledWidgets(defaultWidgets);
-      } finally {
-        setIsLoading(false);
+  const loadClassWidgets = useCallback(async () => {
+    if (!user || !classId) {
+      setEnabledWidgets(defaultWidgets);
+      setIsLoading(false);
+      setCurrentDbClassId(null);
+      console.log("use-class-widgets: No user or classId, using defaults.", { userId: user?.id, classId });
+      return;
+    }
+
+    setIsLoading(true);
+    console.log(`use-class-widgets: Attempting to load widgets for class title "${classId}" for user ID ${user.id}`);
+    try {
+      // MODIFICATION: Querying the 'classes' table
+      const { data, error } = await supabase
+        .from('classes') 
+        .select('*') // Select all fields to get class_id (PK)
+        .eq('class_title', classId) // Filter by class_title
+        .eq('user_id', user.id)
+        .maybeSingle();
+        
+      if (error) {
+        console.error(`use-class-widgets: Error loading class "${classId}" from database:`, error);
+        throw error;
       }
-    };
+      
+      if (data) {
+        const dbRecord = data as ClassesDBRow;
+        console.log(`use-class-widgets: Found class "${classId}" in database:`, dbRecord);
+        setCurrentDbClassId(dbRecord.class_id); // Store the primary key
 
+        if (dbRecord.enabled_widgets && Array.isArray(dbRecord.enabled_widgets)) {
+          const validWidgets = dbRecord.enabled_widgets.filter(w => 
+            ["supertutor", "database", "flashcards", "quizzes"].includes(w)
+          ) as WidgetType[];
+          setEnabledWidgets(validWidgets.length > 0 ? validWidgets : defaultWidgets);
+          console.log(`use-class-widgets: Loaded widgets for class "${classId}" from database:`, validWidgets);
+        } else {
+          setEnabledWidgets(defaultWidgets);
+          console.log(`use-class-widgets: No valid widgets array in DB for class "${classId}", using defaults.`);
+        }
+      } else {
+        setEnabledWidgets(defaultWidgets);
+        setCurrentDbClassId(null); // No record found
+        console.log(`use-class-widgets: Class "${classId}" not found in database for this user, using defaults.`);
+      }
+    } catch (error) {
+      console.error(`use-class-widgets: Exception loading class widgets for "${classId}":`, error);
+      setEnabledWidgets(defaultWidgets);
+      setCurrentDbClassId(null);
+      toast({
+        title: "Error Loading Class Widgets",
+        description: `Could not load widget settings for ${classId}.`,
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [classId, user, defaultWidgets, toast]);
+
+  useEffect(() => {
     loadClassWidgets();
-  }, [classId, defaultWidgets, user]);
+  }, [loadClassWidgets]);
 
-  // Save widgets to database when they change with debounce
+
   useEffect(() => {
     const saveWidgets = async () => {
-      if (isLoading || !user || !classId) return;
+      // Do not save if still loading, no user, no classId, or if we don't have a database PK for the class
+      if (isLoading || !user || !classId || !currentDbClassId) {
+        console.log("use-class-widgets: Save skipped.", {isLoading, userId: user?.id, classId, currentDbClassId});
+        return;
+      }
       
       try {
-        console.log(`Saving widgets for class ${classId} to database:`, enabledWidgets);
+        console.log(`use-class-widgets: Saving widgets for class_id "${currentDbClassId}" (title: "${classId}") to database:`, enabledWidgets);
         
-        // Try to update in database
-        const { data, error } = await supabase
-          .from('class_openai_configs')
-          .select('id')
-          .eq('class_title', classId)
-          .eq('user_id', user.id)
-          .maybeSingle();
-          
-        if (error) {
-          console.error("Error checking if class exists:", error);
-          throw error;
-        }
-        
-        if (data) {
-          // Update existing record
-          const { error: updateError } = await supabase
-            .from('class_openai_configs')
-            .update({ 
-              enabled_widgets: enabledWidgets,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', data.id)
-            .eq('user_id', user.id);
+        // MODIFICATION: Updating the 'classes' table using the actual class_id (PK)
+        const { error: updateError } = await supabase
+          .from('classes')
+          .update({ 
+            enabled_widgets: enabledWidgets,
+            updated_at: new Date().toISOString()
+          })
+          .eq('class_id', currentDbClassId) // Use the primary key for update
+          .eq('user_id', user.id);
             
-          if (updateError) {
-            console.error("Error updating class widgets:", updateError);
-            throw updateError;
-          }
-        } else {
-          // Create new record
-          const { error: insertError } = await supabase
-            .from('class_openai_configs')
-            .insert({ 
-              class_title: classId,
-              user_id: user.id,
-              enabled_widgets: enabledWidgets,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-            
-          if (insertError) {
-            console.error("Error inserting class widgets:", insertError);
-            throw insertError;
-          }
+        if (updateError) {
+          console.error(`use-class-widgets: Error updating class widgets for class_id "${currentDbClassId}":`, updateError);
+          throw updateError;
         }
+        console.log(`use-class-widgets: Successfully saved widgets for class_id "${currentDbClassId}"`);
         
-        console.log(`Successfully saved widgets for class ${classId}`);
-        
-        // Also update the active class if this is the active class
-        const activeClass = sessionStorage.getItem('activeClass');
-        if (activeClass) {
+        const activeClassSession = sessionStorage.getItem('activeClass');
+        if (activeClassSession) {
           try {
-            const parsedClass = JSON.parse(activeClass);
-            if (parsedClass.title === classId) {
+            const parsedClass = JSON.parse(activeClassSession);
+            // Ensure we're updating the correct class in session storage
+            if (parsedClass.class_id === currentDbClassId || parsedClass.title === classId) {
               parsedClass.enabledWidgets = enabledWidgets;
               sessionStorage.setItem('activeClass', JSON.stringify(parsedClass));
-              console.log("Updated widgets in active class in session storage");
+              console.log("use-class-widgets: Updated widgets in active class in session storage");
             }
           } catch (e) {
-            console.error("Error updating active class:", e);
+            console.error("use-class-widgets: Error updating active class in session storage:", e);
           }
         }
       } catch (error) {
-        console.error("Error saving class widgets:", error);
+        console.error("use-class-widgets: Error saving class widgets:", error);
         toast({
-          title: "Error saving widget preferences",
+          title: "Error Saving Widget Preferences",
           description: "Failed to save your widget preferences for this class.",
           variant: "destructive",
         });
       }
     };
 
-    // Clear any existing timeout
-    if (saveTimeout) {
-      clearTimeout(saveTimeout);
+    // Debounce save operation slightly or save when enabledWidgets actually changes and not on initial load
+    if (!isLoading && user && classId && currentDbClassId) {
+        const timeoutId = setTimeout(saveWidgets, 500); // Debounce save
+        return () => clearTimeout(timeoutId);
     }
-    
-    // Set a new timeout to debounce the save operation
-    if (!isLoading && user && classId) {
-      const timeout = setTimeout(() => {
-        saveWidgets();
-      }, 500);
-      setSaveTimeout(timeout);
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      if (saveTimeout) {
-        clearTimeout(saveTimeout);
-      }
-    };
-  }, [enabledWidgets, classId, isLoading, toast, user]);
+
+  }, [enabledWidgets, classId, isLoading, toast, user, currentDbClassId]);
 
   const toggleWidget = (widget: WidgetType) => {
-    console.log(`Toggling widget ${widget} for class ${classId}`);
+    console.log(`use-class-widgets: Toggling widget ${widget} for class ${classId}`);
     setEnabledWidgets(current => {
       const currentIsArray = Array.isArray(current);
-      const safeCurrentWidgets = currentIsArray ? current : DEFAULT_CLASS_WIDGETS;
+      const safeCurrentWidgets = currentIsArray ? current : defaultWidgets;
       
       if (safeCurrentWidgets.includes(widget)) {
-        console.log(`Removing widget ${widget}`);
         return safeCurrentWidgets.filter(w => w !== widget);
       } else {
-        console.log(`Adding widget ${widget}`);
         return [...safeCurrentWidgets, widget];
       }
     });
   };
 
   const isWidgetEnabled = (widget: WidgetType) => {
-    if (!Array.isArray(enabledWidgets)) {
-      return DEFAULT_CLASS_WIDGETS.includes(widget);
-    }
-    return enabledWidgets.includes(widget);
+    const currentSafeWidgets = Array.isArray(enabledWidgets) ? enabledWidgets : defaultWidgets;
+    return currentSafeWidgets.includes(widget);
   };
 
-  const setClassWidgets = (widgets: WidgetType[]) => {
+  const setClassWidgetsState = (widgets: WidgetType[]) => {
     if (!Array.isArray(widgets)) {
-      console.warn("Attempted to set non-array widgets:", widgets);
-      setEnabledWidgets(DEFAULT_CLASS_WIDGETS);
+      console.warn("use-class-widgets: Attempted to set non-array widgets:", widgets);
+      setEnabledWidgets(defaultWidgets);
       return;
     }
     setEnabledWidgets(widgets);
   };
 
   const contextValue = {
-    enabledWidgets: Array.isArray(enabledWidgets) ? enabledWidgets : DEFAULT_CLASS_WIDGETS,
+    enabledWidgets: Array.isArray(enabledWidgets) ? enabledWidgets : defaultWidgets,
     toggleWidget,
     isWidgetEnabled,
     isLoading,
-    setClassWidgets
+    setClassWidgets: setClassWidgetsState
   };
 
   return (
@@ -10898,9 +10908,12 @@ export { useToast, toast }
 ================
 File: src/hooks/use-widgets.tsx
 ================
-import { createContext, useState, useContext, useEffect, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+// src/hooks/use-widgets.tsx
+import { createContext, useState, useContext, useEffect, ReactNode, useCallback } from "react";
+// import { supabase } from "@/integrations/supabase/client"; // Supabase import commented out
 import { useToast } from "@/hooks/use-toast";
+import type { User } from "@supabase/supabase-js"; // Keep for user state if needed elsewhere, or remove if not
+import { supabase } from "@/integrations/supabase/client"; // Keep for auth listener
 
 export type WidgetType = "flashcards" | "quizzes" | "supertutor" | "database";
 
@@ -10918,43 +10931,29 @@ const WidgetsContext = createContext<WidgetsContextType>({
   isLoading: true,
 });
 
-// Default widgets that are enabled for all users - removed calendar since it's now a default feature
-const DEFAULT_WIDGETS: WidgetType[] = ["flashcards"];
+const DEFAULT_WIDGETS: WidgetType[] = ["flashcards", "quizzes", "supertutor", "database"]; // Ensure all are default
 
 export const useWidgets = () => useContext(WidgetsContext);
 
 export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
   const [enabledWidgets, setEnabledWidgets] = useState<WidgetType[]>(DEFAULT_WIDGETS);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null); // Still useful to know if user is logged in
   const { toast } = useToast();
 
-  // Listen for auth state changes
+  // Listen for auth state changes to clear localStorage if needed, or load user-specific if table existed
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Handle auth changes including logout
       const newUser = session?.user || null;
       setUser(newUser);
       
-      // On logout, reset to defaults or local storage
       if (event === 'SIGNED_OUT') {
-        const storedWidgets = localStorage.getItem("enabledWidgets");
-        if (storedWidgets) {
-          try {
-            const parsedWidgets = JSON.parse(storedWidgets);
-            setEnabledWidgets(parsedWidgets);
-          } catch (e) {
-            console.error("Failed to parse stored widgets", e);
-            setEnabledWidgets(DEFAULT_WIDGETS);
-          }
-        } else {
-          setEnabledWidgets(DEFAULT_WIDGETS);
-        }
-        setIsLoading(false);
+        console.log("use-widgets: User signed out. Widgets will rely on localStorage.");
+      } else if (event === 'SIGNED_IN') {
+        console.log("use-widgets: User signed in. Widgets will rely on localStorage.");
       }
     });
 
-    // Initial auth check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null);
     });
@@ -10962,135 +10961,70 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load user widgets when user changes
-  useEffect(() => {
-    const loadUserWidgets = async () => {
-      setIsLoading(true);
-      
-      try {
-        if (user) {
-          console.log("Loading widgets for user:", user.id);
-          
-          // Try to fetch user's widget preferences
-          const { data, error } = await supabase
-            .from('user_widgets')
-            .select('enabled_widgets')
-            .eq('user_id', user.id)
-            .single();
 
-          if (error) {
-            // Only throw if it's not a "no rows returned" error
-            if (error.code !== 'PGRST116') {
-              throw error;
-            }
-            
-            // If no widgets found for user, create default entry
-            console.log("No user widgets found, creating defaults");
-            await supabase
-              .from('user_widgets')
-              .insert({
-                user_id: user.id,
-                enabled_widgets: DEFAULT_WIDGETS
-              });
-            
-            setEnabledWidgets(DEFAULT_WIDGETS);
-          } else if (data) {
-            console.log("Found user widgets:", data.enabled_widgets);
-            // Convert string array to WidgetType array with type safety
-            const widgets = data.enabled_widgets
-              .filter((widget: string) => 
-                ["flashcards", "quizzes", "supertutor", "database"].includes(widget)
-              ) as WidgetType[];
-            
-            setEnabledWidgets(widgets);
-          }
-        } else {
-          // Use local storage for non-authenticated users
-          const storedWidgets = localStorage.getItem("enabledWidgets");
-          if (storedWidgets) {
-            try {
-              const parsedWidgets = JSON.parse(storedWidgets);
-              console.log("Using local storage widgets:", parsedWidgets);
-              setEnabledWidgets(parsedWidgets);
-            } catch (e) {
-              console.error("Failed to parse stored widgets", e);
-              setEnabledWidgets(DEFAULT_WIDGETS);
-            }
-          } else {
-            console.log("No local storage widgets, using defaults");
-            setEnabledWidgets(DEFAULT_WIDGETS);
-            localStorage.setItem("enabledWidgets", JSON.stringify(DEFAULT_WIDGETS));
-          }
-        }
-      } catch (error: any) {
-        console.error("Error loading widgets:", error);
-        toast({
-          title: "Error loading widgets",
-          description: error.message || "Failed to load your widget preferences",
-          variant: "destructive",
-        });
-        // Fall back to defaults
+  const loadWidgetsFromStorage = useCallback(() => {
+    setIsLoading(true);
+    try {
+      const storedWidgets = localStorage.getItem("enabledWidgets");
+      if (storedWidgets) {
+        const parsedWidgets = JSON.parse(storedWidgets) as WidgetType[];
+        // Validate widgets from localStorage
+        const validWidgets = parsedWidgets.filter(w => 
+            ["flashcards", "quizzes", "supertutor", "database"].includes(w)
+        );
+        setEnabledWidgets(validWidgets.length > 0 ? validWidgets : DEFAULT_WIDGETS);
+        console.log("use-widgets: Loaded widgets from localStorage:", validWidgets.length > 0 ? validWidgets : DEFAULT_WIDGETS);
+      } else {
         setEnabledWidgets(DEFAULT_WIDGETS);
-      } finally {
-        setIsLoading(false);
+        localStorage.setItem("enabledWidgets", JSON.stringify(DEFAULT_WIDGETS));
+        console.log("use-widgets: No widgets in localStorage, set and using defaults.");
       }
-    };
-
-    // Load widgets whenever user state changes
-    loadUserWidgets();
-  }, [user, toast]);
-
-  // Save widget changes to database when they change
-  useEffect(() => {
-    const saveWidgets = async () => {
-      if (isLoading) return; // Avoid saving during initial load
-      
-      try {
-        console.log("Saving widgets:", enabledWidgets);
-        
-        if (user) {
-          // Save to database for authenticated users
-          console.log("Saving to database for user:", user.id);
-          const { error } = await supabase
-            .from('user_widgets')
-            .upsert({
-              user_id: user.id,
-              enabled_widgets: enabledWidgets,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: 'user_id' });
-            
-          if (error) {
-            throw error;
-          }
-        } 
-        
-        // Always save to localStorage regardless of authentication status
-        // This ensures persistence across page reloads for both logged-in and guest users
-        localStorage.setItem("enabledWidgets", JSON.stringify(enabledWidgets));
-      } catch (error: any) {
-        console.error("Error saving widgets:", error);
-        toast({
-          title: "Error saving widgets",
-          description: error.message || "Failed to save your widget preferences",
-          variant: "destructive",
-        });
+    } catch (e) {
+      // MODIFICATION: Handle 'e' as unknown
+      let errorMessage = "Failed to parse stored widgets, using defaults.";
+      if (e instanceof Error) {
+        errorMessage = `${errorMessage} Error: ${e.message}`;
       }
-    };
-
-    // Skip the first render
-    if (!isLoading) {
-      saveWidgets();
+      console.error("use-widgets: " + errorMessage, e);
+      setEnabledWidgets(DEFAULT_WIDGETS);
+    } finally {
+      setIsLoading(false);
     }
-  }, [enabledWidgets, user, isLoading, toast]);
+  }, []);
+
+  // Load widgets from localStorage on initial mount
+  useEffect(() => {
+    loadWidgetsFromStorage();
+  }, [loadWidgetsFromStorage]);
+
+  // Save widget changes to localStorage
+  useEffect(() => {
+    if (isLoading) return; 
+    
+    try {
+      localStorage.setItem("enabledWidgets", JSON.stringify(enabledWidgets));
+      console.log("use-widgets: Saved widgets to localStorage:", enabledWidgets);
+    } catch (error: unknown) { // MODIFICATION: Changed 'error: any' to 'error: unknown'
+      console.error("use-widgets: Error saving widgets to localStorage:", error);
+      let description = "Could not save your widget settings locally.";
+      // Type check for error before accessing message property
+      if (error instanceof Error) {
+        description = error.message || description;
+      }
+      toast({
+        title: "Error Saving Widget Preferences",
+        description: description,
+        variant: "destructive",
+      });
+    }
+  }, [enabledWidgets, isLoading, toast]);
 
   const toggleWidget = (widget: WidgetType) => {
-    console.log("Toggling widget:", widget);
     setEnabledWidgets(current => {
-      if (current.includes(widget)) {
-        return current.filter(w => w !== widget);
-      } else {
-        return [...current, widget];
-      }
+      const newEnabledWidgets = current.includes(widget)
+        ? current.filter(w => w !== widget)
+        : [...current, widget];
+      return newEnabledWidgets;
     });
   };
 
@@ -12151,7 +12085,7 @@ import {
   DialogFooter, DialogHeader as DialogHeaderComponent, DialogTitle as DialogTitleComponent,
 } from "@/components/ui/dialog";
 import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator, BreadcrumbPage // Added BreadcrumbPage
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator, BreadcrumbPage
 } from "@/components/ui/breadcrumb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -12161,18 +12095,23 @@ import {
   FileType, FolderType, SelectedItem, UserStorage as UserStorageType, VectorStoreFileType
 } from "@/features/files/types";
 import { StorageUsage } from "@/features/files/components/StorageUsage";
+import { UploadDialog } from "@/features/files/components/UploadDialog";
 import type { User } from "@supabase/supabase-js";
 import { formatFileSize } from "@/lib/utils";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
 
 interface ActiveClassData {
-  class_id: string;
-  title: string;
+  class_id: string; 
+  title: string;    
   openAIConfig?: OpenAIConfig;
 }
 
+interface FileWithProgress extends FileType {
+  progress?: number;
+}
+
 const DatabasePage = () => {
-  const [files, setFiles] = useState<FileType[]>([]);
+  const [files, setFiles] = useState<FileWithProgress[]>([]); 
   const [folders, setFolders] = useState<FolderType[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -12184,7 +12123,7 @@ const DatabasePage = () => {
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [dragging, setDragging] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); 
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -12193,8 +12132,8 @@ const DatabasePage = () => {
   const [activeTab, setActiveTab] = useState("myFiles");
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
-  const [isUploadingToVectorStore, setIsUploadingToVectorStore] = useState(false);
-  const [vectorStoreUploadProgress, setVectorStoreUploadProgress] = useState(0);
+  const [isUploadingToVectorStore, setIsUploadingToVectorStore] = useState(false); 
+  const [vectorStoreUploadProgress, setVectorStoreUploadProgress] = useState(0); 
   const [isVectorUploadDialogOpen, setIsVectorUploadDialogOpen] = useState(false);
   const [activeClass, setActiveClass] = useState<ActiveClassData | null>(null);
 
@@ -12203,7 +12142,6 @@ const DatabasePage = () => {
     const initializePage = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const currentUser = session?.user || null;
-      console.log("DatabasePage: Current user session:", currentUser?.id);
       setUser(currentUser);
       if (!currentUser) {
         toast({ title: "Authentication Required", description: "Please sign in.", variant: "destructive" });
@@ -12214,16 +12152,13 @@ const DatabasePage = () => {
       if (activeClassDataString) {
         try {
           const parsedClass: ActiveClassData = JSON.parse(activeClassDataString);
-          console.log("DatabasePage: Active class loaded from session:", parsedClass);
           setActiveClass(parsedClass);
         }
         catch (e) {
-          console.error("DatabasePage: Error parsing activeClass from sessionStorage:", e);
           toast({ title: "Error", description: "Could not load class data. Please re-select from Home.", variant: "destructive" });
           navigate("/");
         }
       } else {
-        console.log("DatabasePage: No active class in session. Redirecting.");
         toast({ title: "No Class Selected", description: "Please select a class from the homepage.", variant: "default" });
         navigate("/");
       }
@@ -12236,92 +12171,151 @@ const DatabasePage = () => {
       if (!user) return;
       try {
         const { data, error } = await supabase.from('user_storage').select('*').eq('user_id', user.id).single();
-        if (error && error.code !== 'PGRST116') throw error;
-        if (data) setUserStorage(data as UserStorageType);
-        else if (!data && user) {
-            const { data: newStorage, error: insertError } = await supabase.from('user_storage').insert({ user_id: user.id, storage_used: 0, storage_limit: 1024 * 1024 * 1024 }).select().single();
-            if(insertError) throw insertError;
-            if(newStorage) setUserStorage(newStorage as UserStorageType);
+        if (error && error.code !== 'PGRST116') throw error; 
+        if (data) {
+          setUserStorage(data as UserStorageType);
+        } else if (user) { 
+          const { data: newStorage, error: insertError } = await supabase
+            .from('user_storage')
+            .insert({ user_id: user.id, storage_used: 0, storage_limit: 1024 * 1024 * 1024 })
+            .select()
+            .single();
+          if (insertError) throw insertError;
+          if (newStorage) setUserStorage(newStorage as UserStorageType);
         }
-      } catch (err) { const message = err instanceof Error ? err.message : "Could not load storage info."; toast({ title: "Storage Error", description: message, variant: "destructive" });}
+      } catch (err) { 
+        let message = "Could not load storage info.";
+        if (err instanceof Error) message = err.message;
+        toast({ title: "Storage Error", description: message, variant: "destructive" });
+      }
     };
     if (user) fetchUserStorage();
   }, [user, toast]);
 
   const fetchCurrentFolderContents = useCallback(async () => {
-    console.log("fetchCurrentFolderContents: Called. User:", user?.id, "ActiveClass:", activeClass?.class_id, "CurrentFolderId:", currentFolderId);
     if (!user || !activeClass?.class_id) {
-      console.log("fetchCurrentFolderContents: Aborting - no user or activeClass.class_id.");
       setLoading(false);
       return;
     }
     setLoading(true);
-    console.log("fetchCurrentFolderContents: Setting loading to true.");
     try {
-      let folderQuery = supabase.from('file_folders').select('*').eq('user_id', user.id).eq('class_id', activeClass.class_id);
-      folderQuery = currentFolderId === null ? folderQuery.is('parent_id', null) : folderQuery.eq('parent_id', currentFolderId);
+      let folderQuery = supabase
+        .from('file_folders')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('class_id', activeClass.class_id);
+      if (currentFolderId === null) {
+        folderQuery = folderQuery.is('parent_id', null);
+      } else {
+        folderQuery = folderQuery.eq('parent_id', currentFolderId);
+      }
       const { data: folderData, error: folderError } = await folderQuery;
       if (folderError) throw folderError;
-      console.log("fetchCurrentFolderContents: Fetched folders:", folderData);
       setFolders((folderData || []) as FolderType[]);
 
-      let fileQuery = supabase.from('files').select('*, document_title, openai_file_id').eq('user_id', user.id).eq('class_id', activeClass.class_id);
-      fileQuery = currentFolderId === null ? fileQuery.is('folder_id', null) : fileQuery.eq('folder_id', currentFolderId);
+      let fileQuery = supabase
+        .from('files')
+        .select('*') 
+        .eq('user_id', user.id)
+        .eq('class_id', activeClass.class_id);
+      if (currentFolderId === null) {
+        fileQuery = fileQuery.is('folder_id', null);
+      } else {
+        fileQuery = fileQuery.eq('folder_id', currentFolderId);
+      }
       const { data: fileData, error: fileError } = await fileQuery;
       if (fileError) throw fileError;
-      console.log("fetchCurrentFolderContents: Fetched files:", fileData);
-      setFiles((fileData || []).map(f => ({ ...f, progress: f.status === 'complete' ? 100 : 0 })) as FileType[]);
+      setFiles((fileData || []).map(f => ({ ...f, status: f.status || 'complete', progress: (f.status === 'complete' ? 100 : 0) })) as FileWithProgress[]);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error loading files.";
-      console.error("Error fetching folder contents:", error);
       toast({ title: "Error Loading Files", description: message, variant: "destructive" });
       setFiles([]); setFolders([]);
     } finally {
-      console.log("fetchCurrentFolderContents: Setting loading to false.");
       setLoading(false);
     }
   }, [user, activeClass?.class_id, currentFolderId, toast]);
 
   useEffect(() => {
-    console.log("DatabasePage: useEffect for fetchCurrentFolderContents triggered. ActiveClass ID:", activeClass?.class_id);
     if(activeClass?.class_id) {
         fetchCurrentFolderContents();
-    } else {
-        console.log("DatabasePage: Skipping fetchCurrentFolderContents because activeClass.class_id is missing.");
     }
-  }, [fetchCurrentFolderContents, activeClass?.class_id]);
+  }, [fetchCurrentFolderContents, activeClass?.class_id, currentFolderId]);
 
   const fetchVectorStoreFiles = useCallback(async () => {
+    console.log("fetchVectorStoreFiles: Called. User:", user?.id, "ActiveClass:", activeClass);
     if (!user || !activeClass?.openAIConfig?.vectorStoreId || !activeClass?.class_id) {
-      if (activeTab === "vectorStore") toast({title: "Configuration Missing", description: "Vector Store ID or Class ID not found.", variant: "default"});
-      setVectorStoreFiles([]); setIsLoadingVectorFiles(false); return;
+      if (activeTab === "vectorStore") {
+        toast({title: "Configuration Missing", description: "Vector Store ID or Class ID not found for the active class.", variant: "default"});
+      }
+      setVectorStoreFiles([]); 
+      setIsLoadingVectorFiles(false); 
+      return;
     }
     setIsLoadingVectorFiles(true);
+    console.log(`fetchVectorStoreFiles: Fetching for VS ID: ${activeClass.openAIConfig.vectorStoreId}`);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) throw new Error("Authentication required");
-      const { data, error } = await supabase.functions.invoke('list-vector-store-files', { body: { vectorStoreId: activeClass.openAIConfig.vectorStoreId } });
-      if (error) throw error; if (data.error) throw new Error(data.error);
+
+      const { data, error: functionError } = await supabase.functions.invoke('list-vector-store-files', { 
+        body: { vectorStoreId: activeClass.openAIConfig.vectorStoreId } 
+      });
+
+      if (functionError) {
+        console.error("fetchVectorStoreFiles: Edge function error", functionError);
+        throw functionError;
+      }
+      if (data.error) {
+        console.error("fetchVectorStoreFiles: Edge function returned error in data", data.error);
+        throw new Error(data.error);
+      }
       
-      // Fix for 'any' type: Use VectorStoreFileType for 'f'
-      const openAIFileIds = (data.files || []).map((f: VectorStoreFileType) => f.id); 
-      let mappedFiles: VectorStoreFileType[] = [];
+      const openAIFilesFromEdgeFn = (data.files || []) as VectorStoreFileType[];
+      console.log("fetchVectorStoreFiles: Files from Edge Function:", openAIFilesFromEdgeFn);
+      
+      const openAIFileIds = openAIFilesFromEdgeFn.map(f => f.id);
+      let mappedFiles: VectorStoreFileType[] = openAIFilesFromEdgeFn; 
+
       if (openAIFileIds.length > 0) {
-        const { data: filesFromDB, error: dbError } = await supabase.from('files').select('name, document_title, openai_file_id').in('openai_file_id', openAIFileIds).eq('class_id', activeClass.class_id).eq('user_id', user.id);
-        if (dbError) console.error("Error fetching file details from DB for vector store list:", dbError);
-        else {
-          const localFileMap = new Map();
-          if (filesFromDB) { filesFromDB.forEach(dbFile => { if(dbFile.openai_file_id) localFileMap.set(dbFile.openai_file_id, { name: dbFile.name, document_title: dbFile.document_title }); }); }
-          mappedFiles = ((data.files || []) as VectorStoreFileType[]).map(vsFile => ({ ...vsFile, filename: localFileMap.get(vsFile.id)?.name || `OpenAI File: ${vsFile.id.substring(0,15)}...`, document_title: localFileMap.get(vsFile.id)?.document_title }));
+        console.log("fetchVectorStoreFiles: Mapping OpenAI File IDs to local DB files:", openAIFileIds);
+        const { data: filesFromDB, error: dbError } = await supabase
+          .from('files')
+          .select('name, document_title, openai_file_id') 
+          .in('openai_file_id', openAIFileIds)
+          .eq('class_id', activeClass.class_id)
+          .eq('user_id', user.id);
+
+        if (dbError) {
+          console.error("fetchVectorStoreFiles: Error fetching file details from DB for vector store list:", dbError);
+        } else if (filesFromDB) {
+          console.log("fetchVectorStoreFiles: Files from DB for mapping:", filesFromDB);
+          const localFileMap = new Map<string, {name: string, document_title: string | null}>();
+          filesFromDB.forEach(dbFile => { 
+            if(dbFile.openai_file_id) {
+              localFileMap.set(dbFile.openai_file_id, { name: dbFile.name, document_title: dbFile.document_title }); 
+            }
+          });
+          mappedFiles = openAIFilesFromEdgeFn.map(vsFile => ({ 
+            ...vsFile, 
+            filename: localFileMap.get(vsFile.id)?.name || `OpenAI File: ${vsFile.id.substring(0,15)}...`, 
+            document_title: localFileMap.get(vsFile.id)?.document_title 
+          }));
         }
       }
-      setVectorStoreFiles(mappedFiles.length > 0 ? mappedFiles : (data.files || []) as VectorStoreFileType[]);
-    } catch (error) { const message = error instanceof Error ? error.message : "Unknown error."; toast({ title: "Vector Store Error", description: `Failed to fetch files: ${message}`, variant: "destructive" }); setVectorStoreFiles([]);
-    } finally { setIsLoadingVectorFiles(false); }
-  }, [user, activeClass?.openAIConfig?.vectorStoreId, activeClass?.class_id, toast, activeTab]);
+      console.log("fetchVectorStoreFiles: Mapped files for display:", mappedFiles);
+      setVectorStoreFiles(mappedFiles);
+    } catch (error) { 
+      const message = error instanceof Error ? error.message : "Unknown error."; 
+      console.error("fetchVectorStoreFiles: Exception - ", message, error);
+      toast({ title: "Vector Store Error", description: `Failed to fetch files: ${message}`, variant: "destructive" }); 
+      setVectorStoreFiles([]);
+    } finally { 
+      setIsLoadingVectorFiles(false); 
+    }
+  }, [user, activeClass, toast, activeTab]); 
 
   useEffect(() => { if (activeTab === "vectorStore") { fetchVectorStoreFiles(); } }, [activeTab, fetchVectorStoreFiles]);
-
+  
   const toggleSelectItem = (item: SelectedItem) => {
     setSelectedItems(prevItems =>
       prevItems.some(i => i.id === item.id && i.type === item.type)
@@ -12331,27 +12325,15 @@ const DatabasePage = () => {
   };
 
   const navigateToFolder = (folderId: string | null, folderName: string) => {
-    console.log(`navigateToFolder: Called with folderId: ${folderId}, folderName: ${folderName}`);
-    console.log("navigateToFolder: Current breadcrumbs:", breadcrumbs);
-    if (selectionMode && folderId !== null) {
-      const folderToToggle = folders.find(f => f.folder_id === folderId);
-      if (folderToToggle) {
-        toggleSelectItem({ id: folderToToggle.folder_id, name: folderToToggle.name, type: 'folder' });
-      }
-      return;
-    }
     setCurrentFolderId(folderId);
     if (folderId === null) {
-      console.log("navigateToFolder: Navigating to Main.");
       setBreadcrumbs([{ id: null, name: "Main" }]);
     } else {
       const currentBreadcrumbs = [...breadcrumbs];
       const existingIndex = currentBreadcrumbs.findIndex(b => b.id === folderId);
       if (existingIndex !== -1) {
-        console.log(`navigateToFolder: Navigating up to existing breadcrumb: ${folderName}`);
         setBreadcrumbs(currentBreadcrumbs.slice(0, existingIndex + 1));
       } else {
-        console.log(`navigateToFolder: Navigating into new subfolder: ${folderName}`);
         setBreadcrumbs([...currentBreadcrumbs, { id: folderId, name: folderName }]);
       }
     }
@@ -12359,11 +12341,221 @@ const DatabasePage = () => {
     setSelectedItems([]);
   };
 
-  const handleFileUpload = async (uploadedFiles: FileList) => { /* ... as before ... */ };
-  const createNewFolder = async () => { /* ... as before ... */ };
-  const deleteItem = async (itemId: string, itemType: 'file' | 'folder') => { /* ... as before ... */ };
-  const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => { /* ... as before ... */ };
-  const confirmVectorUpload = async () => { /* ... as before ... */ };
+  const handleFileUpload = async (uploadedFiles: FileList) => {
+    if (!user || !activeClass?.class_id) {
+      toast({ title: "Upload Failed", description: "Missing user or class information.", variant: "destructive" });
+      return;
+    }
+    const now = new Date().toISOString();
+    const tempFileEntries: FileWithProgress[] = Array.from(uploadedFiles).map((file, index) => ({
+      file_id: `temp-${Date.now()}-${index}`, name: file.name, size: file.size, type: file.type,
+      folder_id: currentFolderId, user_id: user.id, class_id: activeClass.class_id,
+      last_modified: now, created_at: now, status: 'uploading', progress: 0,
+      url: null, category: null, tags: null, database_id: null, openai_file_id: null, document_title: null,
+    }));
+    setFiles(prev => [...prev, ...tempFileEntries]);
+    for (let i = 0; i < uploadedFiles.length; i++) {
+      const file = uploadedFiles[i];
+      const tempFileId = tempFileEntries[i].file_id;
+      try {
+        setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...f, progress: 10 } : f));
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filePath = `public/${user.id}/${activeClass.class_id}/${currentFolderId || 'root'}/${Date.now()}_${sanitizedName}`;
+        const { data: storageData, error: uploadError } = await supabase.storage.from('file_storage').upload(filePath, file, { cacheControl: '3600', upsert: false });
+        if (uploadError) throw uploadError;
+        setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...f, progress: 50 } : f));
+        const { data: urlData } = supabase.storage.from('file_storage').getPublicUrl(storageData.path);
+        if (!urlData.publicUrl) throw new Error("Failed to get public URL for uploaded file.");
+        setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...f, progress: 75, url: urlData.publicUrl } : f));
+        const fileToInsert: Omit<FileType, 'file_id' | 'created_at' | 'last_modified'> & { created_at?: string, last_modified?: string } = {
+          name: file.name, size: file.size, type: file.type, url: urlData.publicUrl,
+          folder_id: currentFolderId, user_id: user.id, class_id: activeClass.class_id,
+          status: 'complete', category: null, tags: null, database_id: null,
+          openai_file_id: null, document_title: file.name,
+        };
+        const { data: dbFile, error: insertError } = await supabase.from('files').insert(fileToInsert).select().single();
+        if (insertError) throw insertError;
+        setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...(dbFile as FileType), progress: 100 } : f));
+        if (userStorage) {
+          const newStorageUsed = userStorage.storage_used + file.size;
+          setUserStorage(prev => ({...prev!, storage_used: newStorageUsed}));
+          await supabase.from('user_storage').update({ storage_used: newStorageUsed }).eq('user_id', user.id);
+        }
+        toast({ title: "File Uploaded", description: `${file.name} uploaded successfully.` });
+      } catch (error) {
+        console.error(`Error uploading ${file.name}:`, error);
+        setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...f, status: 'error', progress: 0 } : f));
+        toast({ title: `Failed to upload ${file.name}`, description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive"});
+      }
+    }
+    fetchCurrentFolderContents();
+  };
+  
+  const createNewFolder = async () => {
+    if (!user || !activeClass?.class_id || !newFolderName.trim()) {
+      toast({ title: "Error", description: "Folder name, user, or class information is missing.", variant: "destructive" });
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('file_folders')
+        .insert({
+          name: newFolderName.trim(),
+          parent_id: currentFolderId,
+          user_id: user.id,
+          class_id: activeClass.class_id,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      setFolders(prev => [...prev, data as FolderType]);
+      setIsNewFolderDialogOpen(false);
+      setNewFolderName('');
+      toast({ title: "Folder Created", description: `"${data.name}" has been created.` });
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      toast({ title: "Failed to Create Folder", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
+    }
+  };
+
+  const deleteItem = async (itemId: string, itemType: 'file' | 'folder') => {
+    if (!user) return;
+    const confirmDelete = window.confirm(`Are you sure you want to delete this ${itemType}? This action cannot be undone.`);
+    if (!confirmDelete) return;
+
+    try {
+      if (itemType === 'folder') {
+        const { error } = await supabase.from('file_folders').delete().eq('folder_id', itemId).eq('user_id', user.id);
+        if (error) throw error;
+        setFolders(prev => prev.filter(f => f.folder_id !== itemId));
+        toast({ title: "Folder Deleted" });
+      } else {
+        const fileToDelete = files.find(f => f.file_id === itemId);
+        if (fileToDelete?.url) {
+          const filePath = fileToDelete.url.substring(fileToDelete.url.indexOf('/public/') + 1); 
+          await supabase.storage.from('file_storage').remove([filePath]);
+        }
+        const { error } = await supabase.from('files').delete().eq('file_id', itemId).eq('user_id', user.id);
+        if (error) throw error;
+        setFiles(prev => prev.filter(f => f.file_id !== itemId));
+        toast({ title: "File Deleted" });
+      }
+      fetchCurrentFolderContents(); 
+    } catch (error) {
+      console.error(`Error deleting ${itemType}:`, error);
+      toast({ title: `Failed to Delete ${itemType}`, description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
+    }
+  };
+
+  const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
+     e.preventDefault();
+     setDragging(false);
+     if (!user) {
+       toast({ title: "Authentication Required", description: "Please sign in to upload files.", variant: "destructive" });
+       return;
+     }
+     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+       handleFileUpload(e.dataTransfer.files);
+     }
+  };
+  
+  const confirmVectorUpload = async () => {
+    console.log("confirmVectorUpload: Starting. User:", user?.id, "ActiveClass:", activeClass);
+    if (!user || !activeClass?.openAIConfig?.vectorStoreId || !activeClass?.class_id || selectedItems.length === 0) {
+      toast({ title: "Upload Error", description: "Missing user, vector store configuration, class ID, or selected files.", variant: "destructive" });
+      setIsVectorUploadDialogOpen(false);
+      return;
+    }
+
+    const filesToUpload = selectedItems.filter(item => item.type === 'file' && item.url);
+    if (filesToUpload.length === 0) {
+      toast({ title: "No Files to Upload", description: "Please select valid files with URLs.", variant: "default" });
+      setIsVectorUploadDialogOpen(false);
+      return;
+    }
+
+    setIsUploadingToVectorStore(true);
+    setVectorStoreUploadProgress(10); 
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) throw new Error("Authentication required for vector store upload.");
+
+      const payloadFiles = filesToUpload.map(f => ({ 
+        name: f.name, 
+        url: f.url, 
+        size: f.size, 
+        internal_file_id: f.id,
+        type: f.fileMimeType // Ensure fileMimeType is populated in SelectedItem
+      }));
+      
+      console.log("confirmVectorUpload: Calling 'upload-to-vector-store' Edge Function with payload:", payloadFiles, "and VS ID:", activeClass.openAIConfig.vectorStoreId);
+
+      const { data: functionResponse, error: functionError } = await supabase.functions.invoke('upload-to-vector-store', {
+        body: {
+          files: payloadFiles,
+          vectorStoreId: activeClass.openAIConfig.vectorStoreId
+        }
+      });
+
+      if (functionError) {
+        console.error("confirmVectorUpload: Edge function invocation error:", functionError);
+        throw functionError;
+      }
+      if (functionResponse.error) {
+        console.error("confirmVectorUpload: Edge function returned error in data:", functionResponse.error);
+        throw new Error(String(functionResponse.error)); 
+      }
+      
+      console.log("confirmVectorUpload: Response from Edge Function:", functionResponse);
+      setVectorStoreUploadProgress(50); 
+
+      let successCount = 0;
+      let failCount = 0;
+
+      if (functionResponse.results && Array.isArray(functionResponse.results)) {
+        for (const result of functionResponse.results) {
+          if (result.success && result.openAiFileId && result.internal_file_id) {
+            successCount++;
+            console.log(`confirmVectorUpload: Updating file ${result.internal_file_id} with OpenAI File ID ${result.openAiFileId}`);
+            const { error: updateError } = await supabase
+              .from('files')
+              .update({ openai_file_id: result.openAiFileId })
+              .eq('file_id', result.internal_file_id)
+              .eq('user_id', user.id); 
+            if (updateError) {
+              console.error(`confirmVectorUpload: Failed to update local DB for file ${result.internal_file_id}:`, updateError);
+            }
+          } else {
+            failCount++;
+            // Log the specific error message from the Edge Function result if available
+            const edgeFunctionErrorMsg = result.error || "Unknown error from Edge Function";
+            console.error(`confirmVectorUpload: Failed to upload ${result.fileName} to vector store (as reported by Edge Function): ${edgeFunctionErrorMsg}`);
+          }
+        }
+      } else {
+        console.warn("confirmVectorUpload: Edge function response.results was not an array or was missing.");
+      }
+      
+      setVectorStoreUploadProgress(100);
+      toast({ title: "Vector Store Sync Complete", description: `${successCount} files processed for sync, ${failCount} failed.`});
+      
+      fetchCurrentFolderContents(); 
+      if (activeTab === "vectorStore" || successCount > 0) {
+        setTimeout(() => fetchVectorStoreFiles(), 1000);
+      }
+      
+    } catch (error) {
+      console.error("confirmVectorUpload: Exception -", error);
+      toast({ title: "Vector Store Upload Failed", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
+      setVectorStoreUploadProgress(0); 
+    } finally {
+      setIsUploadingToVectorStore(false);
+      setIsVectorUploadDialogOpen(false); 
+      setSelectionMode(false); 
+      setSelectedItems([]);    
+    }
+  };
 
   const filteredFolders = folders.filter(folder =>
     folder.name && folder.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -12373,7 +12565,6 @@ const DatabasePage = () => {
   );
 
   if (!user || !activeClass) { 
-    console.log("DatabasePage: Rendering loading/redirect screen because user or activeClass is null.", "User:", user?.id, "ActiveClass:", activeClass);
     return ( <div className="flex flex-col items-center justify-center min-h-screen p-4"> <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" /> <p className="text-muted-foreground">Loading class information or redirecting...</p> </div> );
   }
 
@@ -12390,7 +12581,7 @@ const DatabasePage = () => {
           <TabsContent value="myFiles" className="mt-6">
             <div className="flex flex-wrap gap-2 mb-6 mt-4 items-center">
               {!selectionMode ? ( <> <Button onClick={() => setIsUploadDialogOpen(true)}> <Upload className="h-4 w-4 mr-2" /> Upload Files </Button> <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)}> <FolderPlus className="h-4 w-4 mr-2" /> New Folder </Button> <Button variant="outline" onClick={() => setSelectionMode(true)} className="ml-auto"> <Check className="h-4 w-4 mr-2" /> Select Items </Button> </>
-              ) : ( <> <Button onClick={() => setIsVectorUploadDialogOpen(true)} disabled={selectedItems.filter(item => item.type === 'file').length === 0}> <ArrowUp className="h-4 w-4 mr-2" /> Push to Vector Store ({selectedItems.filter(item => item.type === 'file').length}) </Button> <Button variant="outline" onClick={() => { setSelectionMode(false); setSelectedItems([]); }}> Cancel Selection </Button> </> )}
+              ) : ( <> <Button onClick={() => setIsVectorUploadDialogOpen(true)} disabled={selectedItems.filter(item => item.type === 'file' && item.url).length === 0}> <ArrowUp className="h-4 w-4 mr-2" /> Push to Vector Store ({selectedItems.filter(item => item.type === 'file' && item.url).length}) </Button> <Button variant="outline" onClick={() => { setSelectionMode(false); setSelectedItems([]); }}> Cancel Selection </Button> </> )}
             </div>
             <Breadcrumb className="mb-4">
               <BreadcrumbList>
@@ -12401,7 +12592,7 @@ const DatabasePage = () => {
                         <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
                       ) : (
                         <BreadcrumbLink
-                          href="#" // Or appropriate path if direct linking is desired
+                          href="#"
                           onClick={(e) => {
                             e.preventDefault();
                             navigateToFolder(crumb.id, crumb.name);
@@ -12425,32 +12616,116 @@ const DatabasePage = () => {
               {loading ? ( <div className="flex flex-col items-center justify-center h-full py-10"><Loader2 className="h-10 w-10 text-primary animate-spin mb-4" /><p className="text-muted-foreground">Loading...</p></div> )
                : (filteredFolders.length === 0 && filteredFiles.length === 0) ? ( <div className="flex flex-col items-center justify-center h-full text-center py-10"><FolderPlus className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" /><h3 className="text-lg font-medium">This folder is empty</h3><p className="text-muted-foreground mb-4"> Drag and drop files here or use the upload button. </p></div> )
                : ( <ScrollArea className="h-[400px] sm:h-[500px]">
-                    {/* ... (rest of folder and file mapping JSX - ensure keys are correct: folder.folder_id, file.file_id) ... */}
                     {filteredFolders.length > 0 && ( <div className="mb-6"> <h3 className="text-sm font-medium text-muted-foreground mb-2 px-1">Folders</h3> <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                        {filteredFolders.map(folder => ( <Card key={folder.folder_id} className={`p-3 transition-all hover:shadow-md cursor-pointer ${selectedItems.some(item => item.id === folder.folder_id && item.type === 'folder') ? 'ring-2 ring-primary border-primary' : 'border-border'}`} onClick={() => navigateToFolder(folder.folder_id, folder.name)}> <div className="flex items-center justify-between"> <div className="flex items-center gap-2 truncate"> {selectionMode && (<Checkbox id={`select-folder-${folder.folder_id}`} checked={selectedItems.some(item => item.id === folder.folder_id && item.type === 'folder')} onCheckedChange={() => toggleSelectItem({ id: folder.folder_id, name: folder.name, type: 'folder' })} onClick={(e) => e.stopPropagation()} aria-label={`Select folder ${folder.name}`} />)} <FolderIcon className="h-6 w-6 text-yellow-500 flex-shrink-0" /> <span className="text-sm font-medium truncate" title={folder.name}>{folder.name}</span> </div> <DropdownMenu><DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0"> <MoreHorizontal className="h-4 w-4" /> </Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); deleteItem(folder.folder_id, 'folder'); }} className="text-destructive"><Trash className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem></DropdownMenuContent></DropdownMenu> </div> </Card> ))}
+                        {filteredFolders.map(folder => ( 
+                        <Card 
+                          key={folder.folder_id} 
+                          className={`p-3 transition-all hover:shadow-md cursor-pointer ${selectedItems.some(item => item.id === folder.folder_id && item.type === 'folder') ? 'ring-2 ring-primary border-primary' : 'border-border'}`} 
+                          onClick={() => {
+                            if (selectionMode) {
+                              toggleSelectItem({ id: folder.folder_id, name: folder.name, type: 'folder' });
+                            } else {
+                              navigateToFolder(folder.folder_id, folder.name);
+                            }
+                          }}
+                        > 
+                          <div className="flex items-center justify-between"> 
+                            <div className="flex items-center gap-2 truncate"> 
+                              {selectionMode && (
+                                <Checkbox 
+                                  id={`select-folder-${folder.folder_id}`} 
+                                  checked={selectedItems.some(item => item.id === folder.folder_id && item.type === 'folder')} 
+                                  onCheckedChange={() => toggleSelectItem({ id: folder.folder_id, name: folder.name, type: 'folder' })} 
+                                  onClick={(e) => e.stopPropagation()} 
+                                  aria-label={`Select folder ${folder.name}`} 
+                                />
+                              )} 
+                              <FolderIcon className="h-6 w-6 text-yellow-500 flex-shrink-0" /> 
+                              <span className="text-sm font-medium truncate" title={folder.name}>{folder.name}</span> 
+                            </div> 
+                            <DropdownMenu><DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0"> <MoreHorizontal className="h-4 w-4" /> </Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); deleteItem(folder.folder_id, 'folder'); }} className="text-destructive"><Trash className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem></DropdownMenuContent></DropdownMenu> 
+                          </div> 
+                        </Card> 
+                        ))}
                     </div> </div> )}
                     {filteredFiles.length > 0 && ( <div> <h3 className="text-sm font-medium text-muted-foreground mb-2 px-1">Files</h3> <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                        {filteredFiles.map(file => ( <Card key={file.file_id} className={`p-3 transition-all hover:shadow-md cursor-pointer ${selectedItems.some(item => item.id === file.file_id && item.type === 'file') ? 'ring-2 ring-primary border-primary' : 'border-border'}`} onClick={() => { if (selectionMode) { toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size }); } else if (file.url) { window.open(file.url, '_blank'); } }}> <div className="flex items-center justify-between"> <div className="flex items-center gap-2 truncate"> {selectionMode && (<Checkbox id={`select-file-${file.file_id}`} checked={selectedItems.some(item => item.id === file.file_id && item.type === 'file')} onCheckedChange={() => toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size })} onClick={(e) => e.stopPropagation()} aria-label={`Select file ${file.name}`} />)} <FileIcon className="h-6 w-6 text-blue-500 flex-shrink-0" /> <span className="text-sm font-medium truncate" title={file.name}>{file.name}</span> </div> <DropdownMenu><DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0"> <MoreHorizontal className="h-4 w-4" /> </Button></DropdownMenuTrigger><DropdownMenuContent align="end">{file.url && <DropdownMenuItem onClick={(e) => {e.stopPropagation(); window.open(file.url!, '_blank');}}>Open</DropdownMenuItem>}<DropdownMenuItem onClick={(e) => { e.stopPropagation(); deleteItem(file.file_id, 'file'); }} className="text-destructive"><Trash className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem></DropdownMenuContent></DropdownMenu> </div> {file.status === 'uploading' ? (<div className="mt-2"><Progress value={file.progress || 0} className="h-1 w-full" /><p className="text-xs text-muted-foreground mt-1">{file.progress}%</p></div>) : file.status === 'error' ? (<p className="text-xs text-destructive mt-1">Upload failed</p>) : (<p className="text-xs text-muted-foreground mt-1 truncate">{formatFileSize(file.size)}</p>)} </Card> ))}
+                        {filteredFiles.map(file => ( 
+                        <Card 
+                          key={file.file_id} 
+                          className={`p-3 transition-all hover:shadow-md cursor-pointer ${selectedItems.some(item => item.id === file.file_id && item.type === 'file') ? 'ring-2 ring-primary border-primary' : 'border-border'}`} 
+                          onClick={() => { 
+                            if (selectionMode) { 
+                              toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size, fileMimeType: file.type }); 
+                            } else if (file.url) { 
+                              window.open(file.url, '_blank'); 
+                            } 
+                          }}
+                        > 
+                          <div className="flex items-center justify-between"> 
+                            <div className="flex items-center gap-2 truncate"> 
+                              {selectionMode && (
+                                <Checkbox 
+                                  id={`select-file-${file.file_id}`} 
+                                  checked={selectedItems.some(item => item.id === file.file_id && item.type === 'file')} 
+                                  onCheckedChange={() => toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size, fileMimeType: file.type })} 
+                                  onClick={(e) => e.stopPropagation()} 
+                                  aria-label={`Select file ${file.name}`} 
+                                />
+                              )} 
+                              <FileIcon className="h-6 w-6 text-blue-500 flex-shrink-0" /> 
+                              <span className="text-sm font-medium truncate" title={file.name}>{file.name}</span> 
+                            </div> 
+                            <DropdownMenu><DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0"> <MoreHorizontal className="h-4 w-4" /> </Button></DropdownMenuTrigger><DropdownMenuContent align="end">{file.url && <DropdownMenuItem onClick={(e) => {e.stopPropagation(); window.open(file.url!, '_blank');}}>Open</DropdownMenuItem>}<DropdownMenuItem onClick={(e) => { e.stopPropagation(); deleteItem(file.file_id, 'file'); }} className="text-destructive"><Trash className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem></DropdownMenuContent></DropdownMenu> 
+                          </div> 
+                          {file.status === 'uploading' && file.progress !== undefined ? (<div className="mt-2"><Progress value={file.progress || 0} className="h-1 w-full" /><p className="text-xs text-muted-foreground mt-1">{file.progress || 0}%</p></div>) 
+                          : file.status === 'error' ? (<p className="text-xs text-destructive mt-1">Upload failed</p>) 
+                          : (<p className="text-xs text-muted-foreground mt-1 truncate">{formatFileSize(file.size)}</p>)} 
+                        </Card> 
+                        ))}
                     </div> </div> )}
                   </ScrollArea>
               )}
             </div>
           </TabsContent>
           <TabsContent value="vectorStore" className="mt-6">
-            {/* ... Vector Store Tab Content ... */}
              <div className="mb-6"> <div className="flex justify-between items-center"><h3 className="text-lg font-medium">Vector Store Files</h3><Button variant="outline" size="sm" onClick={fetchVectorStoreFiles} disabled={isLoadingVectorFiles}>{isLoadingVectorFiles ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : null}Refresh List</Button></div> <p className="text-muted-foreground text-sm mt-1">Files synced with your class AI knowledge base.</p> </div>
             {isLoadingVectorFiles ? (<div className="flex flex-col items-center justify-center h-full py-10"><Loader2 className="h-10 w-10 text-primary animate-spin mb-4" /><p className="text-muted-foreground">Loading Vector Store files...</p></div>
-            ) : vectorStoreFiles.length === 0 ? (<div className="flex flex-col items-center justify-center h-full text-center py-10"><CloudLightning className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" /><h3 className="text-lg font-medium">Vector Store is Empty</h3><p className="text-muted-foreground mb-4">Upload files from "My Files" to populate the Vector Store for this class.</p><Button onClick={() => setActiveTab("myFiles")}>Go to My Files</Button></div>
+            ) : vectorStoreFiles.length === 0 ? (<div className="flex flex-col items-center justify-center h-full text-center py-10"><CloudLightning className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" /><h3 className="text-lg font-medium">Vector Store is Empty</h3><p className="text-muted-foreground mb-4">Upload files from "My Files" to populate the Vector Store for this class.</p><Button onClick={() => {setActiveTab("myFiles"); setSelectionMode(true);}}>Go to My Files & Select</Button></div>
             ) : ( <ScrollArea className="h-[400px] sm:h-[500px]"> <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {vectorStoreFiles.map((file) => ( <Card key={file.id} className="p-3"> <div className="flex items-center gap-2 mb-2"><FileIcon className="h-6 w-6 text-indigo-500 flex-shrink-0" /> <span className="text-sm font-medium truncate" title={file.document_title || file.filename || file.id}> {file.document_title || file.filename || `File ID: ${file.id.substring(0,15)}...`} </span> </div> {file.filename && file.document_title && file.document_title !== file.filename && ( <p className="text-xs text-muted-foreground truncate" title={file.filename}>Original Filename: {file.filename}</p> )} <p className="text-xs text-muted-foreground">Size: {formatFileSize(file.usage_bytes || 0)}</p> <p className="text-xs text-muted-foreground">Status: <Badge variant={file.status === 'completed' ? 'default' : 'secondary'} className={file.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>{file.status}</Badge></p> <p className="text-xs text-muted-foreground">Added: {new Date(file.created_at * 1000).toLocaleDateString()}</p> </Card> ))}
             </div> </ScrollArea> )}
           </TabsContent>
         </Tabs>
       </div>
-      {/* Dialogs */}
-      <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}> <DialogContent><DialogHeaderComponent><DialogTitleComponent>Upload Files</DialogTitleComponent><DialogDescriptionComponent>Select files to upload to the current folder.</DialogDescriptionComponent></DialogHeaderComponent><input type="file" id="file_upload_input" multiple onChange={(e) => e.target.files && handleFileUpload(e.target.files)} className="my-4 p-2 border rounded-md w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"/><DialogFooter><Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>Close</Button></DialogFooter></DialogContent> </Dialog>
-      <Dialog open={isNewFolderDialogOpen} onOpenChange={setIsNewFolderDialogOpen}> <DialogContent><DialogHeaderComponent><DialogTitleComponent>Create New Folder</DialogTitleComponent><DialogDescriptionComponent>Enter a name for your new folder.</DialogDescriptionComponent></DialogHeaderComponent><Input placeholder="Folder Name" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} autoFocus className="my-4"/><DialogFooter><Button variant="outline" onClick={() => setIsNewFolderDialogOpen(false)}>Cancel</Button><Button onClick={createNewFolder}>Create Folder</Button></DialogFooter></DialogContent> </Dialog>
-      <Dialog open={isVectorUploadDialogOpen} onOpenChange={setIsVectorUploadDialogOpen}> <DialogContent><DialogHeaderComponent><DialogTitleComponent>Push to Vector Store</DialogTitleComponent><DialogDescriptionComponent>Confirm uploading {selectedItems.filter(item => item.type === 'file').length} selected file(s) to the AI knowledge base.</DialogDescriptionComponent></DialogHeaderComponent> {isUploadingToVectorStore ? (<div className="py-6 text-center"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" /><p>Uploading... {vectorStoreUploadProgress}%</p></div> ) : (<ScrollArea className="max-h-60 my-4"><ul className="space-y-1">{selectedItems.filter(item => item.type === 'file').map(file => (<li key={file.id} className="text-sm p-1 border-b truncate">{file.name}</li>))}</ul></ScrollArea>)} <DialogFooter><Button variant="outline" onClick={() => setIsVectorUploadDialogOpen(false)} disabled={isUploadingToVectorStore}>Cancel</Button><Button onClick={confirmVectorUpload} disabled={isUploadingToVectorStore}>{isUploadingToVectorStore ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowUp className="h-4 w-4 mr-2" />}Confirm Upload</Button></DialogFooter> </DialogContent> </Dialog>
+      <UploadDialog
+        isOpen={isUploadDialogOpen}
+        onClose={() => setIsUploadDialogOpen(false)}
+        onFileSelect={handleFileUpload}
+      />
+      <Dialog open={isNewFolderDialogOpen} onOpenChange={(open) => {setIsNewFolderDialogOpen(open); if(!open) setNewFolderName('');}}> 
+        <DialogContent>
+            <DialogHeaderComponent><DialogTitleComponent>Create New Folder</DialogTitleComponent><DialogDescriptionComponent>Enter a name for your new folder.</DialogDescriptionComponent></DialogHeaderComponent>
+            <Input placeholder="Folder Name" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} autoFocus className="my-4"/>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => {setIsNewFolderDialogOpen(false); setNewFolderName('');}}>Cancel</Button>
+                <Button onClick={createNewFolder}>Create Folder</Button>
+            </DialogFooter>
+        </DialogContent> 
+      </Dialog>
+      <Dialog open={isVectorUploadDialogOpen} onOpenChange={setIsVectorUploadDialogOpen}> 
+        <DialogContent>
+            <DialogHeaderComponent><DialogTitleComponent>Push to Vector Store</DialogTitleComponent><DialogDescriptionComponent>Confirm uploading {selectedItems.filter(item => item.type === 'file' && item.url).length} selected file(s) to the AI knowledge base.</DialogDescriptionComponent></DialogHeaderComponent> 
+            {isUploadingToVectorStore ? (<div className="py-6 text-center"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" /><p>Uploading... {vectorStoreUploadProgress}%</p></div> 
+            ) : (<ScrollArea className="max-h-60 my-4"><ul className="space-y-1">{selectedItems.filter(item => item.type === 'file' && item.url).map(file => (<li key={file.id} className="text-sm p-1 border-b truncate">{file.name}</li>))}</ul></ScrollArea>)} 
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsVectorUploadDialogOpen(false)} disabled={isUploadingToVectorStore}>Cancel</Button>
+                <Button onClick={confirmVectorUpload} disabled={isUploadingToVectorStore || selectedItems.filter(item => item.type === 'file' && item.url).length === 0}>
+                    {isUploadingToVectorStore ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowUp className="h-4 w-4 mr-2" />}
+                    Confirm Upload
+                </Button>
+            </DialogFooter> 
+        </DialogContent> 
+      </Dialog>
     </div>
   );
 };
@@ -14925,32 +15200,27 @@ File: src/pages/SuperTutor.tsx
 // src/pages/SuperTutor.tsx
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChatBot } from "@/components/chat/ChatBot"; // Your existing RAG bot
-import { WebChatBot, Message as ChatUIMessage } from "@/components/chat/WebChatBot"; // Lovable's new WebChatBot
+import { ChatBot } from "@/components/chat/ChatBot";
+import { WebChatBot, Message as ChatUIMessage } from "@/components/chat/WebChatBot";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Settings, Bot, Database as DatabaseIcon, Globe, Split, Loader2 } from "lucide-react";
+import { AlertCircle, Settings, Bot, Globe, Split, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { cn } from "@/lib/utils";
 
-// Interface for data retrieved from sessionStorage
 interface ActiveClassData {
   class_id: string;
   title: string;
   emoji?: string;
   enabledWidgets?: string[];
-  openAIConfig?: OpenAIConfig; // Contains assistantId and vectorStoreId
+  openAIConfig?: OpenAIConfig;
 }
 
 type ChatMode = "rag" | "web" | "split";
-
-// REMOVED this redundant export:
-// export interface Message extends ChatUIMessage {} 
-// We will use ChatUIMessage directly, which is an alias for Message from WebChatBot.tsx
 
 const SuperTutor = () => {
   const navigate = useNavigate();
@@ -14963,7 +15233,6 @@ const SuperTutor = () => {
   const { toast } = useToast();
 
   const [activeMode, setActiveMode] = useState<ChatMode>("rag");
-  // Use the imported ChatUIMessage type for the message states
   const [ragMessages, setRagMessages] = useState<ChatUIMessage[]>([]);
   const [webMessages, setWebMessages] = useState<ChatUIMessage[]>([]);
 
@@ -15046,7 +15315,14 @@ const SuperTutor = () => {
     );
   }
 
+  // Added min-h-0 to allow shrinking
+  const tabContentWrapperClassName = "bg-card p-0 rounded-xl shadow-sm border flex-grow flex flex-col overflow-hidden min-h-0"; 
+  // Added min-h-0 to allow shrinking
+  const tabsContentClassName = "flex-grow flex flex-col overflow-hidden data-[state=inactive]:hidden min-h-0";
+
+
   return (
+    // Main container for the SuperTutor page, sets up overall height and flex direction
     <div className="space-y-6 flex flex-col h-[calc(100vh-var(--header-height,80px)-2rem)]">
       <PageHeader
         title="Super Tutor"
@@ -15080,7 +15356,7 @@ const SuperTutor = () => {
       )}
       
       {activeClassTitle && (
-        <Tabs value={activeMode} onValueChange={(value) => setActiveMode(value as ChatMode)} className="w-full flex flex-col flex-grow">
+        <Tabs value={activeMode} onValueChange={(value) => setActiveMode(value as ChatMode)} className="w-full flex flex-col flex-grow min-h-0"> {/* Added min-h-0 */}
           <TabsList className="w-full grid grid-cols-3 mb-4">
             <TabsTrigger value="rag" className="flex-1 gap-2 data-[state=active]:shadow-md">
               <Bot className="h-4 w-4" /> Class Materials
@@ -15093,8 +15369,8 @@ const SuperTutor = () => {
             </TabsTrigger>
           </TabsList>
 
-          {activeMode === "rag" && (
-            <div className="bg-card p-0 rounded-xl shadow-sm border flex-grow flex flex-col overflow-hidden">
+          <TabsContent value="rag" className={cn(tabsContentClassName, "mt-2")}>
+            <div className={tabContentWrapperClassName}>
               <ChatBot
                 disableToasts={true}
                 suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitle || "the subject"))}
@@ -15104,15 +15380,15 @@ const SuperTutor = () => {
                 openAIConfig={effectiveOpenAIConfig}
                 onResponseGenerationStateChange={setIsGeneratingRagResponse}
                 messages={ragMessages}
-                onMessagesChange={(msgs) => setRagMessages(Array.isArray(msgs) ? msgs as ChatUIMessage[] : [])}
+                onMessagesChange={setRagMessages}
                 loadingIndicator={isGeneratingRagResponse ? commonLoadingIndicator("Class AI is thinking...") : undefined}
                 placeholder="Ask about your class materials..."
               />
             </div>
-          )}
+          </TabsContent>
 
-          {activeMode === "web" && (
-            <div className="bg-card p-0 rounded-xl shadow-sm border flex-grow flex flex-col overflow-hidden">
+          <TabsContent value="web" className={cn(tabsContentClassName, "mt-2")}>
+            <div className={tabContentWrapperClassName}>
               <WebChatBot 
                 disableToasts={true}
                 suggestions={webSuggestions}
@@ -15121,18 +15397,20 @@ const SuperTutor = () => {
                 placeholder="What would you like to search for?"
                 onResponseGenerationStateChange={setIsGeneratingWebResponse}
                 messages={webMessages}
-                onMessagesChange={(msgs) => setWebMessages(Array.isArray(msgs) ? msgs as ChatUIMessage[] : [])}
+                onMessagesChange={setWebMessages}
                 loadingIndicator={isGeneratingWebResponse ? commonLoadingIndicator("Searching the web...") : undefined}
               />
             </div>
-          )}
+          </TabsContent>
 
-          {activeMode === "split" && (
+          <TabsContent value="split" className={cn(tabsContentClassName, "mt-2")}>
             <ResizablePanelGroup
               direction="horizontal"
-              className="min-h-[500px] rounded-xl border shadow-sm flex-grow overflow-hidden"
+              // Added min-h-0 to allow shrinking
+              className="rounded-xl border shadow-sm flex-1 flex overflow-hidden min-h-0" 
             >
-              <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col">
+              {/* Added min-h-0 to allow shrinking */}
+              <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col overflow-hidden min-h-0">
                 <ChatBot
                   disableToasts={true}
                   suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitle || "the subject"))}
@@ -15142,13 +15420,14 @@ const SuperTutor = () => {
                   openAIConfig={effectiveOpenAIConfig}
                   onResponseGenerationStateChange={setIsGeneratingRagResponse}
                   messages={ragMessages}
-                  onMessagesChange={(msgs) => setRagMessages(Array.isArray(msgs) ? msgs as ChatUIMessage[] : [])}
+                  onMessagesChange={setRagMessages}
                   loadingIndicator={isGeneratingRagResponse ? commonLoadingIndicator("Class AI is thinking...") : undefined}
                   placeholder="Ask about class materials..."
                 />
               </ResizablePanel>
               <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col">
+              {/* Added min-h-0 to allow shrinking */}
+              <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col overflow-hidden min-h-0">
                 <WebChatBot 
                   disableToasts={true}
                   suggestions={webSuggestions}
@@ -15157,12 +15436,12 @@ const SuperTutor = () => {
                   placeholder="Search the web..."
                   onResponseGenerationStateChange={setIsGeneratingWebResponse}
                   messages={webMessages}
-                  onMessagesChange={(msgs) => setWebMessages(Array.isArray(msgs) ? msgs as ChatUIMessage[] : [])}
+                  onMessagesChange={setWebMessages}
                   loadingIndicator={isGeneratingWebResponse ? commonLoadingIndicator("Searching the web...") : undefined}
                 />
               </ResizablePanel>
             </ResizablePanelGroup>
-          )}
+          </TabsContent>
         </Tabs>
       )}
     </div>
