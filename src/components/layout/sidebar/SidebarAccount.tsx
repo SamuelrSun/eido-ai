@@ -1,45 +1,68 @@
-
+// src/components/layout/sidebar/SidebarAccount.tsx
 import { NavLink } from "react-router-dom";
 import { LogIn } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js"; // Ensure User type is imported
+
+interface ProfileData {
+  full_name: string | null;
+  avatar_url: string | null;
+  // Add other fields from your 'profiles' table if needed
+}
 
 interface SidebarAccountProps {
-  loading: boolean;
-  user: any;
+  loading: boolean; // This prop comes from useSidebarState
+  user: User | null;    // This prop comes from useSidebarState
 }
 
 export function SidebarAccount({ loading, user }: SidebarAccountProps) {
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   
   useEffect(() => {
-    // Fetch profile data when user is available
     const fetchProfile = async () => {
-      if (!user) return;
+      if (!user || !user.id) { // Check if user and user.id exist
+        setProfile(null); // Clear profile if no user
+        return;
+      }
       
       try {
+        // MODIFICATION: Querying 'profiles' table using 'user_id' column
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single() as any;
+          .select('full_name, avatar_url') // Select only needed fields
+          .eq('user_id', user.id) // Match against the 'user_id' column in 'profiles' table
+          .single(); // Expecting a single profile per user
           
         if (error) {
-          console.error("Error fetching profile:", error);
+          // PGRST116 means no row was found, which is not necessarily an error if profile creation is optional/deferred
+          if (error.code === 'PGRST116') {
+            console.log("SidebarAccount: No profile found for user:", user.id);
+            setProfile(null);
+          } else {
+            console.error("SidebarAccount: Error fetching profile:", error);
+            setProfile(null); // Set profile to null on error
+          }
         } else {
-          setProfile(data);
+          setProfile(data as ProfileData);
         }
       } catch (error) {
-        console.error("Error in profile fetch:", error);
+        console.error("SidebarAccount: Exception in profile fetch:", error);
+        setProfile(null); // Set profile to null on exception
       }
     };
     
-    fetchProfile();
-  }, [user]);
+    if (user) { // Only fetch if user object exists
+        fetchProfile();
+    } else {
+        setProfile(null); // Clear profile if user is null (e.g., on logout)
+    }
+
+  }, [user]); // Depend on user object
 
   if (loading) {
-    return null; // Don't render anything while loading
+    return null; 
   }
   
   if (!user) {
@@ -60,7 +83,6 @@ export function SidebarAccount({ loading, user }: SidebarAccountProps) {
     );
   }
   
-  // Get user initials for avatar fallback
   const userInitials = profile?.full_name
     ? profile.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
     : user.email?.charAt(0).toUpperCase() || "U";
@@ -78,12 +100,12 @@ export function SidebarAccount({ loading, user }: SidebarAccountProps) {
     >
       <Avatar className="w-8 h-8 rounded-full bg-sidebar-accent">
         {profile?.avatar_url && (
-          <AvatarImage src={profile.avatar_url} alt={profile?.full_name || user.email} />
+          <AvatarImage src={profile.avatar_url} alt={profile?.full_name || user.email || "User Avatar"} />
         )}
         <AvatarFallback className="text-xs font-medium">{userInitials}</AvatarFallback>
       </Avatar>
       <div className="ml-2 overflow-hidden">
-        <p className="font-medium truncate">{user.email}</p>
+        <p className="font-medium truncate">{user.email || "User"}</p>
         <p className="text-xs opacity-70 truncate">Signed In</p>
       </div>
     </NavLink>

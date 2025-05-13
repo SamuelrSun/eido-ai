@@ -1,8 +1,27 @@
-
-import { createContext, useState, useContext, useEffect, ReactNode } from "react";
+// src/hooks/use-class-widgets.tsx
+import { createContext, useState, useContext, useEffect, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { WidgetType } from "@/hooks/use-widgets";
+import type { User } from "@supabase/supabase-js"; // Ensure User type is imported
+
+// Interface for the structure of rows from the 'classes' table
+// This should align with your CustomDatabase['public']['Tables']['classes']['Row']
+interface ClassesDBRow {
+  class_id: string; // Primary Key
+  class_title: string;
+  professor?: string | null;
+  class_time?: string | null;
+  classroom?: string | null;
+  vector_store_id?: string | null;
+  assistant_id?: string | null;
+  user_id?: string | null; // Foreign Key to auth.users
+  emoji?: string | null;
+  enabled_widgets?: string[] | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 
 interface ClassWidgetsContextType {
   enabledWidgets: WidgetType[];
@@ -14,29 +33,11 @@ interface ClassWidgetsContextType {
 
 interface ClassWidgetsProviderProps {
   children: ReactNode;
-  classId?: string;
+  classId?: string; // This should correspond to class_title for querying
   defaultWidgets?: WidgetType[];
 }
 
-// Enhanced interface to match the database response
-interface ClassOpenAIConfigRow {
-  api_key?: string;
-  assistant_id?: string;
-  class_time?: string;
-  class_title: string;
-  classroom?: string;
-  created_at?: string;
-  emoji?: string;
-  id: string;
-  professor?: string;
-  updated_at?: string;
-  user_id?: string;
-  vector_store_id?: string;
-  enabled_widgets?: string[];
-}
-
-// Default widgets for any class
-export const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["flashcards", "quizzes"];
+export const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"]; // Updated default
 
 const ClassWidgetsContext = createContext<ClassWidgetsContextType>({
   enabledWidgets: DEFAULT_CLASS_WIDGETS,
@@ -50,247 +51,184 @@ export const useClassWidgets = () => useContext(ClassWidgetsContext);
 
 export const ClassWidgetsProvider = ({ 
   children, 
-  classId, 
+  classId, // This is expected to be the class_title from activeClass
   defaultWidgets = DEFAULT_CLASS_WIDGETS 
 }: ClassWidgetsProviderProps) => {
   const [enabledWidgets, setEnabledWidgets] = useState<WidgetType[]>(defaultWidgets);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [currentDbClassId, setCurrentDbClassId] = useState<string | null>(null); // Store the actual class_id (PK) from DB
 
-  // Check for authenticated user
   useEffect(() => {
     const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log("Auth session in class widgets:", session?.user?.id);
-        setUser(session?.user || null);
-      } catch (error) {
-        console.error("Error checking auth in class widgets:", error);
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
     };
-    
     checkAuth();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state change in class widgets:", event, session?.user?.id);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
     });
-    
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load class widgets from database
-  useEffect(() => {
-    const loadClassWidgets = async () => {
-      setIsLoading(true);
-      try {
-        // Always try to load from database if user is authenticated and class ID exists
-        if (user && classId) {
-          console.log(`Attempting to load widgets for class ${classId} from database with user ID ${user.id}`);
-          const { data, error } = await supabase
-            .from('class_openai_configs')
-            .select('*')
-            .eq('class_title', classId)
-            .eq('user_id', user.id)
-            .maybeSingle();
-            
-          if (error) {
-            console.error("Error loading class from database:", error);
-            throw error;
-          } else if (data) {
-            console.log(`Found class ${classId} in database:`, data);
-            
-            // Try to update active class in session storage
-            try {
-              const activeClass = sessionStorage.getItem('activeClass');
-              if (activeClass) {
-                const parsedClass = JSON.parse(activeClass);
-                if (parsedClass.title === classId) {
-                  // Cast data as our enhanced interface
-                  const configData = data as ClassOpenAIConfigRow;
-                  
-                  // Check if enabled_widgets exists in the database response
-                  if (configData.enabled_widgets && Array.isArray(configData.enabled_widgets)) {
-                    console.log(`Loaded widgets for class ${classId} from database:`, configData.enabled_widgets);
-                    setEnabledWidgets(configData.enabled_widgets as WidgetType[]);
-                    setIsLoading(false);
-                    return;
-                  }
-                }
-              }
-            } catch (e) {
-              console.error("Error updating active class:", e);
-            }
-            
-            // If no enabled_widgets found in the database record, use defaults
-            console.log(`No valid widgets found in database for class ${classId}, using defaults:`, defaultWidgets);
-            setEnabledWidgets(defaultWidgets);
-          } else {
-            // Class not found in database, use defaults
-            console.log(`Class ${classId} not found in database, using defaults:`, defaultWidgets);
-            setEnabledWidgets(defaultWidgets);
-          }
-        } else {
-          // No user authenticated or no class ID, use defaults
-          if (!user) {
-            console.log('No user authenticated in class widgets, using default widgets:', defaultWidgets);
-          } else if (!classId) {
-            console.log('No classId provided in class widgets, using default widgets:', defaultWidgets);
-          }
-          setEnabledWidgets(defaultWidgets);
-        }
-      } catch (error) {
-        console.error("Error loading class widgets:", error);
-        setEnabledWidgets(defaultWidgets);
-      } finally {
-        setIsLoading(false);
+  const loadClassWidgets = useCallback(async () => {
+    if (!user || !classId) {
+      setEnabledWidgets(defaultWidgets);
+      setIsLoading(false);
+      setCurrentDbClassId(null);
+      console.log("use-class-widgets: No user or classId, using defaults.", { userId: user?.id, classId });
+      return;
+    }
+
+    setIsLoading(true);
+    console.log(`use-class-widgets: Attempting to load widgets for class title "${classId}" for user ID ${user.id}`);
+    try {
+      // MODIFICATION: Querying the 'classes' table
+      const { data, error } = await supabase
+        .from('classes') 
+        .select('*') // Select all fields to get class_id (PK)
+        .eq('class_title', classId) // Filter by class_title
+        .eq('user_id', user.id)
+        .maybeSingle();
+        
+      if (error) {
+        console.error(`use-class-widgets: Error loading class "${classId}" from database:`, error);
+        throw error;
       }
-    };
+      
+      if (data) {
+        const dbRecord = data as ClassesDBRow;
+        console.log(`use-class-widgets: Found class "${classId}" in database:`, dbRecord);
+        setCurrentDbClassId(dbRecord.class_id); // Store the primary key
 
+        if (dbRecord.enabled_widgets && Array.isArray(dbRecord.enabled_widgets)) {
+          const validWidgets = dbRecord.enabled_widgets.filter(w => 
+            ["supertutor", "database", "flashcards", "quizzes"].includes(w)
+          ) as WidgetType[];
+          setEnabledWidgets(validWidgets.length > 0 ? validWidgets : defaultWidgets);
+          console.log(`use-class-widgets: Loaded widgets for class "${classId}" from database:`, validWidgets);
+        } else {
+          setEnabledWidgets(defaultWidgets);
+          console.log(`use-class-widgets: No valid widgets array in DB for class "${classId}", using defaults.`);
+        }
+      } else {
+        setEnabledWidgets(defaultWidgets);
+        setCurrentDbClassId(null); // No record found
+        console.log(`use-class-widgets: Class "${classId}" not found in database for this user, using defaults.`);
+      }
+    } catch (error) {
+      console.error(`use-class-widgets: Exception loading class widgets for "${classId}":`, error);
+      setEnabledWidgets(defaultWidgets);
+      setCurrentDbClassId(null);
+      toast({
+        title: "Error Loading Class Widgets",
+        description: `Could not load widget settings for ${classId}.`,
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [classId, user, defaultWidgets, toast]);
+
+  useEffect(() => {
     loadClassWidgets();
-  }, [classId, defaultWidgets, user]);
+  }, [loadClassWidgets]);
 
-  // Save widgets to database when they change with debounce
+
   useEffect(() => {
     const saveWidgets = async () => {
-      if (isLoading || !user || !classId) return;
+      // Do not save if still loading, no user, no classId, or if we don't have a database PK for the class
+      if (isLoading || !user || !classId || !currentDbClassId) {
+        console.log("use-class-widgets: Save skipped.", {isLoading, userId: user?.id, classId, currentDbClassId});
+        return;
+      }
       
       try {
-        console.log(`Saving widgets for class ${classId} to database:`, enabledWidgets);
+        console.log(`use-class-widgets: Saving widgets for class_id "${currentDbClassId}" (title: "${classId}") to database:`, enabledWidgets);
         
-        // Try to update in database
-        const { data, error } = await supabase
-          .from('class_openai_configs')
-          .select('id')
-          .eq('class_title', classId)
-          .eq('user_id', user.id)
-          .maybeSingle();
-          
-        if (error) {
-          console.error("Error checking if class exists:", error);
-          throw error;
-        }
-        
-        if (data) {
-          // Update existing record
-          const { error: updateError } = await supabase
-            .from('class_openai_configs')
-            .update({ 
-              enabled_widgets: enabledWidgets,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', data.id)
-            .eq('user_id', user.id);
+        // MODIFICATION: Updating the 'classes' table using the actual class_id (PK)
+        const { error: updateError } = await supabase
+          .from('classes')
+          .update({ 
+            enabled_widgets: enabledWidgets,
+            updated_at: new Date().toISOString()
+          })
+          .eq('class_id', currentDbClassId) // Use the primary key for update
+          .eq('user_id', user.id);
             
-          if (updateError) {
-            console.error("Error updating class widgets:", updateError);
-            throw updateError;
-          }
-        } else {
-          // Create new record
-          const { error: insertError } = await supabase
-            .from('class_openai_configs')
-            .insert({ 
-              class_title: classId,
-              user_id: user.id,
-              enabled_widgets: enabledWidgets,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-            
-          if (insertError) {
-            console.error("Error inserting class widgets:", insertError);
-            throw insertError;
-          }
+        if (updateError) {
+          console.error(`use-class-widgets: Error updating class widgets for class_id "${currentDbClassId}":`, updateError);
+          throw updateError;
         }
+        console.log(`use-class-widgets: Successfully saved widgets for class_id "${currentDbClassId}"`);
         
-        console.log(`Successfully saved widgets for class ${classId}`);
-        
-        // Also update the active class if this is the active class
-        const activeClass = sessionStorage.getItem('activeClass');
-        if (activeClass) {
+        const activeClassSession = sessionStorage.getItem('activeClass');
+        if (activeClassSession) {
           try {
-            const parsedClass = JSON.parse(activeClass);
-            if (parsedClass.title === classId) {
+            const parsedClass = JSON.parse(activeClassSession);
+            // Ensure we're updating the correct class in session storage
+            if (parsedClass.class_id === currentDbClassId || parsedClass.title === classId) {
               parsedClass.enabledWidgets = enabledWidgets;
               sessionStorage.setItem('activeClass', JSON.stringify(parsedClass));
-              console.log("Updated widgets in active class in session storage");
+              console.log("use-class-widgets: Updated widgets in active class in session storage");
             }
           } catch (e) {
-            console.error("Error updating active class:", e);
+            console.error("use-class-widgets: Error updating active class in session storage:", e);
           }
         }
       } catch (error) {
-        console.error("Error saving class widgets:", error);
+        console.error("use-class-widgets: Error saving class widgets:", error);
         toast({
-          title: "Error saving widget preferences",
+          title: "Error Saving Widget Preferences",
           description: "Failed to save your widget preferences for this class.",
           variant: "destructive",
         });
       }
     };
 
-    // Clear any existing timeout
-    if (saveTimeout) {
-      clearTimeout(saveTimeout);
+    // Debounce save operation slightly or save when enabledWidgets actually changes and not on initial load
+    if (!isLoading && user && classId && currentDbClassId) {
+        const timeoutId = setTimeout(saveWidgets, 500); // Debounce save
+        return () => clearTimeout(timeoutId);
     }
-    
-    // Set a new timeout to debounce the save operation
-    if (!isLoading && user && classId) {
-      const timeout = setTimeout(() => {
-        saveWidgets();
-      }, 500);
-      setSaveTimeout(timeout);
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      if (saveTimeout) {
-        clearTimeout(saveTimeout);
-      }
-    };
-  }, [enabledWidgets, classId, isLoading, toast, user]);
+
+  }, [enabledWidgets, classId, isLoading, toast, user, currentDbClassId]);
 
   const toggleWidget = (widget: WidgetType) => {
-    console.log(`Toggling widget ${widget} for class ${classId}`);
+    console.log(`use-class-widgets: Toggling widget ${widget} for class ${classId}`);
     setEnabledWidgets(current => {
       const currentIsArray = Array.isArray(current);
-      const safeCurrentWidgets = currentIsArray ? current : DEFAULT_CLASS_WIDGETS;
+      const safeCurrentWidgets = currentIsArray ? current : defaultWidgets;
       
       if (safeCurrentWidgets.includes(widget)) {
-        console.log(`Removing widget ${widget}`);
         return safeCurrentWidgets.filter(w => w !== widget);
       } else {
-        console.log(`Adding widget ${widget}`);
         return [...safeCurrentWidgets, widget];
       }
     });
   };
 
   const isWidgetEnabled = (widget: WidgetType) => {
-    if (!Array.isArray(enabledWidgets)) {
-      return DEFAULT_CLASS_WIDGETS.includes(widget);
-    }
-    return enabledWidgets.includes(widget);
+    const currentSafeWidgets = Array.isArray(enabledWidgets) ? enabledWidgets : defaultWidgets;
+    return currentSafeWidgets.includes(widget);
   };
 
-  const setClassWidgets = (widgets: WidgetType[]) => {
+  const setClassWidgetsState = (widgets: WidgetType[]) => {
     if (!Array.isArray(widgets)) {
-      console.warn("Attempted to set non-array widgets:", widgets);
-      setEnabledWidgets(DEFAULT_CLASS_WIDGETS);
+      console.warn("use-class-widgets: Attempted to set non-array widgets:", widgets);
+      setEnabledWidgets(defaultWidgets);
       return;
     }
     setEnabledWidgets(widgets);
   };
 
   const contextValue = {
-    enabledWidgets: Array.isArray(enabledWidgets) ? enabledWidgets : DEFAULT_CLASS_WIDGETS,
+    enabledWidgets: Array.isArray(enabledWidgets) ? enabledWidgets : defaultWidgets,
     toggleWidget,
     isWidgetEnabled,
     isLoading,
-    setClassWidgets
+    setClassWidgets: setClassWidgetsState
   };
 
   return (

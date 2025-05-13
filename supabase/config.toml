@@ -54,6 +54,9 @@ verify_jwt = true # Or false if it's a more general utility not tied to a specif
 verify_jwt = true # Or false, depending on how you want to secure it.
                   # True is safer if called from an authenticated client context.
 
+[functions.web-chat]
+verify_jwt = true # Assuming only authenticated users can access this
+
 # Add your new function here
 [functions.provision-class-resources]
 # verify_jwt = true # If called by an authenticated client

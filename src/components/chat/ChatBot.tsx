@@ -9,11 +9,12 @@ import { useToast } from "@/hooks/use-toast";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ScrollArea } from "@/components/ui/scroll-area"; // Added import for ScrollArea
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
+  // id?: string; 
 }
 
 interface ChatBotProps {
@@ -21,39 +22,54 @@ interface ChatBotProps {
   subtitle?: string;
   placeholder?: string;
   suggestions?: string[];
-  knowledgeBase?: string;
-  openAIConfig?: OpenAIConfig;
+  knowledgeBase?: string; 
+  openAIConfig?: OpenAIConfig; 
   disableToasts?: boolean;
   loadingIndicator?: React.ReactNode;
   onResponseGenerationStateChange?: (isGenerating: boolean) => void;
+  messages?: Message[]; 
+  onMessagesChange?: (messagesOrUpdater: Message[] | ((prevMessages: Message[]) => Message[])) => void;
 }
 
 export function ChatBot({
-  title = "AI Chat",
-  subtitle = "Ask me anything",
-  placeholder = "Send a message...", // This prop will be passed to ChatInput
+  title = "Class AI",
+  subtitle = "Ask questions about your class materials",
+  placeholder = "Ask about your class materials...",
   suggestions = [],
   knowledgeBase,
   openAIConfig,
   disableToasts = false,
   loadingIndicator,
-  onResponseGenerationStateChange
+  onResponseGenerationStateChange,
+  messages: externalMessages,
+  onMessagesChange
 }: ChatBotProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [internalMessages, setInternalMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chatMode, setChatMode] = useState<"assistant" | "fallback" | "error" | "idle">("idle");
   const [currentAssistantId, setCurrentAssistantId] = useState<string | null>(null);
   const [currentVectorStoreId, setCurrentVectorStoreId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messages = externalMessages !== undefined ? externalMessages : internalMessages;
+  
+  const setMessagesWrapper = (newMessagesOrFn: Message[] | ((prevMessages: Message[]) => Message[])) => {
+    if (onMessagesChange) {
+      onMessagesChange(newMessagesOrFn);
+    } else { 
+      setInternalMessages(newMessagesOrFn);
+    }
+  };
+
+  // const messagesEndRef = useRef<HTMLDivElement>(null); // Ref is not needed if auto-scroll is disabled
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
+  // useEffect(() => {
+  //   // Automatic scrolling to bottom is disabled as per user request
+  //   // if (messages.length > 0 && messagesEndRef.current) {
+  //   //   messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  //   // }
+  // }, [messages]);
 
   useEffect(() => {
     onResponseGenerationStateChange?.(isLoading);
@@ -74,40 +90,46 @@ export function ChatBot({
 
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
-    setMessages(prev => [...prev, userMessage]);
+
+    const historyForAPI = [...messages]; 
+    setMessagesWrapper(prevMessages => [...prevMessages, userMessage]); 
+    
     setIsLoading(true);
-    setChatMode("idle");
+    setChatMode("idle"); 
 
     try {
-      console.log("ChatBot: Sending message. Using OpenAIConfig:", openAIConfig);
+      console.log("ChatBot (RAG): Sending message. Using OpenAIConfig:", openAIConfig);
+      if (!openAIConfig?.assistantId) {
+        console.warn("ChatBot (RAG): No assistantId provided in openAIConfig. The 'chat' Edge Function will use its fallback.");
+      }
+
       const { data, error: functionError } = await supabase.functions.invoke("chat", {
         body: {
           message: messageText,
-          history: messages,
-          openAIConfig: openAIConfig,
-          knowledgeBase: knowledgeBase
+          history: historyForAPI, 
+          openAIConfig: openAIConfig, 
+          knowledgeBase: knowledgeBase 
         }
       });
 
       if (functionError) {
-        console.error("ChatBot: Edge function invocation error:", functionError);
+        console.error("ChatBot (RAG): Edge function invocation error:", functionError);
         throw new Error(`Service connection error: ${functionError.message}`);
       }
 
       if (data.error) {
-        console.error("ChatBot: API response error from Edge Function:", data.error);
+        console.error("ChatBot (RAG): API response error from Edge Function:", data.error);
         setErrorMessage(data.error);
         setChatMode("error");
         const aiErrorMessage: Message = { role: "assistant", content: `Sorry, I encountered an issue: ${data.error}` };
-        setMessages(prev => [...prev, aiErrorMessage]);
+        setMessagesWrapper(prevMessages => [...prevMessages, aiErrorMessage]);
         if (!disableToasts) {
             toast({ title: "AI Response Error", description: data.error, variant: "destructive" });
         }
         return;
       }
-
       const aiMessage: Message = { role: "assistant", content: data.response };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessagesWrapper(prevMessages => [...prevMessages, aiMessage]);
 
       setCurrentAssistantId(data.assistantId || null);
       setCurrentVectorStoreId(data.vectorStoreId || null);
@@ -121,7 +143,7 @@ export function ChatBot({
     } catch (error: unknown) {
       let friendlyErrorMessage = "Failed to get a response. Please try again.";
       if (error instanceof Error) {
-        console.error("ChatBot: Error getting AI response:", error.message);
+        console.error("ChatBot (RAG): Error getting AI response:", error.message);
         if (error.message.includes("Service connection error")) {
             friendlyErrorMessage = "Could not connect to the AI service. Please check your internet connection.";
         } else if (error.message.includes("Assistant run timed out")) {
@@ -130,12 +152,12 @@ export function ChatBot({
             friendlyErrorMessage = error.message;
         }
       } else {
-        console.error("ChatBot: Unknown error getting AI response:", error);
+        console.error("ChatBot (RAG): Unknown error getting AI response:", error);
       }
       setErrorMessage(friendlyErrorMessage);
       setChatMode("error");
       const aiErrorMessage: Message = { role: "assistant", content: `Sorry, I couldn't process your request. ${friendlyErrorMessage}` };
-      setMessages(prev => [...prev, aiErrorMessage]);
+      setMessagesWrapper(prevMessages => [...prevMessages, aiErrorMessage]);
       if (!disableToasts) {
         toast({ title: "Chat Error", description: friendlyErrorMessage, variant: "destructive" });
       }
@@ -145,8 +167,8 @@ export function ChatBot({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-250px)] max-h-[700px] min-h-[400px]">
-      <div className="pb-4 border-b">
+    <div className="flex flex-col h-full">
+      <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">{title}</h2>
           <div className="flex gap-2">
@@ -173,59 +195,64 @@ export function ChatBot({
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
-      <ScrollArea className="flex-1 py-4 space-y-4">
-        {messages.map((message, index) => (
-          <ChatMessage
-            key={index}
-            content={message.content}
-            isUser={message.role === "user"}
-          />
-        ))}
+      <div className="flex-1 h-0 overflow-hidden">
+        <ScrollArea className="h-full p-4">
+          <div className="space-y-4">
+            {messages.map((message, index) => (
+              <ChatMessage
+                key={index} 
+                content={message.content}
+                isUser={message.role === "user"}
+              />
+            ))}
 
-        {errorMessage && chatMode === "error" && !isLoading && (
-          <Alert variant="destructive" className="mx-4 my-2">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{errorMessage}</AlertDescription>
-          </Alert>
-        )}
+            {errorMessage && chatMode === "error" && !isLoading && (
+              <Alert variant="destructive" className="my-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
 
-        {isLoading && loadingIndicator}
+            {isLoading && loadingIndicator}
 
-        {messages.length === 0 && !isLoading && (
-          <div className="p-4 text-center">
-            <p className="text-sm text-muted-foreground mb-4">
-              {knowledgeBase ? `I can help answer questions about ${knowledgeBase}.` : "How can I help you today?"}
-            </p>
-            {suggestions.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Try asking:</p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {suggestions.map((suggestion, i) => (
-                    <Button
-                      key={i}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSendMessage(suggestion)}
-                      className="text-xs"
-                      disabled={isLoading}
-                    >
-                      {suggestion}
-                    </Button>
-                  ))}
-                </div>
+            {messages.length === 0 && !isLoading && (
+              <div className="text-center py-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  {knowledgeBase ? `I can help answer questions about ${knowledgeBase}.` : "How can I help you today?"}
+                </p>
+                {suggestions.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Try asking:</p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {suggestions.map((suggestion, i) => (
+                        <Button
+                          key={i}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendMessage(suggestion)}
+                          className="text-xs"
+                          disabled={isLoading}
+                        >
+                          {suggestion}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
+            {/* Empty div at the end of messages for potential manual scrolling focus, if messagesEndRef were used */}
+            {/* <div ref={messagesEndRef} /> */} 
           </div>
-        )}
-        <div ref={messagesEndRef} />
-      </ScrollArea>
+        </ScrollArea>
+      </div>
 
-      <div className="pt-4 border-t mt-auto">
+      <div className="p-4 border-t mt-auto flex-shrink-0">
         <ChatInput
           onSend={handleSendMessage}
           isLoading={isLoading}
-          placeholder={placeholder} // placeholder prop is passed here
+          placeholder={placeholder}
         />
       </div>
     </div>

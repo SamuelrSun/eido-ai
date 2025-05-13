@@ -1,4 +1,4 @@
-
+// src/components/chat/ChatInput.tsx
 import { useState, FormEvent } from "react";
 import { SendHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,15 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   suggestions?: string[];
   isLoading?: boolean;
+  placeholder?: string; // Added placeholder prop
 }
 
-export function ChatInput({ onSend, suggestions = [], isLoading = false }: ChatInputProps) {
+export function ChatInput({
+  onSend,
+  suggestions = [], 
+  isLoading = false,
+  placeholder = "Type your message here..." // Added placeholder with a default
+}: ChatInputProps) {
   const [input, setInput] = useState("");
 
   const handleSubmit = (e: FormEvent) => {
@@ -27,6 +33,7 @@ export function ChatInput({ onSend, suggestions = [], isLoading = false }: ChatI
 
   return (
     <div className="mt-4">
+      {/* This suggestions block was in your original ChatInput.tsx, keeping it. */}
       {suggestions.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-2">
           {suggestions.map((suggestion, index) => (
@@ -35,7 +42,7 @@ export function ChatInput({ onSend, suggestions = [], isLoading = false }: ChatI
               variant="outline"
               size="sm"
               onClick={() => handleSuggestionClick(suggestion)}
-              className="text-sm bg-white"
+              className="text-sm bg-white" // Style from your original
             >
               {suggestion}
             </Button>
@@ -47,7 +54,7 @@ export function ChatInput({ onSend, suggestions = [], isLoading = false }: ChatI
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your message here..."
+          placeholder={placeholder} // Use the placeholder prop here
           className="flex-grow"
           disabled={isLoading}
         />

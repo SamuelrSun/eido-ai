@@ -1,7 +1,9 @@
-
-import { createContext, useState, useContext, useEffect, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+// src/hooks/use-widgets.tsx
+import { createContext, useState, useContext, useEffect, ReactNode, useCallback } from "react";
+// import { supabase } from "@/integrations/supabase/client"; // Supabase import commented out
 import { useToast } from "@/hooks/use-toast";
+import type { User } from "@supabase/supabase-js"; // Keep for user state if needed elsewhere, or remove if not
+import { supabase } from "@/integrations/supabase/client"; // Keep for auth listener
 
 export type WidgetType = "flashcards" | "quizzes" | "supertutor" | "database";
 
@@ -19,43 +21,29 @@ const WidgetsContext = createContext<WidgetsContextType>({
   isLoading: true,
 });
 
-// Default widgets that are enabled for all users - removed calendar since it's now a default feature
-const DEFAULT_WIDGETS: WidgetType[] = ["flashcards"];
+const DEFAULT_WIDGETS: WidgetType[] = ["flashcards", "quizzes", "supertutor", "database"]; // Ensure all are default
 
 export const useWidgets = () => useContext(WidgetsContext);
 
 export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
   const [enabledWidgets, setEnabledWidgets] = useState<WidgetType[]>(DEFAULT_WIDGETS);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null); // Still useful to know if user is logged in
   const { toast } = useToast();
 
-  // Listen for auth state changes
+  // Listen for auth state changes to clear localStorage if needed, or load user-specific if table existed
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Handle auth changes including logout
       const newUser = session?.user || null;
       setUser(newUser);
       
-      // On logout, reset to defaults or local storage
       if (event === 'SIGNED_OUT') {
-        const storedWidgets = localStorage.getItem("enabledWidgets");
-        if (storedWidgets) {
-          try {
-            const parsedWidgets = JSON.parse(storedWidgets);
-            setEnabledWidgets(parsedWidgets);
-          } catch (e) {
-            console.error("Failed to parse stored widgets", e);
-            setEnabledWidgets(DEFAULT_WIDGETS);
-          }
-        } else {
-          setEnabledWidgets(DEFAULT_WIDGETS);
-        }
-        setIsLoading(false);
+        console.log("use-widgets: User signed out. Widgets will rely on localStorage.");
+      } else if (event === 'SIGNED_IN') {
+        console.log("use-widgets: User signed in. Widgets will rely on localStorage.");
       }
     });
 
-    // Initial auth check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null);
     });
@@ -63,135 +51,70 @@ export const WidgetsProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load user widgets when user changes
-  useEffect(() => {
-    const loadUserWidgets = async () => {
-      setIsLoading(true);
-      
-      try {
-        if (user) {
-          console.log("Loading widgets for user:", user.id);
-          
-          // Try to fetch user's widget preferences
-          const { data, error } = await supabase
-            .from('user_widgets')
-            .select('enabled_widgets')
-            .eq('user_id', user.id)
-            .single();
 
-          if (error) {
-            // Only throw if it's not a "no rows returned" error
-            if (error.code !== 'PGRST116') {
-              throw error;
-            }
-            
-            // If no widgets found for user, create default entry
-            console.log("No user widgets found, creating defaults");
-            await supabase
-              .from('user_widgets')
-              .insert({
-                user_id: user.id,
-                enabled_widgets: DEFAULT_WIDGETS
-              });
-            
-            setEnabledWidgets(DEFAULT_WIDGETS);
-          } else if (data) {
-            console.log("Found user widgets:", data.enabled_widgets);
-            // Convert string array to WidgetType array with type safety
-            const widgets = data.enabled_widgets
-              .filter((widget: string) => 
-                ["flashcards", "quizzes", "supertutor", "database"].includes(widget)
-              ) as WidgetType[];
-            
-            setEnabledWidgets(widgets);
-          }
-        } else {
-          // Use local storage for non-authenticated users
-          const storedWidgets = localStorage.getItem("enabledWidgets");
-          if (storedWidgets) {
-            try {
-              const parsedWidgets = JSON.parse(storedWidgets);
-              console.log("Using local storage widgets:", parsedWidgets);
-              setEnabledWidgets(parsedWidgets);
-            } catch (e) {
-              console.error("Failed to parse stored widgets", e);
-              setEnabledWidgets(DEFAULT_WIDGETS);
-            }
-          } else {
-            console.log("No local storage widgets, using defaults");
-            setEnabledWidgets(DEFAULT_WIDGETS);
-            localStorage.setItem("enabledWidgets", JSON.stringify(DEFAULT_WIDGETS));
-          }
-        }
-      } catch (error: any) {
-        console.error("Error loading widgets:", error);
-        toast({
-          title: "Error loading widgets",
-          description: error.message || "Failed to load your widget preferences",
-          variant: "destructive",
-        });
-        // Fall back to defaults
+  const loadWidgetsFromStorage = useCallback(() => {
+    setIsLoading(true);
+    try {
+      const storedWidgets = localStorage.getItem("enabledWidgets");
+      if (storedWidgets) {
+        const parsedWidgets = JSON.parse(storedWidgets) as WidgetType[];
+        // Validate widgets from localStorage
+        const validWidgets = parsedWidgets.filter(w => 
+            ["flashcards", "quizzes", "supertutor", "database"].includes(w)
+        );
+        setEnabledWidgets(validWidgets.length > 0 ? validWidgets : DEFAULT_WIDGETS);
+        console.log("use-widgets: Loaded widgets from localStorage:", validWidgets.length > 0 ? validWidgets : DEFAULT_WIDGETS);
+      } else {
         setEnabledWidgets(DEFAULT_WIDGETS);
-      } finally {
-        setIsLoading(false);
+        localStorage.setItem("enabledWidgets", JSON.stringify(DEFAULT_WIDGETS));
+        console.log("use-widgets: No widgets in localStorage, set and using defaults.");
       }
-    };
-
-    // Load widgets whenever user state changes
-    loadUserWidgets();
-  }, [user, toast]);
-
-  // Save widget changes to database when they change
-  useEffect(() => {
-    const saveWidgets = async () => {
-      if (isLoading) return; // Avoid saving during initial load
-      
-      try {
-        console.log("Saving widgets:", enabledWidgets);
-        
-        if (user) {
-          // Save to database for authenticated users
-          console.log("Saving to database for user:", user.id);
-          const { error } = await supabase
-            .from('user_widgets')
-            .upsert({
-              user_id: user.id,
-              enabled_widgets: enabledWidgets,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: 'user_id' });
-            
-          if (error) {
-            throw error;
-          }
-        } 
-        
-        // Always save to localStorage regardless of authentication status
-        // This ensures persistence across page reloads for both logged-in and guest users
-        localStorage.setItem("enabledWidgets", JSON.stringify(enabledWidgets));
-      } catch (error: any) {
-        console.error("Error saving widgets:", error);
-        toast({
-          title: "Error saving widgets",
-          description: error.message || "Failed to save your widget preferences",
-          variant: "destructive",
-        });
+    } catch (e) {
+      // MODIFICATION: Handle 'e' as unknown
+      let errorMessage = "Failed to parse stored widgets, using defaults.";
+      if (e instanceof Error) {
+        errorMessage = `${errorMessage} Error: ${e.message}`;
       }
-    };
-
-    // Skip the first render
-    if (!isLoading) {
-      saveWidgets();
+      console.error("use-widgets: " + errorMessage, e);
+      setEnabledWidgets(DEFAULT_WIDGETS);
+    } finally {
+      setIsLoading(false);
     }
-  }, [enabledWidgets, user, isLoading, toast]);
+  }, []);
+
+  // Load widgets from localStorage on initial mount
+  useEffect(() => {
+    loadWidgetsFromStorage();
+  }, [loadWidgetsFromStorage]);
+
+  // Save widget changes to localStorage
+  useEffect(() => {
+    if (isLoading) return; 
+    
+    try {
+      localStorage.setItem("enabledWidgets", JSON.stringify(enabledWidgets));
+      console.log("use-widgets: Saved widgets to localStorage:", enabledWidgets);
+    } catch (error: unknown) { // MODIFICATION: Changed 'error: any' to 'error: unknown'
+      console.error("use-widgets: Error saving widgets to localStorage:", error);
+      let description = "Could not save your widget settings locally.";
+      // Type check for error before accessing message property
+      if (error instanceof Error) {
+        description = error.message || description;
+      }
+      toast({
+        title: "Error Saving Widget Preferences",
+        description: description,
+        variant: "destructive",
+      });
+    }
+  }, [enabledWidgets, isLoading, toast]);
 
   const toggleWidget = (widget: WidgetType) => {
-    console.log("Toggling widget:", widget);
     setEnabledWidgets(current => {
-      if (current.includes(widget)) {
-        return current.filter(w => w !== widget);
-      } else {
-        return [...current, widget];
-      }
+      const newEnabledWidgets = current.includes(widget)
+        ? current.filter(w => w !== widget)
+        : [...current, widget];
+      return newEnabledWidgets;
     });
   };
 

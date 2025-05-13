@@ -1,3 +1,5 @@
+// src/features/files/components/UploadDialog.tsx
+import { useState, ChangeEvent } from "react";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/use-toast";
 
 interface UploadDialogProps {
   isOpen: boolean;
@@ -20,8 +23,39 @@ export const UploadDialog = ({
   onClose,
   onFileSelect,
 }: UploadDialogProps) => {
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFiles(e.target.files);
+    } else {
+      setSelectedFiles(null);
+    }
+  };
+
+  const handleUploadClick = () => {
+    if (selectedFiles && selectedFiles.length > 0) {
+      onFileSelect(selectedFiles); 
+      onClose(); 
+      setSelectedFiles(null); 
+    } else {
+      toast({
+        title: "No files selected",
+        description: "Please select one or more files to upload.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDialogStateChange = (open: boolean) => {
+    if (!open) {
+      setSelectedFiles(null); 
+    }
+    onClose(); 
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleDialogStateChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Upload Files</DialogTitle>
@@ -42,11 +76,11 @@ export const UploadDialog = ({
             <input
               type="file"
               className="hidden"
-              id="file-upload"
-              onChange={(e) => e.target.files && onFileSelect(e.target.files)}
+              id="file-upload-input-dialog-unique-v4" // Changed ID again for absolute certainty
+              onChange={handleFileChange}
               multiple
             />
-            <label htmlFor="file-upload">
+            <label htmlFor="file-upload-input-dialog-unique-v4">
               <Button variant="outline" className="mt-2" asChild>
                 <span>
                   <Upload className="h-4 w-4 mr-2" />
@@ -55,14 +89,33 @@ export const UploadDialog = ({
               </Button>
             </label>
           </div>
+          {selectedFiles && selectedFiles.length > 0 && (
+            <div className="mt-2 text-sm">
+              <p className="font-medium mb-1">Selected files ({selectedFiles.length}):</p>
+              <ul className="list-disc pl-5 max-h-24 overflow-y-auto bg-muted/50 p-2 rounded-md">
+                {Array.from(selectedFiles).map(file => (
+                  <li key={file.name + '-' + file.lastModified + '-' + file.size} className="truncate" title={file.name}>{file.name}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        {/* The DialogFooter and its buttons. This structure is standard. */}
+        <DialogFooter className="sm:justify-between"> {/* Added sm:justify-between for clarity, can be sm:justify-end */}
+          <Button variant="outline" onClick={() => handleDialogStateChange(false)}>
             Cancel
+          </Button>
+          <Button 
+            onClick={handleUploadClick} 
+            disabled={!selectedFiles || selectedFiles.length === 0}
+            className="mt-2 sm:mt-0" // Ensure spacing on small screens if they stack
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Selected Files
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
-}; 
+};
