@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface UploadDialogProps {
   isOpen: boolean;
@@ -76,11 +77,11 @@ export const UploadDialog = ({
             <input
               type="file"
               className="hidden"
-              id="file-upload-input-dialog-unique-v4" // Changed ID again for absolute certainty
+              id="file-upload-input" // Using the ID from user's provided code
               onChange={handleFileChange}
               multiple
             />
-            <label htmlFor="file-upload-input-dialog-unique-v4">
+            <label htmlFor="file-upload-input">
               <Button variant="outline" className="mt-2" asChild>
                 <span>
                   <Upload className="h-4 w-4 mr-2" />
@@ -89,27 +90,30 @@ export const UploadDialog = ({
               </Button>
             </label>
           </div>
+          
           {selectedFiles && selectedFiles.length > 0 && (
             <div className="mt-2 text-sm">
               <p className="font-medium mb-1">Selected files ({selectedFiles.length}):</p>
-              <ul className="list-disc pl-5 max-h-24 overflow-y-auto bg-muted/50 p-2 rounded-md">
-                {Array.from(selectedFiles).map(file => (
-                  <li key={file.name + '-' + file.lastModified + '-' + file.size} className="truncate" title={file.name}>{file.name}</li>
-                ))}
-              </ul>
+              <ScrollArea className="max-h-24 overflow-y-auto bg-muted/50 p-2 rounded-md">
+                <ul className="list-disc pl-5">
+                  {Array.from(selectedFiles).map((file, index) => (
+                    <li key={`${file.name}-${index}`} className="truncate" title={file.name}>
+                      {file.name}
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
             </div>
           )}
         </div>
 
-        {/* The DialogFooter and its buttons. This structure is standard. */}
-        <DialogFooter className="sm:justify-between"> {/* Added sm:justify-between for clarity, can be sm:justify-end */}
+        <DialogFooter>
           <Button variant="outline" onClick={() => handleDialogStateChange(false)}>
             Cancel
           </Button>
           <Button 
             onClick={handleUploadClick} 
             disabled={!selectedFiles || selectedFiles.length === 0}
-            className="mt-2 sm:mt-0" // Ensure spacing on small screens if they stack
           >
             <Upload className="h-4 w-4 mr-2" />
             Upload Selected Files
