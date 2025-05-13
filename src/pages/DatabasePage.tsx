@@ -251,7 +251,6 @@ const DatabasePage = () => {
 
   useEffect(() => { if (activeTab === "vectorStore") { fetchVectorStoreFiles(); } }, [activeTab, fetchVectorStoreFiles]);
   
-  // MODIFICATION: Restored toggleSelectItem function
   const toggleSelectItem = (item: SelectedItem) => {
     setSelectedItems(prevItems =>
       prevItems.some(i => i.id === item.id && i.type === item.type)
@@ -278,7 +277,6 @@ const DatabasePage = () => {
   };
 
   const handleFileUpload = async (uploadedFiles: FileList) => {
-    // ... (Full file upload logic as in previous artifact - database_page_full_functionality_restore)
     if (!user || !activeClass?.class_id) {
       toast({ title: "Upload Failed", description: "Missing user or class information.", variant: "destructive" });
       return;
@@ -418,15 +416,19 @@ const DatabasePage = () => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) throw new Error("Authentication required for vector store upload.");
 
-      console.log("confirmVectorUpload: Calling 'upload-to-vector-store' Edge Function with files:", filesToUpload, "and VS ID:", activeClass.openAIConfig.vectorStoreId);
+      const payloadFiles = filesToUpload.map(f => ({ 
+        name: f.name, 
+        url: f.url, 
+        size: f.size, 
+        internal_file_id: f.id,
+        type: f.fileMimeType // Ensure fileMimeType is populated in SelectedItem
+      }));
+      
+      console.log("confirmVectorUpload: Calling 'upload-to-vector-store' Edge Function with payload:", payloadFiles, "and VS ID:", activeClass.openAIConfig.vectorStoreId);
+
       const { data: functionResponse, error: functionError } = await supabase.functions.invoke('upload-to-vector-store', {
         body: {
-          files: filesToUpload.map(f => ({ 
-            name: f.name, 
-            url: f.url, 
-            size: f.size, 
-            internal_file_id: f.id 
-          })),
+          files: payloadFiles,
           vectorStoreId: activeClass.openAIConfig.vectorStoreId
         }
       });
@@ -437,7 +439,7 @@ const DatabasePage = () => {
       }
       if (functionResponse.error) {
         console.error("confirmVectorUpload: Edge function returned error in data:", functionResponse.error);
-        throw new Error(functionResponse.error);
+        throw new Error(String(functionResponse.error)); 
       }
       
       console.log("confirmVectorUpload: Response from Edge Function:", functionResponse);
@@ -461,7 +463,9 @@ const DatabasePage = () => {
             }
           } else {
             failCount++;
-            console.error(`confirmVectorUpload: Failed to upload ${result.fileName} to vector store (as reported by Edge Function): ${result.error}`);
+            // Log the specific error message from the Edge Function result if available
+            const edgeFunctionErrorMsg = result.error || "Unknown error from Edge Function";
+            console.error(`confirmVectorUpload: Failed to upload ${result.fileName} to vector store (as reported by Edge Function): ${edgeFunctionErrorMsg}`);
           }
         }
       } else {
@@ -586,7 +590,7 @@ const DatabasePage = () => {
                           className={`p-3 transition-all hover:shadow-md cursor-pointer ${selectedItems.some(item => item.id === file.file_id && item.type === 'file') ? 'ring-2 ring-primary border-primary' : 'border-border'}`} 
                           onClick={() => { 
                             if (selectionMode) { 
-                              toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size }); 
+                              toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size, fileMimeType: file.type }); 
                             } else if (file.url) { 
                               window.open(file.url, '_blank'); 
                             } 
@@ -598,7 +602,7 @@ const DatabasePage = () => {
                                 <Checkbox 
                                   id={`select-file-${file.file_id}`} 
                                   checked={selectedItems.some(item => item.id === file.file_id && item.type === 'file')} 
-                                  onCheckedChange={() => toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size })} 
+                                  onCheckedChange={() => toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size, fileMimeType: file.type })} 
                                   onClick={(e) => e.stopPropagation()} 
                                   aria-label={`Select file ${file.name}`} 
                                 />

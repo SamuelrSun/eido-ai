@@ -6,15 +6,15 @@ export interface FolderType {
   parent_id: string | null;
   user_id: string;
   created_at: string;
-  class_id: string | null;
-  database_id: string | null;
+  class_id: string | null; // Added from your DatabasePage.tsx usage
+  database_id: string | null; // Added from your DatabasePage.tsx usage
 }
 
 export interface FileType {
   file_id: string; // PK
   name: string;
   size: number;
-  type: string;
+  type: string; // This is the file's MIME type (e.g., "application/pdf", "image/png")
   url?: string | null;
   folder_id: string | null;
   user_id: string;
@@ -22,19 +22,20 @@ export interface FileType {
   created_at: string;
   category: string | null;
   tags: string[] | null;
-  status: string | null;
-  class_id: string | null;
-  database_id: string | null;
-  openai_file_id?: string | null; // Added for linking to OpenAI's File ID
-  document_title?: string | null; // Added for user-friendly title for citations
+  status: string | null; // e.g., 'uploading', 'complete', 'error'
+  class_id: string | null; // Added from your DatabasePage.tsx usage
+  database_id: string | null; // Added from your DatabasePage.tsx usage
+  openai_file_id?: string | null; 
+  document_title?: string | null; 
 }
 
 export interface SelectedItem {
-  id: string; // This should be file_id or folder_id
+  id: string; 
   name: string;
-  type: 'file' | 'folder';
-  url?: string | null;
-  size?: number;
+  type: 'file' | 'folder'; // Distinguishes between file and folder item types
+  url?: string | null; // Relevant for files
+  size?: number; // Relevant for files
+  fileMimeType?: string; // MODIFICATION: Added to store the MIME type for files
 }
 
 export interface UserStorage {
@@ -43,17 +44,14 @@ export interface UserStorage {
   storage_limit: number;
 }
 
-// Represents a file as returned by OpenAI's Vector Store Files API
-// (via your list-vector-store-files Edge Function)
 export interface VectorStoreFileType {
-  id: string; // This is the OpenAI File ID (file-xxxx) associated with the Vector Store
+  id: string; 
   object: "vector_store.file";
   usage_bytes: number;
-  created_at: number; // Timestamp
+  created_at: number; 
   vector_store_id: string;
   status: "in_progress" | "completed" | "failed" | "cancelled";
   last_error: { code: string; message: string } | null;
-  // These are added client-side after fetching from your DB for better display
-  filename?: string;       // Your original filename
-  document_title?: string; // Your user-friendly document title
+  filename?: string;       
+  document_title?: string; 
 }
