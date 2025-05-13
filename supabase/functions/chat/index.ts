@@ -2,32 +2,60 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ASSISTANT_RUN_TIMEOUT = 45000;
 
+// OpenAI Annotation Types
 interface FileCitationAnnotation {
   type: "file_citation";
-  text: string;
+  text: string; // The text in the message content that refers to this annotation
   start_index: number;
   end_index: number;
   file_citation: { file_id: string; quote?: string; };
 }
 interface FilePathAnnotation {
   type: "file_path";
-  text: string;
+  text: string; // The text in the message content that refers to this annotation
   start_index: number;
   end_index: number;
   file_path: { file_id: string; };
 }
 type Annotation = FileCitationAnnotation | FilePathAnnotation;
 
+// OpenAI Message object types
+interface OpenAIMessageContentText {
+    type: "text";
+    text: {
+        value: string;
+        annotations: Annotation[];
+    };
+}
+type OpenAIMessageContent = OpenAIMessageContentText;
+
+interface MessageAttachmentToolCodeInterpreter { type: "code_interpreter"; }
+interface MessageAttachmentToolFileSearch { type: "file_search"; }
+type MessageAttachmentTool = MessageAttachmentToolCodeInterpreter | MessageAttachmentToolFileSearch;
+interface MessageAttachment {
+    file_id: string;
+    tools: MessageAttachmentTool[];
+}
+interface OpenAIMessage {
+    id: string; object: string; created_at: number; thread_id: string;
+    status?: "in_progress" | "incomplete" | "completed";
+    role: "user" | "assistant";
+    content: OpenAIMessageContent[];
+    assistant_id?: string | null; run_id?: string | null;
+    attachments?: MessageAttachment[] | null;
+    metadata?: Record<string, string | number | boolean | null> | null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  let supabaseAdminClient: any;
+  let supabaseAdminClient: SupabaseClient; 
 
   try {
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
@@ -46,12 +74,11 @@ serve(async (req) => {
 
     console.log(`Chat request for: "${knowledgeBase}". AssistantID: ${assistantId || 'N/A'}`);
 
-    // Modified instructions for the LLM
     const citationInstructions = `
       When you use information from provided files, your response will contain annotations.
-      These annotations will be automatically replaced by the system with proper citations in the format (Document Title | filename.pdf).
-      Focus on answering the question accurately using the file content. You do not need to manually create citation strings or include raw file paths in your narrative text.
-      If you naturally mention a document, that's fine, but the system will handle the formal citation placeholders.
+      These annotations will be automatically replaced by the system with proper citations in the format (filename.pdf).
+      Focus on answering the question accurately using the file content. Do NOT include markdown like italics or bold in the citation part.
+      You do not need to manually create citation strings or include raw file paths in your narrative text.
     `;
 
     if (assistantId) {
@@ -92,51 +119,63 @@ serve(async (req) => {
           if (!messagesResponse.ok) throw new Error(`Failed to get assistant messages: ${await messagesResponse.text()}`);
           const messagesData = await messagesResponse.json();
           let assistantMessageContent = "";
-          const latestAssistantMessages = messagesData.data?.filter((msg: any) => msg.role === 'assistant');
+          const latestAssistantMessages = (messagesData.data as OpenAIMessage[])?.filter((msg: OpenAIMessage) => msg.role === 'assistant');
 
           if (latestAssistantMessages && latestAssistantMessages.length > 0) {
             const latestMsg = latestAssistantMessages[0];
             if (latestMsg.content && latestMsg.content.length > 0 && latestMsg.content[0].type === 'text') {
               let rawText = latestMsg.content[0].text.value;
               const annotations: Annotation[] = latestMsg.content[0].text.annotations || [];
-              annotations.sort((a, b) => b.start_index - a.start_index);
-
+              
+              // Create a list of replacements to apply, sorted by start_index to handle overlaps correctly if any (though unlikely for citations)
+              const replacements = [];
               for (const annotation of annotations) {
                 let openAIFileId: string | undefined;
                 if (annotation.type === "file_citation") openAIFileId = annotation.file_citation.file_id;
                 else if (annotation.type === "file_path") openAIFileId = annotation.file_path.file_id;
 
                 if (openAIFileId) {
-                  console.log(`Processing annotation for OpenAI File ID: ${openAIFileId}, Annotation text: "${annotation.text}"`);
+                  console.log(`Processing annotation for OpenAI File ID: ${openAIFileId}, Original annotation text: "${annotation.text}" (Indices: ${annotation.start_index}-${annotation.end_index})`);
                   const { data: fileData, error: dbError } = await supabaseAdminClient
                     .from('files')
-                    .select('name, document_title') // 'name' is filename.pdf, 'document_title' is user-friendly
+                    .select('name') // Only need the filename
                     .eq('openai_file_id', openAIFileId)
                     .single();
 
-                  let citationText = `(Source: ${openAIFileId})`; // Fallback
+                  let citationText = `(Source File ID: ${openAIFileId})`; // Fallback
                   if (dbError) {
                     console.error(`DB lookup error for OpenAI file ID ${openAIFileId}:`, dbError.message);
-                  } else if (fileData) {
-                    const docTitle = fileData.document_title || fileData.name; // Use document_title or fallback to filename
-                    const fileName = fileData.name; // This is the actual filename.pdf
-                    citationText = `(${docTitle} | ${fileName})`;
+                  } else if (fileData && fileData.name) {
+                    citationText = `(${fileData.name})`; // Desired format: (filename.pdf)
                     console.log(`Constructed citation for ${openAIFileId}: ${citationText}`);
                   } else {
-                     console.warn(`No file record found in DB for OpenAI file ID ${openAIFileId}. Using fallback citation.`);
+                     console.warn(`No file record or filename found in DB for OpenAI file ID ${openAIFileId}. Using fallback citation.`);
                   }
-                  rawText = rawText.substring(0, annotation.start_index) + citationText + rawText.substring(annotation.end_index);
+                  replacements.push({
+                    start: annotation.start_index,
+                    end: annotation.end_index,
+                    text: citationText
+                  });
                 }
               }
+
+              // Sort replacements by start_index in descending order to apply them without messing up indices
+              replacements.sort((a, b) => b.start - a.start);
+
+              for (const rep of replacements) {
+                rawText = rawText.substring(0, rep.start) + rep.text + rawText.substring(rep.end);
+              }
+              
               // Final cleanup of any remaining OpenAI-specific citation prefixes like "【d+:d†" or "d:d†"
-              // This regex looks for patterns like "【1:23†", "1:23†" that might be adjacent to our inserted citation or other text.
-              // It specifically targets those that might be left if the annotation.text was just the filename.
-              assistantMessageContent = rawText.replace(/【\s*\d+:\d+†\s*|\s*\d+:\d+†\s*/g, '');
+              // Also, clean up any markdown italics that might be surrounding our newly inserted plain text citation.
+              // This regex looks for _(filename.pdf)_ or *(filename.pdf)* and removes the underscores/asterisks.
+              assistantMessageContent = rawText.replace(/【\s*\d+:\d+†\s*|\s*\d+:\d+†\s*/g, ' '); // Replace prefix with a space
+              assistantMessageContent = assistantMessageContent.replace(/([_*])\(([^)]+\.pdf)\)\1/g, '($2)'); // Remove italics around (filename.pdf)
+              assistantMessageContent = assistantMessageContent.replace(/\s+/g, ' ').trim(); // Normalize multiple spaces
             }
           }
 
-          if (!assistantMessageContent && latestAssistantMessages && latestAssistantMessages.length > 0) {
-            // If content was purely an annotation that got replaced by an empty string (e.g. failed lookup and empty fallback)
+          if (!assistantMessageContent && latestAssistantMessages && latestAssistantMessages.length > 0 && latestAssistantMessages[0].content[0]?.type === 'text') {
              assistantMessageContent = latestAssistantMessages[0].content[0].text.value || "[Could not retrieve citation details]";
           } else if (!assistantMessageContent) {
             throw new Error('No assistant response content received.');
@@ -156,8 +195,8 @@ serve(async (req) => {
     // Fallback to standard Chat Completions API
     console.log("Using fallback Chat Completions API.");
     let systemMessageContent = `You are a helpful AI Tutor. The user is asking about "${knowledgeBase}". Provide clear and concise explanations.`;
-    if (assistantId) systemMessageContent += ` (Note: An attempt to use a specialized class assistant (ID: ${assistantId}) failed, so I am providing a general response.)`;
-    else systemMessageContent += ` (Note: No specific class assistant was configured, so I am providing a general response based on my broad knowledge.)`;
+    if (assistantId) systemMessageContent += ` (Note: An attempt to use a specialized class assistant (ID: ${assistantId}) failed.)`;
+    else systemMessageContent += ` (Note: No specific class assistant was configured.)`;
 
     const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
