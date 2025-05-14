@@ -117,14 +117,14 @@ const SuperTutor = () => {
   }
 
   // Added min-h-0 to allow shrinking
-  const tabContentWrapperClassName = "bg-card p-0 rounded-xl shadow-sm border flex-grow flex flex-col overflow-hidden min-h-0"; 
+  const tabContentWrapperClassName = "bg-card p-0 rounded-xl shadow-sm border flex-grow flex flex-col overflow-hidden min-h-0 h-full";
   // Added min-h-0 to allow shrinking
-  const tabsContentClassName = "flex-grow flex flex-col overflow-hidden data-[state=inactive]:hidden min-h-0";
+  const tabsContentClassName = "flex-grow flex flex-col overflow-hidden data-[state=inactive]:hidden min-h-0 h-full";
 
 
   return (
     // Main container for the SuperTutor page, sets up overall height and flex direction
-    <div className="space-y-6 flex flex-col h-[calc(100vh-var(--header-height,80px)-2rem)]">
+    <div className="space-y-6 flex flex-col h-[calc(100vh-var(--header-height,60px))]">
       <PageHeader
         title="Super Tutor"
         description={activeClassTitle
@@ -170,7 +170,7 @@ const SuperTutor = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="rag" className={cn(tabsContentClassName, "mt-2")}>
+          <TabsContent value="rag" className={cn(tabsContentClassName)}>
             <div className={tabContentWrapperClassName}>
               <ChatBot
                 disableToasts={true}
@@ -208,7 +208,7 @@ const SuperTutor = () => {
             <ResizablePanelGroup
               direction="horizontal"
               // Added min-h-0 to allow shrinking
-              className="rounded-xl border shadow-sm flex-1 flex overflow-hidden min-h-0" 
+              className="rounded-xl border shadow-sm flex-1 flex overflow-hidden min-h-0 h-full" 
             >
               {/* Added min-h-0 to allow shrinking */}
               <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col overflow-hidden min-h-0">

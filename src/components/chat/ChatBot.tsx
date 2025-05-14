@@ -248,7 +248,7 @@ export function ChatBot({
         </ScrollArea>
       </div>
 
-      <div className="p-4 border-t mt-auto flex-shrink-0">
+      <div className="p-4 border-t flex-shrink-0">
         <ChatInput
           onSend={handleSendMessage}
           isLoading={isLoading}
