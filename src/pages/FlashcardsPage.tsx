@@ -470,7 +470,7 @@ const FlashcardsPage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {decks.map((deck) => (
-                <Card key={deck.id} className="overflow-hidden">
+                <Card key={deck.id} className="overflow-hidden h-full flex flex-col"> {/* MODIFICATION: Added h-full and flex flex-col */}
                   <div className={`h-2 ${deck.color}`}></div>
                   <CardContent className="p-6">
                     <h3 className="font-semibold text-lg mb-1">{deck.title}</h3>
@@ -515,7 +515,7 @@ const FlashcardsPage = () => {
               
               {/* Create New Deck Card */}
               <Card 
-                className="border-dashed flex items-center justify-center h-[180px] cursor-pointer hover:bg-accent/50 transition-colors"
+                className="border-dashed flex flex-col items-center justify-center h-full cursor-pointer hover:bg-accent/50 transition-colors" // MODIFICATION: Added h-full and flex-col
                 onClick={() => setOpenGenerateDialog(true)}
               >
                 <div className="text-center">

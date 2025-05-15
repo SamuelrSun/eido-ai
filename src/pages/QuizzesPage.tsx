@@ -12,8 +12,8 @@ import { Button } from "@/components/ui/button";
 import { 
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
+  DialogDescription, // Using original name
+  DialogFooter, // Using original name
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription } from "@/components/ui/form";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription as FormDescriptionComponent } from "@/components/ui/form"; // Alias for FormDescription is kept
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -48,8 +48,8 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
+  AlertDialogDescription, // Using original name
+  AlertDialogFooter, // Using original name
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -58,6 +58,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { quizService, Quiz, QuizQuestion } from "@/services/quiz"; 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+// Form schema for quiz generation
 const quizGenerationSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   questionCount: z.coerce.number().min(5, "Minimum 5 questions").max(50, "Maximum 50 questions"),
@@ -129,25 +130,17 @@ const QuizzesPage = () => {
     setIsGenerating(true);
     try {
       toast.info(`Generating ${data.questionCount} ${data.difficulty} quiz questions for "${data.title}"...`);
-      
-      // Call the service to generate quiz questions
-      // The 'data' here is QuizGenerationFormValues
       const { questions, timeEstimate } = await quizService.generateQuiz(data);
-      
-      // Construct the object for saveQuiz explicitly matching Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>
-      // userId and classId are handled within saveQuiz
       const quizToSavePayload: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'classId'> = {
         title: data.title,
         description: `${data.difficulty} quiz covering ${data.coverage}`,
-        questions: questions, // These are the generated QuizQuestion[]
-        questionCount: questions.length, // Use the actual number of questions generated
+        questions: questions, 
+        questionCount: questions.length,
         timeEstimate: timeEstimate,
         difficulty: data.difficulty,
         coverage: data.coverage,
       };
-      
       const newQuiz = await quizService.saveQuiz(quizToSavePayload);
-      
       setQuizzes(prevQuizzes => [newQuiz, ...prevQuizzes]);
       toast.success(`Successfully generated ${newQuiz.questionCount} quiz questions for "${newQuiz.title}"!`);
       setOpenGenerateDialog(false);
@@ -208,61 +201,59 @@ const QuizzesPage = () => {
         description="Test your knowledge with practice quizzes"
       />
 
-      {/* Quiz Type Selection */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="h-full flex flex-col"> 
+          <CardHeader className="pb-2 flex-shrink-0">
             <CardTitle className="flex items-center text-lg">
               <FileText className="mr-2 h-5 w-5 text-purple-500" />
               Chapter Quizzes
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-grow">
             <p className="text-sm text-muted-foreground">
               Focus on specific chapters or units from your course material.
             </p>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex-shrink-0">
             <Button variant="outline" className="w-full">Browse</Button>
           </CardFooter>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="h-full flex flex-col"> 
+          <CardHeader className="pb-2 flex-shrink-0">
             <CardTitle className="flex items-center text-lg">
               <Timer className="mr-2 h-5 w-5 text-purple-500" />
               Timed Exams
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-grow">
             <p className="text-sm text-muted-foreground">
               Simulate real exam conditions with strict time limits.
             </p>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex-shrink-0">
             <Button variant="outline" className="w-full">Browse</Button>
           </CardFooter>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="h-full flex flex-col"> 
+          <CardHeader className="pb-2 flex-shrink-0">
             <CardTitle className="flex items-center text-lg">
               <SquareCheck className="mr-2 h-5 w-5 text-purple-500" />
               Quick Review
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-grow">
             <p className="text-sm text-muted-foreground">
               Short quizzes for rapid knowledge checks and concept reinforcement.
             </p>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex-shrink-0">
             <Button variant="outline" className="w-full">Browse</Button>
           </CardFooter>
         </Card>
       </div>
 
-      {/* Available Quizzes Section */}
       <div className="mt-8">
         <h2 className="text-xl font-semibold mb-4">Available Quizzes</h2>
         
@@ -273,9 +264,9 @@ const QuizzesPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {quizzes.map((quiz) => (
-              <Card key={quiz.id} className="hover:shadow-md transition-shadow overflow-hidden">
+              <Card key={quiz.id} className="hover:shadow-md transition-shadow overflow-hidden h-full flex flex-col">
                 <div className={`h-2 ${getQuizCardBarColor(quiz.difficulty)}`}></div>
-                <CardHeader>
+                <CardHeader className="flex-shrink-0">
                   <div className="flex justify-between items-start">
                     <CardTitle>{quiz.title}</CardTitle>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getDifficultyBadgeColor(quiz.difficulty)}`}>
@@ -284,7 +275,7 @@ const QuizzesPage = () => {
                   </div>
                   <CardDescription>{quiz.description}</CardDescription>
                 </CardHeader>
-                <CardContent className="pb-2">
+                <CardContent className="pb-2 flex-grow">
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span className="flex items-center">
                       <FileText className="mr-1 h-4 w-4" /> {quiz.questionCount} questions
@@ -295,7 +286,7 @@ const QuizzesPage = () => {
                     <span>{quiz.coverage}</span>
                   </div>
                 </CardContent>
-                <CardFooter className="pt-2">
+                <CardFooter className="pt-2 flex-shrink-0">
                   <div className="flex w-full justify-between">
                     <Button 
                       variant="outline" 
@@ -356,7 +347,7 @@ const QuizzesPage = () => {
             ))}
             
             <Card 
-              className="border-dashed flex items-center justify-center h-[180px] cursor-pointer hover:bg-accent/50 transition-colors"
+              className="border-dashed flex flex-col items-center justify-center h-full cursor-pointer hover:bg-accent/50 transition-colors"
               onClick={() => setOpenGenerateDialog(true)}
             >
               <div className="text-center">
@@ -368,7 +359,7 @@ const QuizzesPage = () => {
         )}
       </div>
       
-       <Card className="mt-6">
+      <Card className="mt-6">
         <CardHeader>
           <CardTitle className="flex items-center">
             <ChartBar className="mr-2 h-5 w-5 text-purple-500" /> Performance Analytics
@@ -389,128 +380,64 @@ const QuizzesPage = () => {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Generate New Quiz</DialogTitle>
-            <DialogDescription>
+            {/* Using original DialogDescription */}
+            <DialogDescription> 
               Create AI-generated quiz questions from your course material
             </DialogDescription>
           </DialogHeader>
-          
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleGenerateQuiz)} className="space-y-4 pt-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
+              <FormField control={form.control} name="title" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Quiz Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter a title for your quiz" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Give your quiz a descriptive name (e.g., "Network Security Basics")
-                    </FormDescription>
+                    <FormControl><Input placeholder="Enter a title for your quiz" {...field} /></FormControl>
+                    <FormDescriptionComponent>Give your quiz a descriptive name</FormDescriptionComponent>
                   </FormItem>
                 )}
               />
-              
-              <FormField
-                control={form.control}
-                name="questionCount"
-                render={({ field }) => (
+              <FormField control={form.control} name="questionCount" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Number of Questions</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        min={5}
-                        max={50}
-                        placeholder="10" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      How many quiz questions would you like to generate? (5-50)
-                    </FormDescription>
+                    <FormControl><Input type="number" min={5} max={50} placeholder="10" {...field} /></FormControl>
+                    <FormDescriptionComponent>How many quiz questions? (5-50)</FormDescriptionComponent>
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="difficulty"
-                render={({ field }) => (
+              <FormField control={form.control} name="difficulty" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Difficulty Level</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select difficulty" />
-                        </SelectTrigger>
-                      </FormControl>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select difficulty" /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="easy">Easy</SelectItem>
                         <SelectItem value="medium">Medium</SelectItem>
                         <SelectItem value="hard">Hard</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormDescription>
-                      Choose the difficulty level for your quiz questions
-                    </FormDescription>
+                    <FormDescriptionComponent>Choose the difficulty level</FormDescriptionComponent>
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="coverage"
-                render={({ field }) => (
+              <FormField control={form.control} name="coverage" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Content Coverage</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select coverage" />
-                        </SelectTrigger>
-                      </FormControl>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select coverage" /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="Chapters 1-5">Chapters 1-5</SelectItem>
                         <SelectItem value="Chapters 6-10">Chapters 6-10</SelectItem>
                         <SelectItem value="All Chapters">All Chapters</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormDescription>
-                      Specify what content the quiz should cover
-                    </FormDescription>
+                    <FormDescriptionComponent>Specify what content the quiz should cover</FormDescriptionComponent>
                   </FormItem>
                 )}
               />
-              
-              <DialogFooter className="flex justify-end gap-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setOpenGenerateDialog(false)}
-                  disabled={isGenerating}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit"
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader className="mr-2 h-4 w-4 animate-spin" /> 
-                      Generating...
-                    </>
-                  ) : (
-                    "Generate Quiz"
-                  )}
+              {/* Using original DialogFooter */}
+              <DialogFooter className="flex justify-end gap-3 pt-4"> 
+                <Button type="button" variant="outline" onClick={() => setOpenGenerateDialog(false)} disabled={isGenerating}>Cancel</Button>
+                <Button type="submit" disabled={isGenerating}>
+                  {isGenerating ? <><Loader className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : "Generate Quiz"}
                 </Button>
               </DialogFooter>
             </form>
@@ -522,11 +449,9 @@ const QuizzesPage = () => {
         <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{viewingQuiz?.title}</DialogTitle>
-            <DialogDescription>
-              {viewingQuiz?.description}
-            </DialogDescription>
+            {/* Using original DialogDescription */}
+            <DialogDescription>{viewingQuiz?.description}</DialogDescription>
           </DialogHeader>
-          
           <div className="mt-4">
             {viewingQuiz?.questions?.length ? (
               <div className="space-y-6">
@@ -536,31 +461,14 @@ const QuizzesPage = () => {
                       <Badge variant="outline" className="mb-2">Question {index + 1}</Badge>
                     </div>
                     <p className="font-medium mb-3">{question.question}</p>
-                    
                     <div className="space-y-2 mb-3">
                       {question.options.map((option, optIndex) => (
-                        <div 
-                          key={optIndex} 
-                          className={`flex items-center p-2 rounded-md ${
-                            optIndex === question.correctAnswerIndex 
-                              ? "bg-green-100 border border-green-300" 
-                              : "bg-gray-50 border border-gray-200"
-                          }`}
-                        >
-                          <div className="flex-shrink-0 mr-2">
-                            <div className={`w-6 h-6 flex items-center justify-center rounded-full ${
-                              optIndex === question.correctAnswerIndex 
-                                ? "bg-green-500 text-white" 
-                                : "bg-gray-200"
-                            }`}>
-                              {String.fromCharCode(65 + optIndex)}
-                            </div>
-                          </div>
+                        <div key={optIndex} className={`flex items-center p-2 rounded-md ${ optIndex === question.correctAnswerIndex ? "bg-green-100 border border-green-300" : "bg-gray-50 border border-gray-200"}`}>
+                          <div className="flex-shrink-0 mr-2"><div className={`w-6 h-6 flex items-center justify-center rounded-full ${ optIndex === question.correctAnswerIndex ? "bg-green-500 text-white" : "bg-gray-200"}`}>{String.fromCharCode(65 + optIndex)}</div></div>
                           <div>{option}</div>
                         </div>
                       ))}
                     </div>
-                    
                     <div className="mt-4 text-sm">
                       <p className="font-medium mb-1">Explanation:</p>
                       <p className="text-muted-foreground">{question.explanation}</p>
@@ -568,29 +476,12 @@ const QuizzesPage = () => {
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="flex justify-center items-center py-8">
-                <p className="text-muted-foreground">No questions available in this quiz</p>
-              </div>
-            )}
+            ) : (<div className="flex justify-center items-center py-8"><p className="text-muted-foreground">No questions available</p></div>)}
           </div>
-          
+          {/* Using original DialogFooter */}
           <DialogFooter className="flex justify-end gap-3 mt-4">
-            <Button 
-              onClick={() => setOpenViewDialog(false)}
-            >
-              Close
-            </Button>
-            {viewingQuiz && (
-              <Button 
-                onClick={() => {
-                  setOpenViewDialog(false);
-                  handleStartQuizClick(viewingQuiz);
-                }}
-              >
-                Start Quiz
-              </Button>
-            )}
+            <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
+            {viewingQuiz && (<Button onClick={() => { setOpenViewDialog(false); handleStartQuizClick(viewingQuiz);}}>Start Quiz</Button>)}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -601,29 +492,20 @@ const QuizzesPage = () => {
             <>
               <DialogHeader>
                 <DialogTitle>Start "{selectedQuizForAction.title}"</DialogTitle>
+                {/* Using original DialogDescription */}
                 <DialogDescription>
                   You are about to start a {selectedQuizForAction.questionCount}-question quiz that takes approximately {selectedQuizForAction.timeEstimate} minutes.
                 </DialogDescription>
               </DialogHeader>
-              
               <div className="py-4">
                 <h4 className="font-medium mb-2">Quiz Settings:</h4>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Difficulty:</span>
-                    <span className="font-medium">{selectedQuizForAction.difficulty}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Coverage:</span>
-                    <span className="font-medium">{selectedQuizForAction.coverage}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Time Limit:</span>
-                    <span className="font-medium">{selectedQuizForAction.timeEstimate} minutes</span>
-                  </div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Difficulty:</span><span className="font-medium">{selectedQuizForAction.difficulty}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Coverage:</span><span className="font-medium">{selectedQuizForAction.coverage}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Time Limit:</span><span className="font-medium">{selectedQuizForAction.timeEstimate} minutes</span></div>
                 </div>
               </div>
-              
+              {/* Using original DialogFooter */}
               <DialogFooter className="flex space-x-2">
                 <Button variant="outline" onClick={() => {setIsStartQuizDialogOpen(false); setSelectedQuizForAction(null);}}>Cancel</Button>
                 <Button onClick={confirmStartQuiz}>Begin Quiz</Button>
@@ -637,12 +519,14 @@ const QuizzesPage = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
+            {/* Using original AlertDialogDescription */}
+            <AlertDialogDescription> 
               This action cannot be undone. This will permanently delete the quiz
               and all its questions.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          {/* Using original AlertDialogFooter */}
+          <AlertDialogFooter> 
             <AlertDialogCancel onClick={() => setQuizToDelete(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteQuiz}>Delete</AlertDialogAction>
           </AlertDialogFooter>
