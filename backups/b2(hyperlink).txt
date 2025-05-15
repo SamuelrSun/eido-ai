@@ -20456,6 +20456,7 @@ export function FileUpload({ onFileUpload, compact = false }: FileUploadProps) {
 ================
 File: src/components/chat/MarkdownRenderer.tsx
 ================
+// src/components/chat/MarkdownRenderer.tsx
 import React from 'react';
 
 interface MarkdownRendererProps {
@@ -20463,49 +20464,88 @@ interface MarkdownRendererProps {
 }
 
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
-  // Basic markdown rendering logic
   const renderMarkdown = (text: string) => {
+    let rendered = text;
+
     // Replace bold (both ** and __ syntax)
-    let rendered = text.replace(/(\*\*|__)(.*?)\1/g, '<strong>$2</strong>');
+    rendered = rendered.replace(/(\*\*|__)(.*?)\1/g, '<strong>$2</strong>');
     
     // Replace italics (both * and _ syntax)
-    rendered = rendered.replace(/(\*|_)(.*?)\1/g, '<em>$2</em>');
-    
-    // Replace links
-    rendered = rendered.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cybercoach-teal underline">$1</a>');
+    // Be careful with this if italics are part of URLs or other constructs
+    // For now, let's assume standard markdown italics.
+    rendered = rendered.replace(/(?<!\S)(\*|_)(?!\s)((?:(?!\1).)+)(?<!\s)\1(?!\S)/g, '<em>$2</em>');
+
+
+    // Replace links - **MODIFIED TO CLEAN URLS**
+    rendered = rendered.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, rawUrl) => {
+      let cleanUrl = rawUrl;
+      
+      // Apply the specific hotfix for the "file_storage" malformation
+      if (cleanUrl.includes('file%3Cem%3Estorage')) {
+        console.warn("[MarkdownRenderer] Malformed URL (encoded em) detected:", cleanUrl);
+        cleanUrl = cleanUrl.replace(/file%3Cem%3Estorage/gi, 'file_storage');
+        console.warn("[MarkdownRenderer] Attempted fix (encoded em):", cleanUrl);
+      } else if (cleanUrl.includes('file%3C\/em%3Estorage')) { // Check for encoding with slash
+        console.warn("[MarkdownRenderer] Malformed URL (encoded em with slash) detected:", cleanUrl);
+        cleanUrl = cleanUrl.replace(/file%3C\/em%3Estorage/gi, 'file_storage');
+        console.warn("[MarkdownRenderer] Attempted fix (encoded em with slash):", cleanUrl);
+      } else if (cleanUrl.includes('file<em>storage')) { // Check for unencoded version
+        console.warn("[MarkdownRenderer] Malformed URL (unencoded em) detected:", cleanUrl);
+        cleanUrl = cleanUrl.replace(/file<em>storage/gi, 'file_storage');
+        console.warn("[MarkdownRenderer] Attempted fix (unencoded em):", cleanUrl);
+      }
+      // Ensure the URL is properly encoded for the href attribute, but decode common issues first
+      // This step is tricky; for now, we rely on the URL being mostly correct from the backend after our hotfix.
+      // A more robust solution might involve a proper URL parsing and reconstruction library if issues persist.
+      
+      return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="text-cybercoach-teal underline">${linkText}</a>`;
+    });
     
     // Handle bullet lists properly
     rendered = rendered.replace(
       /(?:^\s*-\s+(.+)$\n?)+/gm, 
       function(match) {
-        // Extract each list item
         const items = match.split('\n')
           .filter(line => line.trim().match(/^\s*-\s+/))
           .map(line => `<li>${line.replace(/^\s*-\s+/, '')}</li>`)
           .join('');
-        
         return `<ul class="list-disc pl-5 my-2 space-y-0.5">${items}</ul>`;
       }
     );
     
-    // Handle numbered lists (already working well, but adding for completeness)
+    // Handle numbered lists
     rendered = rendered.replace(
       /(?:^\s*\d+\.\s+(.+)$\n?)+/gm,
       function(match) {
-        // Extract each list item
         const items = match.split('\n')
           .filter(line => line.trim().match(/^\s*\d+\.\s+/))
           .map(line => `<li>${line.replace(/^\s*\d+\.\s+/, '')}</li>`)
           .join('');
-        
         return `<ol class="list-decimal pl-5 my-2 space-y-0.5">${items}</ol>`;
       }
     );
     
     // Replace code blocks
-    rendered = rendered.replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 rounded">$1</code>');
+    rendered = rendered.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 rounded text-sm">\$1</code>');
     
-    // Replace line breaks with <br />
+    // Replace line breaks with <br /> - This should be one of the last steps
+    // to avoid interfering with block elements like lists.
+    // Consider processing block elements first, then inline, then line breaks.
+    // For simplicity, if the AI is already providing good newlines for paragraphs,
+    // we might not need to replace all \n with <br>.
+    // Let's make this more conservative: only replace double newlines with paragraph breaks,
+    // and single newlines within paragraphs could be <br> if needed, or rely on CSS white-space.
+    
+    // Convert double newlines to paragraph breaks (basic)
+    // This is a simplified approach; a full Markdown parser would handle this more robustly.
+    // For now, we'll assume the AI structures paragraphs with double newlines.
+    // And that our list processing above handles newlines within lists.
+    // The rest of the text will have newlines converted to <br>.
+    
+    // First, protect newlines within pre/code tags if you add full code block support
+    // Then, process paragraphs and lists
+    // Finally, convert remaining single newlines to <br /> if desired for general text.
+    // For now, keeping the simple \n to <br /> conversion as it was.
     rendered = rendered.replace(/\n/g, '<br />');
     
     return rendered;
@@ -20513,7 +20553,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
 
   return (
     <div 
-      className="markdown-content" 
+      className="markdown-content prose dark:prose-invert prose-sm max-w-none" // Added prose classes for better default styling
       dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
     />
   );
@@ -20780,7 +20820,7 @@ File: src/components/class/dialog/CreateClassDialogContent.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { BookOpen, SquareCheck, Search, Database as DatabaseIcon } from "lucide-react"; // Renamed Database to DatabaseIcon
 import { ClassInfoSection } from "./ClassInfoSection";
-import { OpenAIConfigSection } from "./OpenAIConfigSection";
+// import { OpenAIConfigSection } from "./OpenAIConfigSection"; // OpenAIConfigSection is no longer used
 import { WidgetSelectionSection } from "./WidgetSelectionSection";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ClassData } from "../CreateClassDialog"; // This ClassData should be the one from CreateClassDialog.tsx
@@ -20844,18 +20884,14 @@ const availableWidgets = [
 const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"];
 
 interface CreateClassDialogContentProps {
-  // onClassCreate is actually handleFormDataChange in the parent
   onClassCreate: (classData: ClassData) => void;
   onCancel: () => void;
-  // initialData for editing, needs to be compatible with ClassData
-  // It might come from HomePage's ClassOption, so we'll adapt it.
-  initialData?: Partial<ClassData & { class_id?: string }>; // Allow class_id for editing context
+  initialData?: Partial<ClassData & { class_id?: string }>; 
   isEditing?: boolean;
 }
 
 export function CreateClassDialogContent({
   onClassCreate,
-  // onCancel, // onCancel prop is not used in this component's logic directly
   initialData,
   isEditing = false
 }: CreateClassDialogContentProps) {
@@ -20869,12 +20905,11 @@ export function CreateClassDialogContent({
   const [emoji, setEmoji] = useState(initialData?.emoji || "");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  // OpenAI configuration states - NO API KEY HERE
+  // OpenAI configuration states - These are kept for data integrity but not displayed for editing
   const [vectorStoreId, setVectorStoreId] = useState(initialData?.openAIConfig?.vectorStoreId || "");
   const [assistantId, setAssistantId] = useState(initialData?.openAIConfig?.assistantId || "");
-  const [showOpenAIConfig, setShowOpenAIConfig] = useState(
-    isEditing ? !!(initialData?.openAIConfig?.vectorStoreId || initialData?.openAIConfig?.assistantId) : false
-  );
+  // const [showOpenAIConfig, setShowOpenAIConfig] = useState(false); // REMOVED: No longer needed as the section is removed
+
   const [user, setUser] = useState<User | null>(null);
 
   // Fetch authenticated user
@@ -20898,18 +20933,18 @@ export function CreateClassDialogContent({
 
       // For OpenAI config, if initialData has it, use it.
       // Otherwise, if we have a class_id, try to fetch the latest from DB.
+      // These IDs are auto-provisioned and not user-editable in the UI anymore.
       if (initialData.openAIConfig) {
         setVectorStoreId(initialData.openAIConfig.vectorStoreId || "");
         setAssistantId(initialData.openAIConfig.assistantId || "");
-        setShowOpenAIConfig(!!(initialData.openAIConfig.vectorStoreId || initialData.openAIConfig.assistantId));
+        // setShowOpenAIConfig(!!(initialData.openAIConfig.vectorStoreId || initialData.openAIConfig.assistantId)); // REMOVED
       } else if (initialData.class_id) {
-        // Fetch the latest config from DB as initialData might be stale from HomePage
         classOpenAIConfigService.getConfigForClass(initialData.class_id)
           .then(config => {
             if (config) {
               setVectorStoreId(config.vectorStoreId || "");
               setAssistantId(config.assistantId || "");
-              setShowOpenAIConfig(!!(config.vectorStoreId || config.assistantId));
+              // setShowOpenAIConfig(!!(config.vectorStoreId || config.assistantId)); // REMOVED
             }
           })
           .catch(err => console.error("Error fetching specific class config for edit:", err));
@@ -20924,7 +20959,7 @@ export function CreateClassDialogContent({
       setSelectedWidgets(DEFAULT_CLASS_WIDGETS);
       setVectorStoreId("");
       setAssistantId("");
-      setShowOpenAIConfig(false);
+      // setShowOpenAIConfig(false); // REMOVED
     }
   }, [initialData, isEditing, user]);
 
@@ -20937,10 +20972,9 @@ export function CreateClassDialogContent({
   }, [title, emoji, isEditing]);
 
   // Debounced effect to call onClassCreate (parent's handleFormDataChange)
-  // This ensures the parent dialog (CreateClassDialog or EditClassDialog) always has the latest form data.
   useEffect(() => {
     const handler = setTimeout(() => {
-      if (title || isEditing) { // Only update if there's a title or if we are editing (to capture deletions)
+      if (title || isEditing) { 
         const currentClassData: ClassData = {
           title,
           professor: professor || null,
@@ -20948,14 +20982,14 @@ export function CreateClassDialogContent({
           classroom: classroom || null,
           enabledWidgets: selectedWidgets.length > 0 ? selectedWidgets : DEFAULT_CLASS_WIDGETS,
           emoji: emoji || getEmojiForClass(title),
-          openAIConfig: { // No API key
+          openAIConfig: { 
             vectorStoreId: vectorStoreId || null,
             assistantId: assistantId || null,
           },
         };
         onClassCreate(currentClassData);
       }
-    }, 300); // Debounce for 300ms
+    }, 300); 
 
     return () => {
       clearTimeout(handler);
@@ -20981,7 +21015,7 @@ export function CreateClassDialogContent({
   };
 
   return (
-    <ScrollArea className="max-h-[calc(80vh-180px)]"> {/* Adjusted max height */}
+    <ScrollArea className="max-h-[calc(80vh-180px)]"> 
       <div className="space-y-6 py-2 pr-4">
         <ClassInfoSection
           title={title}
@@ -20993,7 +21027,7 @@ export function CreateClassDialogContent({
           onProfessorChange={setProfessor}
           onClassTimeChange={setClassTime}
           onClassroomChange={setClassroom}
-          onEmojiChange={setEmoji} // Though direct change is unlikely if picker is used
+          onEmojiChange={setEmoji} 
           onEmojiPickerOpen={() => setShowEmojiPicker(true)}
         />
 
@@ -21005,15 +21039,22 @@ export function CreateClassDialogContent({
           />
         )}
 
+        {/* REMOVED OpenAIConfigSection from rendering.
+          The component src/components/class/dialog/OpenAIConfigSection.tsx is now unused by this dialog.
+          The state variables vectorStoreId and assistantId are still managed and passed in ClassData
+          as they are auto-provisioned and part of the data model.
+        */}
+        {/*
         <OpenAIConfigSection
           vectorStoreId={vectorStoreId}
           assistantId={assistantId}
-          showOpenAIConfig={showOpenAIConfig}
+          showOpenAIConfig={showOpenAIConfig} // This state variable was removed
           onVectorStoreIdChange={setVectorStoreId}
           onAssistantIdChange={setAssistantId}
-          onToggleConfig={() => setShowOpenAIConfig(!showOpenAIConfig)}
-          isEditing={isEditing} // Pass isEditing prop
+          onToggleConfig={() => setShowOpenAIConfig(!showOpenAIConfig)} // This handler and showOpenAIConfig state were removed
+          isEditing={isEditing} 
         />
+        */}
 
         <WidgetSelectionSection
           selectedWidgets={selectedWidgets}
@@ -27823,29 +27864,27 @@ export function WidgetCard({
 File: src/features/files/components/FileGrid.tsx
 ================
 // src/features/files/components/FileGrid.tsx
-import * as React from "react"
-import { File as FileIcon, Folder as FolderIcon, Trash2, MoreHorizontal } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Button } from "@/components/ui/button"
-// MODIFIED IMPORT PATH: Using path alias
-import { FileType, FolderType, SelectedItem } from "@/features/files/types";
-import { Card } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
+import * as React from "react";
+import { File as FileIcon, Folder as FolderIcon, MoreHorizontal, Trash2 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { FileType, FolderType, SelectedItem } from "@/features/files/types"; // Adjusted import path
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatFileSize } from "@/lib/utils";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Progress } from "@/components/ui/progress"
-
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
 
 interface FileGridProps {
-  files: FileType[]
-  folders: FolderType[]
-  loading: boolean
-  selectionMode: boolean
-  selectedItems: SelectedItem[]
-  onFileSelect: (file: FileType) => void
-  onFolderSelect: (folder: FolderType) => void
-  onDeleteItem: (id: string, isFolder: boolean, name: string) => void
-  onFileOpen: (url: string) => void
+  files: FileType[];
+  folders: FolderType[];
+  loading: boolean;
+  selectionMode: boolean;
+  selectedItems: SelectedItem[];
+  onFileSelect: (file: FileType) => void; // For selection mode
+  onFolderClick: (folder: FolderType) => void; // For navigating into folders
+  onDeleteItem: (id: string, isFolder: boolean, name: string) => void;
+  onFileOpen: (url: string) => void;
   currentFolderId: string | null;
 }
 
@@ -27856,7 +27895,7 @@ export function FileGrid({
   selectionMode,
   selectedItems,
   onFileSelect,
-  onFolderSelect,
+  onFolderClick, 
   onDeleteItem,
   onFileOpen,
   currentFolderId,
@@ -27867,7 +27906,7 @@ export function FileGrid({
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900" />
         <p className="text-gray-500 mt-4">Loading your files...</p>
       </div>
-    )
+    );
   }
 
   if (files.length === 0 && folders.length === 0 && currentFolderId === null) {
@@ -27880,7 +27919,7 @@ export function FileGrid({
           files here.
         </p>
       </div>
-    )
+    );
   }
 
   if (files.length === 0 && folders.length === 0 && currentFolderId !== null) {
@@ -27892,9 +27931,8 @@ export function FileGrid({
           Drag and drop files here or use the upload button.
         </p>
       </div>
-    )
+    );
   }
-
 
   return (
     <ScrollArea className="h-full">
@@ -27907,13 +27945,9 @@ export function FileGrid({
               {folders.map((folder) => (
                 <Card
                   key={folder.folder_id}
-                  className={`p-3 transition-all hover:shadow-md ${
-                    selectionMode ? 'cursor-default' : 'cursor-pointer'
-                  } border-border`}
+                  className={`p-3 transition-all hover:shadow-md cursor-pointer border-border`}
                   onClick={() => {
-                    if (!selectionMode) {
-                      onFolderSelect(folder);
-                    }
+                    onFolderClick(folder);
                   }}
                 >
                   <div className="flex items-center justify-between">
@@ -27921,6 +27955,7 @@ export function FileGrid({
                       <FolderIcon className="h-6 w-6 text-yellow-500 flex-shrink-0" />
                       <span className="text-sm font-medium truncate" title={folder.name}>{folder.name}</span>
                     </div>
+                    {/* Keep dropdown for folders as they are not part of multi-select delete */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
@@ -27957,13 +27992,13 @@ export function FileGrid({
                   className={`p-3 transition-all hover:shadow-md cursor-pointer ${
                     selectedItems.some((item) => item.id === file.file_id && item.type === 'file')
                       ? "ring-2 ring-primary border-primary"
-                      : "border-border"
+                      : "border-border" // Restored normal border
                   }`}
                   onClick={() => {
                     if (selectionMode) {
-                      onFileSelect(file);
+                      onFileSelect(file); // This toggles selection for the file
                     } else if (file.url) {
-                      onFileOpen(file.url);
+                      onFileOpen(file.url); // Opens the file if not in selection mode
                     }
                   }}
                 >
@@ -27973,14 +28008,18 @@ export function FileGrid({
                         <Checkbox
                           id={`select-file-${file.file_id}`}
                           checked={selectedItems.some((item) => item.id === file.file_id && item.type === 'file')}
-                          onCheckedChange={() => onFileSelect(file)}
-                          onClick={(e) => e.stopPropagation()}
+                          onCheckedChange={() => onFileSelect(file)} 
+                          onClick={(e) => {
+                            e.stopPropagation(); 
+                            onFileSelect(file);   
+                          }}
                           aria-label={`Select file ${file.name}`}
                         />
                       )}
                       <FileIcon className="h-6 w-6 text-blue-500 flex-shrink-0" />
                       <span className="text-sm font-medium truncate" title={file.name}>{file.name}</span>
                     </div>
+                    {/* DropdownMenu for files is intentionally REMOVED here */}
                   </div>
                   {file.status === 'uploading' && file.progress !== undefined ? (
                     <div className="mt-2">
@@ -28332,7 +28371,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search, FolderPlus, Upload, File as FileIcon, Folder as FolderIcon,
-  MoreHorizontal, Trash2 as TrashIcon, ArrowUp, Loader2, ChevronRight, CloudLightning, Check // Renamed Trash2 to avoid conflict
+  MoreHorizontal, Trash2 as TrashIcon, ArrowUp, Loader2, ChevronRight, CloudLightning, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28357,7 +28396,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator, BreadcrumbPage
 } from "@/components/ui/breadcrumb";
@@ -28366,8 +28405,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  FileType as FileTypeDb, // Renamed to avoid conflict with local FileType
-  FolderType as FolderTypeDb, // Renamed to avoid conflict
+  FileType as FileTypeDb,
+  FolderType as FolderTypeDb,
   SelectedItem, UserStorage as UserStorageType, VectorStoreFileType
 } from "@/features/files/types";
 import { StorageUsage } from "@/features/files/components/StorageUsage";
@@ -28375,7 +28414,7 @@ import { UploadDialog } from "@/features/files/components/UploadDialog";
 import type { User } from "@supabase/supabase-js";
 import { formatFileSize } from "@/lib/utils";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
-import { FileGrid } from "../components/FileGrid";
+import { FileGrid } from "../components/FileGrid"; // Corrected path
 
 
 interface ActiveClassData {
@@ -28388,7 +28427,7 @@ interface FileWithProgress extends FileTypeDb {
   progress?: number;
 }
 
-const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match file name
+const FilesPage = () => {
   const [files, setFiles] = useState<FileWithProgress[]>([]);
   const [folders, setFolders] = useState<FolderTypeDb[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -28587,7 +28626,6 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
   useEffect(() => { if (activeTab === "vectorStore") { fetchVectorStoreFiles(); } }, [activeTab, fetchVectorStoreFiles]);
 
   const toggleSelectItem = (item: SelectedItem) => {
-     // Only allow selecting files
     if (item.type === 'folder') {
       toast({
         title: "Selection Info",
@@ -28685,7 +28723,6 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
         toast({ title: `Failed to upload ${file.name}`, description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive"});
       }
     }
-    // A final fetch to ensure consistency after all uploads
     fetchCurrentFolderContents();
   };
 
@@ -28716,21 +28753,19 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
     }
   };
 
-  const deleteItem = async (itemId: string, isFolder: boolean, itemName: string) => {
-    if (!user) return;
+  const handleDeleteItem = async (itemId: string, itemType: 'file' | 'folder', itemName: string) => {
+    if (!user || !activeClass?.class_id) return;
 
-    // For bulk delete, confirmation is handled in handleDeleteSelectedItems
-    // For single folder delete via FileGrid's dropdown, this direct confirm is fine.
-    if (isFolder) {
+    if (itemType === 'folder') {
         const confirmDelete = window.confirm(`Are you sure you want to delete the folder "${itemName}" and all its contents? This action cannot be undone.`);
         if (!confirmDelete) return;
     }
+    // For single file deletion via FileGrid's dropdown (which is now removed for files),
+    // or for bulk deletion, confirmation is handled by handleDeleteSelectedItems.
 
     try {
-      if (isFolder) {
-        // Recursive deletion logic for folders
+      if (itemType === 'folder') {
         const deleteFolderAndContents = async (folderIdToDelete: string) => {
-            // Delete files within this folder
             const { data: filesInFolder, error: filesError } = await supabase
                 .from('files')
                 .select('file_id, url, size')
@@ -28751,7 +28786,6 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
                 totalFreedSpace += file.size || 0;
             }
 
-            // Recursively delete subfolders
             const { data: subfolders, error: subfoldersError } = await supabase
                 .from('file_folders')
                 .select('folder_id')
@@ -28765,7 +28799,6 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
                 totalFreedSpace += await deleteFolderAndContents(subfolder.folder_id);
             }
 
-            // Delete the folder itself
             await supabase.from('file_folders').delete().eq('folder_id', folderIdToDelete);
             return totalFreedSpace;
         };
@@ -28793,12 +28826,11 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
             setUserStorage(prev => ({...prev!, storage_used: newStorageUsed}));
             await supabase.from('user_storage').update({ storage_used: newStorageUsed }).eq('user_id', user.id);
         }
-        // Toast for single file deletion will be handled by the caller if it's part of bulk delete
       }
       fetchCurrentFolderContents();
     } catch (error) {
-      console.error(`Error deleting ${isFolder ? 'folder' : 'file'}:`, error);
-      toast({ title: `Failed to Delete ${isFolder ? 'Folder' : 'File'}`, description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
+      console.error(`Error deleting ${itemType}:`, error);
+      toast({ title: `Failed to Delete ${itemType}`, description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
     }
   };
 
@@ -28809,14 +28841,14 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
       toast({ title: "No Files Selected", description: "Please select files to delete.", variant: "default" });
       return;
     }
-    setItemsToDelete(filesToDelete);
-    setShowDeleteConfirmDialog(true);
+    setItemsToDelete(filesToDelete); // Store items to be deleted
+    setShowDeleteConfirmDialog(true); // Show confirmation dialog
   };
 
   const confirmDeleteSelectedItems = async () => {
     if (!user) return;
-    setShowDeleteConfirmDialog(false);
-    const filesToDelete = itemsToDelete.filter(item => item.type === 'file');
+    setShowDeleteConfirmDialog(false); // Close dialog
+    const filesToDelete = itemsToDelete.filter(item => item.type === 'file'); // Get items from state
 
     let successCount = 0;
     let failCount = 0;
@@ -28824,9 +28856,9 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
 
     for (const file of filesToDelete) {
       try {
-        const fileData = files.find(f => f.file_id === file.id) || // Check local files state
-                           (await supabase.from('files').select('url, size').eq('file_id', file.id).single()).data;
-
+        // Fetch file details again to ensure size is accurate if not in current `files` state
+        const fileData = files.find(f => f.file_id === file.id) ||
+                         (await supabase.from('files').select('url, size').eq('file_id', file.id).single()).data;
 
         if (fileData?.url) {
           const filePathParts = fileData.url.split('/');
@@ -28856,10 +28888,8 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
     }
 
     setSelectedItems([]);
-    // Do not exit selection mode automatically, user might want to perform other actions.
-    // setSelectionMode(false);
     fetchCurrentFolderContents();
-    setItemsToDelete([]);
+    setItemsToDelete([]); // Clear items after deletion
   };
 
 
@@ -29035,8 +29065,8 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
                 selectionMode={selectionMode}
                 selectedItems={selectedItems}
                 onFileSelect={(file) => toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size, fileMimeType: file.type })}
-                onFolderSelect={(folder) => navigateToFolder(folder.folder_id, folder.name)} // Folders are not selectable, only navigable
-                onDeleteItem={deleteItem}
+                onFolderClick={(folder) => navigateToFolder(folder.folder_id, folder.name)}
+                onDeleteItem={handleDeleteItem} // Changed prop name to onDeleteItem
                 onFileOpen={(url) => window.open(url, "_blank")}
                 currentFolderId={currentFolderId}
               />
@@ -29084,7 +29114,6 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog for Selected Files */}
       <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -30846,7 +30875,7 @@ const AuthPage = () => {
           </div>
           <h1 className="text-3xl font-bold text-center mb-2">Welcome to Eido</h1>
           <p className="text-center text-muted-foreground mb-8">
-            Your AI Copilot for Education
+            Your AI Copilot for Coursework
           </p>
         </div>
 
@@ -32019,7 +32048,7 @@ const FlashcardsPage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {decks.map((deck) => (
-                <Card key={deck.id} className="overflow-hidden">
+                <Card key={deck.id} className="overflow-hidden h-full flex flex-col"> {/* MODIFICATION: Added h-full and flex flex-col */}
                   <div className={`h-2 ${deck.color}`}></div>
                   <CardContent className="p-6">
                     <h3 className="font-semibold text-lg mb-1">{deck.title}</h3>
@@ -32064,7 +32093,7 @@ const FlashcardsPage = () => {
               
               {/* Create New Deck Card */}
               <Card 
-                className="border-dashed flex items-center justify-center h-[180px] cursor-pointer hover:bg-accent/50 transition-colors"
+                className="border-dashed flex flex-col items-center justify-center h-full cursor-pointer hover:bg-accent/50 transition-colors" // MODIFICATION: Added h-full and flex-col
                 onClick={() => setOpenGenerateDialog(true)}
               >
                 <div className="text-center">
@@ -33349,6 +33378,7 @@ export default QuizSessionPage;
 ================
 File: src/pages/QuizzesPage.tsx
 ================
+// src/pages/QuizzesPage.tsx
 import { useState, useEffect } from "react";
 import { 
   Card, 
@@ -33362,8 +33392,8 @@ import { Button } from "@/components/ui/button";
 import { 
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
+  DialogDescription, // Using original name
+  DialogFooter, // Using original name
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -33382,7 +33412,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription } from "@/components/ui/form";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription as FormDescriptionComponent } from "@/components/ui/form"; // Alias for FormDescription is kept
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -33398,14 +33428,14 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
+  AlertDialogDescription, // Using original name
+  AlertDialogFooter, // Using original name
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { quizService, Quiz, QuizQuestion } from "@/services/quiz";
+import { quizService, Quiz, QuizQuestion } from "@/services/quiz"; 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 // Form schema for quiz generation
@@ -33420,7 +33450,7 @@ type QuizGenerationFormValues = z.infer<typeof quizGenerationSchema>;
 
 const QuizzesPage = () => {
   const navigate = useNavigate();
-  const [selectedQuiz, setSelectedQuiz] = useState<null | Quiz>(null);
+  const [selectedQuizForAction, setSelectedQuizForAction] = useState<null | Quiz>(null);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -33429,6 +33459,7 @@ const QuizzesPage = () => {
   const [viewingQuiz, setViewingQuiz] = useState<Quiz | null>(null);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [quizToDelete, setQuizToDelete] = useState<string | null>(null);
+  const [isStartQuizDialogOpen, setIsStartQuizDialogOpen] = useState(false);
 
   const form = useForm<QuizGenerationFormValues>({
     resolver: zodResolver(quizGenerationSchema),
@@ -33440,21 +33471,24 @@ const QuizzesPage = () => {
     },
   });
 
-  // Function to determine difficulty badge color
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty.toLowerCase()) {
-      case 'easy':
-        return 'bg-green-100 text-green-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'hard':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const getDifficultyBadgeColor = (difficulty: string) => {
+    switch (difficulty?.toLowerCase()) {
+      case 'easy': return 'bg-green-100 text-green-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'hard': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  // Load all quizzes on component mount
+  const getQuizCardBarColor = (difficulty: string): string => {
+    switch (difficulty?.toLowerCase()) {
+      case 'easy': return 'bg-green-500';
+      case 'medium': return 'bg-yellow-500';
+      case 'hard': return 'bg-red-500';
+      default: return 'bg-gray-400';
+    }
+  };
+
   useEffect(() => {
     fetchQuizzes();
   }, []);
@@ -33474,34 +33508,21 @@ const QuizzesPage = () => {
 
   const handleGenerateQuiz = async (data: QuizGenerationFormValues) => {
     setIsGenerating(true);
-    
     try {
-      toast.info(`Generating ${data.questionCount} ${data.difficulty} quiz questions...`);
-      
-      // Call the service to generate quiz questions
-      const { questions, timeEstimate } = await quizService.generateQuiz({
-        title: data.title,
-        questionCount: data.questionCount,
-        difficulty: data.difficulty,
-        coverage: data.coverage
-      });
-      
-      // Save the quiz to the database
-      const newQuiz = await quizService.saveQuiz({
+      toast.info(`Generating ${data.questionCount} ${data.difficulty} quiz questions for "${data.title}"...`);
+      const { questions, timeEstimate } = await quizService.generateQuiz(data);
+      const quizToSavePayload: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'classId'> = {
         title: data.title,
         description: `${data.difficulty} quiz covering ${data.coverage}`,
-        questions,
+        questions: questions, 
         questionCount: questions.length,
-        timeEstimate,
+        timeEstimate: timeEstimate,
         difficulty: data.difficulty,
-        coverage: data.coverage
-      });
-      
-      // Add the new quiz to our state
+        coverage: data.coverage,
+      };
+      const newQuiz = await quizService.saveQuiz(quizToSavePayload);
       setQuizzes(prevQuizzes => [newQuiz, ...prevQuizzes]);
-      
-      toast.success(`Successfully generated ${questions.length} quiz questions!`);
-      
+      toast.success(`Successfully generated ${newQuiz.questionCount} quiz questions for "${newQuiz.title}"!`);
       setOpenGenerateDialog(false);
       form.reset();
     } catch (error) {
@@ -33512,11 +33533,16 @@ const QuizzesPage = () => {
     }
   };
 
-  const startQuiz = () => {
-    if (selectedQuiz) {
-      // Navigate to the quiz session page with the quiz ID
-      navigate(`/quizzes/${selectedQuiz.id}`);
-      setSelectedQuiz(null);
+  const handleStartQuizClick = (quiz: Quiz) => {
+    setSelectedQuizForAction(quiz);
+    setIsStartQuizDialogOpen(true);
+  };
+
+  const confirmStartQuiz = () => {
+    if (selectedQuizForAction) {
+      navigate(`/quizzes/${selectedQuizForAction.id}`);
+      setIsStartQuizDialogOpen(false);
+      setSelectedQuizForAction(null);
     }
   };
 
@@ -33535,7 +33561,6 @@ const QuizzesPage = () => {
 
   const handleDeleteQuiz = async () => {
     if (!quizToDelete) return;
-    
     try {
       await quizService.deleteQuiz(quizToDelete);
       setQuizzes(quizzes.filter(quiz => quiz.id !== quizToDelete));
@@ -33556,61 +33581,59 @@ const QuizzesPage = () => {
         description="Test your knowledge with practice quizzes"
       />
 
-      {/* Quiz Type Selection */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="h-full flex flex-col"> 
+          <CardHeader className="pb-2 flex-shrink-0">
             <CardTitle className="flex items-center text-lg">
               <FileText className="mr-2 h-5 w-5 text-purple-500" />
               Chapter Quizzes
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-grow">
             <p className="text-sm text-muted-foreground">
               Focus on specific chapters or units from your course material.
             </p>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex-shrink-0">
             <Button variant="outline" className="w-full">Browse</Button>
           </CardFooter>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="h-full flex flex-col"> 
+          <CardHeader className="pb-2 flex-shrink-0">
             <CardTitle className="flex items-center text-lg">
               <Timer className="mr-2 h-5 w-5 text-purple-500" />
               Timed Exams
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-grow">
             <p className="text-sm text-muted-foreground">
               Simulate real exam conditions with strict time limits.
             </p>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex-shrink-0">
             <Button variant="outline" className="w-full">Browse</Button>
           </CardFooter>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="h-full flex flex-col"> 
+          <CardHeader className="pb-2 flex-shrink-0">
             <CardTitle className="flex items-center text-lg">
               <SquareCheck className="mr-2 h-5 w-5 text-purple-500" />
               Quick Review
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-grow">
             <p className="text-sm text-muted-foreground">
               Short quizzes for rapid knowledge checks and concept reinforcement.
             </p>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex-shrink-0">
             <Button variant="outline" className="w-full">Browse</Button>
           </CardFooter>
         </Card>
       </div>
 
-      {/* Available Quizzes Section */}
       <div className="mt-8">
         <h2 className="text-xl font-semibold mb-4">Available Quizzes</h2>
         
@@ -33621,17 +33644,18 @@ const QuizzesPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {quizzes.map((quiz) => (
-              <Card key={quiz.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
+              <Card key={quiz.id} className="hover:shadow-md transition-shadow overflow-hidden h-full flex flex-col">
+                <div className={`h-2 ${getQuizCardBarColor(quiz.difficulty)}`}></div>
+                <CardHeader className="flex-shrink-0">
                   <div className="flex justify-between items-start">
                     <CardTitle>{quiz.title}</CardTitle>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getDifficultyColor(quiz.difficulty)}`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getDifficultyBadgeColor(quiz.difficulty)}`}>
                       {quiz.difficulty}
                     </span>
                   </div>
                   <CardDescription>{quiz.description}</CardDescription>
                 </CardHeader>
-                <CardContent className="pb-2">
+                <CardContent className="pb-2 flex-grow">
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span className="flex items-center">
                       <FileText className="mr-1 h-4 w-4" /> {quiz.questionCount} questions
@@ -33642,7 +33666,7 @@ const QuizzesPage = () => {
                     <span>{quiz.coverage}</span>
                   </div>
                 </CardContent>
-                <CardFooter className="pt-2">
+                <CardFooter className="pt-2 flex-shrink-0">
                   <div className="flex w-full justify-between">
                     <Button 
                       variant="outline" 
@@ -33682,7 +33706,7 @@ const QuizzesPage = () => {
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              className="w-full" 
+                              className="w-full text-destructive hover:text-destructive border-destructive/50 hover:border-destructive"
                               onClick={() => {
                                 setQuizToDelete(quiz.id);
                                 setOpenDeleteDialog(true);
@@ -33693,57 +33717,17 @@ const QuizzesPage = () => {
                           </div>
                         </PopoverContent>
                       </Popover>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button size="sm" onClick={() => setSelectedQuiz(quiz)}>
-                            Start Quiz <ChevronRight className="ml-1 h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          {selectedQuiz && (
-                            <>
-                              <DialogHeader>
-                                <DialogTitle>Start "{selectedQuiz.title}"</DialogTitle>
-                                <DialogDescription>
-                                  You are about to start a {selectedQuiz.questionCount}-question quiz that takes approximately {selectedQuiz.timeEstimate} minutes.
-                                </DialogDescription>
-                              </DialogHeader>
-                              
-                              <div className="py-4">
-                                <h4 className="font-medium mb-2">Quiz Settings:</h4>
-                                <div className="space-y-2 text-sm">
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Difficulty:</span>
-                                    <span className="font-medium">{selectedQuiz.difficulty}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Coverage:</span>
-                                    <span className="font-medium">{selectedQuiz.coverage}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Time Limit:</span>
-                                    <span className="font-medium">{selectedQuiz.timeEstimate} minutes</span>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <DialogFooter className="flex space-x-2">
-                                <Button variant="outline" onClick={() => setSelectedQuiz(null)}>Cancel</Button>
-                                <Button onClick={startQuiz}>Begin Quiz</Button>
-                              </DialogFooter>
-                            </>
-                          )}
-                        </DialogContent>
-                      </Dialog>
+                      <Button size="sm" onClick={() => handleStartQuizClick(quiz)}>
+                         Start Quiz <ChevronRight className="ml-1 h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </CardFooter>
               </Card>
             ))}
             
-            {/* Create New Quiz Card */}
             <Card 
-              className="border-dashed flex items-center justify-center h-[180px] cursor-pointer hover:bg-accent/50 transition-colors"
+              className="border-dashed flex flex-col items-center justify-center h-full cursor-pointer hover:bg-accent/50 transition-colors"
               onClick={() => setOpenGenerateDialog(true)}
             >
               <div className="text-center">
@@ -33755,7 +33739,6 @@ const QuizzesPage = () => {
         )}
       </div>
       
-      {/* Performance Analytics Card */}
       <Card className="mt-6">
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -33773,150 +33756,82 @@ const QuizzesPage = () => {
         </CardFooter>
       </Card>
 
-      {/* Generate Quiz Dialog */}
       <Dialog open={openGenerateDialog} onOpenChange={setOpenGenerateDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Generate New Quiz</DialogTitle>
-            <DialogDescription>
+            {/* Using original DialogDescription */}
+            <DialogDescription> 
               Create AI-generated quiz questions from your course material
             </DialogDescription>
           </DialogHeader>
-          
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleGenerateQuiz)} className="space-y-4 pt-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
+              <FormField control={form.control} name="title" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Quiz Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter a title for your quiz" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Give your quiz a descriptive name (e.g., "Network Security Basics")
-                    </FormDescription>
+                    <FormControl><Input placeholder="Enter a title for your quiz" {...field} /></FormControl>
+                    <FormDescriptionComponent>Give your quiz a descriptive name</FormDescriptionComponent>
                   </FormItem>
                 )}
               />
-              
-              <FormField
-                control={form.control}
-                name="questionCount"
-                render={({ field }) => (
+              <FormField control={form.control} name="questionCount" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Number of Questions</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        min={5}
-                        max={50}
-                        placeholder="10" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      How many quiz questions would you like to generate? (5-50)
-                    </FormDescription>
+                    <FormControl><Input type="number" min={5} max={50} placeholder="10" {...field} /></FormControl>
+                    <FormDescriptionComponent>How many quiz questions? (5-50)</FormDescriptionComponent>
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="difficulty"
-                render={({ field }) => (
+              <FormField control={form.control} name="difficulty" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Difficulty Level</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select difficulty" />
-                        </SelectTrigger>
-                      </FormControl>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select difficulty" /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="easy">Easy</SelectItem>
                         <SelectItem value="medium">Medium</SelectItem>
                         <SelectItem value="hard">Hard</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormDescription>
-                      Choose the difficulty level for your quiz questions
-                    </FormDescription>
+                    <FormDescriptionComponent>Choose the difficulty level</FormDescriptionComponent>
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="coverage"
-                render={({ field }) => (
+              <FormField control={form.control} name="coverage" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Content Coverage</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select coverage" />
-                        </SelectTrigger>
-                      </FormControl>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select coverage" /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="Chapters 1-5">Chapters 1-5</SelectItem>
                         <SelectItem value="Chapters 6-10">Chapters 6-10</SelectItem>
                         <SelectItem value="All Chapters">All Chapters</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormDescription>
-                      Specify what content the quiz should cover
-                    </FormDescription>
+                    <FormDescriptionComponent>Specify what content the quiz should cover</FormDescriptionComponent>
                   </FormItem>
                 )}
               />
-              
-              <div className="flex justify-end gap-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setOpenGenerateDialog(false)}
-                  disabled={isGenerating}
-                >
-                  Cancel
+              {/* Using original DialogFooter */}
+              <DialogFooter className="flex justify-end gap-3 pt-4"> 
+                <Button type="button" variant="outline" onClick={() => setOpenGenerateDialog(false)} disabled={isGenerating}>Cancel</Button>
+                <Button type="submit" disabled={isGenerating}>
+                  {isGenerating ? <><Loader className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : "Generate Quiz"}
                 </Button>
-                <Button 
-                  type="submit"
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader className="mr-2 h-4 w-4 animate-spin" /> 
-                      Generating...
-                    </>
-                  ) : (
-                    "Generate Quiz"
-                  )}
-                </Button>
-              </div>
+              </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
 
-      {/* View Quiz Dialog with Questions Preview */}
       <Dialog open={openViewDialog} onOpenChange={setOpenViewDialog}>
         <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{viewingQuiz?.title}</DialogTitle>
-            <DialogDescription>
-              {viewingQuiz?.description}
-            </DialogDescription>
+            {/* Using original DialogDescription */}
+            <DialogDescription>{viewingQuiz?.description}</DialogDescription>
           </DialogHeader>
-          
           <div className="mt-4">
             {viewingQuiz?.questions?.length ? (
               <div className="space-y-6">
@@ -33926,31 +33841,14 @@ const QuizzesPage = () => {
                       <Badge variant="outline" className="mb-2">Question {index + 1}</Badge>
                     </div>
                     <p className="font-medium mb-3">{question.question}</p>
-                    
                     <div className="space-y-2 mb-3">
                       {question.options.map((option, optIndex) => (
-                        <div 
-                          key={optIndex} 
-                          className={`flex items-center p-2 rounded-md ${
-                            optIndex === question.correctAnswerIndex 
-                              ? "bg-green-100 border border-green-300" 
-                              : "bg-gray-50 border border-gray-200"
-                          }`}
-                        >
-                          <div className="flex-shrink-0 mr-2">
-                            <div className={`w-6 h-6 flex items-center justify-center rounded-full ${
-                              optIndex === question.correctAnswerIndex 
-                                ? "bg-green-500 text-white" 
-                                : "bg-gray-200"
-                            }`}>
-                              {String.fromCharCode(65 + optIndex)}
-                            </div>
-                          </div>
+                        <div key={optIndex} className={`flex items-center p-2 rounded-md ${ optIndex === question.correctAnswerIndex ? "bg-green-100 border border-green-300" : "bg-gray-50 border border-gray-200"}`}>
+                          <div className="flex-shrink-0 mr-2"><div className={`w-6 h-6 flex items-center justify-center rounded-full ${ optIndex === question.correctAnswerIndex ? "bg-green-500 text-white" : "bg-gray-200"}`}>{String.fromCharCode(65 + optIndex)}</div></div>
                           <div>{option}</div>
                         </div>
                       ))}
                     </div>
-                    
                     <div className="mt-4 text-sm">
                       <p className="font-medium mb-1">Explanation:</p>
                       <p className="text-muted-foreground">{question.explanation}</p>
@@ -33958,44 +33856,57 @@ const QuizzesPage = () => {
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="flex justify-center items-center py-8">
-                <p className="text-muted-foreground">No questions available in this quiz</p>
-              </div>
-            )}
+            ) : (<div className="flex justify-center items-center py-8"><p className="text-muted-foreground">No questions available</p></div>)}
           </div>
-          
+          {/* Using original DialogFooter */}
           <DialogFooter className="flex justify-end gap-3 mt-4">
-            <Button 
-              onClick={() => setOpenViewDialog(false)}
-            >
-              Close
-            </Button>
-            {viewingQuiz && (
-              <Button 
-                onClick={() => {
-                  setOpenViewDialog(false);
-                  setSelectedQuiz(viewingQuiz);
-                }}
-              >
-                Start Quiz
-              </Button>
-            )}
+            <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
+            {viewingQuiz && (<Button onClick={() => { setOpenViewDialog(false); handleStartQuizClick(viewingQuiz);}}>Start Quiz</Button>)}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      <Dialog open={isStartQuizDialogOpen} onOpenChange={setIsStartQuizDialogOpen}>
+        <DialogContent>
+          {selectedQuizForAction && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Start "{selectedQuizForAction.title}"</DialogTitle>
+                {/* Using original DialogDescription */}
+                <DialogDescription>
+                  You are about to start a {selectedQuizForAction.questionCount}-question quiz that takes approximately {selectedQuizForAction.timeEstimate} minutes.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <h4 className="font-medium mb-2">Quiz Settings:</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Difficulty:</span><span className="font-medium">{selectedQuizForAction.difficulty}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Coverage:</span><span className="font-medium">{selectedQuizForAction.coverage}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Time Limit:</span><span className="font-medium">{selectedQuizForAction.timeEstimate} minutes</span></div>
+                </div>
+              </div>
+              {/* Using original DialogFooter */}
+              <DialogFooter className="flex space-x-2">
+                <Button variant="outline" onClick={() => {setIsStartQuizDialogOpen(false); setSelectedQuizForAction(null);}}>Cancel</Button>
+                <Button onClick={confirmStartQuiz}>Begin Quiz</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
+            {/* Using original AlertDialogDescription */}
+            <AlertDialogDescription> 
               This action cannot be undone. This will permanently delete the quiz
               and all its questions.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          {/* Using original AlertDialogFooter */}
+          <AlertDialogFooter> 
             <AlertDialogCancel onClick={() => setQuizToDelete(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteQuiz}>Delete</AlertDialogAction>
           </AlertDialogFooter>
@@ -34358,81 +34269,136 @@ export const quizGenerator = {
 ================
 File: src/services/quiz/quizRepository.ts
 ================
+// src/services/quiz/quizRepository.ts
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Quiz, QuizQuestion } from "./types";
+import type { User } from "@supabase/supabase-js";
+
+// Helper to get active class_id from sessionStorage
+const getActiveClassId = (): string | null => {
+  const activeClassString = sessionStorage.getItem('activeClass');
+  if (activeClassString) {
+    try {
+      const parsedClass = JSON.parse(activeClassString);
+      return parsedClass.class_id || null; 
+    } catch (e) {
+      console.error("Error parsing activeClass from session storage:", e);
+      return null;
+    }
+  }
+  return null;
+};
+
+// Define types for Supabase table rows
+interface QuizDBRow {
+  quiz_id: string;
+  title: string;
+  description: string;
+  question_count: number;
+  time_estimate: number;
+  difficulty: string;
+  coverage: string;
+  created_at: string; 
+  updated_at: string; 
+  user_id: string | null;
+  class_id: string | null;
+}
+
+interface QuizQuestionDBRow {
+  quiz_questions_id: string; 
+  quiz_id: string; 
+  question_text: string;
+  options: string[];
+  correct_answer_index: number;
+  explanation: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string | null;
+  class_id: string | null;
+}
+
+// Type for QuizDBRow when joined with quiz_questions
+interface QuizWithQuestionsDBRow extends QuizDBRow {
+  quiz_questions: QuizQuestionDBRow[];
+}
+
 
 /**
  * Service for quiz database operations
  */
 export const quizRepository = {
-  /**
-   * Save a quiz to the database
-   */
   saveQuiz: async (quiz: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>): Promise<Quiz> => {
     try {
-      // Get the current authenticated user to set user_id
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!session?.user) {
         throw new Error("You must be logged in to save a quiz");
       }
       
-      // Get the active class
-      const activeClass = sessionStorage.getItem('activeClass');
-      const classTitle = activeClass ? JSON.parse(activeClass).title : null;
-      
-      // Insert the quiz into the quizzes table
-      const { data, error } = await supabase
+      const activeClassId = getActiveClassId();
+      if (!activeClassId) {
+        console.warn("No active class ID found. Quiz will not be associated with a class.");
+      }
+
+      const quizInsertPayload = {
+        title: quiz.title,
+        description: quiz.description,
+        question_count: quiz.questionCount,
+        time_estimate: quiz.timeEstimate,
+        difficulty: quiz.difficulty,
+        coverage: quiz.coverage,
+        user_id: session.user.id,
+        class_id: activeClassId 
+      };
+
+      const { data: savedQuizData, error: quizError } = await supabase
         .from('quizzes')
-        .insert({
-          title: quiz.title,
-          description: quiz.description,
-          question_count: quiz.questionCount,
-          time_estimate: quiz.timeEstimate,
-          difficulty: quiz.difficulty,
-          coverage: quiz.coverage,
-          user_id: session.user.id, // Set the user_id to the current user's ID
-          class_title: classTitle // Associate with the current class
-        } as any)
+        .insert(quizInsertPayload)
         .select()
-        .single();
+        .single<QuizDBRow>(); 
 
-      if (error) throw error;
+      if (quizError) {
+        console.error("Supabase error details (saveQuiz - quizzes):", quizError);
+        throw quizError;
+      }
+      if (!savedQuizData) {
+        throw new Error("Failed to save quiz: No data returned from database.");
+      }
 
-      // Now that we have the quiz ID, save the questions
-      for (const question of quiz.questions) {
-        // Make sure question text isn't null before saving
-        if (!question.question) {
-          console.error("Skipping question with null text:", question);
-          continue;
-        }
-
+      const questionsToInsert = quiz.questions.map(question => ({
+        quiz_id: savedQuizData.quiz_id,
+        question_text: question.question,
+        options: question.options || ["No option provided"],
+        correct_answer_index: question.correctAnswerIndex ?? 0,
+        explanation: question.explanation || "No explanation provided",
+        user_id: session.user.id,
+        class_id: activeClassId
+      }));
+      
+      if (questionsToInsert.length > 0) {
         const { error: questionError } = await supabase
           .from('quiz_questions')
-          .insert({
-            quiz_id: data.id,
-            question_text: question.question,
-            options: question.options || ["No option provided"],
-            correct_answer_index: question.correctAnswerIndex ?? 0,
-            explanation: question.explanation || "No explanation provided"
-          } as any);
+          .insert(questionsToInsert);
 
-        if (questionError) throw questionError;
+        if (questionError) {
+          console.error("Supabase error details (saveQuiz - quiz_questions):", questionError);
+          throw questionError;
+        }
       }
 
       return {
-        id: data.id,
-        title: data.title,
-        description: data.description,
-        questions: quiz.questions,
-        questionCount: data.question_count,
-        timeEstimate: data.time_estimate,
-        difficulty: data.difficulty,
-        coverage: data.coverage,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-        userId: data.user_id,
-        classTitle: data.class_title
+        id: savedQuizData.quiz_id,
+        title: savedQuizData.title,
+        description: savedQuizData.description,
+        questions: quiz.questions, 
+        questionCount: savedQuizData.question_count,
+        timeEstimate: savedQuizData.time_estimate,
+        difficulty: savedQuizData.difficulty,
+        coverage: savedQuizData.coverage,
+        createdAt: new Date(savedQuizData.created_at), 
+        updatedAt: new Date(savedQuizData.updated_at), 
+        userId: savedQuizData.user_id,
+        classId: savedQuizData.class_id 
       };
     } catch (error) {
       console.error('Error saving quiz:', error);
@@ -34440,103 +34406,121 @@ export const quizRepository = {
     }
   },
   
-  /**
-   * Fetch all quizzes for the current user and active class
-   */
   fetchQuizzes: async (): Promise<Quiz[]> => {
     try {
-      // Get the current authenticated user
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!session?.user) {
         console.log("No active session found when fetching quizzes");
         return [];
       }
 
-      // Get the active class
-      const activeClass = sessionStorage.getItem('activeClass');
-      const classTitle = activeClass ? JSON.parse(activeClass).title : null;
-      
-      // If no active class, return an empty array
-      if (!classTitle) {
-        console.log("No active class found, returning empty quizzes array");
+      const activeClassId = getActiveClassId();
+      if (!activeClassId) {
+        console.log("No active class ID found, returning empty quizzes array");
         return [];
       }
 
-      const { data: quizzes, error } = await supabase
+      console.log(`Fetching quizzes with questions for user: ${session.user.id} and class: ${activeClassId}`);
+
+      // ** MODIFICATION: Restored nested select for quiz_questions **
+      const { data: quizzesData, error } = await supabase
         .from('quizzes')
-        .select('*')
-        .eq('user_id', session.user.id) // Only fetch quizzes for the current user
-        .eq('class_title', classTitle) // Only fetch quizzes for the current class
+        .select(`
+          quiz_id, 
+          title, 
+          description, 
+          question_count, 
+          time_estimate, 
+          difficulty, 
+          coverage, 
+          created_at, 
+          updated_at, 
+          user_id, 
+          class_id,
+          quiz_questions ( 
+            quiz_questions_id,
+            question_text,
+            options,
+            correct_answer_index,
+            explanation
+          )
+        `)
+        .eq('user_id', session.user.id)
+        .eq('class_id', activeClassId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error details (fetchQuizzes - with questions):", error);
+        throw error; 
+      }
 
-      // For each quiz, fetch its questions
-      const quizzesWithQuestions = await Promise.all(
-        quizzes.map(async (quiz) => {
-          const { data: questions, error: questionsError } = await supabase
-            .from('quiz_questions')
-            .select('*')
-            .eq('quiz_id', quiz.id);
-
-          if (questionsError) throw questionsError;
-
-          const formattedQuestions: QuizQuestion[] = questions.map(q => ({
-            question: q.question_text,
-            options: q.options,
-            correctAnswerIndex: q.correct_answer_index,
-            explanation: q.explanation
-          }));
-
-          return {
-            id: quiz.id,
-            title: quiz.title,
-            description: quiz.description,
-            questions: formattedQuestions,
-            questionCount: quiz.question_count,
-            timeEstimate: quiz.time_estimate,
-            difficulty: quiz.difficulty,
-            coverage: quiz.coverage,
-            createdAt: quiz.created_at,
-            updatedAt: quiz.updated_at,
-            userId: quiz.user_id,
-            classTitle: quiz.class_title
-          };
-        })
-      );
-
-      return quizzesWithQuestions;
-    } catch (error) {
-      console.error('Error fetching quizzes:', error);
-      toast.error('Failed to load quizzes');
+      return (quizzesData || []).map((quizFromDb: QuizWithQuestionsDBRow): Quiz => {
+        const formattedQuestions: QuizQuestion[] = (quizFromDb.quiz_questions || []).map((q: QuizQuestionDBRow) => ({
+          question: q.question_text,
+          options: q.options,
+          correctAnswerIndex: q.correct_answer_index,
+          explanation: q.explanation
+        }));
+        return {
+          id: quizFromDb.quiz_id,
+          title: quizFromDb.title,
+          description: quizFromDb.description,
+          questions: formattedQuestions,
+          questionCount: quizFromDb.question_count,
+          timeEstimate: quizFromDb.time_estimate,
+          difficulty: quizFromDb.difficulty,
+          coverage: quizFromDb.coverage,
+          createdAt: new Date(quizFromDb.created_at),
+          updatedAt: new Date(quizFromDb.updated_at),
+          userId: quizFromDb.user_id,
+          classId: quizFromDb.class_id
+        };
+      });
+    } catch (error) { 
+      console.error('Error in fetchQuizzes function:', error);
+      toast.error('Failed to load quizzes. Check console for Supabase error details.');
       return [];
     }
   },
   
-  /**
-   * Fetch a single quiz by ID with questions
-   */
   fetchQuiz: async (quizId: string): Promise<Quiz | null> => {
     try {
-      // Fetch the quiz
-      const { data: quiz, error } = await supabase
+      const { data: quizData, error } = await supabase
         .from('quizzes')
-        .select('*')
-        .eq('id', quizId)
-        .single();
+        .select(`
+          quiz_id, 
+          title, 
+          description, 
+          question_count, 
+          time_estimate, 
+          difficulty, 
+          coverage, 
+          created_at, 
+          updated_at, 
+          user_id, 
+          class_id,
+          quiz_questions (
+            quiz_questions_id,
+            question_text,
+            options,
+            correct_answer_index,
+            explanation
+          )
+        `)
+        .eq('quiz_id', quizId)
+        .single<QuizWithQuestionsDBRow>(); 
 
-      if (error) throw error;
-      if (!quiz) return null;
+      if (error) {
+        if (error.code === 'PGRST116') { 
+          console.log(`Quiz with ID ${quizId} not found.`);
+          return null;
+        }
+        console.error("Supabase error details (fetchQuiz):", error);
+        throw error;
+      }
+      if (!quizData) return null;
 
-      // Fetch the questions for this quiz
-      const { data: questions, error: questionsError } = await supabase
-        .from('quiz_questions')
-        .select('*')
-        .eq('quiz_id', quizId);
-
-      if (questionsError) throw questionsError;
-
-      const formattedQuestions: QuizQuestion[] = questions.map(q => ({
+      const formattedQuestions: QuizQuestion[] = (quizData.quiz_questions || []).map((q: QuizQuestionDBRow) => ({
         question: q.question_text,
         options: q.options,
         correctAnswerIndex: q.correct_answer_index,
@@ -34544,18 +34528,18 @@ export const quizRepository = {
       }));
 
       return {
-        id: quiz.id,
-        title: quiz.title,
-        description: quiz.description,
+        id: quizData.quiz_id,
+        title: quizData.title,
+        description: quizData.description,
         questions: formattedQuestions,
-        questionCount: quiz.question_count,
-        timeEstimate: quiz.time_estimate,
-        difficulty: quiz.difficulty,
-        coverage: quiz.coverage,
-        createdAt: quiz.created_at,
-        updatedAt: quiz.updated_at,
-        userId: quiz.user_id,
-        classTitle: quiz.class_title
+        questionCount: quizData.question_count,
+        timeEstimate: quizData.time_estimate,
+        difficulty: quizData.difficulty,
+        coverage: quizData.coverage,
+        createdAt: new Date(quizData.created_at),
+        updatedAt: new Date(quizData.updated_at),
+        userId: quizData.user_id,
+        classId: quizData.class_id
       };
     } catch (error) {
       console.error('Error fetching quiz:', error);
@@ -34564,26 +34548,17 @@ export const quizRepository = {
     }
   },
   
-  /**
-   * Delete a quiz
-   */
   deleteQuiz: async (quizId: string): Promise<void> => {
     try {
-      // Delete the questions first (due to foreign key constraint)
-      const { error: questionsError } = await supabase
-        .from('quiz_questions')
-        .delete()
-        .eq('quiz_id', quizId);
-
-      if (questionsError) throw questionsError;
-
-      // Then delete the quiz
       const { error } = await supabase
         .from('quizzes')
         .delete()
-        .eq('id', quizId);
+        .eq('quiz_id', quizId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error details (deleteQuiz):", error);
+        throw error;
+      }
     } catch (error) {
       console.error('Error deleting quiz:', error);
       throw error;
@@ -34594,28 +34569,28 @@ export const quizRepository = {
 ================
 File: src/services/quiz/types.ts
 ================
-// Quiz service type definitions
+// src/services/quiz/types.ts
 
 export interface QuizQuestion {
-  question: string;
+  question: string; // Corresponds to question_text in DB
   options: string[];
-  correctAnswerIndex: number;
+  correctAnswerIndex: number; // Corresponds to correct_answer_index in DB
   explanation: string;
 }
 
 export interface Quiz {
-  id: string;
+  id: string; // Corresponds to quiz_id in DB
   title: string;
   description: string;
   questions: QuizQuestion[];
-  questionCount: number;
-  timeEstimate: number; // in minutes
+  questionCount: number; // Corresponds to question_count in DB
+  timeEstimate: number; // in minutes, corresponds to time_estimate in DB
   difficulty: string;
   coverage: string;
-  createdAt: string;
-  updatedAt: string;
-  userId?: string;
-  classTitle?: string; // Add class title to the Quiz interface
+  createdAt: Date; // Changed from string to Date
+  updatedAt: Date; // Changed from string to Date
+  userId?: string | null; // Corresponds to user_id in DB
+  classId?: string | null; // Corresponds to class_id in DB
 }
 
 export interface QuizGenerationParams {
@@ -35042,9 +35017,43 @@ export const classOpenAIConfigService = {
 ================
 File: src/services/flashcardService.ts
 ================
+// src/services/flashcardService.ts
 import { supabase } from "@/integrations/supabase/client";
-import { Deck, FlashcardContent, GenerateDeckParams } from "@/types/flashcard";
+import { Deck, Flashcard, FlashcardContent, GenerateDeckParams } from "@/types/flashcard";
 import { classOpenAIConfigService } from "./classOpenAIConfig";
+import type { User } from "@supabase/supabase-js";
+
+// Define types for Supabase table rows to avoid 'any'
+// These should ideally align with your auto-generated Supabase types if you have them fully set up
+type FlashcardDeckDBRow = {
+  flashcard_deck_id: string; // Primary Key for 'flashcard-decks'
+  title: string;
+  description: string;
+  color: string;
+  card_count: number;
+  due_cards: number;
+  new_cards: number;
+  created_at: string; // Timestamptz from DB
+  updated_at: string; // Timestamptz from DB
+  user_id: string | null;
+  class_id: string | null; // Foreign Key to 'classes' table
+};
+
+type FlashcardDBRow = {
+  flashcard_id: string; // Primary Key for 'flashcards'
+  flashcard_deck_id: string; // Foreign Key to 'flashcard-decks'
+  front: string;
+  back: string;
+  difficulty: string;
+  next_review: string; // Timestamptz from DB
+  last_reviewed: string | null; // Timestamptz from DB
+  review_count: number | null;
+  created_at: string; // Timestamptz from DB
+  updated_at: string; // Timestamptz from DB
+  user_id: string | null;
+  class_id: string | null; // Foreign Key to 'classes' table
+};
+
 
 /**
  * Service to handle flashcard-related operations
@@ -35054,127 +35063,145 @@ export const flashcardService = {
    * Generate a deck of flashcards using OpenAI and the vector database
    */
   generateDeck: async (params: GenerateDeckParams): Promise<FlashcardContent[]> => {
-    console.log("Attempting to generate flashcards with params:", params);
+    console.log("flashcardService: Attempting to generate flashcards with params:", params);
     
     try {
-      // Get class-specific OpenAI configuration if available
+      // Get class-specific OpenAI configuration (assistantId, vectorStoreId)
       const classConfig = await classOpenAIConfigService.getActiveClassConfig();
-      console.log("Using class config:", classConfig ? "YES" : "NO");
-      if (classConfig?.apiKey) {
-        console.log("API key is configured");
-      }
-      if (classConfig?.vectorStoreId) {
-        console.log(`Using vector store ID: ${classConfig.vectorStoreId}`);
-      }
-      if (classConfig?.assistantId) {
-        console.log(`Using assistant ID: ${classConfig.assistantId}`);
-      }
+      console.log("flashcardService: Active class config for flashcard generation:", JSON.stringify(classConfig, null, 2));
       
-      // Call the Supabase Edge Function to generate flashcards with the class config
+      // Invoke the Supabase Edge Function.
+      // The Edge Function itself is responsible for using its own OPENAI_API_KEY from environment variables.
+      // We pass the classConfig (which contains assistantId and vectorStoreId) to the Edge Function.
       const { data, error } = await supabase.functions.invoke('generate-flashcards', {
         body: {
           title: params.title,
           cardCount: params.cardCount,
-          openAIConfig: classConfig // Pass the class-specific configuration
+          openAIConfig: classConfig // Pass the class-specific assistantId and vectorStoreId
         }
       });
 
       if (error) {
-        console.error("Error calling generate-flashcards function:", error);
+        console.error("flashcardService: Error calling 'generate-flashcards' Edge Function:", error);
         throw new Error(`Failed to generate flashcards: ${error.message}`);
       }
 
-      if (!data || !data.flashcards || data.flashcards.length === 0) {
-        throw new Error("No flashcards were generated. Please try again.");
-      }
-
-      // Verify we got exactly the right number of flashcards
-      if (data.flashcards.length !== params.cardCount) {
-        console.log(`Expected ${params.cardCount} flashcards but received ${data.flashcards.length}. Adjusting...`);
+      if (!data || !data.flashcards || !Array.isArray(data.flashcards)) {
+        console.error("flashcardService: Invalid or missing flashcards array in Edge Function response:", data);
+        throw new Error("No flashcards were generated or response format was invalid. Please try again.");
       }
       
-      console.log(`Received ${data.flashcards.length} flashcards from the API`);
-      return data.flashcards;
-    } catch (error: any) {
-      console.error("Error generating flashcards:", error);
-      
-      // Check specifically for connection issues
-      if (error.message?.includes("Failed to send a request") || 
-          error.message?.includes("Failed to fetch")) {
-        throw new Error("Unable to connect to the flashcard generation service. Please check your connection and try again.");
+      console.log(`flashcardService: Received ${data.flashcards.length} flashcards from the Edge Function.`);
+      return data.flashcards as FlashcardContent[]; // Assume Edge Function returns FlashcardContent[]
+    } catch (error: unknown) { // Changed 'any' to 'unknown' for better type safety
+      console.error("flashcardService: Error in generateDeck:", error);
+      if (error instanceof Error) { // Type guard
+        if (error.message?.includes("Failed to send a request") || 
+            error.message?.includes("Failed to fetch")) {
+          throw new Error("Unable to connect to the flashcard generation service. Please check your internet connection and try again.");
+        }
       }
-      
-      throw error;
+      throw error; // Re-throw the original error or a new one
     }
   },
 
   /**
    * Save a new deck to the database
+   * The Deck type now includes createdAt and updatedAt, so Omit needs to reflect that.
+   * id is auto-generated by the DB.
    */
-  saveDeck: async (deck: Omit<Deck, 'id' | 'updatedAt'>): Promise<Deck> => {
-    // Get the active class from session storage
-    const activeClass = sessionStorage.getItem('activeClass');
-    const classTitle = activeClass ? JSON.parse(activeClass).title : null;
-    
-    // Create an object with snake_case properties for the database
-    const dbDeck = {
+  saveDeck: async (deck: Omit<Deck, 'id' | 'createdAt' | 'updatedAt'>): Promise<Deck> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User must be logged in to save a deck.");
+
+    const activeClassDataString = sessionStorage.getItem('activeClass');
+    let classIdToSave: string | null = null;
+    if (activeClassDataString) {
+        try {
+            const parsedClass = JSON.parse(activeClassDataString);
+            classIdToSave = parsedClass.class_id || null; 
+        } catch (e) {
+            console.error("Error parsing activeClass from session storage in saveDeck", e);
+        }
+    }
+
+    // Payload for inserting into the 'flashcard-decks' table
+    const dbDeckPayload = {
       title: deck.title,
       description: deck.description,
       color: deck.color,
       card_count: deck.cardCount,
       due_cards: deck.dueCards,
       new_cards: deck.newCards,
-      user_id: deck.userId,
-      class_title: classTitle // Add class_title to associate with specific class
+      user_id: user.id,
+      class_id: classIdToSave, 
+      // created_at and updated_at will be set by the database (DEFAULT now())
     };
 
-    // Insert the deck into the database with explicit type assertion
     const { data, error } = await supabase
-      .from('decks')
-      .insert(dbDeck as any) // Use type assertion to bypass TypeScript's type checking
+      .from('flashcard-decks')
+      .insert(dbDeckPayload)
       .select()
-      .single();
+      .single<FlashcardDeckDBRow>();
 
     if (error) {
       console.error("Error saving deck:", error);
       throw new Error(`Failed to save deck: ${error.message}`);
     }
+    if (!data) {
+      throw new Error("Failed to save deck: No data returned from database.");
+    }
 
-    // Convert from snake_case database fields to camelCase for app use
-    const savedDeck: Deck = {
-      id: data.id,
+    // Map the DB row to the application's Deck type
+    return {
+      id: data.flashcard_deck_id,
       title: data.title,
       description: data.description,
       color: data.color,
       cardCount: data.card_count,
       dueCards: data.due_cards,
       newCards: data.new_cards,
-      updatedAt: new Date(data.updated_at),
+      createdAt: new Date(data.created_at), // Convert string to Date
+      updatedAt: new Date(data.updated_at), // Convert string to Date
       userId: data.user_id,
-      classTitle: data.class_title
+      classId: data.class_id
     };
-
-    return savedDeck;
   },
 
   /**
    * Save flashcards to the database for a deck
    */
   saveFlashcards: async (deckId: string, flashcards: FlashcardContent[]): Promise<void> => {
-    // Convert from application model to database model (camelCase to snake_case)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User must be logged in to save flashcards.");
+    
+    const activeClassDataString = sessionStorage.getItem('activeClass');
+    let classIdToSave: string | null = null;
+    if (activeClassDataString) {
+        try {
+            const parsedClass = JSON.parse(activeClassDataString);
+            classIdToSave = parsedClass.class_id || null;
+        } catch (e) {
+            console.error("Error parsing activeClass from session storage in saveFlashcards", e);
+        }
+    }
+
+    // Payload for inserting into the 'flashcards' table
     const flashcardsToInsert = flashcards.map(card => ({
-      deck_id: deckId,
+      flashcard_deck_id: deckId,
       front: card.front,
       back: card.back,
-      difficulty: 'medium',
-      next_review: new Date().toISOString(),
-      review_count: 0
+      difficulty: 'medium', 
+      next_review: new Date().toISOString(), // DB expects ISO string
+      review_count: 0,
+      user_id: user.id,
+      class_id: classIdToSave,
+      // created_at and updated_at will be set by the database
     }));
 
     const { error } = await supabase
       .from('flashcards')
-      .insert(flashcardsToInsert as any[]) // Use type assertion to avoid TypeScript errors
-      .select();
+      .insert(flashcardsToInsert);
 
     if (error) {
       console.error("Error saving flashcards:", error);
@@ -35186,21 +35213,33 @@ export const flashcardService = {
    * Fetch all decks from the database for the current active class
    */
   fetchDecks: async (): Promise<Deck[]> => {
-    // Get the active class from session storage
-    const activeClass = sessionStorage.getItem('activeClass');
-    const classTitle = activeClass ? JSON.parse(activeClass).title : null;
-    
-    // If no active class, return an empty array
-    if (!classTitle) {
-      console.log("No active class found, returning empty decks array");
-      return [];
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const activeClassDataString = sessionStorage.getItem('activeClass');
+    if (!activeClassDataString) {
+        console.log("fetchDecks: No active class in session storage.");
+        return [];
+    }
+    let activeClassId: string | null = null;
+    try {
+        const parsedClass = JSON.parse(activeClassDataString);
+        activeClassId = parsedClass.class_id || null;
+    } catch(e) {
+        console.error("fetchDecks: Error parsing activeClass from session storage", e);
+        return [];
+    }
+
+    if (!activeClassId) {
+        console.log("fetchDecks: No active class_id found.");
+        return [];
     }
     
-    // Fetch decks filtered by class_title
     const { data, error } = await supabase
-      .from('decks')
+      .from('flashcard-decks')
       .select('*')
-      .eq('class_title', classTitle)
+      .eq('user_id', user.id)
+      .eq('class_id', activeClassId)
       .order('updated_at', { ascending: false });
 
     if (error) {
@@ -35208,28 +35247,29 @@ export const flashcardService = {
       throw new Error(`Failed to fetch decks: ${error.message}`);
     }
 
-    return data.map(deck => ({
-      id: deck.id,
+    return (data || []).map((deck: FlashcardDeckDBRow): Deck => ({ // Explicit return type for map
+      id: deck.flashcard_deck_id,
       title: deck.title,
       description: deck.description,
       color: deck.color,
       cardCount: deck.card_count,
       dueCards: deck.due_cards,
       newCards: deck.new_cards,
+      createdAt: new Date(deck.created_at),
       updatedAt: new Date(deck.updated_at),
       userId: deck.user_id,
-      classTitle: deck.class_title
+      classId: deck.class_id
     }));
   },
   
   /**
    * Fetch flashcards for a specific deck
    */
-  fetchFlashcards: async (deckId: string) => {
+  fetchFlashcards: async (deckId: string): Promise<Flashcard[]> => {
     const { data, error } = await supabase
       .from('flashcards')
       .select('*')
-      .eq('deck_id', deckId)
+      .eq('flashcard_deck_id', deckId)
       .order('created_at', { ascending: true });
       
     if (error) {
@@ -35237,15 +35277,19 @@ export const flashcardService = {
       throw new Error(`Failed to fetch flashcards: ${error.message}`);
     }
     
-    return data.map(card => ({
-      id: card.id,
+    return (data || []).map((card: FlashcardDBRow): Flashcard => ({ // Explicit return type for map
+      id: card.flashcard_id,
+      deckId: card.flashcard_deck_id,
       front: card.front,
       back: card.back,
-      deckId: card.deck_id,
       difficulty: card.difficulty,
       nextReview: new Date(card.next_review),
-      lastReviewed: card.last_reviewed ? new Date(card.last_reviewed) : undefined,
-      reviewCount: card.review_count
+      lastReviewed: card.last_reviewed ? new Date(card.last_reviewed) : null,
+      reviewCount: card.review_count,
+      createdAt: new Date(card.created_at),
+      updatedAt: new Date(card.updated_at),
+      userId: card.user_id,
+      classId: card.class_id,
     }));
   },
   
@@ -35254,11 +35298,11 @@ export const flashcardService = {
    */
   deleteDeck: async (deckId: string): Promise<void> => {
     try {
-      // First delete all flashcards associated with this deck (cascade delete isn't automatic)
+      // First delete all flashcards associated with this deck
       const { error: flashcardsError } = await supabase
         .from('flashcards')
         .delete()
-        .eq('deck_id', deckId);
+        .eq('flashcard_deck_id', deckId);
       
       if (flashcardsError) {
         console.error("Error deleting flashcards:", flashcardsError);
@@ -35267,9 +35311,9 @@ export const flashcardService = {
       
       // Then delete the deck itself
       const { error: deckError } = await supabase
-        .from('decks')
+        .from('flashcard-decks')
         .delete()
-        .eq('id', deckId);
+        .eq('flashcard_deck_id', deckId);
       
       if (deckError) {
         console.error("Error deleting deck:", deckError);
@@ -35277,9 +35321,12 @@ export const flashcardService = {
       }
       
       console.log(`Successfully deleted deck ${deckId} and its flashcards`);
-    } catch (error: any) {
+    } catch (error: unknown) { // Changed 'any' to 'unknown'
       console.error("Error in deleteDeck:", error);
-      throw error;
+      if (error instanceof Error) { // Type guard
+        throw error;
+      }
+      throw new Error("An unknown error occurred during deck deletion.");
     }
   }
 };
@@ -35287,8 +35334,10 @@ export const flashcardService = {
 ================
 File: src/types/flashcard.ts
 ================
+// src/types/flashcard.ts
+
 /**
- * Single flashcard content (front and back)
+ * Single flashcard content (front and back) - typically for generation
  */
 export interface FlashcardContent {
   front: string;
@@ -35296,34 +35345,41 @@ export interface FlashcardContent {
 }
 
 /**
- * Flashcard schema for database and application use
+ * Flashcard schema for application use.
+ * Corresponds to the 'flashcards' table.
  */
 export interface Flashcard {
-  id: string;
+  id: string; // Maps to flashcard_id (PK)
+  deckId: string; // Maps to flashcard_deck_id (FK)
   front: string;
   back: string;
-  deckId: string;
   difficulty: string;
-  nextReview: Date;
-  lastReviewed?: Date;
-  reviewCount?: number;
+  nextReview: Date; // Will be converted from DB string
+  lastReviewed?: Date | null; // Will be converted from DB string
+  reviewCount: number | null;
+  createdAt: Date; // Will be converted from DB string
+  updatedAt: Date; // Will be converted from DB string
+  userId?: string | null;
+  classId?: string | null; // Foreign key to classes table
 }
 
 /**
- * Deck schema for database and application use
+ * Deck schema for application use.
+ * Corresponds to the 'flashcard-decks' table.
  */
 export interface Deck {
-  id: string;
+  id: string; // Maps to flashcard_deck_id (PK)
   title: string;
   description: string;
-  userId?: string;
-  updatedAt: Date;
   color: string;
-  cardCount: number;
-  dueCards: number;
-  newCards: number;
-  cards?: Flashcard[];
-  classTitle?: string; // Add class title to the Deck interface
+  cardCount: number; // maps to card_count
+  dueCards: number; // maps to due_cards
+  newCards: number; // maps to new_cards
+  createdAt: Date; // Will be converted from DB string
+  updatedAt: Date; // Will be converted from DB string
+  userId?: string | null;
+  classId?: string | null; // Foreign key to classes table
+  cards?: Flashcard[]; // Optional array of flashcards belonging to this deck
 }
 
 /**
@@ -35486,11 +35542,12 @@ File: src/App.css
 ================
 File: src/App.tsx
 ================
+// src/App.tsx
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AuthGuard } from "./components/auth/AuthGuard";
 import { WidgetsProvider } from "./hooks/use-widgets";
@@ -35499,10 +35556,12 @@ import SuperTutor from "./pages/SuperTutor";
 import AuthPage from "./pages/AuthPage";
 import AccountPage from "./pages/AccountPage";
 import NotFound from "./pages/NotFound";
-import DatabasePage from "./pages/DatabasePage";
+// Correctly import FilesPage.tsx from the features directory
+import DatabaseFeaturePage from "./features/files/pages/FilesPage"; 
 import FlashcardsPage from "./pages/FlashcardsPage";
 import QuizzesPage from "./pages/QuizzesPage";
 import QuizSessionPage from "./pages/QuizSessionPage";
+import React from "react";
 
 const queryClient = new QueryClient();
 
@@ -35516,20 +35575,21 @@ const App = () => (
           <Routes>
             {/* Public routes */}
             <Route path="/auth" element={<AuthPage />} />
-            
+
             {/* Protected routes */}
             <Route element={<AuthGuard />}>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<HomePage key="home-main" />} />
                 <Route path="/super-stu" element={<SuperTutor />} />
-                <Route path="/database" element={<DatabasePage />} />
+                {/* Use the correctly imported page for the /database route */}
+                <Route path="/database" element={<DatabaseFeaturePage />} /> 
                 <Route path="/flashcards" element={<FlashcardsPage />} />
                 <Route path="/quizzes" element={<QuizzesPage />} />
                 <Route path="/quizzes/:quizId" element={<QuizSessionPage />} />
                 <Route path="/account" element={<AccountPage />} />
               </Route>
             </Route>
-            
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
@@ -35633,6 +35693,8 @@ File: src/index.css
 ================
 File: src/main.tsx
 ================
+console.log("--- MAIN.TSX IS LOADING ---"); // ADD THIS LINE
+
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
@@ -35675,53 +35737,23 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const ASSISTANT_RUN_TIMEOUT = 45000;
+const ASSISTANT_RUN_TIMEOUT = 45000; 
 
-// OpenAI Annotation Types
-interface FileCitationAnnotation {
-  type: "file_citation";
-  text: string; // The text in the message content that refers to this annotation
-  start_index: number;
-  end_index: number;
-  file_citation: { file_id: string; quote?: string; };
-}
-interface FilePathAnnotation {
-  type: "file_path";
-  text: string; // The text in the message content that refers to this annotation
-  start_index: number;
-  end_index: number;
-  file_path: { file_id: string; };
-}
+interface FileCitation { file_id: string; quote?: string; }
+interface FilePath { file_id: string; }
+interface FileCitationAnnotation { type: "file_citation"; text: string; start_index: number; end_index: number; file_citation: FileCitation; }
+interface FilePathAnnotation { type: "file_path"; text: string; start_index: number; end_index: number; file_path: FilePath; }
 type Annotation = FileCitationAnnotation | FilePathAnnotation;
-
-// OpenAI Message object types
-interface OpenAIMessageContentText {
-    type: "text";
-    text: {
-        value: string;
-        annotations: Annotation[];
-    };
-}
+interface OpenAIMessageContentText { type: "text"; text: { value: string; annotations: Annotation[]; }; }
 type OpenAIMessageContent = OpenAIMessageContentText;
+interface OpenAIMessage { id: string; object: string; created_at: number; thread_id: string; status?: "in_progress" | "incomplete" | "completed"; role: "user" | "assistant"; content: OpenAIMessageContent[]; assistant_id?: string | null; run_id?: string | null; attachments?: unknown[] | null; metadata?: Record<string, unknown> | null; }
+interface OpenAIThread { id: string; }
+interface OpenAIRun { id: string; status: 'queued' | 'in_progress' | 'cancelling' | 'completed' | 'failed' | 'expired' | 'requires_action'; last_error?: { message?: string } | null; }
+interface OpenAIMessagesList { data?: OpenAIMessage[]; }
+interface OpenAIChatCompletionChoice { message: { content: string; }; }
+interface OpenAIChatCompletion { choices: OpenAIChatCompletionChoice[]; }
 
-interface MessageAttachmentToolCodeInterpreter { type: "code_interpreter"; }
-interface MessageAttachmentToolFileSearch { type: "file_search"; }
-type MessageAttachmentTool = MessageAttachmentToolCodeInterpreter | MessageAttachmentToolFileSearch;
-interface MessageAttachment {
-    file_id: string;
-    tools: MessageAttachmentTool[];
-}
-interface OpenAIMessage {
-    id: string; object: string; created_at: number; thread_id: string;
-    status?: "in_progress" | "incomplete" | "completed";
-    role: "user" | "assistant";
-    content: OpenAIMessageContent[];
-    assistant_id?: string | null; run_id?: string | null;
-    attachments?: MessageAttachment[] | null;
-    metadata?: Record<string, string | number | boolean | null> | null;
-}
-
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -35743,33 +35775,38 @@ serve(async (req) => {
     const assistantId = openAIConfig.assistantId;
     const vectorStoreId = openAIConfig.vectorStoreId;
 
-    console.log(`Chat request for: "${knowledgeBase}". AssistantID: ${assistantId || 'N/A'}`);
+    console.log(`[CHAT_FN] Request for: "${knowledgeBase}". AssistantID: ${assistantId || 'N/A'}`);
 
     const citationInstructions = `
-      When you use information from provided files, your response will contain annotations.
-      These annotations will be automatically replaced by the system with proper citations in the format (filename.pdf).
-      Focus on answering the question accurately using the file content. Do NOT include markdown like italics or bold in the citation part.
+      When you use information from provided files, your response will contain annotations like 【1:0†source】 or similar.
+      These annotations will be automatically replaced by the system with proper citations.
+      If a file URL is available, the citation will be a Markdown link like [filename.pdf](file_url).
+      If a file URL is not available, the citation will be like (filename.pdf).
+      Focus on answering the question accurately using the file content. 
+      Do NOT add any markdown styling (like italics or bold) to the annotation placeholders (e.g., do not write *【1:0†source】*).
       You do not need to manually create citation strings or include raw file paths in your narrative text.
     `;
+
+    const assistantBaseInstructions = `You are an AI Tutor for the class: "${knowledgeBase}". ${citationInstructions} Please be helpful and clear. When presenting lists or multiple points, use markdown formatting such as bullet points (-) or numbered lists (1., 2.) for better readability.`;
 
     if (assistantId) {
       try {
         const threadResponse = await fetch('https://api.openai.com/v1/threads', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'assistants=v2' },
-          body: JSON.stringify({ messages: [...history.map(h => ({ role: h.role, content: h.content })), { role: 'user', content: message }] }),
+          body: JSON.stringify({ messages: [...history.map((h: {role: string, content: string}) => ({ role: h.role, content: h.content })), { role: 'user', content: message }] }),
         });
         if (!threadResponse.ok) throw new Error(`Failed to create assistant thread: ${await threadResponse.text()}`);
-        const thread = await threadResponse.json();
+        const thread = await threadResponse.json() as OpenAIThread;
         const threadId = thread.id;
 
         const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'assistants=v2' },
-          body: JSON.stringify({ assistant_id: assistantId, instructions: `You are an AI Tutor for the class: "${knowledgeBase}". ${citationInstructions} Please be helpful and clear.` }),
+          body: JSON.stringify({ assistant_id: assistantId, instructions: assistantBaseInstructions }),
         });
         if (!runResponse.ok) throw new Error(`Failed to run assistant: ${await runResponse.text()}`);
-        let run = await runResponse.json();
+        let run = await runResponse.json() as OpenAIRun;
 
         const startTime = Date.now();
         while (['queued', 'in_progress', 'cancelling'].includes(run.status)) {
@@ -35780,7 +35817,7 @@ serve(async (req) => {
           await new Promise(resolve => setTimeout(resolve, 1500));
           const runStatusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${run.id}`, { headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' } });
           if (!runStatusResponse.ok) throw new Error(`Failed to check assistant run status: ${await runStatusResponse.text()}`);
-          run = await runStatusResponse.json();
+          run = await runStatusResponse.json() as OpenAIRun;
         }
 
         if (run.status === 'completed') {
@@ -35788,9 +35825,10 @@ serve(async (req) => {
             headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' },
           });
           if (!messagesResponse.ok) throw new Error(`Failed to get assistant messages: ${await messagesResponse.text()}`);
-          const messagesData = await messagesResponse.json();
+          const messagesData = await messagesResponse.json() as OpenAIMessagesList;
+          
           let assistantMessageContent = "";
-          const latestAssistantMessages = (messagesData.data as OpenAIMessage[])?.filter((msg: OpenAIMessage) => msg.role === 'assistant');
+          const latestAssistantMessages = messagesData.data?.filter((msg: OpenAIMessage) => msg.role === 'assistant');
 
           if (latestAssistantMessages && latestAssistantMessages.length > 0) {
             const latestMsg = latestAssistantMessages[0];
@@ -35798,58 +35836,74 @@ serve(async (req) => {
               let rawText = latestMsg.content[0].text.value;
               const annotations: Annotation[] = latestMsg.content[0].text.annotations || [];
               
-              // Create a list of replacements to apply, sorted by start_index to handle overlaps correctly if any (though unlikely for citations)
-              const replacements = [];
+              const replacements: {start: number, end: number, text: string}[] = [];
               for (const annotation of annotations) {
                 let openAIFileId: string | undefined;
                 if (annotation.type === "file_citation") openAIFileId = annotation.file_citation.file_id;
                 else if (annotation.type === "file_path") openAIFileId = annotation.file_path.file_id;
 
                 if (openAIFileId) {
-                  console.log(`Processing annotation for OpenAI File ID: ${openAIFileId}, Original annotation text: "${annotation.text}" (Indices: ${annotation.start_index}-${annotation.end_index})`);
+                  console.log(`[CHAT_FN] Processing annotation for OpenAI File ID: ${openAIFileId}, Original text: "${annotation.text}"`);
                   const { data: fileData, error: dbError } = await supabaseAdminClient
                     .from('files')
-                    .select('name') // Only need the filename
+                    .select('name, url') 
                     .eq('openai_file_id', openAIFileId)
                     .single();
+                  
+                  console.log(`[CHAT_FN] DB result for ${openAIFileId} - Name: ${fileData?.name}, URL from DB: "${fileData?.url}", Error: ${dbError?.message}`);
 
-                  let citationText = `(Source File ID: ${openAIFileId})`; // Fallback
-                  if (dbError) {
-                    console.error(`DB lookup error for OpenAI file ID ${openAIFileId}:`, dbError.message);
-                  } else if (fileData && fileData.name) {
-                    citationText = `(${fileData.name})`; // Desired format: (filename.pdf)
-                    console.log(`Constructed citation for ${openAIFileId}: ${citationText}`);
+                  let citationText = `(${annotation.text.trim() || `Source: ${openAIFileId}`})`; // Default fallback with parentheses
+
+                  if (!dbError && fileData && fileData.name) {
+                    let urlForLink = fileData.url;
+                    if (urlForLink) {
+                      // ** MORE DIRECT URL HOTFIX **
+                      // Replace both encoded and unencoded forms of <em> if they corrupt 'file_storage'
+                      urlForLink = urlForLink.replace(/file%3Cem%3Estorage/g, 'file_storage')
+                                             .replace(/file%3C\/em%3Estorage/g, 'file_storage') // Handle if slash is also encoded
+                                             .replace(/file<em>storage/g, 'file_storage');
+                      
+                      console.log(`[CHAT_FN] URL after potential hotfix: "${urlForLink}"`);
+                      citationText = `([${fileData.name}](${urlForLink}))`; // Wrap Markdown link in parentheses
+                    } else {
+                      citationText = `(${fileData.name})`; 
+                      console.warn(`[CHAT_FN] File record for OpenAI file ID ${openAIFileId} has NO URL. Citation: ${citationText}`);
+                    }
+                  } else if (dbError) {
+                    console.error(`[CHAT_FN] DB lookup error for OpenAI file ID ${openAIFileId}:`, dbError.message);
                   } else {
-                     console.warn(`No file record or filename found in DB for OpenAI file ID ${openAIFileId}. Using fallback citation.`);
+                     console.warn(`[CHAT_FN] No file record or name in DB for OpenAI file ID ${openAIFileId}. Fallback citation: ${citationText}`);
                   }
-                  replacements.push({
-                    start: annotation.start_index,
-                    end: annotation.end_index,
-                    text: citationText
-                  });
+                  replacements.push({ start: annotation.start_index, end: annotation.end_index, text: ` ${citationText} ` });
                 }
               }
-
-              // Sort replacements by start_index in descending order to apply them without messing up indices
               replacements.sort((a, b) => b.start - a.start);
-
               for (const rep of replacements) {
                 rawText = rawText.substring(0, rep.start) + rep.text + rawText.substring(rep.end);
               }
               
-              // Final cleanup of any remaining OpenAI-specific citation prefixes like "【d+:d†" or "d:d†"
-              // Also, clean up any markdown italics that might be surrounding our newly inserted plain text citation.
-              // This regex looks for _(filename.pdf)_ or *(filename.pdf)* and removes the underscores/asterisks.
-              assistantMessageContent = rawText.replace(/【\s*\d+:\d+†\s*|\s*\d+:\d+†\s*/g, ' '); // Replace prefix with a space
-              assistantMessageContent = assistantMessageContent.replace(/([_*])\(([^)]+\.pdf)\)\1/g, '($2)'); // Remove italics around (filename.pdf)
-              assistantMessageContent = assistantMessageContent.replace(/\s+/g, ' ').trim(); // Normalize multiple spaces
+              assistantMessageContent = rawText; 
+              assistantMessageContent = assistantMessageContent.replace(/【\s*\d+:\d+†(?:source)?\s*】/g, ''); 
+              
+              // Simplified italic/bold cleanup: remove them if they are directly around our generated citations.
+              // This is less aggressive and relies more on the AI not adding them in the first place.
+              assistantMessageContent = assistantMessageContent.replace(/\*([(\[][^)]*?[)\]])\*/g, '$1'); // For * (citation) * or * [citation](url) *
+              assistantMessageContent = assistantMessageContent.replace(/_([(\[][^)]*?[)\]])_/g, '$1'); // For _ (citation) _ or _ [citation](url) _
+
+              assistantMessageContent = assistantMessageContent.replace(/(\[[^\]]+\]\([^)]+\))\s*\|\s*\1/gi, '$1');
+              assistantMessageContent = assistantMessageContent.replace(/(\([^)]+\.(?:pdf|docx?|pptx?|txt))\)\s*\|\s*\1/gi, '$1');
+              
+              assistantMessageContent = assistantMessageContent.replace(/[ \t]{2,}/g, ' '); 
+              assistantMessageContent = assistantMessageContent.replace(/\n\s*\n/g, '\n\n'); 
+              assistantMessageContent = assistantMessageContent.trim(); 
             }
           }
 
           if (!assistantMessageContent && latestAssistantMessages && latestAssistantMessages.length > 0 && latestAssistantMessages[0].content[0]?.type === 'text') {
              assistantMessageContent = latestAssistantMessages[0].content[0].text.value || "[Could not retrieve citation details]";
           } else if (!assistantMessageContent) {
-            throw new Error('No assistant response content received.');
+            console.warn("No textual assistant message content was derived after processing.");
+            assistantMessageContent = "[Assistant provided a non-text response or text processing resulted in empty content]";
           }
 
           return new Response(JSON.stringify({ response: assistantMessageContent, assistantId: assistantId, vectorStoreId: vectorStoreId, usedAssistant: true }),
@@ -35863,9 +35917,9 @@ serve(async (req) => {
       }
     }
 
-    // Fallback to standard Chat Completions API
+    // Fallback logic ...
     console.log("Using fallback Chat Completions API.");
-    let systemMessageContent = `You are a helpful AI Tutor. The user is asking about "${knowledgeBase}". Provide clear and concise explanations.`;
+    let systemMessageContent = `You are a helpful AI Tutor. The user is asking about "${knowledgeBase}". Provide clear and concise explanations. When presenting lists or multiple points, use markdown formatting such as bullet points (-) or numbered lists (1., 2.) for better readability.`;
     if (assistantId) systemMessageContent += ` (Note: An attempt to use a specialized class assistant (ID: ${assistantId}) failed.)`;
     else systemMessageContent += ` (Note: No specific class assistant was configured.)`;
 
@@ -35875,17 +35929,22 @@ serve(async (req) => {
       body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: systemMessageContent }, ...history, { role: 'user', content: message }], temperature: 0.7 }),
     });
     if (!fallbackResponse.ok) throw new Error(`Fallback OpenAI API error: ${fallbackResponse.status}. ${await fallbackResponse.text()}`);
-    const fallbackData = await fallbackResponse.json();
-    const fallbackMessageContent = fallbackData.choices?.[0]?.message?.content;
+    const fallbackData = await fallbackResponse.json() as OpenAIChatCompletion;
+    let fallbackMessageContent = fallbackData.choices?.[0]?.message?.content || ""; 
     if (!fallbackMessageContent) throw new Error('Invalid response from fallback OpenAI API');
+    
+    fallbackMessageContent = fallbackMessageContent.replace(/[ \t]{2,}/g, ' ');
+    fallbackMessageContent = fallbackMessageContent.replace(/\n{3,}/g, '\n\n');
+    fallbackMessageContent = fallbackMessageContent.trim();
 
     return new Response(JSON.stringify({ response: fallbackMessageContent, assistantId: assistantId, vectorStoreId: vectorStoreId, usedAssistant: false, usedFallback: true }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Critical error in chat function:', error);
-    return new Response(JSON.stringify({ error: error.message }),
-      { status: error.message.includes("required") || error.message.includes("OpenAI API key") || error.message.includes("Supabase connection") ? 400 : 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+    return new Response(JSON.stringify({ error: errorMessage }),
+      { status: errorMessage.includes("required") || errorMessage.includes("OpenAI API key") || errorMessage.includes("Supabase connection") ? 400 : 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
 
@@ -36039,157 +36098,227 @@ serve(async (req)=>{
 ================
 File: supabase/functions/generate-flashcards/index.ts
 ================
+// supabase/functions/generate-flashcards/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { corsHeaders } from "../_shared/cors.ts"; // Ensure this path is correct
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ASSISTANT_RUN_TIMEOUT = 60000; 
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+interface FlashcardContent {
+  front: string;
+  back: string;
+}
+
+interface RequestBody {
+  title: string;
+  cardCount?: number;
+  openAIConfig?: {
+    assistantId?: string;
+  };
+}
+
+interface OpenAIThread { id: string; }
+interface OpenAIRun {
+  id: string;
+  status: 'queued' | 'in_progress' | 'cancelling' | 'completed' | 'failed' | 'expired' | 'requires_action';
+  last_error?: { message?: string } | null;
+}
+interface OpenAIMessageContentText { type: "text"; text: { value: string; annotations: unknown[]; };}
+interface OpenAIMessage { id: string; role: 'user' | 'assistant'; content: OpenAIMessageContentText[]; }
+interface OpenAIMessagesList { data?: OpenAIMessage[]; }
+interface OpenAIChatCompletionChoice { message: { content: string; }; }
+interface OpenAIChatCompletion { choices: OpenAIChatCompletionChoice[]; }
+interface ParsedFlashcardResponse { flashcards: FlashcardContent[]; }
+type ParsedFlashcardArrayResponse = FlashcardContent[];
+
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { title, cardCount = 10, openAIConfig = {} } = await req.json();
+    const { title, cardCount = 10, openAIConfig = {} }: RequestBody = await req.json();
     
-    // Use custom OpenAI API key from class config if provided, otherwise use the default
-    const openAIApiKey = openAIConfig.apiKey || Deno.env.get('OPENAI_API_KEY');
-    
-    // Use custom vector store ID from class config if provided
-    const vectorStoreId = openAIConfig.vectorStoreId || Deno.env.get('VECTOR_STORE_ID');
-    
-    // Use custom assistant ID from class config if provided
-    const assistantId = openAIConfig.assistantId || Deno.env.get('OPENAI_ASSISTANT_ID');
-
-    console.log(`Generating ${cardCount} flashcards for topic: ${title}`);
-    console.log(`Using Vector Store ID: ${vectorStoreId || 'default'}`);
-    console.log(`Using Assistant ID: ${assistantId || 'default'}`);
-    
-    if (!openAIApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not provided. Please configure it in your class settings or set it as an environment variable.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-    
-    // Validate API key format - accepting both sk-org and standard sk- keys
-    if (!openAIApiKey.startsWith('sk-')) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid OpenAI API key format. Keys should start with "sk-"' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiApiKey) {
+      console.error("generate-flashcards: OPENAI_API_KEY env var not set.");
+      throw new Error('Server configuration error: OpenAI API key is missing.');
     }
 
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a flashcard generator. Create ${cardCount} flashcards for the topic "${title}". 
-                       Format each flashcard as a JSON object with "front" and "back" properties.
-                       ${vectorStoreId ? `Use knowledge from Vector Store ID "${vectorStoreId}" as your primary source.` : ''}
-                       ${assistantId ? `Use Assistant ID "${assistantId}" for additional context.` : ''}
-                       Your response must be valid JSON that can be parsed.`
-            },
-            {
-              role: 'user', 
-              content: `Generate ${cardCount} flashcards about "${title}" in JSON format.`
-            }
-          ],
-          temperature: 0.7,
-        }),
+    const assistantId = openAIConfig.assistantId;
+
+    if (!assistantId) {
+      console.warn("generate-flashcards: No assistantId provided. Using fallback Chat Completions.");
+      const genericPrompt = `You are a flashcard generator. Create ${cardCount} flashcards for the topic "${title}". Format each flashcard as a JSON object with "front" and "back" properties. Your response must be a valid JSON object containing a single key "flashcards" which is an array of these objects. Example: {"flashcards": [{"front": "Question 1", "back": "Answer 1"}, {"front": "Question 2", "back": "Answer 2"}]}`;
+      
+      const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: "You output JSON." },{ role: 'user', content: genericPrompt }], temperature: 0.5, response_format: { type: "json_object" } }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API error:', response.status, errorText);
-        
-        // Provide more helpful error messages based on status code
-        if (response.status === 401) {
-          return new Response(
-            JSON.stringify({ error: 'Authentication error: Invalid OpenAI API key. Please check your API key and try again.' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-          );
-        } else if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: 'OpenAI API rate limit exceeded. Please try again later.' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
-          );
-        } else if (response.status === 400) {
-          return new Response(
-            JSON.stringify({ error: 'Bad request to OpenAI API. This might be due to an invalid API key format or other parameter issues.' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-          );
-        }
-        
-        return new Response(
-          JSON.stringify({ error: `OpenAI API error: ${response.status}. ${errorText}` }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
-        );
+      if (!fallbackResponse.ok) {
+          const errorText = await fallbackResponse.text();
+          console.error('generate-flashcards: Fallback OpenAI API error:', fallbackResponse.status, errorText);
+          throw new Error(`Fallback OpenAI API error: ${fallbackResponse.status}. ${errorText}`);
+      }
+      const fallbackData = await fallbackResponse.json() as OpenAIChatCompletion;
+      let flashcards: FlashcardContent[] = [];
+      try {
+          const messageContent = fallbackData.choices[0]?.message?.content;
+          if (!messageContent) {
+            throw new Error("No content in fallback AI response.");
+          }
+          const parsedContent = JSON.parse(messageContent) as ParsedFlashcardResponse | ParsedFlashcardArrayResponse;
+
+          if ('flashcards' in parsedContent && Array.isArray(parsedContent.flashcards)) {
+               flashcards = parsedContent.flashcards.map((card: FlashcardContent) => ({
+                  front: card.front || `Question about ${title}`,
+                  back: card.back || "Answer not available"
+              }));
+          } else if (Array.isArray(parsedContent)) { 
+               flashcards = parsedContent.map((card: FlashcardContent) => ({
+                  front: card.front || `Question about ${title}`,
+                  back: card.back || "Answer not available"
+              }));
+          } else {
+            throw new Error("Fallback AI response did not follow the expected JSON format (expected an object with a 'flashcards' array or a direct array of flashcards).");
+          }
+      } catch (e) {
+          const error = e as Error;
+          console.error("generate-flashcards: Error parsing fallback JSON", error.message, fallbackData.choices[0]?.message?.content);
+          throw new Error(`Could not parse flashcards from fallback AI response: ${error.message}`);
+      }
+      return new Response(JSON.stringify({ flashcards }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    console.log(`generate-flashcards: Using Assistant ID: ${assistantId} for topic: "${title}", count: ${cardCount}`);
+
+    const threadResponse = await fetch('https://api.openai.com/v1/threads', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'assistants=v2' },
+      body: JSON.stringify({}),
+    });
+    if (!threadResponse.ok) throw new Error(`Failed to create assistant thread: ${await threadResponse.text()}`);
+    const thread = await threadResponse.json() as OpenAIThread;
+    const threadId = thread.id;
+    console.log(`generate-flashcards: Created thread ID: ${threadId}`);
+
+    const userMessageContent = `Generate ${cardCount} flashcards on the topic "${title}".
+The flashcards should be based on the materials provided for this class.
+Format your response as a valid JSON object containing a single key "flashcards" which is an array of objects.
+Each object in the "flashcards" array should have two properties: "front" (for the question or term) and "back" (for the answer or definition).
+Example: {"flashcards": [{"front": "What is the capital of France?", "back": "Paris"}, {"front": "Define mitosis.", "back": "A type of cell division..."}]}`;
+
+    await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'assistants=v2' },
+      body: JSON.stringify({ role: 'user', content: userMessageContent }),
+    });
+    console.log(`generate-flashcards: Added message to thread ${threadId}`);
+
+    const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'assistants=v2' },
+      body: JSON.stringify({
+        assistant_id: assistantId,
+        instructions: `You are an expert flashcard generator. Please generate ${cardCount} flashcards for the topic "${title}" based on the provided class materials. Output the flashcards in the specified JSON format: {"flashcards": [{"front": "...", "back": "..."}, ...]}. Ensure the content is accurate and relevant to the topic, drawing from the documents you have access to.`
+      }),
+    });
+    if (!runResponse.ok) throw new Error(`Failed to run assistant: ${await runResponse.text()}`);
+    let run = await runResponse.json() as OpenAIRun;
+    console.log(`generate-flashcards: Created run ID: ${run.id} for thread ${threadId}`);
+
+    const startTime = Date.now();
+    while (['queued', 'in_progress', 'cancelling'].includes(run.status)) {
+      if (Date.now() - startTime > ASSISTANT_RUN_TIMEOUT) {
+        await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${run.id}/cancel`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' }
+        });
+        throw new Error('Flashcard generation timed out.');
+      }
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const runStatusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${run.id}`, {
+        headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' }
+      });
+      if (!runStatusResponse.ok) throw new Error(`Failed to check assistant run status: ${await runStatusResponse.text()}`);
+      run = await runStatusResponse.json() as OpenAIRun;
+      console.log(`generate-flashcards: Run ${run.id} status: ${run.status}`);
+    }
+
+    if (run.status !== 'completed') {
+      throw new Error(`Flashcard generation failed. Status: ${run.status}. ${run.last_error?.message || ''}`);
+    }
+
+    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages?order=desc&limit=1`, {
+      headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' },
+    });
+    if (!messagesResponse.ok) throw new Error(`Failed to get assistant messages: ${await messagesResponse.text()}`);
+    const messagesData = await messagesResponse.json() as OpenAIMessagesList;
+    
+    const assistantMessages = messagesData.data?.filter((msg: OpenAIMessage) => msg.role === 'assistant');
+    if (!assistantMessages || assistantMessages.length === 0 || !assistantMessages[0].content[0]?.text?.value) {
+      throw new Error('No response content from assistant.');
+    }
+
+    const rawOutputFromAssistant = assistantMessages[0].content[0].text.value;
+    console.log("generate-flashcards: Raw output from assistant:", rawOutputFromAssistant);
+
+    let flashcards: FlashcardContent[] = [];
+    // **MODIFICATION: Initialize jsonStringToParse at declaration**
+    let jsonStringToParse: string = rawOutputFromAssistant; // Default to raw output, will be refined
+
+    try {
+      const jsonRegex = /```json\s*([\s\S]*?)\s*```/; 
+      const match = rawOutputFromAssistant.match(jsonRegex);
+      
+      if (match && match[1]) {
+        jsonStringToParse = match[1]; // Assign extracted JSON if match found
+        console.log("generate-flashcards: Extracted JSON string:", jsonStringToParse);
+      } else {
+        // If no markdown block is found, jsonStringToParse already holds rawOutputFromAssistant (from initialization)
+        console.warn("generate-flashcards: Markdown JSON block not found in assistant response. Attempting to parse entire response.");
       }
 
-      const data = await response.json();
-      
-      // Ensure we have a valid response
-      if (!data || !data.choices || !data.choices.length || !data.choices[0].message) {
-        throw new Error('Invalid response from OpenAI API');
+      const parsedJson = JSON.parse(jsonStringToParse) as ParsedFlashcardResponse | ParsedFlashcardArrayResponse;
+      if ('flashcards' in parsedJson && Array.isArray(parsedJson.flashcards)) { 
+        flashcards = parsedJson.flashcards.map((card: FlashcardContent) => ({ 
+            front: card.front || `Question about ${title}`, 
+            back: card.back || "Answer not available"     
+        }));
+      } else if (Array.isArray(parsedJson)) { 
+        flashcards = parsedJson.map((card: FlashcardContent) => ({ 
+            front: card.front || `Question about ${title}`,
+            back: card.back || "Answer not available"
+        }));
       }
-      
-      // Process the response to extract flashcards
-      const content = data.choices[0].message.content;
-      
-      // Extract the JSON array from the content
-      let flashcards = [];
-      try {
-        // Find anything that looks like a JSON array in the response
-        const jsonMatch = content.match(/\[\s*{[\s\S]*}\s*\]/);
-        if (jsonMatch) {
-          flashcards = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error('Could not find valid JSON in response');
-        }
-      } catch (jsonError) {
-        console.error('Error parsing flashcards JSON:', jsonError);
-        throw new Error('Unable to parse flashcards from AI response');
+      else {
+        console.error("generate-flashcards: Parsed JSON does not contain a 'flashcards' array or is not an array itself.", parsedJson);
+        throw new Error("AI response did not follow the expected JSON format after extraction.");
       }
-      
-      // Validate the flashcard format
-      const validatedFlashcards = flashcards.map(card => ({
-        front: card.front || `Question about ${title}`,
-        back: card.back || "Answer not available"
-      }));
-      
-      return new Response(
-        JSON.stringify({ 
-          flashcards: validatedFlashcards,
-          vectorStoreId,
-          assistantId 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } catch (apiError) {
-      console.error('OpenAI API request failed:', apiError);
-      return new Response(
-        JSON.stringify({ error: `Failed to communicate with OpenAI API: ${apiError.message}` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
+    } catch (e) {
+      const error = e as Error;
+      // jsonStringToParse will have a value here for logging
+      console.error("generate-flashcards: Error parsing JSON from assistant response:", error.message, "\nAttempted to parse:", jsonStringToParse);
+      throw new Error(`Could not parse flashcards from AI response. The format might be incorrect: ${error.message}`);
     }
-  } catch (error) {
-    console.error('Error:', error);
+    
+    console.log(`generate-flashcards: Successfully generated and parsed ${flashcards.length} flashcards.`);
     return new Response(
-      JSON.stringify({ error: error.message || 'An unexpected error occurred' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ flashcards }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error: unknown) {
+    console.error('generate-flashcards: Critical error in function:', error);
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { 
+        status: errorMessage.includes("required") || errorMessage.includes("OpenAI API key") || errorMessage.includes("assistantId") ? 400 : 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
   }
 });
@@ -36197,229 +36326,261 @@ serve(async (req) => {
 ================
 File: supabase/functions/generate-quiz/index.ts
 ================
+// supabase/functions/generate-quiz/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { corsHeaders } from "../_shared/cors.ts"; // Ensure this path is correct
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ASSISTANT_RUN_TIMEOUT = 90000; // Increased timeout, quiz generation can be complex
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+// --- Type Definitions ---
+interface QuizQuestion {
+  question_text: string; // Ensure this matches the expected output from AI
+  options: string[];
+  correct_answer_index: number;
+  explanation: string;
+}
+
+interface RequestBody {
+  topic: string;
+  questionCount?: number;
+  difficulty?: string;
+  coverage?: string;
+  openAIConfig?: {
+    assistantId?: string;
+    // vectorStoreId is implicitly used by the assistant if configured
+  };
+  useRAG?: boolean; // This might be redundant if assistantId implies RAG
+}
+
+interface OpenAIThread { id: string; }
+interface OpenAIRun {
+  id: string;
+  status: 'queued' | 'in_progress' | 'cancelling' | 'completed' | 'failed' | 'expired' | 'requires_action';
+  last_error?: { message?: string } | null;
+}
+interface OpenAIMessageContentText { type: "text"; text: { value: string; annotations: unknown[]; };}
+interface OpenAIMessage { id: string; role: 'user' | 'assistant'; content: OpenAIMessageContentText[]; }
+interface OpenAIMessagesList { data?: OpenAIMessage[]; }
+
+// For Chat Completions fallback
+interface OpenAIChatCompletionChoice { message: { content: string; }; }
+interface OpenAIChatCompletion { choices: OpenAIChatCompletionChoice[]; }
+
+// Expected structure from AI (for both Assistant and fallback)
+interface AIParsedQuizResponse {
+    questions: QuizQuestion[];
+    // The AI might not directly return timeEstimate, we calculate it.
+}
+
+
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { topic, questionCount = 10, difficulty = "medium", coverage = "comprehensive", openAIConfig = {}, useRAG = true } = await req.json();
+    const { 
+      topic, 
+      questionCount = 10, 
+      difficulty = "medium", 
+      coverage = "comprehensive", 
+      openAIConfig = {} 
+    }: RequestBody = await req.json();
     
     if (!topic) {
-      return new Response(
-        JSON.stringify({ error: 'Topic is required' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+      throw new Error('Topic is required');
     }
 
-    // Use custom OpenAI API key from class config if provided, otherwise use the default
-    const openAIApiKey = openAIConfig.apiKey || Deno.env.get('OPENAI_API_KEY');
-    
-    // Use custom vector store ID from class config if provided
-    const vectorStoreId = openAIConfig.vectorStoreId || Deno.env.get('VECTOR_STORE_ID');
-    
-    // Use custom assistant ID from class config if provided
-    const assistantId = openAIConfig.assistantId || Deno.env.get('OPENAI_ASSISTANT_ID');
-
-    console.log(`Generating ${questionCount} quiz questions for topic: ${topic}`);
-    console.log(`Using Vector Store ID: ${vectorStoreId || 'default'}`);
-    console.log(`Using Assistant ID: ${assistantId || 'default'}`);
-    
-    if (!openAIApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not provided. Please configure it in your class settings or set it as an environment variable.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-    
-    // Validate API key format - accepting both sk-org and standard sk- keys
-    if (!openAIApiKey.startsWith('sk-')) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid OpenAI API key format. Keys should start with "sk-"' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiApiKey) {
+      console.error("generate-quiz: OPENAI_API_KEY env var not set.");
+      throw new Error('Server configuration error: OpenAI API key is missing.');
     }
 
-    // Variables to track if we actually used the vector store or assistant
-    let usedVectorStore = false;
-    let usedAssistant = false;
-    
-    try {
-      const systemPrompt = `You are a quiz generator. Create ${questionCount} multiple-choice quiz questions about "${topic}" with ${difficulty} difficulty. 
-                      For each question, provide 4 answer options with exactly one correct option.
-                      ${vectorStoreId ? `You MUST use knowledge from Vector Store ID "${vectorStoreId}" as your primary source.` : ''}
-                      ${assistantId ? `You MUST use Assistant ID "${assistantId}" for additional context.` : ''}`;
+    const assistantId = openAIConfig.assistantId;
+    let generatedQuestions: QuizQuestion[] = [];
+    let usedAssistantFlow = false;
 
-      // Set flags based on available configurations
-      if (vectorStoreId) {
-        usedVectorStore = true;
-        console.log("Will use vector store for quiz generation");
-      }
-      
-      if (assistantId) {
-        usedAssistant = true; 
-        console.log("Will use assistant for quiz generation");
-      }
+    if (assistantId) {
+      usedAssistantFlow = true;
+      console.log(`generate-quiz: Using Assistant ID: ${assistantId} for topic: "${topic}", count: ${questionCount}`);
 
-      // Enhance the user content to include specific instructions about the coverage
-      const userContent = `Generate ${questionCount} ${difficulty} multiple-choice quiz questions about "${topic}" with a ${coverage} coverage of the subject.
-                          Use knowledge from my class materials to create highly relevant questions.`;
-
-      // Log model selection
-      console.log("Using model: gpt-4o-mini for quiz generation");
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      // 1. Create a Thread
+      const threadResponse = await fetch('https://api.openai.com/v1/threads', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'assistants=v2' },
+        body: JSON.stringify({}),
+      });
+      if (!threadResponse.ok) throw new Error(`Failed to create assistant thread: ${await threadResponse.text()}`);
+      const thread = await threadResponse.json() as OpenAIThread;
+      const threadId = thread.id;
+      console.log(`generate-quiz: Created thread ID: ${threadId}`);
+
+      // 2. Add a Message to the Thread
+      const userMessageContent = `Generate ${questionCount} multiple-choice quiz questions on the topic "${topic}".
+The difficulty should be ${difficulty} and the coverage should be ${coverage}.
+The questions should be based on the materials provided for this class.
+Format your response as a valid JSON object containing a single key "questions" which is an array of objects.
+Each object in the "questions" array should have these properties: "question_text", "options" (an array of 4 strings), "correct_answer_index" (0-3), and "explanation".
+Example: {"questions": [{"question_text": "What is...", "options": ["A", "B", "C", "D"], "correct_answer_index": 0, "explanation": "Because..."}]}`;
+
+      await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'assistants=v2' },
+        body: JSON.stringify({ role: 'user', content: userMessageContent }),
+      });
+      console.log(`generate-quiz: Added message to thread ${threadId}`);
+
+      // 3. Create a Run
+      const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'assistants=v2' },
+        body: JSON.stringify({
+          assistant_id: assistantId,
+          instructions: `You are an expert quiz generator. Please generate ${questionCount} ${difficulty} quiz questions about "${topic}" with ${coverage} coverage, based on the provided class materials. Output the questions in the specified JSON format: {"questions": [...]}. Ensure content is accurate and relevant.`
+        }),
+      });
+      if (!runResponse.ok) throw new Error(`Failed to run assistant: ${await runResponse.text()}`);
+      let run = await runResponse.json() as OpenAIRun;
+      console.log(`generate-quiz: Created run ID: ${run.id} for thread ${threadId}`);
+
+      // 4. Poll for Run completion
+      const startTime = Date.now();
+      while (['queued', 'in_progress', 'cancelling'].includes(run.status)) {
+        if (Date.now() - startTime > ASSISTANT_RUN_TIMEOUT) {
+          await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${run.id}/cancel`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' }
+          });
+          throw new Error('Quiz generation (Assistant API) timed out.');
+        }
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Poll every 3 seconds
+        const runStatusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${run.id}`, {
+          headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' }
+        });
+        if (!runStatusResponse.ok) throw new Error(`Failed to check assistant run status: ${await runStatusResponse.text()}`);
+        run = await runStatusResponse.json() as OpenAIRun;
+        console.log(`generate-quiz: Run ${run.id} status: ${run.status}`);
+      }
+
+      if (run.status !== 'completed') {
+        throw new Error(`Quiz generation (Assistant API) failed. Status: ${run.status}. ${run.last_error?.message || ''}`);
+      }
+
+      // 5. Retrieve Messages from the Thread
+      const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages?order=desc&limit=1`, {
+        headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'OpenAI-Beta': 'assistants=v2' },
+      });
+      if (!messagesResponse.ok) throw new Error(`Failed to get assistant messages: ${await messagesResponse.text()}`);
+      const messagesData = await messagesResponse.json() as OpenAIMessagesList;
+      
+      const assistantMessages = messagesData.data?.filter((msg: OpenAIMessage) => msg.role === 'assistant');
+      if (!assistantMessages || assistantMessages.length === 0 || !assistantMessages[0].content[0]?.text?.value) {
+        throw new Error('No response content from assistant.');
+      }
+
+      const rawOutputFromAssistant = assistantMessages[0].content[0].text.value;
+      console.log("generate-quiz: Raw output from assistant:", rawOutputFromAssistant);
+      
+      let jsonStringToParse: string = rawOutputFromAssistant;
+      try {
+        const jsonRegex = /```json\s*([\s\S]*?)\s*```/;
+        const match = rawOutputFromAssistant.match(jsonRegex);
+        if (match && match[1]) {
+          jsonStringToParse = match[1];
+        } else {
+          console.warn("generate-quiz: Markdown JSON block not found in assistant response. Attempting to parse entire response.");
+        }
+        const parsedJson = JSON.parse(jsonStringToParse) as AIParsedQuizResponse;
+        if (parsedJson.questions && Array.isArray(parsedJson.questions)) {
+          generatedQuestions = parsedJson.questions;
+        } else {
+          throw new Error("AI response did not follow the expected JSON format (missing 'questions' array).");
+        }
+      } catch (e) {
+        const error = e as Error;
+        console.error("generate-quiz: Error parsing JSON from assistant response:", error.message, "\nAttempted to parse:", jsonStringToParse);
+        throw new Error(`Could not parse quiz questions from AI response: ${error.message}`);
+      }
+
+    } else { // Fallback to Chat Completions API
+      usedAssistantFlow = false;
+      console.warn("generate-quiz: No assistantId provided. Using fallback Chat Completions API.");
+      const systemPrompt = `You are a quiz generator. Create ${questionCount} multiple-choice quiz questions about "${topic}" with ${difficulty} difficulty. For each question, provide 4 answer options with exactly one correct option. Format your response as a valid JSON object containing a single key "questions" which is an array of objects. Each object in the "questions" array should have these properties: "question_text", "options" (an array of 4 strings), "correct_answer_index" (0-3), and "explanation". Example: {"questions": [{"question_text": "What is...", "options": ["A", "B", "C", "D"], "correct_answer_index": 0, "explanation": "Because..."}]}`;
+      const userContent = `Generate ${questionCount} ${difficulty} multiple-choice quiz questions about "${topic}" with a ${coverage} coverage of the subject.`;
+
+      const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt
-            },
-            {
-              role: 'user', 
-              content: userContent
-            }
-          ],
+          messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
           temperature: 0.7,
           response_format: { type: "json_object" }
         }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API error:', response.status, errorText);
-        
-        // Provide more helpful error messages based on status code
-        if (response.status === 401) {
-          return new Response(
-            JSON.stringify({ error: 'Authentication error: Invalid OpenAI API key. Please check your API key and try again.' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-          );
-        } else if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: 'OpenAI API rate limit exceeded. Please try again later.' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
-          );
-        } else if (response.status === 400) {
-          return new Response(
-            JSON.stringify({ error: 'Bad request to OpenAI API. This might be due to an invalid API key format or other parameter issues.' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-          );
-        }
-        
-        return new Response(
-          JSON.stringify({ error: `OpenAI API error: ${response.status}. ${errorText}` }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
-        );
+      if (!fallbackResponse.ok) {
+        const errorText = await fallbackResponse.text();
+        console.error('generate-quiz: Fallback OpenAI API error:', fallbackResponse.status, errorText);
+        throw new Error(`Fallback OpenAI API error: ${fallbackResponse.status}. ${errorText}`);
       }
-
-      const data = await response.json();
-      
-      // Ensure we have a valid response
-      if (!data || !data.choices || !data.choices.length || !data.choices[0].message) {
-        throw new Error('Invalid response from OpenAI API');
-      }
-      
-      const content = data.choices[0].message.content;
-      
-      // Extract the JSON array from the content
-      let questions = [];
-      let parsedContent;
+      const fallbackData = await fallbackResponse.json() as OpenAIChatCompletion;
+      const messageContent = fallbackData.choices[0]?.message?.content;
+      if (!messageContent) throw new Error("No content in fallback AI response.");
       
       try {
-        // Parse the content as JSON
-        parsedContent = JSON.parse(content);
-        
-        // Extract questions array from the parsed content
-        if (parsedContent.questions && Array.isArray(parsedContent.questions)) {
-          questions = parsedContent.questions;
+        const parsedJson = JSON.parse(messageContent) as AIParsedQuizResponse;
+        if (parsedJson.questions && Array.isArray(parsedJson.questions)) {
+          generatedQuestions = parsedJson.questions;
         } else {
-          throw new Error('Could not find valid questions array in response');
+          throw new Error("Fallback AI response did not follow the expected JSON format (missing 'questions' array).");
         }
-      } catch (jsonError) {
-        console.error('Error parsing questions JSON:', jsonError);
-        throw new Error('Unable to parse questions from AI response');
+      } catch (e) {
+        const error = e as Error;
+        console.error("generate-quiz: Error parsing fallback JSON", error.message, messageContent);
+        throw new Error(`Could not parse quiz questions from fallback AI response: ${error.message}`);
       }
-      
-      // Validate the question format
-      const validatedQuestions = questions.map((q, index) => {
-        // Ensure we have valid question text
-        if (!q.question_text) {
-          console.warn(`Question ${index} is missing question_text, adding default`);
-          q.question_text = `Question ${index + 1} about ${topic}`;
-        }
-        
-        // Ensure options are valid
-        if (!Array.isArray(q.options) || q.options.length < 4) {
-          console.warn(`Question ${index} has invalid options, adding defaults`);
-          q.options = q.options || [];
-          while (q.options.length < 4) {
-            q.options.push(`Option ${q.options.length + 1}`);
-          }
-        }
-        
-        // Ensure correct_answer_index is valid
-        if (typeof q.correct_answer_index !== 'number' || q.correct_answer_index < 0 || q.correct_answer_index > 3) {
-          console.warn(`Question ${index} has invalid correct_answer_index, defaulting to 0`);
-          q.correct_answer_index = 0;
-        }
-        
-        // Ensure explanation exists
-        if (!q.explanation) {
-          q.explanation = "No explanation provided";
-        }
-        
-        return q;
-      });
-      
-      // Calculate a time estimate based on question count and difficulty
-      const difficultyMultiplier = {
-        easy: 0.8,
-        medium: 1.0,
-        hard: 1.2,
-        expert: 1.5
-      };
-      
-      const timeEstimate = Math.ceil(questionCount * (difficultyMultiplier[difficulty] || 1) * 0.5); // minutes
-      
-      return new Response(
-        JSON.stringify({ 
-          questions: validatedQuestions,
-          timeEstimate,
-          vectorStoreId,
-          assistantId,
-          usedVectorStore,
-          usedAssistant
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } catch (apiError) {
-      console.error('OpenAI API request failed:', apiError);
-      return new Response(
-        JSON.stringify({ error: `Failed to communicate with OpenAI API: ${apiError.message}` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
     }
-  } catch (error) {
-    console.error('Error:', error);
+
+    // Validate and format questions
+    const validatedQuestions = generatedQuestions.map((q, index) => {
+      if (!q.question_text) q.question_text = `Question ${index + 1} about ${topic}`;
+      if (!Array.isArray(q.options) || q.options.length !== 4) {
+        q.options = ["Option A", "Option B", "Option C", "Option D"]; // Default if options are bad
+      }
+      if (typeof q.correct_answer_index !== 'number' || q.correct_answer_index < 0 || q.correct_answer_index > 3) {
+        q.correct_answer_index = 0; // Default if index is bad
+      }
+      if (!q.explanation) q.explanation = "No explanation provided.";
+      return q;
+    });
+
+    const difficultyMultiplier: { [key: string]: number } = { easy: 0.8, medium: 1.0, hard: 1.2 };
+    const timeEstimate = Math.ceil(questionCount * (difficultyMultiplier[difficulty.toLowerCase()] || 1.0) * 0.75); // Adjusted time estimate
+
+    console.log(`generate-quiz: Successfully generated ${validatedQuestions.length} questions. Used Assistant: ${usedAssistantFlow}`);
     return new Response(
-      JSON.stringify({ error: error.message || 'An unexpected error occurred' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({
+        questions: validatedQuestions,
+        timeEstimate,
+        assistantId: openAIConfig.assistantId, // Return the ID used, if any
+        vectorStoreId: null, // vectorStoreId is part of assistant config, not directly returned here unless needed
+        usedAssistant: usedAssistantFlow,
+        usedFallback: !usedAssistantFlow
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+  } catch (error: unknown) {
+    console.error('generate-quiz: Critical error in function:', error);
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { 
+        status: errorMessage.includes("required") || errorMessage.includes("OpenAI API key") ? 400 : 500, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
     );
   }
 });
