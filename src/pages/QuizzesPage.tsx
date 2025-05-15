@@ -1,3 +1,4 @@
+// src/pages/QuizzesPage.tsx
 import { useState, useEffect } from "react";
 import { 
   Card, 
@@ -54,10 +55,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { quizService, Quiz, QuizQuestion } from "@/services/quiz";
+import { quizService, Quiz, QuizQuestion } from "@/services/quiz"; 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-// Form schema for quiz generation
 const quizGenerationSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   questionCount: z.coerce.number().min(5, "Minimum 5 questions").max(50, "Maximum 50 questions"),
@@ -69,7 +69,7 @@ type QuizGenerationFormValues = z.infer<typeof quizGenerationSchema>;
 
 const QuizzesPage = () => {
   const navigate = useNavigate();
-  const [selectedQuiz, setSelectedQuiz] = useState<null | Quiz>(null);
+  const [selectedQuizForAction, setSelectedQuizForAction] = useState<null | Quiz>(null);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -78,6 +78,7 @@ const QuizzesPage = () => {
   const [viewingQuiz, setViewingQuiz] = useState<Quiz | null>(null);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [quizToDelete, setQuizToDelete] = useState<string | null>(null);
+  const [isStartQuizDialogOpen, setIsStartQuizDialogOpen] = useState(false);
 
   const form = useForm<QuizGenerationFormValues>({
     resolver: zodResolver(quizGenerationSchema),
@@ -89,21 +90,24 @@ const QuizzesPage = () => {
     },
   });
 
-  // Function to determine difficulty badge color
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty.toLowerCase()) {
-      case 'easy':
-        return 'bg-green-100 text-green-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'hard':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const getDifficultyBadgeColor = (difficulty: string) => {
+    switch (difficulty?.toLowerCase()) {
+      case 'easy': return 'bg-green-100 text-green-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'hard': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  // Load all quizzes on component mount
+  const getQuizCardBarColor = (difficulty: string): string => {
+    switch (difficulty?.toLowerCase()) {
+      case 'easy': return 'bg-green-500';
+      case 'medium': return 'bg-yellow-500';
+      case 'hard': return 'bg-red-500';
+      default: return 'bg-gray-400';
+    }
+  };
+
   useEffect(() => {
     fetchQuizzes();
   }, []);
@@ -123,34 +127,29 @@ const QuizzesPage = () => {
 
   const handleGenerateQuiz = async (data: QuizGenerationFormValues) => {
     setIsGenerating(true);
-    
     try {
-      toast.info(`Generating ${data.questionCount} ${data.difficulty} quiz questions...`);
+      toast.info(`Generating ${data.questionCount} ${data.difficulty} quiz questions for "${data.title}"...`);
       
       // Call the service to generate quiz questions
-      const { questions, timeEstimate } = await quizService.generateQuiz({
-        title: data.title,
-        questionCount: data.questionCount,
-        difficulty: data.difficulty,
-        coverage: data.coverage
-      });
+      // The 'data' here is QuizGenerationFormValues
+      const { questions, timeEstimate } = await quizService.generateQuiz(data);
       
-      // Save the quiz to the database
-      const newQuiz = await quizService.saveQuiz({
+      // Construct the object for saveQuiz explicitly matching Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>
+      // userId and classId are handled within saveQuiz
+      const quizToSavePayload: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'classId'> = {
         title: data.title,
         description: `${data.difficulty} quiz covering ${data.coverage}`,
-        questions,
-        questionCount: questions.length,
-        timeEstimate,
+        questions: questions, // These are the generated QuizQuestion[]
+        questionCount: questions.length, // Use the actual number of questions generated
+        timeEstimate: timeEstimate,
         difficulty: data.difficulty,
-        coverage: data.coverage
-      });
+        coverage: data.coverage,
+      };
       
-      // Add the new quiz to our state
+      const newQuiz = await quizService.saveQuiz(quizToSavePayload);
+      
       setQuizzes(prevQuizzes => [newQuiz, ...prevQuizzes]);
-      
-      toast.success(`Successfully generated ${questions.length} quiz questions!`);
-      
+      toast.success(`Successfully generated ${newQuiz.questionCount} quiz questions for "${newQuiz.title}"!`);
       setOpenGenerateDialog(false);
       form.reset();
     } catch (error) {
@@ -161,11 +160,16 @@ const QuizzesPage = () => {
     }
   };
 
-  const startQuiz = () => {
-    if (selectedQuiz) {
-      // Navigate to the quiz session page with the quiz ID
-      navigate(`/quizzes/${selectedQuiz.id}`);
-      setSelectedQuiz(null);
+  const handleStartQuizClick = (quiz: Quiz) => {
+    setSelectedQuizForAction(quiz);
+    setIsStartQuizDialogOpen(true);
+  };
+
+  const confirmStartQuiz = () => {
+    if (selectedQuizForAction) {
+      navigate(`/quizzes/${selectedQuizForAction.id}`);
+      setIsStartQuizDialogOpen(false);
+      setSelectedQuizForAction(null);
     }
   };
 
@@ -184,7 +188,6 @@ const QuizzesPage = () => {
 
   const handleDeleteQuiz = async () => {
     if (!quizToDelete) return;
-    
     try {
       await quizService.deleteQuiz(quizToDelete);
       setQuizzes(quizzes.filter(quiz => quiz.id !== quizToDelete));
@@ -270,11 +273,12 @@ const QuizzesPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {quizzes.map((quiz) => (
-              <Card key={quiz.id} className="hover:shadow-md transition-shadow">
+              <Card key={quiz.id} className="hover:shadow-md transition-shadow overflow-hidden">
+                <div className={`h-2 ${getQuizCardBarColor(quiz.difficulty)}`}></div>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <CardTitle>{quiz.title}</CardTitle>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getDifficultyColor(quiz.difficulty)}`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getDifficultyBadgeColor(quiz.difficulty)}`}>
                       {quiz.difficulty}
                     </span>
                   </div>
@@ -331,7 +335,7 @@ const QuizzesPage = () => {
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              className="w-full" 
+                              className="w-full text-destructive hover:text-destructive border-destructive/50 hover:border-destructive"
                               onClick={() => {
                                 setQuizToDelete(quiz.id);
                                 setOpenDeleteDialog(true);
@@ -342,55 +346,15 @@ const QuizzesPage = () => {
                           </div>
                         </PopoverContent>
                       </Popover>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button size="sm" onClick={() => setSelectedQuiz(quiz)}>
-                            Start Quiz <ChevronRight className="ml-1 h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          {selectedQuiz && (
-                            <>
-                              <DialogHeader>
-                                <DialogTitle>Start "{selectedQuiz.title}"</DialogTitle>
-                                <DialogDescription>
-                                  You are about to start a {selectedQuiz.questionCount}-question quiz that takes approximately {selectedQuiz.timeEstimate} minutes.
-                                </DialogDescription>
-                              </DialogHeader>
-                              
-                              <div className="py-4">
-                                <h4 className="font-medium mb-2">Quiz Settings:</h4>
-                                <div className="space-y-2 text-sm">
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Difficulty:</span>
-                                    <span className="font-medium">{selectedQuiz.difficulty}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Coverage:</span>
-                                    <span className="font-medium">{selectedQuiz.coverage}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Time Limit:</span>
-                                    <span className="font-medium">{selectedQuiz.timeEstimate} minutes</span>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <DialogFooter className="flex space-x-2">
-                                <Button variant="outline" onClick={() => setSelectedQuiz(null)}>Cancel</Button>
-                                <Button onClick={startQuiz}>Begin Quiz</Button>
-                              </DialogFooter>
-                            </>
-                          )}
-                        </DialogContent>
-                      </Dialog>
+                      <Button size="sm" onClick={() => handleStartQuizClick(quiz)}>
+                         Start Quiz <ChevronRight className="ml-1 h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </CardFooter>
               </Card>
             ))}
             
-            {/* Create New Quiz Card */}
             <Card 
               className="border-dashed flex items-center justify-center h-[180px] cursor-pointer hover:bg-accent/50 transition-colors"
               onClick={() => setOpenGenerateDialog(true)}
@@ -404,8 +368,7 @@ const QuizzesPage = () => {
         )}
       </div>
       
-      {/* Performance Analytics Card */}
-      <Card className="mt-6">
+       <Card className="mt-6">
         <CardHeader>
           <CardTitle className="flex items-center">
             <ChartBar className="mr-2 h-5 w-5 text-purple-500" /> Performance Analytics
@@ -422,7 +385,6 @@ const QuizzesPage = () => {
         </CardFooter>
       </Card>
 
-      {/* Generate Quiz Dialog */}
       <Dialog open={openGenerateDialog} onOpenChange={setOpenGenerateDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -528,7 +490,7 @@ const QuizzesPage = () => {
                 )}
               />
               
-              <div className="flex justify-end gap-3 pt-4">
+              <DialogFooter className="flex justify-end gap-3 pt-4">
                 <Button 
                   type="button" 
                   variant="outline" 
@@ -550,13 +512,12 @@ const QuizzesPage = () => {
                     "Generate Quiz"
                   )}
                 </Button>
-              </div>
+              </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
 
-      {/* View Quiz Dialog with Questions Preview */}
       <Dialog open={openViewDialog} onOpenChange={setOpenViewDialog}>
         <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -624,7 +585,7 @@ const QuizzesPage = () => {
               <Button 
                 onClick={() => {
                   setOpenViewDialog(false);
-                  setSelectedQuiz(viewingQuiz);
+                  handleStartQuizClick(viewingQuiz);
                 }}
               >
                 Start Quiz
@@ -634,7 +595,44 @@ const QuizzesPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      <Dialog open={isStartQuizDialogOpen} onOpenChange={setIsStartQuizDialogOpen}>
+        <DialogContent>
+          {selectedQuizForAction && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Start "{selectedQuizForAction.title}"</DialogTitle>
+                <DialogDescription>
+                  You are about to start a {selectedQuizForAction.questionCount}-question quiz that takes approximately {selectedQuizForAction.timeEstimate} minutes.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="py-4">
+                <h4 className="font-medium mb-2">Quiz Settings:</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Difficulty:</span>
+                    <span className="font-medium">{selectedQuizForAction.difficulty}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Coverage:</span>
+                    <span className="font-medium">{selectedQuizForAction.coverage}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Time Limit:</span>
+                    <span className="font-medium">{selectedQuizForAction.timeEstimate} minutes</span>
+                  </div>
+                </div>
+              </div>
+              
+              <DialogFooter className="flex space-x-2">
+                <Button variant="outline" onClick={() => {setIsStartQuizDialogOpen(false); setSelectedQuizForAction(null);}}>Cancel</Button>
+                <Button onClick={confirmStartQuiz}>Begin Quiz</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
