@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { BookOpen, SquareCheck, Search, Database as DatabaseIcon } from "lucide-react"; // Renamed Database to DatabaseIcon
 import { ClassInfoSection } from "./ClassInfoSection";
-import { OpenAIConfigSection } from "./OpenAIConfigSection";
+// import { OpenAIConfigSection } from "./OpenAIConfigSection"; // OpenAIConfigSection is no longer used
 import { WidgetSelectionSection } from "./WidgetSelectionSection";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ClassData } from "../CreateClassDialog"; // This ClassData should be the one from CreateClassDialog.tsx
@@ -66,18 +66,14 @@ const availableWidgets = [
 const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"];
 
 interface CreateClassDialogContentProps {
-  // onClassCreate is actually handleFormDataChange in the parent
   onClassCreate: (classData: ClassData) => void;
   onCancel: () => void;
-  // initialData for editing, needs to be compatible with ClassData
-  // It might come from HomePage's ClassOption, so we'll adapt it.
-  initialData?: Partial<ClassData & { class_id?: string }>; // Allow class_id for editing context
+  initialData?: Partial<ClassData & { class_id?: string }>; 
   isEditing?: boolean;
 }
 
 export function CreateClassDialogContent({
   onClassCreate,
-  // onCancel, // onCancel prop is not used in this component's logic directly
   initialData,
   isEditing = false
 }: CreateClassDialogContentProps) {
@@ -91,12 +87,11 @@ export function CreateClassDialogContent({
   const [emoji, setEmoji] = useState(initialData?.emoji || "");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  // OpenAI configuration states - NO API KEY HERE
+  // OpenAI configuration states - These are kept for data integrity but not displayed for editing
   const [vectorStoreId, setVectorStoreId] = useState(initialData?.openAIConfig?.vectorStoreId || "");
   const [assistantId, setAssistantId] = useState(initialData?.openAIConfig?.assistantId || "");
-  const [showOpenAIConfig, setShowOpenAIConfig] = useState(
-    isEditing ? !!(initialData?.openAIConfig?.vectorStoreId || initialData?.openAIConfig?.assistantId) : false
-  );
+  // const [showOpenAIConfig, setShowOpenAIConfig] = useState(false); // REMOVED: No longer needed as the section is removed
+
   const [user, setUser] = useState<User | null>(null);
 
   // Fetch authenticated user
@@ -120,18 +115,18 @@ export function CreateClassDialogContent({
 
       // For OpenAI config, if initialData has it, use it.
       // Otherwise, if we have a class_id, try to fetch the latest from DB.
+      // These IDs are auto-provisioned and not user-editable in the UI anymore.
       if (initialData.openAIConfig) {
         setVectorStoreId(initialData.openAIConfig.vectorStoreId || "");
         setAssistantId(initialData.openAIConfig.assistantId || "");
-        setShowOpenAIConfig(!!(initialData.openAIConfig.vectorStoreId || initialData.openAIConfig.assistantId));
+        // setShowOpenAIConfig(!!(initialData.openAIConfig.vectorStoreId || initialData.openAIConfig.assistantId)); // REMOVED
       } else if (initialData.class_id) {
-        // Fetch the latest config from DB as initialData might be stale from HomePage
         classOpenAIConfigService.getConfigForClass(initialData.class_id)
           .then(config => {
             if (config) {
               setVectorStoreId(config.vectorStoreId || "");
               setAssistantId(config.assistantId || "");
-              setShowOpenAIConfig(!!(config.vectorStoreId || config.assistantId));
+              // setShowOpenAIConfig(!!(config.vectorStoreId || config.assistantId)); // REMOVED
             }
           })
           .catch(err => console.error("Error fetching specific class config for edit:", err));
@@ -146,7 +141,7 @@ export function CreateClassDialogContent({
       setSelectedWidgets(DEFAULT_CLASS_WIDGETS);
       setVectorStoreId("");
       setAssistantId("");
-      setShowOpenAIConfig(false);
+      // setShowOpenAIConfig(false); // REMOVED
     }
   }, [initialData, isEditing, user]);
 
@@ -159,10 +154,9 @@ export function CreateClassDialogContent({
   }, [title, emoji, isEditing]);
 
   // Debounced effect to call onClassCreate (parent's handleFormDataChange)
-  // This ensures the parent dialog (CreateClassDialog or EditClassDialog) always has the latest form data.
   useEffect(() => {
     const handler = setTimeout(() => {
-      if (title || isEditing) { // Only update if there's a title or if we are editing (to capture deletions)
+      if (title || isEditing) { 
         const currentClassData: ClassData = {
           title,
           professor: professor || null,
@@ -170,14 +164,14 @@ export function CreateClassDialogContent({
           classroom: classroom || null,
           enabledWidgets: selectedWidgets.length > 0 ? selectedWidgets : DEFAULT_CLASS_WIDGETS,
           emoji: emoji || getEmojiForClass(title),
-          openAIConfig: { // No API key
+          openAIConfig: { 
             vectorStoreId: vectorStoreId || null,
             assistantId: assistantId || null,
           },
         };
         onClassCreate(currentClassData);
       }
-    }, 300); // Debounce for 300ms
+    }, 300); 
 
     return () => {
       clearTimeout(handler);
@@ -203,7 +197,7 @@ export function CreateClassDialogContent({
   };
 
   return (
-    <ScrollArea className="max-h-[calc(80vh-180px)]"> {/* Adjusted max height */}
+    <ScrollArea className="max-h-[calc(80vh-180px)]"> 
       <div className="space-y-6 py-2 pr-4">
         <ClassInfoSection
           title={title}
@@ -215,7 +209,7 @@ export function CreateClassDialogContent({
           onProfessorChange={setProfessor}
           onClassTimeChange={setClassTime}
           onClassroomChange={setClassroom}
-          onEmojiChange={setEmoji} // Though direct change is unlikely if picker is used
+          onEmojiChange={setEmoji} 
           onEmojiPickerOpen={() => setShowEmojiPicker(true)}
         />
 
@@ -227,15 +221,22 @@ export function CreateClassDialogContent({
           />
         )}
 
+        {/* REMOVED OpenAIConfigSection from rendering.
+          The component src/components/class/dialog/OpenAIConfigSection.tsx is now unused by this dialog.
+          The state variables vectorStoreId and assistantId are still managed and passed in ClassData
+          as they are auto-provisioned and part of the data model.
+        */}
+        {/*
         <OpenAIConfigSection
           vectorStoreId={vectorStoreId}
           assistantId={assistantId}
-          showOpenAIConfig={showOpenAIConfig}
+          showOpenAIConfig={showOpenAIConfig} // This state variable was removed
           onVectorStoreIdChange={setVectorStoreId}
           onAssistantIdChange={setAssistantId}
-          onToggleConfig={() => setShowOpenAIConfig(!showOpenAIConfig)}
-          isEditing={isEditing} // Pass isEditing prop
+          onToggleConfig={() => setShowOpenAIConfig(!showOpenAIConfig)} // This handler and showOpenAIConfig state were removed
+          isEditing={isEditing} 
         />
+        */}
 
         <WidgetSelectionSection
           selectedWidgets={selectedWidgets}

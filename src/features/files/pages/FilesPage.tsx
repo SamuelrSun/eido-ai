@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search, FolderPlus, Upload, File as FileIcon, Folder as FolderIcon,
-  MoreHorizontal, Trash2 as TrashIcon, ArrowUp, Loader2, ChevronRight, CloudLightning, Check // Renamed Trash2 to avoid conflict
+  MoreHorizontal, Trash2 as TrashIcon, ArrowUp, Loader2, ChevronRight, CloudLightning, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +28,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator, BreadcrumbPage
 } from "@/components/ui/breadcrumb";
@@ -37,8 +37,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  FileType as FileTypeDb, // Renamed to avoid conflict with local FileType
-  FolderType as FolderTypeDb, // Renamed to avoid conflict
+  FileType as FileTypeDb,
+  FolderType as FolderTypeDb,
   SelectedItem, UserStorage as UserStorageType, VectorStoreFileType
 } from "@/features/files/types";
 import { StorageUsage } from "@/features/files/components/StorageUsage";
@@ -46,7 +46,7 @@ import { UploadDialog } from "@/features/files/components/UploadDialog";
 import type { User } from "@supabase/supabase-js";
 import { formatFileSize } from "@/lib/utils";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
-import { FileGrid } from "../components/FileGrid";
+import { FileGrid } from "../components/FileGrid"; // Corrected path
 
 
 interface ActiveClassData {
@@ -59,7 +59,7 @@ interface FileWithProgress extends FileTypeDb {
   progress?: number;
 }
 
-const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match file name
+const FilesPage = () => {
   const [files, setFiles] = useState<FileWithProgress[]>([]);
   const [folders, setFolders] = useState<FolderTypeDb[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -258,7 +258,6 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
   useEffect(() => { if (activeTab === "vectorStore") { fetchVectorStoreFiles(); } }, [activeTab, fetchVectorStoreFiles]);
 
   const toggleSelectItem = (item: SelectedItem) => {
-     // Only allow selecting files
     if (item.type === 'folder') {
       toast({
         title: "Selection Info",
@@ -356,7 +355,6 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
         toast({ title: `Failed to upload ${file.name}`, description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive"});
       }
     }
-    // A final fetch to ensure consistency after all uploads
     fetchCurrentFolderContents();
   };
 
@@ -387,21 +385,19 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
     }
   };
 
-  const deleteItem = async (itemId: string, isFolder: boolean, itemName: string) => {
-    if (!user) return;
+  const handleDeleteItem = async (itemId: string, itemType: 'file' | 'folder', itemName: string) => {
+    if (!user || !activeClass?.class_id) return;
 
-    // For bulk delete, confirmation is handled in handleDeleteSelectedItems
-    // For single folder delete via FileGrid's dropdown, this direct confirm is fine.
-    if (isFolder) {
+    if (itemType === 'folder') {
         const confirmDelete = window.confirm(`Are you sure you want to delete the folder "${itemName}" and all its contents? This action cannot be undone.`);
         if (!confirmDelete) return;
     }
+    // For single file deletion via FileGrid's dropdown (which is now removed for files),
+    // or for bulk deletion, confirmation is handled by handleDeleteSelectedItems.
 
     try {
-      if (isFolder) {
-        // Recursive deletion logic for folders
+      if (itemType === 'folder') {
         const deleteFolderAndContents = async (folderIdToDelete: string) => {
-            // Delete files within this folder
             const { data: filesInFolder, error: filesError } = await supabase
                 .from('files')
                 .select('file_id, url, size')
@@ -422,7 +418,6 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
                 totalFreedSpace += file.size || 0;
             }
 
-            // Recursively delete subfolders
             const { data: subfolders, error: subfoldersError } = await supabase
                 .from('file_folders')
                 .select('folder_id')
@@ -436,7 +431,6 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
                 totalFreedSpace += await deleteFolderAndContents(subfolder.folder_id);
             }
 
-            // Delete the folder itself
             await supabase.from('file_folders').delete().eq('folder_id', folderIdToDelete);
             return totalFreedSpace;
         };
@@ -464,12 +458,11 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
             setUserStorage(prev => ({...prev!, storage_used: newStorageUsed}));
             await supabase.from('user_storage').update({ storage_used: newStorageUsed }).eq('user_id', user.id);
         }
-        // Toast for single file deletion will be handled by the caller if it's part of bulk delete
       }
       fetchCurrentFolderContents();
     } catch (error) {
-      console.error(`Error deleting ${isFolder ? 'folder' : 'file'}:`, error);
-      toast({ title: `Failed to Delete ${isFolder ? 'Folder' : 'File'}`, description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
+      console.error(`Error deleting ${itemType}:`, error);
+      toast({ title: `Failed to Delete ${itemType}`, description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
     }
   };
 
@@ -480,14 +473,14 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
       toast({ title: "No Files Selected", description: "Please select files to delete.", variant: "default" });
       return;
     }
-    setItemsToDelete(filesToDelete);
-    setShowDeleteConfirmDialog(true);
+    setItemsToDelete(filesToDelete); // Store items to be deleted
+    setShowDeleteConfirmDialog(true); // Show confirmation dialog
   };
 
   const confirmDeleteSelectedItems = async () => {
     if (!user) return;
-    setShowDeleteConfirmDialog(false);
-    const filesToDelete = itemsToDelete.filter(item => item.type === 'file');
+    setShowDeleteConfirmDialog(false); // Close dialog
+    const filesToDelete = itemsToDelete.filter(item => item.type === 'file'); // Get items from state
 
     let successCount = 0;
     let failCount = 0;
@@ -495,9 +488,9 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
 
     for (const file of filesToDelete) {
       try {
-        const fileData = files.find(f => f.file_id === file.id) || // Check local files state
-                           (await supabase.from('files').select('url, size').eq('file_id', file.id).single()).data;
-
+        // Fetch file details again to ensure size is accurate if not in current `files` state
+        const fileData = files.find(f => f.file_id === file.id) ||
+                         (await supabase.from('files').select('url, size').eq('file_id', file.id).single()).data;
 
         if (fileData?.url) {
           const filePathParts = fileData.url.split('/');
@@ -527,10 +520,8 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
     }
 
     setSelectedItems([]);
-    // Do not exit selection mode automatically, user might want to perform other actions.
-    // setSelectionMode(false);
     fetchCurrentFolderContents();
-    setItemsToDelete([]);
+    setItemsToDelete([]); // Clear items after deletion
   };
 
 
@@ -706,8 +697,8 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
                 selectionMode={selectionMode}
                 selectedItems={selectedItems}
                 onFileSelect={(file) => toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size, fileMimeType: file.type })}
-                onFolderSelect={(folder) => navigateToFolder(folder.folder_id, folder.name)} // Folders are not selectable, only navigable
-                onDeleteItem={deleteItem}
+                onFolderClick={(folder) => navigateToFolder(folder.folder_id, folder.name)}
+                onDeleteItem={handleDeleteItem} // Changed prop name to onDeleteItem
                 onFileOpen={(url) => window.open(url, "_blank")}
                 currentFolderId={currentFolderId}
               />
@@ -755,7 +746,6 @@ const FilesPage = () => { // Renamed from DatabasePage to FilesPage to match fil
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog for Selected Files */}
       <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
