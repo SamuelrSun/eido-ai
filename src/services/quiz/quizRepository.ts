@@ -1,79 +1,133 @@
-
+// src/services/quiz/quizRepository.ts
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Quiz, QuizQuestion } from "./types";
+import type { User } from "@supabase/supabase-js";
+
+// Helper to get active class_id from sessionStorage
+const getActiveClassId = (): string | null => {
+  const activeClassString = sessionStorage.getItem('activeClass');
+  if (activeClassString) {
+    try {
+      const parsedClass = JSON.parse(activeClassString);
+      return parsedClass.class_id || null; 
+    } catch (e) {
+      console.error("Error parsing activeClass from session storage:", e);
+      return null;
+    }
+  }
+  return null;
+};
+
+// Define types for Supabase table rows
+interface QuizDBRow {
+  quiz_id: string;
+  title: string;
+  description: string;
+  question_count: number;
+  time_estimate: number;
+  difficulty: string;
+  coverage: string;
+  created_at: string; 
+  updated_at: string; 
+  user_id: string | null;
+  class_id: string | null;
+}
+
+interface QuizQuestionDBRow {
+  quiz_questions_id: string; 
+  quiz_id: string; 
+  question_text: string;
+  options: string[];
+  correct_answer_index: number;
+  explanation: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string | null;
+  class_id: string | null;
+}
+
+// Type for QuizDBRow when joined with quiz_questions
+interface QuizWithQuestionsDBRow extends QuizDBRow {
+  quiz_questions: QuizQuestionDBRow[];
+}
+
 
 /**
  * Service for quiz database operations
  */
 export const quizRepository = {
-  /**
-   * Save a quiz to the database
-   */
   saveQuiz: async (quiz: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>): Promise<Quiz> => {
     try {
-      // Get the current authenticated user to set user_id
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!session?.user) {
         throw new Error("You must be logged in to save a quiz");
       }
       
-      // Get the active class
-      const activeClass = sessionStorage.getItem('activeClass');
-      const classTitle = activeClass ? JSON.parse(activeClass).title : null;
-      
-      // Insert the quiz into the quizzes table
-      const { data, error } = await supabase
+      const activeClassId = getActiveClassId();
+      if (!activeClassId) {
+        console.warn("No active class ID found. Quiz will not be associated with a class.");
+      }
+
+      const quizInsertPayload = {
+        title: quiz.title,
+        description: quiz.description,
+        question_count: quiz.questionCount,
+        time_estimate: quiz.timeEstimate,
+        difficulty: quiz.difficulty,
+        coverage: quiz.coverage,
+        user_id: session.user.id,
+        class_id: activeClassId 
+      };
+
+      const { data: savedQuizData, error: quizError } = await supabase
         .from('quizzes')
-        .insert({
-          title: quiz.title,
-          description: quiz.description,
-          question_count: quiz.questionCount,
-          time_estimate: quiz.timeEstimate,
-          difficulty: quiz.difficulty,
-          coverage: quiz.coverage,
-          user_id: session.user.id, // Set the user_id to the current user's ID
-          class_title: classTitle // Associate with the current class
-        } as any)
+        .insert(quizInsertPayload)
         .select()
-        .single();
+        .single<QuizDBRow>(); 
 
-      if (error) throw error;
+      if (quizError) {
+        console.error("Supabase error details (saveQuiz - quizzes):", quizError);
+        throw quizError;
+      }
+      if (!savedQuizData) {
+        throw new Error("Failed to save quiz: No data returned from database.");
+      }
 
-      // Now that we have the quiz ID, save the questions
-      for (const question of quiz.questions) {
-        // Make sure question text isn't null before saving
-        if (!question.question) {
-          console.error("Skipping question with null text:", question);
-          continue;
-        }
-
+      const questionsToInsert = quiz.questions.map(question => ({
+        quiz_id: savedQuizData.quiz_id,
+        question_text: question.question,
+        options: question.options || ["No option provided"],
+        correct_answer_index: question.correctAnswerIndex ?? 0,
+        explanation: question.explanation || "No explanation provided",
+        user_id: session.user.id,
+        class_id: activeClassId
+      }));
+      
+      if (questionsToInsert.length > 0) {
         const { error: questionError } = await supabase
           .from('quiz_questions')
-          .insert({
-            quiz_id: data.id,
-            question_text: question.question,
-            options: question.options || ["No option provided"],
-            correct_answer_index: question.correctAnswerIndex ?? 0,
-            explanation: question.explanation || "No explanation provided"
-          } as any);
+          .insert(questionsToInsert);
 
-        if (questionError) throw questionError;
+        if (questionError) {
+          console.error("Supabase error details (saveQuiz - quiz_questions):", questionError);
+          throw questionError;
+        }
       }
 
       return {
-        id: data.id,
-        title: data.title,
-        description: data.description,
-        questions: quiz.questions,
-        questionCount: data.question_count,
-        timeEstimate: data.time_estimate,
-        difficulty: data.difficulty,
-        coverage: data.coverage,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-        userId: data.user_id,
-        classTitle: data.class_title
+        id: savedQuizData.quiz_id,
+        title: savedQuizData.title,
+        description: savedQuizData.description,
+        questions: quiz.questions, 
+        questionCount: savedQuizData.question_count,
+        timeEstimate: savedQuizData.time_estimate,
+        difficulty: savedQuizData.difficulty,
+        coverage: savedQuizData.coverage,
+        createdAt: new Date(savedQuizData.created_at), 
+        updatedAt: new Date(savedQuizData.updated_at), 
+        userId: savedQuizData.user_id,
+        classId: savedQuizData.class_id 
       };
     } catch (error) {
       console.error('Error saving quiz:', error);
@@ -81,103 +135,121 @@ export const quizRepository = {
     }
   },
   
-  /**
-   * Fetch all quizzes for the current user and active class
-   */
   fetchQuizzes: async (): Promise<Quiz[]> => {
     try {
-      // Get the current authenticated user
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!session?.user) {
         console.log("No active session found when fetching quizzes");
         return [];
       }
 
-      // Get the active class
-      const activeClass = sessionStorage.getItem('activeClass');
-      const classTitle = activeClass ? JSON.parse(activeClass).title : null;
-      
-      // If no active class, return an empty array
-      if (!classTitle) {
-        console.log("No active class found, returning empty quizzes array");
+      const activeClassId = getActiveClassId();
+      if (!activeClassId) {
+        console.log("No active class ID found, returning empty quizzes array");
         return [];
       }
 
-      const { data: quizzes, error } = await supabase
+      console.log(`Fetching quizzes with questions for user: ${session.user.id} and class: ${activeClassId}`);
+
+      // ** MODIFICATION: Restored nested select for quiz_questions **
+      const { data: quizzesData, error } = await supabase
         .from('quizzes')
-        .select('*')
-        .eq('user_id', session.user.id) // Only fetch quizzes for the current user
-        .eq('class_title', classTitle) // Only fetch quizzes for the current class
+        .select(`
+          quiz_id, 
+          title, 
+          description, 
+          question_count, 
+          time_estimate, 
+          difficulty, 
+          coverage, 
+          created_at, 
+          updated_at, 
+          user_id, 
+          class_id,
+          quiz_questions ( 
+            quiz_questions_id,
+            question_text,
+            options,
+            correct_answer_index,
+            explanation
+          )
+        `)
+        .eq('user_id', session.user.id)
+        .eq('class_id', activeClassId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error details (fetchQuizzes - with questions):", error);
+        throw error; 
+      }
 
-      // For each quiz, fetch its questions
-      const quizzesWithQuestions = await Promise.all(
-        quizzes.map(async (quiz) => {
-          const { data: questions, error: questionsError } = await supabase
-            .from('quiz_questions')
-            .select('*')
-            .eq('quiz_id', quiz.id);
-
-          if (questionsError) throw questionsError;
-
-          const formattedQuestions: QuizQuestion[] = questions.map(q => ({
-            question: q.question_text,
-            options: q.options,
-            correctAnswerIndex: q.correct_answer_index,
-            explanation: q.explanation
-          }));
-
-          return {
-            id: quiz.id,
-            title: quiz.title,
-            description: quiz.description,
-            questions: formattedQuestions,
-            questionCount: quiz.question_count,
-            timeEstimate: quiz.time_estimate,
-            difficulty: quiz.difficulty,
-            coverage: quiz.coverage,
-            createdAt: quiz.created_at,
-            updatedAt: quiz.updated_at,
-            userId: quiz.user_id,
-            classTitle: quiz.class_title
-          };
-        })
-      );
-
-      return quizzesWithQuestions;
-    } catch (error) {
-      console.error('Error fetching quizzes:', error);
-      toast.error('Failed to load quizzes');
+      return (quizzesData || []).map((quizFromDb: QuizWithQuestionsDBRow): Quiz => {
+        const formattedQuestions: QuizQuestion[] = (quizFromDb.quiz_questions || []).map((q: QuizQuestionDBRow) => ({
+          question: q.question_text,
+          options: q.options,
+          correctAnswerIndex: q.correct_answer_index,
+          explanation: q.explanation
+        }));
+        return {
+          id: quizFromDb.quiz_id,
+          title: quizFromDb.title,
+          description: quizFromDb.description,
+          questions: formattedQuestions,
+          questionCount: quizFromDb.question_count,
+          timeEstimate: quizFromDb.time_estimate,
+          difficulty: quizFromDb.difficulty,
+          coverage: quizFromDb.coverage,
+          createdAt: new Date(quizFromDb.created_at),
+          updatedAt: new Date(quizFromDb.updated_at),
+          userId: quizFromDb.user_id,
+          classId: quizFromDb.class_id
+        };
+      });
+    } catch (error) { 
+      console.error('Error in fetchQuizzes function:', error);
+      toast.error('Failed to load quizzes. Check console for Supabase error details.');
       return [];
     }
   },
   
-  /**
-   * Fetch a single quiz by ID with questions
-   */
   fetchQuiz: async (quizId: string): Promise<Quiz | null> => {
     try {
-      // Fetch the quiz
-      const { data: quiz, error } = await supabase
+      const { data: quizData, error } = await supabase
         .from('quizzes')
-        .select('*')
-        .eq('id', quizId)
-        .single();
+        .select(`
+          quiz_id, 
+          title, 
+          description, 
+          question_count, 
+          time_estimate, 
+          difficulty, 
+          coverage, 
+          created_at, 
+          updated_at, 
+          user_id, 
+          class_id,
+          quiz_questions (
+            quiz_questions_id,
+            question_text,
+            options,
+            correct_answer_index,
+            explanation
+          )
+        `)
+        .eq('quiz_id', quizId)
+        .single<QuizWithQuestionsDBRow>(); 
 
-      if (error) throw error;
-      if (!quiz) return null;
+      if (error) {
+        if (error.code === 'PGRST116') { 
+          console.log(`Quiz with ID ${quizId} not found.`);
+          return null;
+        }
+        console.error("Supabase error details (fetchQuiz):", error);
+        throw error;
+      }
+      if (!quizData) return null;
 
-      // Fetch the questions for this quiz
-      const { data: questions, error: questionsError } = await supabase
-        .from('quiz_questions')
-        .select('*')
-        .eq('quiz_id', quizId);
-
-      if (questionsError) throw questionsError;
-
-      const formattedQuestions: QuizQuestion[] = questions.map(q => ({
+      const formattedQuestions: QuizQuestion[] = (quizData.quiz_questions || []).map((q: QuizQuestionDBRow) => ({
         question: q.question_text,
         options: q.options,
         correctAnswerIndex: q.correct_answer_index,
@@ -185,18 +257,18 @@ export const quizRepository = {
       }));
 
       return {
-        id: quiz.id,
-        title: quiz.title,
-        description: quiz.description,
+        id: quizData.quiz_id,
+        title: quizData.title,
+        description: quizData.description,
         questions: formattedQuestions,
-        questionCount: quiz.question_count,
-        timeEstimate: quiz.time_estimate,
-        difficulty: quiz.difficulty,
-        coverage: quiz.coverage,
-        createdAt: quiz.created_at,
-        updatedAt: quiz.updated_at,
-        userId: quiz.user_id,
-        classTitle: quiz.class_title
+        questionCount: quizData.question_count,
+        timeEstimate: quizData.time_estimate,
+        difficulty: quizData.difficulty,
+        coverage: quizData.coverage,
+        createdAt: new Date(quizData.created_at),
+        updatedAt: new Date(quizData.updated_at),
+        userId: quizData.user_id,
+        classId: quizData.class_id
       };
     } catch (error) {
       console.error('Error fetching quiz:', error);
@@ -205,26 +277,17 @@ export const quizRepository = {
     }
   },
   
-  /**
-   * Delete a quiz
-   */
   deleteQuiz: async (quizId: string): Promise<void> => {
     try {
-      // Delete the questions first (due to foreign key constraint)
-      const { error: questionsError } = await supabase
-        .from('quiz_questions')
-        .delete()
-        .eq('quiz_id', quizId);
-
-      if (questionsError) throw questionsError;
-
-      // Then delete the quiz
       const { error } = await supabase
         .from('quizzes')
         .delete()
-        .eq('id', quizId);
+        .eq('quiz_id', quizId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error details (deleteQuiz):", error);
+        throw error;
+      }
     } catch (error) {
       console.error('Error deleting quiz:', error);
       throw error;

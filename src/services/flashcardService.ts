@@ -1,7 +1,40 @@
-
+// src/services/flashcardService.ts
 import { supabase } from "@/integrations/supabase/client";
-import { Deck, FlashcardContent, GenerateDeckParams } from "@/types/flashcard";
+import { Deck, Flashcard, FlashcardContent, GenerateDeckParams } from "@/types/flashcard";
 import { classOpenAIConfigService } from "./classOpenAIConfig";
+import type { User } from "@supabase/supabase-js";
+
+// Define types for Supabase table rows to avoid 'any'
+// These should ideally align with your auto-generated Supabase types if you have them fully set up
+type FlashcardDeckDBRow = {
+  flashcard_deck_id: string; // Primary Key for 'flashcard-decks'
+  title: string;
+  description: string;
+  color: string;
+  card_count: number;
+  due_cards: number;
+  new_cards: number;
+  created_at: string; // Timestamptz from DB
+  updated_at: string; // Timestamptz from DB
+  user_id: string | null;
+  class_id: string | null; // Foreign Key to 'classes' table
+};
+
+type FlashcardDBRow = {
+  flashcard_id: string; // Primary Key for 'flashcards'
+  flashcard_deck_id: string; // Foreign Key to 'flashcard-decks'
+  front: string;
+  back: string;
+  difficulty: string;
+  next_review: string; // Timestamptz from DB
+  last_reviewed: string | null; // Timestamptz from DB
+  review_count: number | null;
+  created_at: string; // Timestamptz from DB
+  updated_at: string; // Timestamptz from DB
+  user_id: string | null;
+  class_id: string | null; // Foreign Key to 'classes' table
+};
+
 
 /**
  * Service to handle flashcard-related operations
@@ -11,127 +44,145 @@ export const flashcardService = {
    * Generate a deck of flashcards using OpenAI and the vector database
    */
   generateDeck: async (params: GenerateDeckParams): Promise<FlashcardContent[]> => {
-    console.log("Attempting to generate flashcards with params:", params);
+    console.log("flashcardService: Attempting to generate flashcards with params:", params);
     
     try {
-      // Get class-specific OpenAI configuration if available
+      // Get class-specific OpenAI configuration (assistantId, vectorStoreId)
       const classConfig = await classOpenAIConfigService.getActiveClassConfig();
-      console.log("Using class config:", classConfig ? "YES" : "NO");
-      if (classConfig?.apiKey) {
-        console.log("API key is configured");
-      }
-      if (classConfig?.vectorStoreId) {
-        console.log(`Using vector store ID: ${classConfig.vectorStoreId}`);
-      }
-      if (classConfig?.assistantId) {
-        console.log(`Using assistant ID: ${classConfig.assistantId}`);
-      }
+      console.log("flashcardService: Active class config for flashcard generation:", JSON.stringify(classConfig, null, 2));
       
-      // Call the Supabase Edge Function to generate flashcards with the class config
+      // Invoke the Supabase Edge Function.
+      // The Edge Function itself is responsible for using its own OPENAI_API_KEY from environment variables.
+      // We pass the classConfig (which contains assistantId and vectorStoreId) to the Edge Function.
       const { data, error } = await supabase.functions.invoke('generate-flashcards', {
         body: {
           title: params.title,
           cardCount: params.cardCount,
-          openAIConfig: classConfig // Pass the class-specific configuration
+          openAIConfig: classConfig // Pass the class-specific assistantId and vectorStoreId
         }
       });
 
       if (error) {
-        console.error("Error calling generate-flashcards function:", error);
+        console.error("flashcardService: Error calling 'generate-flashcards' Edge Function:", error);
         throw new Error(`Failed to generate flashcards: ${error.message}`);
       }
 
-      if (!data || !data.flashcards || data.flashcards.length === 0) {
-        throw new Error("No flashcards were generated. Please try again.");
-      }
-
-      // Verify we got exactly the right number of flashcards
-      if (data.flashcards.length !== params.cardCount) {
-        console.log(`Expected ${params.cardCount} flashcards but received ${data.flashcards.length}. Adjusting...`);
+      if (!data || !data.flashcards || !Array.isArray(data.flashcards)) {
+        console.error("flashcardService: Invalid or missing flashcards array in Edge Function response:", data);
+        throw new Error("No flashcards were generated or response format was invalid. Please try again.");
       }
       
-      console.log(`Received ${data.flashcards.length} flashcards from the API`);
-      return data.flashcards;
-    } catch (error: any) {
-      console.error("Error generating flashcards:", error);
-      
-      // Check specifically for connection issues
-      if (error.message?.includes("Failed to send a request") || 
-          error.message?.includes("Failed to fetch")) {
-        throw new Error("Unable to connect to the flashcard generation service. Please check your connection and try again.");
+      console.log(`flashcardService: Received ${data.flashcards.length} flashcards from the Edge Function.`);
+      return data.flashcards as FlashcardContent[]; // Assume Edge Function returns FlashcardContent[]
+    } catch (error: unknown) { // Changed 'any' to 'unknown' for better type safety
+      console.error("flashcardService: Error in generateDeck:", error);
+      if (error instanceof Error) { // Type guard
+        if (error.message?.includes("Failed to send a request") || 
+            error.message?.includes("Failed to fetch")) {
+          throw new Error("Unable to connect to the flashcard generation service. Please check your internet connection and try again.");
+        }
       }
-      
-      throw error;
+      throw error; // Re-throw the original error or a new one
     }
   },
 
   /**
    * Save a new deck to the database
+   * The Deck type now includes createdAt and updatedAt, so Omit needs to reflect that.
+   * id is auto-generated by the DB.
    */
-  saveDeck: async (deck: Omit<Deck, 'id' | 'updatedAt'>): Promise<Deck> => {
-    // Get the active class from session storage
-    const activeClass = sessionStorage.getItem('activeClass');
-    const classTitle = activeClass ? JSON.parse(activeClass).title : null;
-    
-    // Create an object with snake_case properties for the database
-    const dbDeck = {
+  saveDeck: async (deck: Omit<Deck, 'id' | 'createdAt' | 'updatedAt'>): Promise<Deck> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User must be logged in to save a deck.");
+
+    const activeClassDataString = sessionStorage.getItem('activeClass');
+    let classIdToSave: string | null = null;
+    if (activeClassDataString) {
+        try {
+            const parsedClass = JSON.parse(activeClassDataString);
+            classIdToSave = parsedClass.class_id || null; 
+        } catch (e) {
+            console.error("Error parsing activeClass from session storage in saveDeck", e);
+        }
+    }
+
+    // Payload for inserting into the 'flashcard-decks' table
+    const dbDeckPayload = {
       title: deck.title,
       description: deck.description,
       color: deck.color,
       card_count: deck.cardCount,
       due_cards: deck.dueCards,
       new_cards: deck.newCards,
-      user_id: deck.userId,
-      class_title: classTitle // Add class_title to associate with specific class
+      user_id: user.id,
+      class_id: classIdToSave, 
+      // created_at and updated_at will be set by the database (DEFAULT now())
     };
 
-    // Insert the deck into the database with explicit type assertion
     const { data, error } = await supabase
-      .from('decks')
-      .insert(dbDeck as any) // Use type assertion to bypass TypeScript's type checking
+      .from('flashcard-decks')
+      .insert(dbDeckPayload)
       .select()
-      .single();
+      .single<FlashcardDeckDBRow>();
 
     if (error) {
       console.error("Error saving deck:", error);
       throw new Error(`Failed to save deck: ${error.message}`);
     }
+    if (!data) {
+      throw new Error("Failed to save deck: No data returned from database.");
+    }
 
-    // Convert from snake_case database fields to camelCase for app use
-    const savedDeck: Deck = {
-      id: data.id,
+    // Map the DB row to the application's Deck type
+    return {
+      id: data.flashcard_deck_id,
       title: data.title,
       description: data.description,
       color: data.color,
       cardCount: data.card_count,
       dueCards: data.due_cards,
       newCards: data.new_cards,
-      updatedAt: new Date(data.updated_at),
+      createdAt: new Date(data.created_at), // Convert string to Date
+      updatedAt: new Date(data.updated_at), // Convert string to Date
       userId: data.user_id,
-      classTitle: data.class_title
+      classId: data.class_id
     };
-
-    return savedDeck;
   },
 
   /**
    * Save flashcards to the database for a deck
    */
   saveFlashcards: async (deckId: string, flashcards: FlashcardContent[]): Promise<void> => {
-    // Convert from application model to database model (camelCase to snake_case)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User must be logged in to save flashcards.");
+    
+    const activeClassDataString = sessionStorage.getItem('activeClass');
+    let classIdToSave: string | null = null;
+    if (activeClassDataString) {
+        try {
+            const parsedClass = JSON.parse(activeClassDataString);
+            classIdToSave = parsedClass.class_id || null;
+        } catch (e) {
+            console.error("Error parsing activeClass from session storage in saveFlashcards", e);
+        }
+    }
+
+    // Payload for inserting into the 'flashcards' table
     const flashcardsToInsert = flashcards.map(card => ({
-      deck_id: deckId,
+      flashcard_deck_id: deckId,
       front: card.front,
       back: card.back,
-      difficulty: 'medium',
-      next_review: new Date().toISOString(),
-      review_count: 0
+      difficulty: 'medium', 
+      next_review: new Date().toISOString(), // DB expects ISO string
+      review_count: 0,
+      user_id: user.id,
+      class_id: classIdToSave,
+      // created_at and updated_at will be set by the database
     }));
 
     const { error } = await supabase
       .from('flashcards')
-      .insert(flashcardsToInsert as any[]) // Use type assertion to avoid TypeScript errors
-      .select();
+      .insert(flashcardsToInsert);
 
     if (error) {
       console.error("Error saving flashcards:", error);
@@ -143,21 +194,33 @@ export const flashcardService = {
    * Fetch all decks from the database for the current active class
    */
   fetchDecks: async (): Promise<Deck[]> => {
-    // Get the active class from session storage
-    const activeClass = sessionStorage.getItem('activeClass');
-    const classTitle = activeClass ? JSON.parse(activeClass).title : null;
-    
-    // If no active class, return an empty array
-    if (!classTitle) {
-      console.log("No active class found, returning empty decks array");
-      return [];
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const activeClassDataString = sessionStorage.getItem('activeClass');
+    if (!activeClassDataString) {
+        console.log("fetchDecks: No active class in session storage.");
+        return [];
+    }
+    let activeClassId: string | null = null;
+    try {
+        const parsedClass = JSON.parse(activeClassDataString);
+        activeClassId = parsedClass.class_id || null;
+    } catch(e) {
+        console.error("fetchDecks: Error parsing activeClass from session storage", e);
+        return [];
+    }
+
+    if (!activeClassId) {
+        console.log("fetchDecks: No active class_id found.");
+        return [];
     }
     
-    // Fetch decks filtered by class_title
     const { data, error } = await supabase
-      .from('decks')
+      .from('flashcard-decks')
       .select('*')
-      .eq('class_title', classTitle)
+      .eq('user_id', user.id)
+      .eq('class_id', activeClassId)
       .order('updated_at', { ascending: false });
 
     if (error) {
@@ -165,28 +228,29 @@ export const flashcardService = {
       throw new Error(`Failed to fetch decks: ${error.message}`);
     }
 
-    return data.map(deck => ({
-      id: deck.id,
+    return (data || []).map((deck: FlashcardDeckDBRow): Deck => ({ // Explicit return type for map
+      id: deck.flashcard_deck_id,
       title: deck.title,
       description: deck.description,
       color: deck.color,
       cardCount: deck.card_count,
       dueCards: deck.due_cards,
       newCards: deck.new_cards,
+      createdAt: new Date(deck.created_at),
       updatedAt: new Date(deck.updated_at),
       userId: deck.user_id,
-      classTitle: deck.class_title
+      classId: deck.class_id
     }));
   },
   
   /**
    * Fetch flashcards for a specific deck
    */
-  fetchFlashcards: async (deckId: string) => {
+  fetchFlashcards: async (deckId: string): Promise<Flashcard[]> => {
     const { data, error } = await supabase
       .from('flashcards')
       .select('*')
-      .eq('deck_id', deckId)
+      .eq('flashcard_deck_id', deckId)
       .order('created_at', { ascending: true });
       
     if (error) {
@@ -194,15 +258,19 @@ export const flashcardService = {
       throw new Error(`Failed to fetch flashcards: ${error.message}`);
     }
     
-    return data.map(card => ({
-      id: card.id,
+    return (data || []).map((card: FlashcardDBRow): Flashcard => ({ // Explicit return type for map
+      id: card.flashcard_id,
+      deckId: card.flashcard_deck_id,
       front: card.front,
       back: card.back,
-      deckId: card.deck_id,
       difficulty: card.difficulty,
       nextReview: new Date(card.next_review),
-      lastReviewed: card.last_reviewed ? new Date(card.last_reviewed) : undefined,
-      reviewCount: card.review_count
+      lastReviewed: card.last_reviewed ? new Date(card.last_reviewed) : null,
+      reviewCount: card.review_count,
+      createdAt: new Date(card.created_at),
+      updatedAt: new Date(card.updated_at),
+      userId: card.user_id,
+      classId: card.class_id,
     }));
   },
   
@@ -211,11 +279,11 @@ export const flashcardService = {
    */
   deleteDeck: async (deckId: string): Promise<void> => {
     try {
-      // First delete all flashcards associated with this deck (cascade delete isn't automatic)
+      // First delete all flashcards associated with this deck
       const { error: flashcardsError } = await supabase
         .from('flashcards')
         .delete()
-        .eq('deck_id', deckId);
+        .eq('flashcard_deck_id', deckId);
       
       if (flashcardsError) {
         console.error("Error deleting flashcards:", flashcardsError);
@@ -224,9 +292,9 @@ export const flashcardService = {
       
       // Then delete the deck itself
       const { error: deckError } = await supabase
-        .from('decks')
+        .from('flashcard-decks')
         .delete()
-        .eq('id', deckId);
+        .eq('flashcard_deck_id', deckId);
       
       if (deckError) {
         console.error("Error deleting deck:", deckError);
@@ -234,9 +302,12 @@ export const flashcardService = {
       }
       
       console.log(`Successfully deleted deck ${deckId} and its flashcards`);
-    } catch (error: any) {
+    } catch (error: unknown) { // Changed 'any' to 'unknown'
       console.error("Error in deleteDeck:", error);
-      throw error;
+      if (error instanceof Error) { // Type guard
+        throw error;
+      }
+      throw new Error("An unknown error occurred during deck deletion.");
     }
   }
 };

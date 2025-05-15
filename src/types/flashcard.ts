@@ -1,6 +1,7 @@
+// src/types/flashcard.ts
 
 /**
- * Single flashcard content (front and back)
+ * Single flashcard content (front and back) - typically for generation
  */
 export interface FlashcardContent {
   front: string;
@@ -8,34 +9,41 @@ export interface FlashcardContent {
 }
 
 /**
- * Flashcard schema for database and application use
+ * Flashcard schema for application use.
+ * Corresponds to the 'flashcards' table.
  */
 export interface Flashcard {
-  id: string;
+  id: string; // Maps to flashcard_id (PK)
+  deckId: string; // Maps to flashcard_deck_id (FK)
   front: string;
   back: string;
-  deckId: string;
   difficulty: string;
-  nextReview: Date;
-  lastReviewed?: Date;
-  reviewCount?: number;
+  nextReview: Date; // Will be converted from DB string
+  lastReviewed?: Date | null; // Will be converted from DB string
+  reviewCount: number | null;
+  createdAt: Date; // Will be converted from DB string
+  updatedAt: Date; // Will be converted from DB string
+  userId?: string | null;
+  classId?: string | null; // Foreign key to classes table
 }
 
 /**
- * Deck schema for database and application use
+ * Deck schema for application use.
+ * Corresponds to the 'flashcard-decks' table.
  */
 export interface Deck {
-  id: string;
+  id: string; // Maps to flashcard_deck_id (PK)
   title: string;
   description: string;
-  userId?: string;
-  updatedAt: Date;
   color: string;
-  cardCount: number;
-  dueCards: number;
-  newCards: number;
-  cards?: Flashcard[];
-  classTitle?: string; // Add class title to the Deck interface
+  cardCount: number; // maps to card_count
+  dueCards: number; // maps to due_cards
+  newCards: number; // maps to new_cards
+  createdAt: Date; // Will be converted from DB string
+  updatedAt: Date; // Will be converted from DB string
+  userId?: string | null;
+  classId?: string | null; // Foreign key to classes table
+  cards?: Flashcard[]; // Optional array of flashcards belonging to this deck
 }
 
 /**
