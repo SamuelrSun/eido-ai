@@ -14,9 +14,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { PageHeader } from "@/components/layout/PageHeader";
+// PageHeader import is no longer needed
+// import { PageHeader } from "@/components/layout/PageHeader"; 
 import {
-  Dialog, DialogContent, DialogDescription as DialogDescriptionComponent,
+  Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, 
   DialogFooter, DialogHeader as DialogHeaderComponent, DialogTitle as DialogTitleComponent,
 } from "@/components/ui/dialog";
 import {
@@ -24,8 +25,8 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
+  AlertDialogDescription, 
+  AlertDialogFooter,    
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -46,8 +47,8 @@ import { UploadDialog } from "@/features/files/components/UploadDialog";
 import type { User } from "@supabase/supabase-js";
 import { formatFileSize } from "@/lib/utils";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
-import { FileGrid } from "../components/FileGrid"; // Corrected path
-
+import { FileGrid } from "../components/FileGrid"; 
+import { cn } from "@/lib/utils"; 
 
 interface ActiveClassData {
   class_id: string;
@@ -127,7 +128,7 @@ const FilesPage = () => {
         } else if (user) {
           const { data: newStorage, error: insertError } = await supabase
             .from('user_storage')
-            .insert({ user_id: user.id, storage_used: 0, storage_limit: 1024 * 1024 * 1024 }) // Default 1GB limit
+            .insert({ user_id: user.id, storage_used: 0, storage_limit: 1024 * 1024 * 1024 }) 
             .select()
             .single();
           if (insertError) throw insertError;
@@ -314,7 +315,7 @@ const FilesPage = () => {
         description: "Cannot upload files, you have insufficient storage space.",
         variant: "destructive",
       });
-      setFiles(prev => prev.filter(f => !tempFileEntries.find(tf => tf.file_id === f.file_id))); // Remove temp entries
+      setFiles(prev => prev.filter(f => !tempFileEntries.find(tf => tf.file_id === f.file_id))); 
       return;
     }
 
@@ -392,8 +393,6 @@ const FilesPage = () => {
         const confirmDelete = window.confirm(`Are you sure you want to delete the folder "${itemName}" and all its contents? This action cannot be undone.`);
         if (!confirmDelete) return;
     }
-    // For single file deletion via FileGrid's dropdown (which is now removed for files),
-    // or for bulk deletion, confirmation is handled by handleDeleteSelectedItems.
 
     try {
       if (itemType === 'folder') {
@@ -443,7 +442,7 @@ const FilesPage = () => {
         }
         toast({ title: "Folder Deleted", description: `"${itemName}" and its contents have been removed.` });
 
-      } else { // Deleting a single file (can be called by handleDeleteSelectedItems)
+      } else { 
         const fileToDelete = files.find(f => f.file_id === itemId) || selectedItems.find(f => f.id === itemId && f.type === 'file');
         if (fileToDelete?.url) {
             const filePathParts = fileToDelete.url.split('/');
@@ -473,14 +472,14 @@ const FilesPage = () => {
       toast({ title: "No Files Selected", description: "Please select files to delete.", variant: "default" });
       return;
     }
-    setItemsToDelete(filesToDelete); // Store items to be deleted
-    setShowDeleteConfirmDialog(true); // Show confirmation dialog
+    setItemsToDelete(filesToDelete); 
+    setShowDeleteConfirmDialog(true); 
   };
 
   const confirmDeleteSelectedItems = async () => {
     if (!user) return;
-    setShowDeleteConfirmDialog(false); // Close dialog
-    const filesToDelete = itemsToDelete.filter(item => item.type === 'file'); // Get items from state
+    setShowDeleteConfirmDialog(false); 
+    const filesToDelete = itemsToDelete.filter(item => item.type === 'file'); 
 
     let successCount = 0;
     let failCount = 0;
@@ -488,7 +487,6 @@ const FilesPage = () => {
 
     for (const file of filesToDelete) {
       try {
-        // Fetch file details again to ensure size is accurate if not in current `files` state
         const fileData = files.find(f => f.file_id === file.id) ||
                          (await supabase.from('files').select('url, size').eq('file_id', file.id).single()).data;
 
@@ -521,7 +519,7 @@ const FilesPage = () => {
 
     setSelectedItems([]);
     fetchCurrentFolderContents();
-    setItemsToDelete([]); // Clear items after deletion
+    setItemsToDelete([]); 
   };
 
 
@@ -631,17 +629,32 @@ const FilesPage = () => {
 
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={`Database: ${activeClass?.title || 'Loading...'}`} description="Store, organize, and sync files with your AI knowledge base." />
+    // MODIFICATION: Reverted root div to simpler layout for page scroll
+    <div className="space-y-6"> 
+      {/* PageHeader is removed as per request */}
+      {/* <PageHeader 
+        title={`Database: ${activeClass?.title || 'Loading...'}`} 
+        description="Store, organize, and sync files with your AI knowledge base." 
+      /> 
+      */}
+
+      {/* MODIFICATION: Main content card no longer needs to manage its own height with flex-grow */}
       <div className="bg-card p-4 sm:p-6 rounded-xl shadow-sm border">
-        <div className="mb-6 space-y-4">
+        <div className="mb-6 space-y-4"> {/* This section remains as is */}
           <div className="relative"> <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" /> <Input type="search" placeholder="Search files and folders..." className="pl-10" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /> </div>
           {userStorage && <StorageUsage storage={userStorage} />}
         </div>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2"> <TabsTrigger value="myFiles">My Files</TabsTrigger> <TabsTrigger value="vectorStore">Vector Store <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700">AI</Badge></TabsTrigger> </TabsList>
-          <TabsContent value="myFiles" className="mt-6">
-            <div className="flex flex-wrap gap-2 mb-6 mt-4 items-center">
+        
+        {/* MODIFICATION: Tabs component styling reverted, mb-6 restored */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6"> 
+          <TabsList className="grid w-full max-w-md grid-cols-2"> 
+            <TabsTrigger value="myFiles">My Files</TabsTrigger> 
+            <TabsTrigger value="vectorStore">Vector Store <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700">AI</Badge></TabsTrigger> 
+          </TabsList>
+          
+          {/* MODIFICATION: TabsContent styling reverted */}
+          <TabsContent value="myFiles" className="mt-6"> 
+            <div className="flex flex-wrap gap-2 mb-6 mt-4 items-center"> {/* This section remains as is */}
               {!selectionMode ? (
                 <>
                   <Button onClick={() => setIsUploadDialogOpen(true)}> <Upload className="h-4 w-4 mr-2" /> Upload Files </Button>
@@ -660,7 +673,7 @@ const FilesPage = () => {
                 </>
               )}
             </div>
-            <Breadcrumb className="mb-4">
+            <Breadcrumb className="mb-4"> {/* This section remains as is */}
               <BreadcrumbList>
                 {breadcrumbs.map((crumb, index) => (
                   <React.Fragment key={crumb.id || 'root-crumb'}>
@@ -685,11 +698,16 @@ const FilesPage = () => {
                 ))}
               </BreadcrumbList>
             </Breadcrumb>
-            <div className={`min-h-[300px] border-2 border-dashed rounded-lg p-4 ${dragging ? "border-primary bg-primary/10" : "border-input"}`}
+            {/* MODIFICATION: Drag-and-drop div styling reverted, no longer flex-grow or overflow-auto */}
+            <div 
+              className={`min-h-[300px] border-2 border-dashed rounded-lg p-4 ${dragging ? "border-primary bg-primary/10" : "border-input"}`}
               onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}
               onDrop={handleFileDrop}
             >
+              {/* FileGrid's internal ScrollArea will now determine its own scroll behavior based on its content,
+                  or we might need to adjust FileGrid.tsx if this causes issues.
+                  The key is that its parent (this div) is no longer constraining its height. */}
               <FileGrid
                 files={filteredFiles}
                 folders={filteredFolders}
@@ -698,21 +716,36 @@ const FilesPage = () => {
                 selectedItems={selectedItems}
                 onFileSelect={(file) => toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size, fileMimeType: file.type })}
                 onFolderClick={(folder) => navigateToFolder(folder.folder_id, folder.name)}
-                onDeleteItem={handleDeleteItem} // Changed prop name to onDeleteItem
+                onDeleteItem={handleDeleteItem} 
                 onFileOpen={(url) => window.open(url, "_blank")}
                 currentFolderId={currentFolderId}
               />
             </div>
           </TabsContent>
-          <TabsContent value="vectorStore" className="mt-6">
-             <div className="mb-6"> <div className="flex justify-between items-center"><h3 className="text-lg font-medium">Vector Store Files</h3><Button variant="outline" size="sm" onClick={fetchVectorStoreFiles} disabled={isLoadingVectorFiles}>{isLoadingVectorFiles ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : null}Refresh List</Button></div> <p className="text-muted-foreground text-sm mt-1">Files synced with your class AI knowledge base.</p> </div>
+
+          {/* MODIFICATION: TabsContent styling reverted */}
+          <TabsContent value="vectorStore" className="mt-6"> 
+             <div className="mb-6"> {/* This section remains as is */}
+                <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-medium">Vector Store Files</h3>
+                    <Button variant="outline" size="sm" onClick={fetchVectorStoreFiles} disabled={isLoadingVectorFiles}>
+                        {isLoadingVectorFiles ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : null}Refresh List
+                    </Button>
+                </div> 
+                <p className="text-muted-foreground text-sm mt-1">Files synced with your class AI knowledge base.</p> 
+            </div>
             {isLoadingVectorFiles ?
             (<div className="flex flex-col items-center justify-center h-full py-10"><Loader2 className="h-10 w-10 text-primary animate-spin mb-4" /><p className="text-muted-foreground">Loading Vector Store files...</p></div>
             ) : vectorStoreFiles.length === 0 ?
             (<div className="flex flex-col items-center justify-center h-full text-center py-10"><CloudLightning className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" /><h3 className="text-lg font-medium">Vector Store is Empty</h3><p className="text-muted-foreground mb-4">Upload files from "My Files" to populate the Vector Store for this class.</p><Button onClick={() => {setActiveTab("myFiles"); setSelectionMode(true);}}>Go to My Files & Select</Button></div>
-            ) : ( <ScrollArea className="h-[400px] sm:h-[500px]"> <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            ) : ( 
+              // MODIFICATION: ScrollArea height restored to fixed values
+              <ScrollArea className="h-[400px] sm:h-[500px]"> 
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {vectorStoreFiles.map((file) => ( <Card key={file.id} className="p-3"> <div className="flex items-center gap-2 mb-2"><FileIcon className="h-6 w-6 text-indigo-500 flex-shrink-0" /> <span className="text-sm font-medium truncate" title={file.document_title || file.filename || file.id}> {file.document_title || file.filename || `File ID: ${file.id.substring(0,15)}...`} </span> </div> {file.filename && file.document_title && file.document_title !== file.filename && ( <p className="text-xs text-muted-foreground truncate" title={file.filename}>Original Filename: {file.filename}</p> )} <p className="text-xs text-muted-foreground">Size: {formatFileSize(file.usage_bytes || 0)}</p> <p className="text-xs text-muted-foreground">Status: <Badge variant={file.status === 'completed' ? 'default' : 'secondary'} className={file.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>{file.status}</Badge></p> <p className="text-xs text-muted-foreground">Added: {new Date(file.created_at * 1000).toLocaleDateString()}</p> </Card> ))}
-            </div> </ScrollArea> )}
+                </div> 
+              </ScrollArea> 
+            )}
           </TabsContent>
         </Tabs>
       </div>

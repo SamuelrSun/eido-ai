@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChatBot } from "@/components/chat/ChatBot";
 import { WebChatBot, Message as ChatUIMessage } from "@/components/chat/WebChatBot";
-import { PageHeader } from "@/components/layout/PageHeader";
+// PageHeader import is no longer needed
+// import { PageHeader } from "@/components/layout/PageHeader"; 
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Settings, Bot, Globe, Split, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -116,25 +117,28 @@ const SuperTutor = () => {
     );
   }
 
-  // Added min-h-0 to allow shrinking
-  const tabContentWrapperClassName = "bg-card p-0 rounded-xl shadow-sm border flex-grow flex flex-col overflow-hidden min-h-0 h-full";
-  // Added min-h-0 to allow shrinking
+  const tabContentWrapperClassName = "bg-card p-0 rounded-xl shadow-sm border flex-grow flex flex-col overflow-hidden min-h-0 h-full"; 
   const tabsContentClassName = "flex-grow flex flex-col overflow-hidden data-[state=inactive]:hidden min-h-0 h-full";
 
 
   return (
-    // Main container for the SuperTutor page, sets up overall height and flex direction
-    <div className="space-y-6 flex flex-col h-[calc(100vh-var(--header-height,60px))]">
-      <PageHeader
+    // MODIFICATION: Removed `space-y-6` from className to allow chat to take full height.
+    // The height calculation h-[calc(100vh-var(--header-height,60px)-2rem)] is designed to fill the space
+    // below the main app header and within the main content area's padding.
+    <div className="flex flex-col h-[calc(100vh-var(--header-height,30px)-2rem)]">
+      {/* MODIFICATION: PageHeader component removed */}
+      {/* <PageHeader
         title="Super Tutor"
         description={activeClassTitle
           ? `AI learning assistant for ${activeClassTitle}`
           : "Your AI-powered learning assistant."
         }
-      />
+      /> 
+      */}
 
       {!activeClassTitle && (
-        <Alert variant="destructive" className="mt-4">
+        // This Alert will now be at the very top if no class is selected.
+        <Alert variant="destructive" className="mt-0 mb-4"> {/* Adjusted margin if it's the first element */}
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No Class Selected</AlertTitle>
           <AlertDescription>
@@ -144,7 +148,7 @@ const SuperTutor = () => {
       )}
 
       {activeClassTitle && pageError && !effectiveOpenAIConfig?.assistantId && (
-         <Alert variant="default" className="bg-amber-50 border-amber-200 mt-4">
+         <Alert variant="default" className="bg-amber-50 border-amber-200 mt-0 mb-4"> {/* Adjusted margin */}
             <AlertCircle className="h-4 w-4 text-amber-700" />
             <AlertTitle className="text-amber-800">Class AI Configuration Note</AlertTitle>
             <AlertDescription className="text-amber-700">
@@ -157,7 +161,17 @@ const SuperTutor = () => {
       )}
       
       {activeClassTitle && (
-        <Tabs value={activeMode} onValueChange={(value) => setActiveMode(value as ChatMode)} className="w-full flex flex-col flex-grow min-h-0"> {/* Added min-h-0 */}
+        // The Tabs component will now be the primary element filling the space.
+        // Added pt-2 if PageHeader is removed and there are no alerts, to give some top padding.
+        // If alerts are present, their mb-4 will provide spacing.
+        <Tabs 
+          value={activeMode} 
+          onValueChange={(value) => setActiveMode(value as ChatMode)} 
+          className={cn(
+            "w-full flex flex-col flex-grow min-h-0",
+            !pageError && activeClassTitle && "pt-2" // Add some padding if no alerts are shown above
+          )}
+        >
           <TabsList className="w-full grid grid-cols-3 mb-4">
             <TabsTrigger value="rag" className="flex-1 gap-2 data-[state=active]:shadow-md">
               <Bot className="h-4 w-4" /> Class Materials
@@ -170,7 +184,8 @@ const SuperTutor = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="rag" className={cn(tabsContentClassName)}>
+          {/* TabsContent now directly uses mt-0 if it's the first element after TabsList */}
+          <TabsContent value="rag" className={cn(tabsContentClassName, "mt-0")}>
             <div className={tabContentWrapperClassName}>
               <ChatBot
                 disableToasts={true}
@@ -188,7 +203,7 @@ const SuperTutor = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="web" className={cn(tabsContentClassName, "mt-2")}>
+          <TabsContent value="web" className={cn(tabsContentClassName, "mt-0")}>
             <div className={tabContentWrapperClassName}>
               <WebChatBot 
                 disableToasts={true}
@@ -204,13 +219,11 @@ const SuperTutor = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="split" className={cn(tabsContentClassName, "mt-2")}>
+          <TabsContent value="split" className={cn(tabsContentClassName, "mt-0")}>
             <ResizablePanelGroup
               direction="horizontal"
-              // Added min-h-0 to allow shrinking
               className="rounded-xl border shadow-sm flex-1 flex overflow-hidden min-h-0 h-full" 
             >
-              {/* Added min-h-0 to allow shrinking */}
               <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col overflow-hidden min-h-0">
                 <ChatBot
                   disableToasts={true}
@@ -227,7 +240,6 @@ const SuperTutor = () => {
                 />
               </ResizablePanel>
               <ResizableHandle withHandle />
-              {/* Added min-h-0 to allow shrinking */}
               <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col overflow-hidden min-h-0">
                 <WebChatBot 
                   disableToasts={true}
