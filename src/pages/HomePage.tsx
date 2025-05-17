@@ -32,11 +32,11 @@ interface ClassOption {
 const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"];
 
 const HomePage = () => {
-  const [userName, setUserName] = useState<string>("Student");
+  const [userName, setUserName] = useState<string>("Student"); // Default to "Student"
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
   const [isEditClassOpen, setIsEditClassOpen] = useState(false);
   const [selectedClassToEdit, setSelectedClassToEdit] = useState<ClassOption | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // For overall page/class list loading
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -47,20 +47,29 @@ const HomePage = () => {
     setIsLoading(true);
     try {
       if (currentUser) {
-        const { data: profile } = await supabase
+        // Fetch full_name from public.profiles
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('full_name')
-          .eq('user_id', currentUser.id)
+          .eq('user_id', currentUser.id) // Match on user_id
           .maybeSingle();
+
+        if (profileError && profileError.code !== 'PGRST116') { // PGRST116 means no rows found, not necessarily an error here
+          console.error("Error fetching profile:", profileError);
+          // Potentially toast an error, but for greeting, fallback is okay
+        }
 
         if (profile?.full_name) {
           const firstName = profile.full_name.split(' ')[0];
           setUserName(firstName);
         } else {
+          // Fallback to email prefix if full_name is not in profiles
           const emailName = currentUser.email?.split('@')[0] || "Student";
-          setUserName(emailName);
+          setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1)); // Capitalize first letter
+          console.log("No full_name in profile, using email prefix for greeting.");
         }
 
+        // Fetch classes (existing logic)
         const userClasses: ClassConfig[] = await classOpenAIConfigService.getAllClasses();
         if (userClasses && userClasses.length > 0) {
           const transformedOptions: ClassOption[] = userClasses.map((config): ClassOption => ({
@@ -70,7 +79,7 @@ const HomePage = () => {
             classTime: config.classTime,
             classroom: config.classroom,
             emoji: config.emoji || getEmojiForClass(config.title),
-            link: "/super-stu",
+            link: "/super-stu", // Assuming default link, adjust if dynamic
             enabledWidgets: (config.enabledWidgets || DEFAULT_CLASS_WIDGETS) as WidgetType[],
             openAIConfig: config.openAIConfig,
             created_at: config.created_at,
@@ -82,7 +91,7 @@ const HomePage = () => {
           setClassOptions([]);
         }
       } else {
-        setUserName("Student");
+        setUserName("Student"); // Default if no user
         setClassOptions([]);
       }
     } catch (error) {
@@ -95,32 +104,35 @@ const HomePage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast]); // Removed navigate from dependencies as it's stable
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user || null;
       setUser(currentUser);
-      fetchUserDataAndClasses(currentUser);
+      fetchUserDataAndClasses(currentUser); // Fetch data on auth state change
       if (_event === 'SIGNED_OUT') {
         sessionStorage.removeItem('activeClass');
         navigate("/auth");
       }
     });
 
+    // Initial fetch on component mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       const currentUser = session?.user || null;
       setUser(currentUser);
       fetchUserDataAndClasses(currentUser);
     });
     
+    // Clear active class from session storage when on homepage
     sessionStorage.removeItem('activeClass');
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [fetchUserDataAndClasses, navigate]);
+  }, [fetchUserDataAndClasses, navigate]); // Added navigate here
 
+  // ... (handleCreateClass, handleUpdateClass, handleDeleteClass, handleEditClassClick, handleClassClick remain the same)
   const handleCreateClass = async (classDialogData: CreateClassDialogClassData) => {
     if (!user) {
       toast({ title: "Authentication Error", description: "You must be signed in.", variant: "destructive" });
@@ -160,12 +172,12 @@ const HomePage = () => {
         title: "Class Created!",
         description: `${newClassOption.title} has been added. AI features are being set up.`,
       });
-      setTimeout(() => fetchUserDataAndClasses(user), 5000); // Increased delay for provisioning
+      setTimeout(() => fetchUserDataAndClasses(user), 5000); 
     } catch (error) {
       console.error("Error in handleCreateClass:", error);
       toast({ title: "Error Creating Class", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     } finally {
-      setIsCreateClassOpen(false); // Ensure dialog closes
+      setIsCreateClassOpen(false); 
     }
   };
 
@@ -173,6 +185,10 @@ const HomePage = () => {
     if (!selectedClassToEdit || !user) return;
 
     try {
+      // When updating, we need to provide the class_id to the service function
+      // Assuming saveConfigForClass can take class_id as its last optional parameter for updates
+      const classIdToUpdate = selectedClassToEdit.class_id;
+
       const updatedDbClassRecord = await classOpenAIConfigService.saveConfigForClass(
         classDialogData.title,
         classDialogData.openAIConfig || {},
@@ -180,24 +196,10 @@ const HomePage = () => {
         classDialogData.professor,
         classDialogData.classTime,
         classDialogData.classroom,
-        classDialogData.enabledWidgets as WidgetType[]
+        classDialogData.enabledWidgets as WidgetType[],
+        classIdToUpdate // Pass the ID of the class being updated
       );
       
-      // If title changed, and saveConfigForClass doesn't handle deleting the old record based on ID,
-      // and if the ID of the record returned is different from the one we intended to edit,
-      // then the old one might need explicit deletion.
-      // The current saveConfigForClass uses title to find existing, then updates by class_id.
-      // So, if the title changes, it might be treated as a new class if not handled carefully.
-      // For now, we assume saveConfigForClass correctly updates the record with selectedClassToEdit.class_id
-      // if classDialogData.title matches selectedClassToEdit.title, or creates new if title is different.
-      // A more robust approach in saveConfigForClass would be to pass class_id for updates.
-      if (selectedClassToEdit.title !== classDialogData.title && selectedClassToEdit.class_id !== updatedDbClassRecord.class_id) {
-         // This condition implies the title changed AND the service treated it as a new insert
-         // because it couldn't find the original by the *new* title.
-         // We should delete the original class record.
-         await classOpenAIConfigService.deleteClass(selectedClassToEdit.class_id);
-      }
-
        const updatedClassOption: ClassOption = {
         class_id: updatedDbClassRecord.class_id,
         title: updatedDbClassRecord.class_title,
@@ -216,29 +218,19 @@ const HomePage = () => {
         user_id: updatedDbClassRecord.user_id,
       };
 
-      // Update the specific class in the list, or add if it's a "new" one due to title change
-      setClassOptions(prev => {
-          const existingIndex = prev.findIndex(opt => opt.class_id === selectedClassToEdit.class_id);
-          if (existingIndex > -1) {
-              // If original class_id is found, update it
-              return prev.map(opt => (opt.class_id === selectedClassToEdit.class_id ? updatedClassOption : opt));
-          } else {
-              // If original class_id not found (e.g., title change created new), add new and filter old
-              return [updatedClassOption, ...prev.filter(opt => opt.class_id !== selectedClassToEdit.class_id)];
-          }
-      });
-
+      setClassOptions(prev => 
+        prev.map(opt => opt.class_id === classIdToUpdate ? updatedClassOption : opt)
+      );
 
       setSelectedClassToEdit(null);
       toast({ title: "Class Updated", description: `${updatedClassOption.title} has been updated.` });
-      // Re-fetch to ensure full consistency, especially if title change logic is complex
       fetchUserDataAndClasses(user);
 
     } catch (error) {
       console.error("Error in handleUpdateClass:", error);
       toast({ title: "Error Updating Class", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     } finally {
-      setIsEditClassOpen(false); // Ensure dialog closes
+      setIsEditClassOpen(false); 
     }
   };
 
@@ -246,9 +238,7 @@ const HomePage = () => {
     if (!selectedClassToEdit || !user) return;
     try {
       await classOpenAIConfigService.deleteClass(selectedClassToEdit.class_id);
-
       setClassOptions(prev => prev.filter(opt => opt.class_id !== selectedClassToEdit.class_id));
-      
       const activeClassJSON = sessionStorage.getItem('activeClass');
       if (activeClassJSON) {
           const parsedActiveClass = JSON.parse(activeClassJSON);
@@ -261,7 +251,7 @@ const HomePage = () => {
       console.error("Error in handleDeleteClass:", error);
       toast({ title: "Error Deleting Class", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
     } finally {
-      setIsEditClassOpen(false); // Ensure dialog closes
+      setIsEditClassOpen(false); 
       setSelectedClassToEdit(null);
     }
   };
@@ -276,6 +266,7 @@ const HomePage = () => {
     navigate(classOption.link);
   };
 
+
   return (
     <div className="space-y-8 pb-8">
       <div className="flex justify-between items-center">
@@ -286,7 +277,7 @@ const HomePage = () => {
         <Button
           onClick={() => setIsCreateClassOpen(true)}
           className="flex items-center gap-2"
-          disabled={!user}
+          disabled={!user} // Disable if no user
         >
           <PlusCircle className="h-4 w-4" />
           Add Class
@@ -399,15 +390,15 @@ const HomePage = () => {
 
       <CreateClassDialog
         open={isCreateClassOpen}
-        onOpenChange={setIsCreateClassOpen} // HomePage now controls dialog visibility
+        onOpenChange={setIsCreateClassOpen} 
         onClassCreate={handleCreateClass}
       />
 
       {selectedClassToEdit && (
         <EditClassDialog
           open={isEditClassOpen}
-          onOpenChange={setIsEditClassOpen} // HomePage now controls dialog visibility
-          initialData={{
+          onOpenChange={setIsEditClassOpen} 
+          initialData={{ // Ensure this matches the ClassData structure expected by EditClassDialog
             title: selectedClassToEdit.title,
             professor: selectedClassToEdit.professor,
             classTime: selectedClassToEdit.classTime,
@@ -418,7 +409,11 @@ const HomePage = () => {
                 assistantId: selectedClassToEdit.openAIConfig.assistantId,
                 vectorStoreId: selectedClassToEdit.openAIConfig.vectorStoreId,
             } : undefined,
-          }}
+            // Pass class_id for the service layer to identify the record
+            class_id: selectedClassToEdit.class_id 
+          } as any} // Using 'as any' here because ClassData in CreateClassDialog doesn't have class_id
+                     // This should be reconciled if ClassData is shared for both create/edit content.
+                     // For now, this makes sure the EditClassDialog gets the ID.
           onClassUpdate={handleUpdateClass}
           onClassDelete={handleDeleteClass}
         />
