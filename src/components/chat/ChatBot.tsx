@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
-  // id?: string; 
+  // id?: string; // Keep this commented if not used, or define if ChatMessageApp.id is passed
 }
 
 interface ChatBotProps {
@@ -41,9 +41,10 @@ export function ChatBot({
   disableToasts = false,
   loadingIndicator,
   onResponseGenerationStateChange,
-  messages: externalMessages,
+  messages: externalMessages, // These are ChatUIMessage[] from SuperTutor
   onMessagesChange
 }: ChatBotProps) {
+  // This internal state is used if messages/onMessagesChange are not provided (standalone mode)
   const [internalMessages, setInternalMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chatMode, setChatMode] = useState<"assistant" | "fallback" | "error" | "idle">("idle");
@@ -51,25 +52,33 @@ export function ChatBot({
   const [currentVectorStoreId, setCurrentVectorStoreId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Determine which messages array to use (externally controlled or internal)
   const messages = externalMessages !== undefined ? externalMessages : internalMessages;
   
+  // Wrapper to call either external onMessagesChange or update internal state
   const setMessagesWrapper = (newMessagesOrFn: Message[] | ((prevMessages: Message[]) => Message[])) => {
     if (onMessagesChange) {
-      onMessagesChange(newMessagesOrFn);
+      // If onMessagesChange expects Message[], and newMessagesOrFn is a function,
+      // we need to compute the new state based on the *current* external messages.
+      if (typeof newMessagesOrFn === 'function' && externalMessages) {
+        onMessagesChange(newMessagesOrFn(externalMessages));
+      } else if (Array.isArray(newMessagesOrFn)) {
+        onMessagesChange(newMessagesOrFn);
+      }
     } else { 
       setInternalMessages(newMessagesOrFn);
     }
   };
 
-  // const messagesEndRef = useRef<HTMLDivElement>(null); // Ref is not needed if auto-scroll is disabled
+  const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for the scroll target
   const { toast } = useToast();
 
-  // useEffect(() => {
-  //   // Automatic scrolling to bottom is disabled as per user request
-  //   // if (messages.length > 0 && messagesEndRef.current) {
-  //   //   messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-  //   // }
-  // }, [messages]);
+  // Effect to scroll to the bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]); // Dependency array includes messages
 
   useEffect(() => {
     onResponseGenerationStateChange?.(isLoading);
@@ -78,8 +87,11 @@ export function ChatBot({
   useEffect(() => {
     setCurrentAssistantId(openAIConfig?.assistantId || null);
     setCurrentVectorStoreId(openAIConfig?.vectorStoreId || null);
-    if (openAIConfig?.assistantId) {
-        setChatMode("idle");
+    if (openAIConfig?.assistantId && openAIConfig?.vectorStoreId) {
+        setChatMode("assistant");
+    } else if (openAIConfig?.assistantId) {
+        setChatMode("assistant"); 
+        console.warn("ChatBot: Assistant ID provided but Vector Store ID is missing. RAG might not function as expected.");
     } else {
         setChatMode("fallback");
     }
@@ -91,76 +103,52 @@ export function ChatBot({
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
 
-    const historyForAPI = [...messages]; 
+    // Use a functional update if relying on external state to avoid stale closures
+    const currentMessagesForAPI = externalMessages ? [...externalMessages] : [...internalMessages];
     setMessagesWrapper(prevMessages => [...prevMessages, userMessage]); 
     
     setIsLoading(true);
-    setChatMode("idle"); 
 
     try {
-      console.log("ChatBot (RAG): Sending message. Using OpenAIConfig:", openAIConfig);
-      if (!openAIConfig?.assistantId) {
-        console.warn("ChatBot (RAG): No assistantId provided in openAIConfig. The 'chat' Edge Function will use its fallback.");
-      }
-
       const { data, error: functionError } = await supabase.functions.invoke("chat", {
         body: {
           message: messageText,
-          history: historyForAPI, 
+          history: currentMessagesForAPI, // Send the state *before* adding the new user message for history
           openAIConfig: openAIConfig, 
           knowledgeBase: knowledgeBase 
         }
       });
 
-      if (functionError) {
-        console.error("ChatBot (RAG): Edge function invocation error:", functionError);
-        throw new Error(`Service connection error: ${functionError.message}`);
-      }
-
+      if (functionError) throw new Error(`Service connection error: ${functionError.message}`);
       if (data.error) {
-        console.error("ChatBot (RAG): API response error from Edge Function:", data.error);
         setErrorMessage(data.error);
         setChatMode("error");
         const aiErrorMessage: Message = { role: "assistant", content: `Sorry, I encountered an issue: ${data.error}` };
         setMessagesWrapper(prevMessages => [...prevMessages, aiErrorMessage]);
-        if (!disableToasts) {
-            toast({ title: "AI Response Error", description: data.error, variant: "destructive" });
-        }
+        if (!disableToasts) toast({ title: "AI Response Error", description: data.error, variant: "destructive" });
         return;
       }
       const aiMessage: Message = { role: "assistant", content: data.response };
       setMessagesWrapper(prevMessages => [...prevMessages, aiMessage]);
 
       setCurrentAssistantId(data.assistantId || null);
-      setCurrentVectorStoreId(data.vectorStoreId || null);
+      setCurrentVectorStoreId(data.vectorStoreId || openAIConfig?.vectorStoreId || null);
 
-      if (data.usedAssistant) {
-        setChatMode("assistant");
-      } else if (data.usedFallback) {
-        setChatMode("fallback");
-      }
+      if (data.usedAssistant) setChatMode("assistant");
+      else if (data.usedFallback) setChatMode("fallback");
 
     } catch (error: unknown) {
       let friendlyErrorMessage = "Failed to get a response. Please try again.";
       if (error instanceof Error) {
-        console.error("ChatBot (RAG): Error getting AI response:", error.message);
-        if (error.message.includes("Service connection error")) {
-            friendlyErrorMessage = "Could not connect to the AI service. Please check your internet connection.";
-        } else if (error.message.includes("Assistant run timed out")) {
-            friendlyErrorMessage = "The AI took too long to respond. Please try again.";
-        } else {
-            friendlyErrorMessage = error.message;
-        }
-      } else {
-        console.error("ChatBot (RAG): Unknown error getting AI response:", error);
+        if (error.message.includes("Service connection error")) friendlyErrorMessage = "Could not connect to the AI service.";
+        else if (error.message.includes("Assistant run timed out")) friendlyErrorMessage = "The AI took too long to respond.";
+        else friendlyErrorMessage = error.message;
       }
       setErrorMessage(friendlyErrorMessage);
       setChatMode("error");
       const aiErrorMessage: Message = { role: "assistant", content: `Sorry, I couldn't process your request. ${friendlyErrorMessage}` };
       setMessagesWrapper(prevMessages => [...prevMessages, aiErrorMessage]);
-      if (!disableToasts) {
-        toast({ title: "Chat Error", description: friendlyErrorMessage, variant: "destructive" });
-      }
+      if (!disableToasts) toast({ title: "Chat Error", description: friendlyErrorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -172,22 +160,16 @@ export function ChatBot({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">{title}</h2>
           <div className="flex gap-2">
-            {chatMode === "assistant" && currentAssistantId && (
-              <Badge variant="default" className="flex items-center gap-1 bg-blue-500 text-white">
-                <Bot className="h-3 w-3" />
-                <span className="text-xs">Using Assistant</span>
-              </Badge>
-            )}
             {chatMode === "fallback" && (
               <Badge variant="outline" className="flex items-center gap-1 border-amber-500 text-amber-700">
                 <AlertCircle className="h-3 w-3" />
                 <span className="text-xs">General Knowledge</span>
               </Badge>
             )}
-            {currentVectorStoreId && (
-                 <Badge variant="outline" className="flex items-center gap-1">
+            {currentVectorStoreId && chatMode === "assistant" && ( 
+                 <Badge variant="outline" className="flex items-center gap-1 border-blue-500 text-blue-700">
                     <DatabaseIcon className="h-3 w-3" />
-                    <span className="text-xs">VS: ...{currentVectorStoreId.slice(-6)}</span>
+                    <span className="text-xs">Database Search</span>
                  </Badge>
             )}
           </div>
@@ -195,12 +177,12 @@ export function ChatBot({
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
-      <div className="flex-1 h-0 overflow-hidden">
+      <div className="flex-1 h-0 overflow-hidden"> {/* Ensures ScrollArea has a bounded height */}
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">
             {messages.map((message, index) => (
               <ChatMessage
-                key={index} 
+                key={index} // Consider using a unique message ID if available
                 content={message.content}
                 isUser={message.role === "user"}
               />
@@ -242,13 +224,13 @@ export function ChatBot({
                 )}
               </div>
             )}
-            {/* Empty div at the end of messages for potential manual scrolling focus, if messagesEndRef were used */}
-            {/* <div ref={messagesEndRef} /> */} 
+            {/* Empty div at the end of messages for scrolling into view */}
+            <div ref={messagesEndRef} /> 
           </div>
         </ScrollArea>
       </div>
 
-      <div className="p-4 border-t flex-shrink-0">
+      <div className="p-4 border-t mt-auto flex-shrink-0">
         <ChatInput
           onSend={handleSendMessage}
           isLoading={isLoading}

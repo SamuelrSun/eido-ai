@@ -1,10 +1,8 @@
 // src/pages/SuperTutor.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChatBot } from "@/components/chat/ChatBot";
 import { WebChatBot, Message as ChatUIMessage } from "@/components/chat/WebChatBot";
-// PageHeader import is no longer needed
-// import { PageHeader } from "@/components/layout/PageHeader"; 
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Settings, Bot, Globe, Split, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -13,6 +11,10 @@ import type { OpenAIConfig } from "@/services/classOpenAIConfig";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client"; // For user session
+import { chatMessageService, ChatMessageApp, ChatMessageDBInsert } from "@/services/chatMessageService"; // Import the new service and types
+import type { User } from "@supabase/supabase-js";
+
 
 interface ActiveClassData {
   class_id: string;
@@ -24,19 +26,31 @@ interface ActiveClassData {
 
 type ChatMode = "rag" | "web" | "split";
 
+// Helper to map ChatMessageApp to ChatUIMessage
+const mapToChatUIMessage = (appMessage: ChatMessageApp): ChatUIMessage => ({
+  role: appMessage.role,
+  content: appMessage.content,
+  // id: appMessage.id // ChatUIMessage doesn't have id, but ChatMessageApp does
+});
+
 const SuperTutor = () => {
   const navigate = useNavigate();
   const [effectiveOpenAIConfig, setEffectiveOpenAIConfig] = useState<OpenAIConfig | undefined>(undefined);
-  const [activeClassTitle, setActiveClassTitle] = useState<string | null>(null);
+  const [activeClass, setActiveClass] = useState<ActiveClassData | null>(null); // Store the whole activeClass object
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [isGeneratingRagResponse, setIsGeneratingRagResponse] = useState(false);
   const [isGeneratingWebResponse, setIsGeneratingWebResponse] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const { toast } = useToast();
+  const [user, setUser] = useState<User | null>(null);
 
   const [activeMode, setActiveMode] = useState<ChatMode>("rag");
-  const [ragMessages, setRagMessages] = useState<ChatUIMessage[]>([]);
-  const [webMessages, setWebMessages] = useState<ChatUIMessage[]>([]);
+  
+  // Use ChatMessageApp for state to include IDs and timestamps for persistence
+  const [ragMessages, setRagMessages] = useState<ChatMessageApp[]>([]);
+  const [webMessages, setWebMessages] = useState<ChatMessageApp[]>([]);
+  const [isLoadingRagHistory, setIsLoadingRagHistory] = useState(false);
+  const [isLoadingWebHistory, setIsLoadingWebHistory] = useState(false);
 
   const ragSuggestions = [
     "Explain the main concepts of [topic]",
@@ -50,6 +64,17 @@ const SuperTutor = () => {
     "How do I solve [specific problem]?",
   ];
 
+  // Effect to get current user
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+    };
+    getCurrentUser();
+    // No need for onAuthStateChange here if AppLayout/AuthGuard handles global user state
+  }, []);
+
+  // Effect to load active class and its initial config
   useEffect(() => {
     window.scrollTo(0, 0);
     setIsLoadingPage(true);
@@ -59,7 +84,7 @@ const SuperTutor = () => {
     if (activeClassDataString) {
       try {
         const parsedClass: ActiveClassData = JSON.parse(activeClassDataString);
-        setActiveClassTitle(parsedClass.title || "your current class");
+        setActiveClass(parsedClass); // Set the full activeClass object
 
         if (parsedClass.openAIConfig && parsedClass.openAIConfig.assistantId) {
           setEffectiveOpenAIConfig({
@@ -72,7 +97,7 @@ const SuperTutor = () => {
         }
       } catch (e) {
         console.error("SuperTutor: Error parsing activeClass from sessionStorage:", e);
-        setActiveClassTitle("your class");
+        setActiveClass(null);
         setEffectiveOpenAIConfig(undefined);
         setPageError("Could not load class configuration. Please re-select your class from the homepage.");
         toast({
@@ -82,12 +107,118 @@ const SuperTutor = () => {
         });
       }
     } else {
-      setActiveClassTitle(null);
+      setActiveClass(null);
       setEffectiveOpenAIConfig(undefined);
       setPageError("No active class selected. Please go to the homepage and select a class to use the Super Tutor.");
     }
     setIsLoadingPage(false);
   }, [toast]);
+
+  // Effect to fetch chat history when activeClass or activeMode changes
+  const loadChatHistory = useCallback(async () => {
+    if (!user || !activeClass?.class_id) {
+      setRagMessages([]);
+      setWebMessages([]);
+      return;
+    }
+
+    if (activeMode === 'rag' || activeMode === 'split') {
+      setIsLoadingRagHistory(true);
+      try {
+        const fetchedMessages = await chatMessageService.fetchMessages(activeClass.class_id, 'rag');
+        setRagMessages(fetchedMessages);
+      } catch (e) {
+        console.error("Error fetching RAG chat history:", e);
+        toast({ title: "Error", description: "Could not load Class AI chat history.", variant: "destructive" });
+      } finally {
+        setIsLoadingRagHistory(false);
+      }
+    }
+
+    if (activeMode === 'web' || activeMode === 'split') {
+      setIsLoadingWebHistory(true);
+      try {
+        const fetchedMessages = await chatMessageService.fetchMessages(activeClass.class_id, 'web');
+        setWebMessages(fetchedMessages);
+      } catch (e) {
+        console.error("Error fetching Web chat history:", e);
+        toast({ title: "Error", description: "Could not load Web Search chat history.", variant: "destructive" });
+      } finally {
+        setIsLoadingWebHistory(false);
+      }
+    }
+  }, [user, activeClass?.class_id, activeMode, toast]);
+
+  useEffect(() => {
+    loadChatHistory();
+  }, [loadChatHistory]);
+
+
+  // Unified handler for when ChatBot or WebChatBot internal state changes (new messages added)
+  // This will be responsible for persisting the new messages.
+  const handleMessagesChange = useCallback(async (
+    newMessagesOrUpdater: ChatUIMessage[] | ((prevMessages: ChatUIMessage[]) => ChatUIMessage[]),
+    mode: 'rag' | 'web'
+  ) => {
+    if (!user || !activeClass?.class_id) return;
+
+    const currentMessages = mode === 'rag' ? ragMessages : webMessages;
+    const updatedUIMessages = typeof newMessagesOrUpdater === 'function'
+      ? newMessagesOrUpdater(currentMessages.map(mapToChatUIMessage))
+      : newMessagesOrUpdater;
+
+    // Update the local state first for immediate UI feedback
+    const updatedAppMessages: ChatMessageApp[] = updatedUIMessages.map((uiMsg, index) => {
+        // Try to find existing message by index or content if IDs are temporary
+        const existingAppMsg = currentMessages[index];
+        return {
+            id: existingAppMsg?.id || `temp-${mode}-${Date.now()}-${index}`, // Keep existing ID or generate temp
+            role: uiMsg.role,
+            content: uiMsg.content,
+            createdAt: existingAppMsg?.createdAt || new Date(), // Keep existing date or set new
+        };
+    });
+
+    if (mode === 'rag') {
+      setRagMessages(updatedAppMessages);
+    } else {
+      setWebMessages(updatedAppMessages);
+    }
+
+    // Identify and save only the new messages
+    // A simple way: if the new array is longer, the last one or two messages are new.
+    if (updatedAppMessages.length > currentMessages.length) {
+      const newMessagesToSave = updatedAppMessages.slice(currentMessages.length);
+      
+      for (const newMessage of newMessagesToSave) {
+        if (newMessage.id.startsWith(`temp-${mode}`)) { // Only save if it's a new temp message
+          try {
+            const payload: Omit<ChatMessageDBInsert, 'user_id' | 'id' | 'created_at'> = {
+              class_id: activeClass.class_id,
+              chat_mode: mode,
+              role: newMessage.role,
+              content: newMessage.content,
+            };
+            // The service will add user_id and handle created_at
+            const savedMessage = await chatMessageService.saveMessage(payload);
+            if (savedMessage) {
+              // Optionally, update the message in local state with the real ID and DB timestamp
+              if (mode === 'rag') {
+                setRagMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, id: savedMessage.id, createdAt: new Date(savedMessage.created_at) } : m));
+              } else {
+                setWebMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, id: savedMessage.id, createdAt: new Date(savedMessage.created_at) } : m));
+              }
+            }
+          } catch (error) {
+            console.error(`Error saving ${mode} message:`, error);
+            toast({ title: "Error", description: `Could not save ${mode} chat message.`, variant: "destructive" });
+            // Optionally, remove the unsaved message from UI or mark it as unsaved
+          }
+        }
+      }
+    }
+  }, [user, activeClass?.class_id, ragMessages, webMessages, toast]);
+
 
   const handleGoToSettings = () => {
     navigate("/");
@@ -110,35 +241,22 @@ const SuperTutor = () => {
 
   if (isLoadingPage) {
     return (
-      <div className="flex justify-center items-center min-h-[60vh]">
+      <div className="flex justify-center items-center min-h-[calc(100vh-var(--header-height,60px)-2rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="ml-4 text-muted-foreground">Loading Super Tutor...</p>
       </div>
     );
   }
+  
+  const activeClassTitleForDisplay = activeClass?.title || "your current class";
 
   const tabContentWrapperClassName = "bg-card p-0 rounded-xl shadow-sm border flex-grow flex flex-col overflow-hidden min-h-0 h-full"; 
   const tabsContentClassName = "flex-grow flex flex-col overflow-hidden data-[state=inactive]:hidden min-h-0 h-full";
 
-
   return (
-    // MODIFICATION: Removed `space-y-6` from className to allow chat to take full height.
-    // The height calculation h-[calc(100vh-var(--header-height,60px)-2rem)] is designed to fill the space
-    // below the main app header and within the main content area's padding.
     <div className="flex flex-col h-[calc(100vh-var(--header-height,30px)-2rem)]">
-      {/* MODIFICATION: PageHeader component removed */}
-      {/* <PageHeader
-        title="Super Tutor"
-        description={activeClassTitle
-          ? `AI learning assistant for ${activeClassTitle}`
-          : "Your AI-powered learning assistant."
-        }
-      /> 
-      */}
-
-      {!activeClassTitle && (
-        // This Alert will now be at the very top if no class is selected.
-        <Alert variant="destructive" className="mt-0 mb-4"> {/* Adjusted margin if it's the first element */}
+      {!activeClass && (
+        <Alert variant="destructive" className="mt-0 mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No Class Selected</AlertTitle>
           <AlertDescription>
@@ -147,8 +265,8 @@ const SuperTutor = () => {
         </Alert>
       )}
 
-      {activeClassTitle && pageError && !effectiveOpenAIConfig?.assistantId && (
-         <Alert variant="default" className="bg-amber-50 border-amber-200 mt-0 mb-4"> {/* Adjusted margin */}
+      {activeClass && pageError && !effectiveOpenAIConfig?.assistantId && (
+         <Alert variant="default" className="bg-amber-50 border-amber-200 mt-0 mb-4">
             <AlertCircle className="h-4 w-4 text-amber-700" />
             <AlertTitle className="text-amber-800">Class AI Configuration Note</AlertTitle>
             <AlertDescription className="text-amber-700">
@@ -160,16 +278,13 @@ const SuperTutor = () => {
         </Alert>
       )}
       
-      {activeClassTitle && (
-        // The Tabs component will now be the primary element filling the space.
-        // Added pt-2 if PageHeader is removed and there are no alerts, to give some top padding.
-        // If alerts are present, their mb-4 will provide spacing.
+      {activeClass && (
         <Tabs 
           value={activeMode} 
           onValueChange={(value) => setActiveMode(value as ChatMode)} 
           className={cn(
             "w-full flex flex-col flex-grow min-h-0",
-            !pageError && activeClassTitle && "pt-2" // Add some padding if no alerts are shown above
+            !pageError && "pt-2" 
           )}
         >
           <TabsList className="w-full grid grid-cols-3 mb-4">
@@ -184,20 +299,19 @@ const SuperTutor = () => {
             </TabsTrigger>
           </TabsList>
 
-          {/* TabsContent now directly uses mt-0 if it's the first element after TabsList */}
           <TabsContent value="rag" className={cn(tabsContentClassName, "mt-0")}>
             <div className={tabContentWrapperClassName}>
               <ChatBot
                 disableToasts={true}
-                suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitle || "the subject"))}
+                suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitleForDisplay))}
                 title="Class AI"
-                subtitle={`Ask questions about ${activeClassTitle || "your class materials"}`}
-                knowledgeBase={activeClassTitle || "Class Materials"}
+                subtitle={`Ask questions about ${activeClassTitleForDisplay}`}
+                knowledgeBase={activeClassTitleForDisplay}
                 openAIConfig={effectiveOpenAIConfig}
                 onResponseGenerationStateChange={setIsGeneratingRagResponse}
-                messages={ragMessages}
-                onMessagesChange={setRagMessages}
-                loadingIndicator={isGeneratingRagResponse ? commonLoadingIndicator("Class AI is thinking...") : undefined}
+                messages={ragMessages.map(mapToChatUIMessage)} // Pass mapped messages
+                onMessagesChange={(updater) => handleMessagesChange(updater, 'rag')} // Pass unified handler
+                loadingIndicator={isGeneratingRagResponse || isLoadingRagHistory ? commonLoadingIndicator("Class AI is thinking...") : undefined}
                 placeholder="Ask about your class materials..."
               />
             </div>
@@ -212,9 +326,9 @@ const SuperTutor = () => {
                 subtitle="Ask me to search the web for supplemental information"
                 placeholder="What would you like to search for?"
                 onResponseGenerationStateChange={setIsGeneratingWebResponse}
-                messages={webMessages}
-                onMessagesChange={setWebMessages}
-                loadingIndicator={isGeneratingWebResponse ? commonLoadingIndicator("Searching the web...") : undefined}
+                messages={webMessages.map(mapToChatUIMessage)} // Pass mapped messages
+                onMessagesChange={(updater) => handleMessagesChange(updater, 'web')} // Pass unified handler
+                loadingIndicator={isGeneratingWebResponse || isLoadingWebHistory ? commonLoadingIndicator("Searching the web...") : undefined}
               />
             </div>
           </TabsContent>
@@ -227,15 +341,15 @@ const SuperTutor = () => {
               <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col overflow-hidden min-h-0">
                 <ChatBot
                   disableToasts={true}
-                  suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitle || "the subject"))}
+                  suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitleForDisplay))}
                   title="Class AI"
-                  subtitle={`About ${activeClassTitle || "class materials"}`}
-                  knowledgeBase={activeClassTitle || "Class Materials"}
+                  subtitle={`About ${activeClassTitleForDisplay}`}
+                  knowledgeBase={activeClassTitleForDisplay}
                   openAIConfig={effectiveOpenAIConfig}
                   onResponseGenerationStateChange={setIsGeneratingRagResponse}
-                  messages={ragMessages}
-                  onMessagesChange={setRagMessages}
-                  loadingIndicator={isGeneratingRagResponse ? commonLoadingIndicator("Class AI is thinking...") : undefined}
+                  messages={ragMessages.map(mapToChatUIMessage)}
+                  onMessagesChange={(updater) => handleMessagesChange(updater, 'rag')}
+                  loadingIndicator={isGeneratingRagResponse || isLoadingRagHistory ? commonLoadingIndicator("Class AI is thinking...") : undefined}
                   placeholder="Ask about class materials..."
                 />
               </ResizablePanel>
@@ -248,9 +362,9 @@ const SuperTutor = () => {
                   subtitle="General web search"
                   placeholder="Search the web..."
                   onResponseGenerationStateChange={setIsGeneratingWebResponse}
-                  messages={webMessages}
-                  onMessagesChange={setWebMessages}
-                  loadingIndicator={isGeneratingWebResponse ? commonLoadingIndicator("Searching the web...") : undefined}
+                  messages={webMessages.map(mapToChatUIMessage)}
+                  onMessagesChange={(updater) => handleMessagesChange(updater, 'web')}
+                  loadingIndicator={isGeneratingWebResponse || isLoadingWebHistory ? commonLoadingIndicator("Searching the web...") : undefined}
                 />
               </ResizablePanel>
             </ResizablePanelGroup>

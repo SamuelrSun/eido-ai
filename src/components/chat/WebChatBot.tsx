@@ -10,10 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-export interface Message {
+export interface Message { // This is ChatUIMessage in SuperTutor
   role: "user" | "assistant" | "system";
   content: string;
-  // id?: string;
+  // id?: string; // Keep this commented if not used
 }
 
 interface WebChatBotProps {
@@ -47,21 +47,25 @@ export function WebChatBot({
   
   const setMessagesWrapper = (newMessagesOrFn: Message[] | ((prevMessages: Message[]) => Message[])) => {
     if (onMessagesChange) {
-      onMessagesChange(newMessagesOrFn);
+      if (typeof newMessagesOrFn === 'function' && externalMessages) {
+        onMessagesChange(newMessagesOrFn(externalMessages));
+      } else if (Array.isArray(newMessagesOrFn)) {
+        onMessagesChange(newMessagesOrFn);
+      }
     } else { 
       setInternalMessages(newMessagesOrFn);
     }
   };
 
-  // const messagesEndRef = useRef<HTMLDivElement>(null); // Ref is not needed if auto-scroll is disabled
+  const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for the scroll target
   const { toast } = useToast();
 
-  // useEffect(() => {
-  //   // Automatic scrolling to bottom is disabled as per user request
-  //   // if (messages.length > 0 && messagesEndRef.current) {
-  //   //   messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-  //   // }
-  // }, [messages]);
+  // Effect to scroll to the bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]); // Dependency array includes messages
 
   useEffect(() => {
     onResponseGenerationStateChange?.(isLoading);
@@ -72,14 +76,14 @@ export function WebChatBot({
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
     
-    const historyForAPI = [...messages];
+    const currentMessagesForAPI = externalMessages ? [...externalMessages] : [...internalMessages];
     setMessagesWrapper(prevMessages => [...prevMessages, userMessage]);
     setIsLoading(true);
 
     try {
       console.log("WebChatBot: Sending message:", messageText);
       const { data, error: functionError } = await supabase.functions.invoke("web-chat", {
-        body: { message: messageText, history: historyForAPI }
+        body: { message: messageText, history: currentMessagesForAPI }
       });
 
       if (functionError) throw new Error(`Service connection error: ${functionError.message}`);
@@ -114,7 +118,7 @@ export function WebChatBot({
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
-      <div className="flex-1 h-0 overflow-hidden">
+      <div className="flex-1 h-0 overflow-hidden"> {/* Ensures ScrollArea has a bounded height */}
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">
             {messages.map((message, index) => (
@@ -143,7 +147,8 @@ export function WebChatBot({
                 )}
               </div>
             )}
-            {/* <div ref={messagesEndRef} /> */}
+            {/* Empty div at the end of messages for scrolling into view */}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       </div>

@@ -15,41 +15,32 @@ if (!SUPABASE_PUBLISHABLE_KEY) {
 }
 
 // Define the CustomDatabase interface which extends the auto-generated Database type.
-// This ensures our client uses the specific table and column names from our schema.
 export interface CustomDatabase extends Database {
   public: Database['public'] & {
     Tables: Database['public']['Tables'] & {
-      // Use the types directly from the auto-generated Database type
-      // This assumes your src/integrations/supabase/types.ts is up-to-date
-      // and reflects the schema names we've been working with.
-
+      // Ensure all your existing tables are listed here, referencing Database['public']['Tables']
       profiles: Database['public']['Tables']['profiles'];
-      
       classes: Database['public']['Tables']['classes'];
-      
-      database: Database['public']['Tables']['database'];
-      
+      // The 'database' table from your types.ts seems to be a reserved keyword or might cause issues.
+      // If it's truly named 'database', ensure it's correctly defined in types.ts.
+      // For safety, if it's not used or was a placeholder, consider removing or renaming.
+      // For now, I'll assume it exists as per your types.ts.
+      database: Database['public']['Tables']['database']; 
       file_folders: Database['public']['Tables']['file_folders'];
-      
-      // Simplified 'files' definition, as openai_file_id and document_title
-      // are confirmed to be present in Database['public']['Tables']['files']
-      // from your auto-generated types.ts file.
       files: Database['public']['Tables']['files']; 
-      
       "flashcard-decks": Database['public']['Tables']['flashcard-decks'];
-      
       flashcards: Database['public']['Tables']['flashcards'];
-      
       quiz_questions: Database['public']['Tables']['quiz_questions'];
-      
       quizzes: Database['public']['Tables']['quizzes'];
-      
       user_storage: Database['public']['Tables']['user_storage'];
+      embeddings: Database['public']['Tables']['embeddings']; // Kept as optional from previous version
 
-      // For 'embeddings': Similar to user_widgets, ensure it exists in your types.ts
-      // if you intend to use it directly here. If not, remove this line.
-      embeddings?: Database['public']['Tables']['embeddings'];
+      // ** ADDED chat_messages table **
+      chat_messages: Database['public']['Tables']['chat_messages']; 
     };
+    // Views and Functions can also be extended here if needed
+    Views: Database['public']['Views'];
+    Functions: Database['public']['Functions'];
   };
 }
 
