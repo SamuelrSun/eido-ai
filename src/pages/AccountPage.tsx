@@ -20,43 +20,43 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger, // Import AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import type { User } from "@supabase/supabase-js"; // Import User type
+import type { User, Session } from "@supabase/supabase-js"; // Import User and Session types
 
 const AccountPage = () => {
-  // Explicitly type session if possible, or use 'any' if structure is too dynamic/unknown
-  const [session, setSession] = useState<{ user: User | null } | null>(null); 
-  const [loading, setLoading] = useState(true); // General loading for session/initial data
-  const [isSignOutLoading, setIsSignOutLoading] = useState(false); // Specific loading for sign out
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false); // Specific loading for delete
+  const [session, setSession] = useState<Session | null>(null); 
+  const [loadingPage, setLoadingPage] = useState(true); // General loading for session/initial data
+  const [isSignOutLoading, setIsSignOutLoading] = useState(false); 
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false); 
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchSession = async () => {
-      setLoading(true);
+      setLoadingPage(true);
       try {
-        const { data } = await supabase.auth.getSession();
-        setSession(data.session ? { user: data.session.user } : null);
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        setSession(data.session);
         
         if (!data.session) {
+          console.log("AccountPage: No session, redirecting to /auth");
           navigate("/auth");
         }
       } catch (e) {
-        console.error("Error fetching session:", e)
-        navigate("/auth"); // Redirect on error too
+        console.error("AccountPage: Error fetching session:", e);
+        navigate("/auth"); 
       } finally {
-        setLoading(false);
+        setLoadingPage(false);
       }
     };
 
     fetchSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sessionState) => {
-      setSession(sessionState ? { user: sessionState.user } : null);
-      if (!sessionState) {
-        // This will navigate to /auth if the user signs out or session expires
-        // No need to call navigate('/auth') explicitly in handleSignOut after signOut()
-        // as onAuthStateChange will handle it.
+      setSession(sessionState);
+      if (!sessionState && _event !== "INITIAL_SESSION") { // Avoid redirect on initial load if session is briefly null
+        console.log("AccountPage: Auth state changed to signed out, redirecting to /auth. Event:", _event);
+        navigate("/auth");
       }
     });
 
@@ -73,7 +73,7 @@ const AccountPage = () => {
         title: "Signed out successfully",
         description: "You've been signed out of your account",
       });
-      // AuthGuard and onAuthStateChange will handle navigation
+      // onAuthStateChange listener will handle navigation to /auth
     } catch (error) {
       console.error("Error signing out:", error);
       toast({
@@ -90,22 +90,22 @@ const AccountPage = () => {
     setIsDeletingAccount(true);
     try {
       // The Edge Function 'delete-user-account' uses the Authorization header (JWT)
-      // to identify the user. No need to pass user_id in the body.
+      // from the authenticated Supabase client to identify the user.
       const { data, error: functionError } = await supabase.functions.invoke('delete-user-account');
 
       if (functionError) {
         console.error("Edge function invocation error (delete-user-account):", functionError);
-        throw new Error(functionError.message || "Failed to initiate account deletion process due to network or function error.");
+        throw new Error(functionError.message || "Failed to initiate account deletion process due to a function error.");
       }
 
-      if (data.error) {
+      if (data.error) { // Check for errors returned in the function's response body
         console.error("Error from delete-user-account function:", data.error);
         throw new Error(data.error);
       }
 
       toast({
         title: "Account Deletion Successful",
-        description: "Your account and all associated data have been deleted. You will be signed out.",
+        description: "Your account and all associated data are being deleted. You will be signed out.",
       });
       
       // Explicitly sign out on the client-side to clear local session immediately.
@@ -124,13 +124,20 @@ const AccountPage = () => {
     }
   };
 
-  if (loading) { // Show main page loader only during initial session check
+  if (loadingPage) { 
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-var(--header-height,60px)-2rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
+  
+  if (!session) {
+    // This case should ideally be handled by AuthGuard or the useEffect redirect,
+    // but it's a good fallback.
+    return <p>Redirecting to sign-in...</p>;
+  }
+
 
   return (
     <div className="space-y-6">

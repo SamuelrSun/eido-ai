@@ -3,9 +3,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts"; // Ensure this path is correct relative to your function
 
-console.log("Delete User Account function initializing");
+console.log("[delete-user-account] Function cold start or new instance.");
 
 serve(async (req: Request) => {
+  console.log("[delete-user-account] Received request:", req.method);
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -16,10 +17,15 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
-      console.error("delete-user-account: Supabase URL or Service Role Key not set.");
-      throw new Error("Server configuration error: Supabase connection details missing.");
+    if (!supabaseUrl) {
+      console.error("[delete-user-account] FATAL: SUPABASE_URL environment variable not set.");
+      throw new Error("Server configuration error: Supabase URL missing.");
     }
+    if (!supabaseServiceRoleKey) {
+      console.error("[delete-user-account] FATAL: SUPABASE_SERVICE_ROLE_KEY environment variable not set.");
+      throw new Error("Server configuration error: Supabase Service Role Key missing.");
+    }
+    console.log("[delete-user-account] Environment variables loaded.");
 
     // 2. Create a Supabase client with the Service Role Key for admin operations
     // This client can perform privileged actions.
@@ -30,6 +36,7 @@ serve(async (req: Request) => {
         autoRefreshToken: false,
       }
     });
+    console.log("[delete-user-account] Supabase admin client initialized.");
 
     // 3. Get the user ID from the JWT of the authenticated user making the request.
     // This is crucial to ensure a user can only request their own account deletion.
@@ -37,17 +44,19 @@ serve(async (req: Request) => {
     // Ensure 'verify_jwt' is true for this function in your supabase/config.toml.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      console.error("delete-user-account: No Authorization header provided.");
+      console.error("[delete-user-account] No Authorization header provided.");
       return new Response(
         JSON.stringify({ success: false, error: "Authentication required: No token provided." }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     const token = authHeader.replace("Bearer ", "");
+    console.log("[delete-user-account] Token extracted from Authorization header.");
+
     const { data: { user }, error: userError } = await supabaseAdminClient.auth.getUser(token);
 
     if (userError || !user) {
-      console.error("delete-user-account: Invalid token or error fetching user:", userError?.message);
+      console.error("[delete-user-account] Invalid token or error fetching user:", userError?.message);
       return new Response(
         JSON.stringify({ success: false, error: userError?.message || "Authentication failed: Invalid token." }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -55,11 +64,12 @@ serve(async (req: Request) => {
     }
 
     const userIdToDelete = user.id;
-    console.log(`[delete-user-account] User ${user.email} (ID: ${userIdToDelete}) is requesting account deletion.`);
+    console.log(`[delete-user-account] Authenticated user ID to delete: ${userIdToDelete} (Email: ${user.email})`);
 
     // 4. Delete the user using the Admin API
     // This will trigger cascading deletes in your database if foreign keys are set up correctly
     // (e.g., public.profiles.user_id -> auth.users.id ON DELETE CASCADE).
+    console.log(`[delete-user-account] Attempting supabaseAdminClient.auth.admin.deleteUser(${userIdToDelete})`);
     const { data: deleteData, error: deleteError } = await supabaseAdminClient.auth.admin.deleteUser(userIdToDelete);
 
     if (deleteError) {
@@ -86,7 +96,7 @@ serve(async (req: Request) => {
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
       { 
-        status: errorMessage.includes("required") || errorMessage.includes("Authentication failed") ? 400 : 500,
+        status: (error instanceof Error && (error.message.includes("required") || error.message.includes("Authentication failed"))) ? 400 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
       }
     );
