@@ -13,6 +13,7 @@ import { classOpenAIConfigService, ClassConfig, OpenAIConfig } from "@/services/
 import { getEmojiForClass } from "@/utils/emojiUtils";
 import type { User } from "@supabase/supabase-js";
 import type { WidgetType } from "@/hooks/use-widgets";
+import { cn } from "@/lib/utils"; // Import cn for conditional classes
 
 interface ClassOption {
   class_id: string;
@@ -32,11 +33,11 @@ interface ClassOption {
 const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"];
 
 const HomePage = () => {
-  const [userName, setUserName] = useState<string>("Student"); // Default to "Student"
+  const [userName, setUserName] = useState<string>("Student");
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
   const [isEditClassOpen, setIsEditClassOpen] = useState(false);
   const [selectedClassToEdit, setSelectedClassToEdit] = useState<ClassOption | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); 
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -47,29 +48,25 @@ const HomePage = () => {
     setIsLoading(true);
     try {
       if (currentUser) {
-        // Fetch full_name from public.profiles
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('full_name')
-          .eq('user_id', currentUser.id) // Match on user_id
+          .eq('user_id', currentUser.id) 
           .maybeSingle();
 
-        if (profileError && profileError.code !== 'PGRST116') { // PGRST116 means no rows found, not necessarily an error here
+        if (profileError && profileError.code !== 'PGRST116') { 
           console.error("Error fetching profile:", profileError);
-          // Potentially toast an error, but for greeting, fallback is okay
         }
 
         if (profile?.full_name) {
           const firstName = profile.full_name.split(' ')[0];
           setUserName(firstName);
         } else {
-          // Fallback to email prefix if full_name is not in profiles
           const emailName = currentUser.email?.split('@')[0] || "Student";
-          setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1)); // Capitalize first letter
+          setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1)); 
           console.log("No full_name in profile, using email prefix for greeting.");
         }
 
-        // Fetch classes (existing logic)
         const userClasses: ClassConfig[] = await classOpenAIConfigService.getAllClasses();
         if (userClasses && userClasses.length > 0) {
           const transformedOptions: ClassOption[] = userClasses.map((config): ClassOption => ({
@@ -79,7 +76,7 @@ const HomePage = () => {
             classTime: config.classTime,
             classroom: config.classroom,
             emoji: config.emoji || getEmojiForClass(config.title),
-            link: "/super-stu", // Assuming default link, adjust if dynamic
+            link: "/super-stu", 
             enabledWidgets: (config.enabledWidgets || DEFAULT_CLASS_WIDGETS) as WidgetType[],
             openAIConfig: config.openAIConfig,
             created_at: config.created_at,
@@ -91,7 +88,7 @@ const HomePage = () => {
           setClassOptions([]);
         }
       } else {
-        setUserName("Student"); // Default if no user
+        setUserName("Student");
         setClassOptions([]);
       }
     } catch (error) {
@@ -104,35 +101,32 @@ const HomePage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]); // Removed navigate from dependencies as it's stable
+  }, [toast]); 
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user || null;
       setUser(currentUser);
-      fetchUserDataAndClasses(currentUser); // Fetch data on auth state change
+      fetchUserDataAndClasses(currentUser); 
       if (_event === 'SIGNED_OUT') {
         sessionStorage.removeItem('activeClass');
         navigate("/auth");
       }
     });
 
-    // Initial fetch on component mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       const currentUser = session?.user || null;
       setUser(currentUser);
       fetchUserDataAndClasses(currentUser);
     });
     
-    // Clear active class from session storage when on homepage
     sessionStorage.removeItem('activeClass');
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [fetchUserDataAndClasses, navigate]); // Added navigate here
+  }, [fetchUserDataAndClasses, navigate]); 
 
-  // ... (handleCreateClass, handleUpdateClass, handleDeleteClass, handleEditClassClick, handleClassClick remain the same)
   const handleCreateClass = async (classDialogData: CreateClassDialogClassData) => {
     if (!user) {
       toast({ title: "Authentication Error", description: "You must be signed in.", variant: "destructive" });
@@ -185,8 +179,6 @@ const HomePage = () => {
     if (!selectedClassToEdit || !user) return;
 
     try {
-      // When updating, we need to provide the class_id to the service function
-      // Assuming saveConfigForClass can take class_id as its last optional parameter for updates
       const classIdToUpdate = selectedClassToEdit.class_id;
 
       const updatedDbClassRecord = await classOpenAIConfigService.saveConfigForClass(
@@ -197,7 +189,7 @@ const HomePage = () => {
         classDialogData.classTime,
         classDialogData.classroom,
         classDialogData.enabledWidgets as WidgetType[],
-        classIdToUpdate // Pass the ID of the class being updated
+        classIdToUpdate 
       );
       
        const updatedClassOption: ClassOption = {
@@ -277,7 +269,7 @@ const HomePage = () => {
         <Button
           onClick={() => setIsCreateClassOpen(true)}
           className="flex items-center gap-2"
-          disabled={!user} // Disable if no user
+          disabled={!user}
         >
           <PlusCircle className="h-4 w-4" />
           Add Class
@@ -330,7 +322,10 @@ const HomePage = () => {
                   <div className="mb-4 p-3 bg-primary/10 rounded-lg w-fit">
                     <span className="text-4xl">{option.emoji}</span>
                   </div>
-                  <CardTitle className="truncate" title={option.title}>{option.title}</CardTitle>
+                  {/* MODIFICATION: Added min-h-[3rem] (h-12) to ensure consistent height, removed flex items-center */}
+                  <CardTitle title={option.title} className="min-h-[3rem]"> 
+                    {option.title}
+                  </CardTitle> 
                 </CardHeader>
                 <CardContent className="pt-0 flex-grow">
                   <div className="text-sm space-y-1 text-muted-foreground">
@@ -398,7 +393,7 @@ const HomePage = () => {
         <EditClassDialog
           open={isEditClassOpen}
           onOpenChange={setIsEditClassOpen} 
-          initialData={{ // Ensure this matches the ClassData structure expected by EditClassDialog
+          initialData={{ 
             title: selectedClassToEdit.title,
             professor: selectedClassToEdit.professor,
             classTime: selectedClassToEdit.classTime,
@@ -409,11 +404,8 @@ const HomePage = () => {
                 assistantId: selectedClassToEdit.openAIConfig.assistantId,
                 vectorStoreId: selectedClassToEdit.openAIConfig.vectorStoreId,
             } : undefined,
-            // Pass class_id for the service layer to identify the record
             class_id: selectedClassToEdit.class_id 
-          } as any} // Using 'as any' here because ClassData in CreateClassDialog doesn't have class_id
-                     // This should be reconciled if ClassData is shared for both create/edit content.
-                     // For now, this makes sure the EditClassDialog gets the ID.
+          } as any} 
           onClassUpdate={handleUpdateClass}
           onClassDelete={handleDeleteClass}
         />

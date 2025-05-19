@@ -1,13 +1,15 @@
-
+// src/components/layout/AppSidebar.tsx
 import { 
-  MessageCircle,
   Home,
   Search,
   BookOpen,
   SquareCheck,
-  Database
+  Database,
+  CalendarDays, // Added
+  Terminal // Added
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+// useNavigate is not used directly here, NavLink handles navigation
+// import { useNavigate } from "react-router-dom"; 
 import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
 import { WidgetType } from "@/hooks/use-widgets";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
@@ -21,7 +23,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ onClose }: AppSidebarProps) {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Not directly used
   const { 
     user, 
     loading, 
@@ -32,17 +34,28 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     widgetsLoading
   } = useSidebarState();
 
-  // Define all navigation items - core features
+  // MODIFICATION: Added Calendar and Console to coreNavItems
   const coreNavItems = [
     {
       icon: <Home className="mr-2 h-5 w-5" />,
       label: "Home",
       to: "/",
       exact: true
+    },
+    {
+      icon: <CalendarDays className="mr-2 h-5 w-5" />, // New icon
+      label: "Calendar",
+      to: "/calendar",
+      exact: false // Typically false for sub-pages if any
+    },
+    {
+      icon: <Terminal className="mr-2 h-5 w-5" />, // New icon
+      label: "Console",
+      to: "/console",
+      exact: false
     }
   ];
   
-  // Define all possible widget navigation items
   const widgetNavItems = [
     {
       icon: <Search className="mr-2 h-5 w-5" />,
@@ -70,7 +83,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     }
   ];
   
-  // Filter widget nav items by enabled widgets for the current class
   const visibleWidgetNavItems = widgetNavItems.filter(item => 
     enabledWidgets.includes(item.widgetId)
   );
@@ -94,7 +106,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
         <SidebarAccount loading={loading} user={user} />
       </div>
       
-      {/* Add Widgets Dialog */}
       <AddWidgetsDialog 
         open={isWidgetsDialogOpen} 
         onOpenChange={setIsWidgetsDialogOpen} 

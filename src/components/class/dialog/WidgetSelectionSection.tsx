@@ -1,14 +1,11 @@
-
-import React from "react";
+// src/components/class/dialog/WidgetSelectionSection.tsx
+import React from "react"; // Removed unused useState and useEffect
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
-import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
-import { useToast } from "@/hooks/use-toast";
+import { WidgetType } from "@/hooks/use-widgets"; // Ensure WidgetType is imported
 
 interface Widget {
-  id: string;
+  id: WidgetType; // Changed from string to WidgetType for better type safety
   name: string;
   description: string;
   path: string;
@@ -16,9 +13,9 @@ interface Widget {
 }
 
 interface WidgetSelectionSectionProps {
-  selectedWidgets: string[];
+  selectedWidgets: WidgetType[]; // Changed from string[]
   availableWidgets: Widget[];
-  onToggleWidget: (id: string) => void;
+  onToggleWidget: (id: WidgetType) => void; // Changed from string
 }
 
 export function WidgetSelectionSection({
@@ -26,33 +23,28 @@ export function WidgetSelectionSection({
   availableWidgets,
   onToggleWidget
 }: WidgetSelectionSectionProps) {
-  const [isAddWidgetsOpen, setIsAddWidgetsOpen] = React.useState(false);
-  const { toast } = useToast();
+  // const [isAddWidgetsOpen, setIsAddWidgetsOpen] = React.useState(false); // No longer needed
+  // const { toast } = useToast(); // No longer needed if error handling is robust in parent or onToggleWidget
+
+  // Ensure selectedWidgets is always an array.
+  // The parent component (CreateClassDialogContent) should manage the default values.
+  const safeSelectedWidgets = Array.isArray(selectedWidgets) ? selectedWidgets : [];
   
-  // Ensure selectedWidgets is always an array with default values if not
-  const safeSelectedWidgets = Array.isArray(selectedWidgets) ? selectedWidgets : ["flashcards", "quizzes"];
+  // No longer slicing for recommendedWidgets, we will display all.
+  // const recommendedWidgets = availableWidgets.slice(0, 3); 
   
-  // Display only the recommended widgets (limit to 3)
-  const recommendedWidgets = availableWidgets.slice(0, 3);
-  
-  const handleToggleWidget = (id: string) => {
-    try {
-      onToggleWidget(id);
-    } catch (error) {
-      console.error(`Error toggling widget ${id}:`, error);
-      toast({
-        title: "Error updating widget",
-        description: "Failed to update widget selection. Please try again.",
-        variant: "destructive"
-      });
-    }
+  const handleToggleWidget = (id: WidgetType) => { // Changed id type to WidgetType
+    // The onToggleWidget prop is expected to handle any necessary logic,
+    // including potential error handling or state updates in the parent.
+    onToggleWidget(id);
   };
   
   return (
     <div>
       <Label className="mb-2 block">Select Widgets for this Class</Label>
-      <div className="space-y-3">
-        {recommendedWidgets.map(widget => (
+      {/* MODIFICATION: Changed layout to a 2-column grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-2"> 
+        {availableWidgets.map(widget => (
           <WidgetCard
             key={widget.id}
             id={widget.id}
@@ -63,23 +55,8 @@ export function WidgetSelectionSection({
             onToggle={() => handleToggleWidget(widget.id)}
           />
         ))}
-        
-        <Button
-          variant="outline"
-          className="w-full flex items-center justify-center py-6"
-          onClick={() => setIsAddWidgetsOpen(true)}
-        >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          See More Widgets
-        </Button>
       </div>
-      
-      <AddWidgetsDialog 
-        open={isAddWidgetsOpen} 
-        onOpenChange={setIsAddWidgetsOpen}
-        classMode={true}
-        currentClassName="Current Class"
-      />
+    
     </div>
   );
 }

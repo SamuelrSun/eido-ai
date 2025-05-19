@@ -12,11 +12,11 @@ import SuperTutor from "./pages/SuperTutor";
 import AuthPage from "./pages/AuthPage";
 import AccountPage from "./pages/AccountPage";
 import NotFound from "./pages/NotFound";
-// Correctly import FilesPage.tsx from the features directory
 import DatabaseFeaturePage from "./features/files/pages/FilesPage"; 
 import FlashcardsPage from "./pages/FlashcardsPage";
 import QuizzesPage from "./pages/QuizzesPage";
 import QuizSessionPage from "./pages/QuizSessionPage";
+import PlaceholderPage from "./pages/PlaceholderPage"; // Import the new placeholder page
 import React from "react";
 
 const queryClient = new QueryClient();
@@ -37,12 +37,14 @@ const App = () => (
               <Route element={<AppLayout />}>
                 <Route path="/" element={<HomePage key="home-main" />} />
                 <Route path="/super-stu" element={<SuperTutor />} />
-                {/* Use the correctly imported page for the /database route */}
                 <Route path="/database" element={<DatabaseFeaturePage />} /> 
                 <Route path="/flashcards" element={<FlashcardsPage />} />
                 <Route path="/quizzes" element={<QuizzesPage />} />
                 <Route path="/quizzes/:quizId" element={<QuizSessionPage />} />
                 <Route path="/account" element={<AccountPage />} />
+                {/* MODIFICATION: Added new routes for Calendar and Console */}
+                <Route path="/calendar" element={<PlaceholderPage pageName="Calendar" />} />
+                <Route path="/console" element={<PlaceholderPage pageName="Admin Console" />} />
               </Route>
             </Route>
 
