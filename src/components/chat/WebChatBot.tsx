@@ -6,19 +6,18 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
-export interface Message { // This is ChatUIMessage in SuperTutor
+export interface Message { 
   role: "user" | "assistant" | "system";
   content: string;
-  // id?: string; // Keep this commented if not used
 }
 
 interface WebChatBotProps {
-  title?: string;
-  subtitle?: string;
+  // title?: string; // Removed
+  // subtitle?: string; // Removed
   placeholder?: string;
   suggestions?: string[];
   disableToasts?: boolean;
@@ -26,18 +25,22 @@ interface WebChatBotProps {
   onResponseGenerationStateChange?: (isGenerating: boolean) => void;
   messages?: Message[]; 
   onMessagesChange?: (messagesOrUpdater: Message[] | ((prevMessages: Message[]) => Message[])) => void;
+  className?: string; // Added
+  disabled?: boolean; // Added
 }
 
 export function WebChatBot({
-  title = "Web Search",
-  subtitle = "Ask me to search the web",
+  // title, // Removed
+  // subtitle, // Removed
   placeholder = "Search the web...",
   suggestions = [],
   disableToasts = false,
   loadingIndicator,
   onResponseGenerationStateChange,
   messages: externalMessages,
-  onMessagesChange
+  onMessagesChange,
+  className, // Added
+  disabled, // Added
 }: WebChatBotProps) {
   const [internalMessages, setInternalMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,22 +60,21 @@ export function WebChatBot({
     }
   };
 
-  const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for the scroll target
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Effect to scroll to the bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]); // Dependency array includes messages
+  }, [messages]);
 
   useEffect(() => {
     onResponseGenerationStateChange?.(isLoading);
   }, [isLoading, onResponseGenerationStateChange]);
 
   const handleSendMessage = async (messageText: string) => {
-    if (!messageText.trim()) return;
+    if (disabled || !messageText.trim()) return;
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
     
@@ -107,18 +109,20 @@ export function WebChatBot({
   };
 
   return (
-    <div className="flex flex-col h-full w-full">
-      <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">{title}</h2>
-          <Badge variant="outline" className="flex items-center gap-1 border-blue-500 text-blue-700">
-            <Globe className="h-3 w-3" /> <span className="text-xs">Web Search</span>
-          </Badge>
+    <div className={cn("flex flex-col h-full w-full", className)}>
+      {/* REMOVED HEADER SECTION:
+        <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium">{title}</h2>
+            <Badge variant="outline" className="flex items-center gap-1 border-blue-500 text-blue-700">
+              <Globe className="h-3 w-3" /> <span className="text-xs">Web Search</span>
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
-        <p className="text-sm text-muted-foreground">{subtitle}</p>
-      </div>
+      */}
 
-      <div className="flex-1 h-0 overflow-hidden"> {/* Ensures ScrollArea has a bounded height */}
+      <div className="flex-1 h-0 overflow-hidden">
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">
             {messages.map((message, index) => (
@@ -138,7 +142,7 @@ export function WebChatBot({
                     <p className="text-sm font-medium">Try asking:</p>
                     <div className="flex flex-wrap gap-2 justify-center">
                       {suggestions.map((suggestion, i) => (
-                        <Button key={i} variant="outline" size="sm" onClick={() => handleSendMessage(suggestion)} className="text-xs" disabled={isLoading}>
+                        <Button key={i} variant="outline" size="sm" onClick={() => handleSendMessage(suggestion)} className="text-xs" disabled={isLoading || disabled}>
                           {suggestion}
                         </Button>
                       ))}
@@ -147,14 +151,13 @@ export function WebChatBot({
                 )}
               </div>
             )}
-            {/* Empty div at the end of messages for scrolling into view */}
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       </div>
 
       <div className="p-4 border-t flex-shrink-0">
-        <ChatInput onSend={handleSendMessage} isLoading={isLoading} placeholder={placeholder} />
+        <ChatInput onSend={handleSendMessage} isLoading={isLoading} placeholder={placeholder} disabled={disabled} />
       </div>
     </div>
   );

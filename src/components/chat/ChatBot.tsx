@@ -7,19 +7,19 @@ import { ChatInput } from "./ChatInput";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
-  // id?: string; // Keep this commented if not used, or define if ChatMessageApp.id is passed
 }
 
 interface ChatBotProps {
-  title?: string;
-  subtitle?: string;
+  // title and subtitle are no longer used for internal rendering
+  // title?: string; 
+  // subtitle?: string;
   placeholder?: string;
   suggestions?: string[];
   knowledgeBase?: string; 
@@ -29,11 +29,13 @@ interface ChatBotProps {
   onResponseGenerationStateChange?: (isGenerating: boolean) => void;
   messages?: Message[]; 
   onMessagesChange?: (messagesOrUpdater: Message[] | ((prevMessages: Message[]) => Message[])) => void;
+  className?: string; // To accept styling from parent (SuperTutor.tsx)
+  disabled?: boolean; 
 }
 
 export function ChatBot({
-  title = "Class AI",
-  subtitle = "Ask questions about your class materials",
+  // title, // Removed from destructuring
+  // subtitle, // Removed from destructuring
   placeholder = "Ask about your class materials...",
   suggestions = [],
   knowledgeBase,
@@ -41,25 +43,20 @@ export function ChatBot({
   disableToasts = false,
   loadingIndicator,
   onResponseGenerationStateChange,
-  messages: externalMessages, // These are ChatUIMessage[] from SuperTutor
-  onMessagesChange
+  messages: externalMessages,
+  onMessagesChange,
+  className, // Added className to props
+  disabled, 
 }: ChatBotProps) {
-  // This internal state is used if messages/onMessagesChange are not provided (standalone mode)
   const [internalMessages, setInternalMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chatMode, setChatMode] = useState<"assistant" | "fallback" | "error" | "idle">("idle");
-  const [currentAssistantId, setCurrentAssistantId] = useState<string | null>(null);
-  const [currentVectorStoreId, setCurrentVectorStoreId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Determine which messages array to use (externally controlled or internal)
   const messages = externalMessages !== undefined ? externalMessages : internalMessages;
   
-  // Wrapper to call either external onMessagesChange or update internal state
   const setMessagesWrapper = (newMessagesOrFn: Message[] | ((prevMessages: Message[]) => Message[])) => {
     if (onMessagesChange) {
-      // If onMessagesChange expects Message[], and newMessagesOrFn is a function,
-      // we need to compute the new state based on the *current* external messages.
       if (typeof newMessagesOrFn === 'function' && externalMessages) {
         onMessagesChange(newMessagesOrFn(externalMessages));
       } else if (Array.isArray(newMessagesOrFn)) {
@@ -70,23 +67,20 @@ export function ChatBot({
     }
   };
 
-  const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for the scroll target
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Effect to scroll to the bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]); // Dependency array includes messages
+  }, [messages]);
 
   useEffect(() => {
     onResponseGenerationStateChange?.(isLoading);
   }, [isLoading, onResponseGenerationStateChange]);
 
   useEffect(() => {
-    setCurrentAssistantId(openAIConfig?.assistantId || null);
-    setCurrentVectorStoreId(openAIConfig?.vectorStoreId || null);
     if (openAIConfig?.assistantId && openAIConfig?.vectorStoreId) {
         setChatMode("assistant");
     } else if (openAIConfig?.assistantId) {
@@ -98,22 +92,19 @@ export function ChatBot({
   }, [openAIConfig]);
 
   const handleSendMessage = async (messageText: string) => {
-    if (!messageText.trim()) return;
+    if (disabled || !messageText.trim()) return;
 
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
-
-    // Use a functional update if relying on external state to avoid stale closures
     const currentMessagesForAPI = externalMessages ? [...externalMessages] : [...internalMessages];
     setMessagesWrapper(prevMessages => [...prevMessages, userMessage]); 
-    
     setIsLoading(true);
 
     try {
       const { data, error: functionError } = await supabase.functions.invoke("chat", {
         body: {
           message: messageText,
-          history: currentMessagesForAPI, // Send the state *before* adding the new user message for history
+          history: currentMessagesForAPI, 
           openAIConfig: openAIConfig, 
           knowledgeBase: knowledgeBase 
         }
@@ -130,9 +121,6 @@ export function ChatBot({
       }
       const aiMessage: Message = { role: "assistant", content: data.response };
       setMessagesWrapper(prevMessages => [...prevMessages, aiMessage]);
-
-      setCurrentAssistantId(data.assistantId || null);
-      setCurrentVectorStoreId(data.vectorStoreId || openAIConfig?.vectorStoreId || null);
 
       if (data.usedAssistant) setChatMode("assistant");
       else if (data.usedFallback) setChatMode("fallback");
@@ -154,35 +142,39 @@ export function ChatBot({
     }
   };
 
+  // Apply the className passed from SuperTutor.tsx to this root div
+  // The internal header div has been removed.
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">{title}</h2>
-          <div className="flex gap-2">
-            {chatMode === "fallback" && (
-              <Badge variant="outline" className="flex items-center gap-1 border-amber-500 text-amber-700">
-                <AlertCircle className="h-3 w-3" />
-                <span className="text-xs">General Knowledge</span>
-              </Badge>
-            )}
-            {currentVectorStoreId && chatMode === "assistant" && ( 
-                 <Badge variant="outline" className="flex items-center gap-1 border-blue-500 text-blue-700">
-                    <DatabaseIcon className="h-3 w-3" />
-                    <span className="text-xs">Database Search</span>
-                 </Badge>
-            )}
+    <div className={cn("flex flex-col h-full", className)}> 
+      {/* REMOVED HEADER SECTION:
+        <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium">{title}</h2>
+            <div className="flex gap-2">
+              {chatMode === "fallback" && (
+                <Badge variant="outline" className="flex items-center gap-1 border-amber-500 text-amber-700">
+                  <AlertCircle className="h-3 w-3" />
+                  <span className="text-xs">General Knowledge</span>
+                </Badge>
+              )}
+              {currentVectorStoreId && chatMode === "assistant" && ( 
+                   <Badge variant="outline" className="flex items-center gap-1 border-blue-500 text-blue-700">
+                      <DatabaseIcon className="h-3 w-3" />
+                      <span className="text-xs">Database Search</span>
+                   </Badge>
+              )}
+            </div>
           </div>
-        </div>
-        <p className="text-sm text-muted-foreground">{subtitle}</p>
-      </div>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        </div> 
+      */}
 
-      <div className="flex-1 h-0 overflow-hidden"> {/* Ensures ScrollArea has a bounded height */}
+      <div className="flex-1 h-0 overflow-hidden">
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">
             {messages.map((message, index) => (
               <ChatMessage
-                key={index} // Consider using a unique message ID if available
+                key={index}
                 content={message.content}
                 isUser={message.role === "user"}
               />
@@ -214,7 +206,7 @@ export function ChatBot({
                           size="sm"
                           onClick={() => handleSendMessage(suggestion)}
                           className="text-xs"
-                          disabled={isLoading}
+                          disabled={isLoading || disabled}
                         >
                           {suggestion}
                         </Button>
@@ -224,7 +216,6 @@ export function ChatBot({
                 )}
               </div>
             )}
-            {/* Empty div at the end of messages for scrolling into view */}
             <div ref={messagesEndRef} /> 
           </div>
         </ScrollArea>
@@ -235,6 +226,7 @@ export function ChatBot({
           onSend={handleSendMessage}
           isLoading={isLoading}
           placeholder={placeholder}
+          disabled={disabled}
         />
       </div>
     </div>

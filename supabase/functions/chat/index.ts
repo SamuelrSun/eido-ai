@@ -6,10 +6,9 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 
 const ASSISTANT_RUN_TIMEOUT = 45000; 
 
-interface FileCitation { file_id: string; quote?: string; }
-interface FilePath { file_id: string; }
-interface FileCitationAnnotation { type: "file_citation"; text: string; start_index: number; end_index: number; file_citation: FileCitation; }
-interface FilePathAnnotation { type: "file_path"; text: string; start_index: number; end_index: number; file_path: FilePath; }
+// OpenAI Annotation Types (assuming these are defined as before)
+interface FileCitationAnnotation { type: "file_citation"; text: string; start_index: number; end_index: number; file_citation: { file_id: string; quote?: string; }; }
+interface FilePathAnnotation { type: "file_path"; text: string; start_index: number; end_index: number; file_path: { file_id: string; }; }
 type Annotation = FileCitationAnnotation | FilePathAnnotation;
 interface OpenAIMessageContentText { type: "text"; text: { value: string; annotations: Annotation[]; }; }
 type OpenAIMessageContent = OpenAIMessageContentText;
@@ -19,6 +18,22 @@ interface OpenAIRun { id: string; status: 'queued' | 'in_progress' | 'cancelling
 interface OpenAIMessagesList { data?: OpenAIMessage[]; }
 interface OpenAIChatCompletionChoice { message: { content: string; }; }
 interface OpenAIChatCompletion { choices: OpenAIChatCompletionChoice[]; }
+
+
+// Helper function to clean up excessive newlines
+function cleanResponseText(text: string): string {
+  let cleaned = text;
+  // Replace 3 or more newlines with exactly two (paragraph break)
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+  // Remove newlines that might occur directly after a list marker followed by a space
+  // e.g., "1. \nSome text" -> "1. Some text"
+  // e.g., "- \nSome text" -> "- Some text"
+  cleaned = cleaned.replace(/^(\s*(\d+\.|-|\*)\s+)\n+/gm, '$1');
+  // Remove leading/trailing newlines from the entire response
+  cleaned = cleaned.trim();
+  return cleaned;
+}
+
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -40,10 +55,11 @@ serve(async (req: Request) => {
     if (!message) throw new Error("User message is required.");
 
     const assistantId = openAIConfig.assistantId;
-    const vectorStoreId = openAIConfig.vectorStoreId;
+    // const vectorStoreId = openAIConfig.vectorStoreId; // Not directly used in prompt, but by assistant
 
     console.log(`[CHAT_FN] Request for: "${knowledgeBase}". AssistantID: ${assistantId || 'N/A'}`);
 
+    // MODIFIED: Added instruction for compact lists
     const citationInstructions = `
       When you use information from provided files, your response will contain annotations like 【1:0†source】 or similar.
       These annotations will be automatically replaced by the system with proper citations.
@@ -54,7 +70,17 @@ serve(async (req: Request) => {
       You do not need to manually create citation strings or include raw file paths in your narrative text.
     `;
 
-    const assistantBaseInstructions = `You are an AI Tutor for the class: "${knowledgeBase}". ${citationInstructions} Please be helpful and clear. When presenting lists or multiple points, use markdown formatting such as bullet points (-) or numbered lists (1., 2.) for better readability.`;
+    // MODIFIED: Enhanced instructions for list formatting
+    const assistantBaseInstructions = `You are an AI Tutor for the class: "${knowledgeBase}". ${citationInstructions} Please be helpful and clear. 
+    When presenting lists or multiple points, use markdown formatting such as bullet points (-) or numbered lists (1., 2.) for better readability.
+    Ensure that list items are compact. Do not add empty newlines between list items unless it's a new paragraph within an item. 
+    For example, prefer:
+    1. Point one.
+    2. Point two.
+    Instead of:
+    1. Point one.
+
+    2. Point two.`;
 
     if (assistantId) {
       try {
@@ -110,36 +136,23 @@ serve(async (req: Request) => {
                 else if (annotation.type === "file_path") openAIFileId = annotation.file_path.file_id;
 
                 if (openAIFileId) {
-                  console.log(`[CHAT_FN] Processing annotation for OpenAI File ID: ${openAIFileId}, Original text: "${annotation.text}"`);
                   const { data: fileData, error: dbError } = await supabaseAdminClient
                     .from('files')
                     .select('name, url') 
                     .eq('openai_file_id', openAIFileId)
                     .single();
                   
-                  console.log(`[CHAT_FN] DB result for ${openAIFileId} - Name: ${fileData?.name}, URL from DB: "${fileData?.url}", Error: ${dbError?.message}`);
-
-                  let citationText = `(${annotation.text.trim() || `Source: ${openAIFileId}`})`; // Default fallback with parentheses
-
+                  let citationText = `(${annotation.text.trim() || `Source: ${openAIFileId}`})`;
                   if (!dbError && fileData && fileData.name) {
                     let urlForLink = fileData.url;
                     if (urlForLink) {
-                      // ** MORE DIRECT URL HOTFIX **
-                      // Replace both encoded and unencoded forms of <em> if they corrupt 'file_storage'
                       urlForLink = urlForLink.replace(/file%3Cem%3Estorage/g, 'file_storage')
-                                             .replace(/file%3C\/em%3Estorage/g, 'file_storage') // Handle if slash is also encoded
+                                             .replace(/file%3C\/em%3Estorage/g, 'file_storage')
                                              .replace(/file<em>storage/g, 'file_storage');
-                      
-                      console.log(`[CHAT_FN] URL after potential hotfix: "${urlForLink}"`);
-                      citationText = `([${fileData.name}](${urlForLink}))`; // Wrap Markdown link in parentheses
+                      citationText = `([${fileData.name}](${urlForLink}))`;
                     } else {
                       citationText = `(${fileData.name})`; 
-                      console.warn(`[CHAT_FN] File record for OpenAI file ID ${openAIFileId} has NO URL. Citation: ${citationText}`);
                     }
-                  } else if (dbError) {
-                    console.error(`[CHAT_FN] DB lookup error for OpenAI file ID ${openAIFileId}:`, dbError.message);
-                  } else {
-                     console.warn(`[CHAT_FN] No file record or name in DB for OpenAI file ID ${openAIFileId}. Fallback citation: ${citationText}`);
                   }
                   replacements.push({ start: annotation.start_index, end: annotation.end_index, text: ` ${citationText} ` });
                 }
@@ -151,29 +164,23 @@ serve(async (req: Request) => {
               
               assistantMessageContent = rawText; 
               assistantMessageContent = assistantMessageContent.replace(/【\s*\d+:\d+†(?:source)?\s*】/g, ''); 
-              
-              // Simplified italic/bold cleanup: remove them if they are directly around our generated citations.
-              // This is less aggressive and relies more on the AI not adding them in the first place.
-              assistantMessageContent = assistantMessageContent.replace(/\*([(\[][^)]*?[)\]])\*/g, '$1'); // For * (citation) * or * [citation](url) *
-              assistantMessageContent = assistantMessageContent.replace(/_([(\[][^)]*?[)\]])_/g, '$1'); // For _ (citation) _ or _ [citation](url) _
-
+              assistantMessageContent = assistantMessageContent.replace(/\*([(\[][^)]*?[)\]])\*/g, '$1'); 
+              assistantMessageContent = assistantMessageContent.replace(/_([(\[][^)]*?[)\]])_/g, '$1'); 
               assistantMessageContent = assistantMessageContent.replace(/(\[[^\]]+\]\([^)]+\))\s*\|\s*\1/gi, '$1');
               assistantMessageContent = assistantMessageContent.replace(/(\([^)]+\.(?:pdf|docx?|pptx?|txt))\)\s*\|\s*\1/gi, '$1');
               
-              assistantMessageContent = assistantMessageContent.replace(/[ \t]{2,}/g, ' '); 
-              assistantMessageContent = assistantMessageContent.replace(/\n\s*\n/g, '\n\n'); 
-              assistantMessageContent = assistantMessageContent.trim(); 
+              // Apply cleanup for newlines
+              assistantMessageContent = cleanResponseText(assistantMessageContent);
             }
           }
 
           if (!assistantMessageContent && latestAssistantMessages && latestAssistantMessages.length > 0 && latestAssistantMessages[0].content[0]?.type === 'text') {
-             assistantMessageContent = latestAssistantMessages[0].content[0].text.value || "[Could not retrieve citation details]";
+             assistantMessageContent = cleanResponseText(latestAssistantMessages[0].content[0].text.value || "[Could not retrieve citation details]");
           } else if (!assistantMessageContent) {
-            console.warn("No textual assistant message content was derived after processing.");
-            assistantMessageContent = "[Assistant provided a non-text response or text processing resulted in empty content]";
+            throw new Error('No assistant response content received.');
           }
 
-          return new Response(JSON.stringify({ response: assistantMessageContent, assistantId: assistantId, vectorStoreId: vectorStoreId, usedAssistant: true }),
+          return new Response(JSON.stringify({ response: assistantMessageContent, assistantId: assistantId, vectorStoreId: openAIConfig.vectorStoreId, usedAssistant: true }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         } else {
           throw new Error(`Assistant run failed. Status: ${run.status}. ${run.last_error?.message || ''}`);
@@ -184,9 +191,10 @@ serve(async (req: Request) => {
       }
     }
 
-    // Fallback logic ...
+    // Fallback logic
     console.log("Using fallback Chat Completions API.");
-    let systemMessageContent = `You are a helpful AI Tutor. The user is asking about "${knowledgeBase}". Provide clear and concise explanations. When presenting lists or multiple points, use markdown formatting such as bullet points (-) or numbered lists (1., 2.) for better readability.`;
+    // MODIFIED: Added instruction for compact lists to fallback as well
+    let systemMessageContent = `You are a helpful AI Tutor. The user is asking about "${knowledgeBase}". Provide clear and concise explanations. When presenting lists or multiple points, use markdown formatting such as bullet points (-) or numbered lists (1., 2.) for better readability. Ensure that list items are compact and do not have empty lines between them unless it's a new paragraph within an item.`;
     if (assistantId) systemMessageContent += ` (Note: An attempt to use a specialized class assistant (ID: ${assistantId}) failed.)`;
     else systemMessageContent += ` (Note: No specific class assistant was configured.)`;
 
@@ -200,11 +208,10 @@ serve(async (req: Request) => {
     let fallbackMessageContent = fallbackData.choices?.[0]?.message?.content || ""; 
     if (!fallbackMessageContent) throw new Error('Invalid response from fallback OpenAI API');
     
-    fallbackMessageContent = fallbackMessageContent.replace(/[ \t]{2,}/g, ' ');
-    fallbackMessageContent = fallbackMessageContent.replace(/\n{3,}/g, '\n\n');
-    fallbackMessageContent = fallbackMessageContent.trim();
+    // Apply cleanup for newlines to fallback response
+    fallbackMessageContent = cleanResponseText(fallbackMessageContent);
 
-    return new Response(JSON.stringify({ response: fallbackMessageContent, assistantId: assistantId, vectorStoreId: vectorStoreId, usedAssistant: false, usedFallback: true }),
+    return new Response(JSON.stringify({ response: fallbackMessageContent, assistantId: assistantId, vectorStoreId: openAIConfig.vectorStoreId, usedAssistant: false, usedFallback: true }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error: unknown) {

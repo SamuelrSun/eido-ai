@@ -85,6 +85,10 @@ src/
       PageHeader.tsx
     policy/
       PolicyCard.tsx
+    Supertutor/
+      ClassTutorView.tsx
+      ConversationSidebar.tsx
+      WebTutorView.tsx
     ui/
       accordion.tsx
       alert-dialog.tsx
@@ -168,6 +172,7 @@ src/
     FlashcardsPage.tsx
     HomePage.tsx
     NotFound.tsx
+    PlaceholderPage.tsx
     PolicyCenter.tsx
     QuizSessionPage.tsx
     QuizzesPage.tsx
@@ -38829,19 +38834,19 @@ import { ChatInput } from "./ChatInput";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
-  // id?: string; // Keep this commented if not used, or define if ChatMessageApp.id is passed
 }
 
 interface ChatBotProps {
-  title?: string;
-  subtitle?: string;
+  // title and subtitle are no longer used for internal rendering
+  // title?: string; 
+  // subtitle?: string;
   placeholder?: string;
   suggestions?: string[];
   knowledgeBase?: string; 
@@ -38851,11 +38856,13 @@ interface ChatBotProps {
   onResponseGenerationStateChange?: (isGenerating: boolean) => void;
   messages?: Message[]; 
   onMessagesChange?: (messagesOrUpdater: Message[] | ((prevMessages: Message[]) => Message[])) => void;
+  className?: string; // To accept styling from parent (SuperTutor.tsx)
+  disabled?: boolean; 
 }
 
 export function ChatBot({
-  title = "Class AI",
-  subtitle = "Ask questions about your class materials",
+  // title, // Removed from destructuring
+  // subtitle, // Removed from destructuring
   placeholder = "Ask about your class materials...",
   suggestions = [],
   knowledgeBase,
@@ -38863,25 +38870,20 @@ export function ChatBot({
   disableToasts = false,
   loadingIndicator,
   onResponseGenerationStateChange,
-  messages: externalMessages, // These are ChatUIMessage[] from SuperTutor
-  onMessagesChange
+  messages: externalMessages,
+  onMessagesChange,
+  className, // Added className to props
+  disabled, 
 }: ChatBotProps) {
-  // This internal state is used if messages/onMessagesChange are not provided (standalone mode)
   const [internalMessages, setInternalMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chatMode, setChatMode] = useState<"assistant" | "fallback" | "error" | "idle">("idle");
-  const [currentAssistantId, setCurrentAssistantId] = useState<string | null>(null);
-  const [currentVectorStoreId, setCurrentVectorStoreId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Determine which messages array to use (externally controlled or internal)
   const messages = externalMessages !== undefined ? externalMessages : internalMessages;
   
-  // Wrapper to call either external onMessagesChange or update internal state
   const setMessagesWrapper = (newMessagesOrFn: Message[] | ((prevMessages: Message[]) => Message[])) => {
     if (onMessagesChange) {
-      // If onMessagesChange expects Message[], and newMessagesOrFn is a function,
-      // we need to compute the new state based on the *current* external messages.
       if (typeof newMessagesOrFn === 'function' && externalMessages) {
         onMessagesChange(newMessagesOrFn(externalMessages));
       } else if (Array.isArray(newMessagesOrFn)) {
@@ -38892,23 +38894,20 @@ export function ChatBot({
     }
   };
 
-  const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for the scroll target
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Effect to scroll to the bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]); // Dependency array includes messages
+  }, [messages]);
 
   useEffect(() => {
     onResponseGenerationStateChange?.(isLoading);
   }, [isLoading, onResponseGenerationStateChange]);
 
   useEffect(() => {
-    setCurrentAssistantId(openAIConfig?.assistantId || null);
-    setCurrentVectorStoreId(openAIConfig?.vectorStoreId || null);
     if (openAIConfig?.assistantId && openAIConfig?.vectorStoreId) {
         setChatMode("assistant");
     } else if (openAIConfig?.assistantId) {
@@ -38920,22 +38919,19 @@ export function ChatBot({
   }, [openAIConfig]);
 
   const handleSendMessage = async (messageText: string) => {
-    if (!messageText.trim()) return;
+    if (disabled || !messageText.trim()) return;
 
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
-
-    // Use a functional update if relying on external state to avoid stale closures
     const currentMessagesForAPI = externalMessages ? [...externalMessages] : [...internalMessages];
     setMessagesWrapper(prevMessages => [...prevMessages, userMessage]); 
-    
     setIsLoading(true);
 
     try {
       const { data, error: functionError } = await supabase.functions.invoke("chat", {
         body: {
           message: messageText,
-          history: currentMessagesForAPI, // Send the state *before* adding the new user message for history
+          history: currentMessagesForAPI, 
           openAIConfig: openAIConfig, 
           knowledgeBase: knowledgeBase 
         }
@@ -38952,9 +38948,6 @@ export function ChatBot({
       }
       const aiMessage: Message = { role: "assistant", content: data.response };
       setMessagesWrapper(prevMessages => [...prevMessages, aiMessage]);
-
-      setCurrentAssistantId(data.assistantId || null);
-      setCurrentVectorStoreId(data.vectorStoreId || openAIConfig?.vectorStoreId || null);
 
       if (data.usedAssistant) setChatMode("assistant");
       else if (data.usedFallback) setChatMode("fallback");
@@ -38976,35 +38969,39 @@ export function ChatBot({
     }
   };
 
+  // Apply the className passed from SuperTutor.tsx to this root div
+  // The internal header div has been removed.
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">{title}</h2>
-          <div className="flex gap-2">
-            {chatMode === "fallback" && (
-              <Badge variant="outline" className="flex items-center gap-1 border-amber-500 text-amber-700">
-                <AlertCircle className="h-3 w-3" />
-                <span className="text-xs">General Knowledge</span>
-              </Badge>
-            )}
-            {currentVectorStoreId && chatMode === "assistant" && ( 
-                 <Badge variant="outline" className="flex items-center gap-1 border-blue-500 text-blue-700">
-                    <DatabaseIcon className="h-3 w-3" />
-                    <span className="text-xs">Database Search</span>
-                 </Badge>
-            )}
+    <div className={cn("flex flex-col h-full", className)}> 
+      {/* REMOVED HEADER SECTION:
+        <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium">{title}</h2>
+            <div className="flex gap-2">
+              {chatMode === "fallback" && (
+                <Badge variant="outline" className="flex items-center gap-1 border-amber-500 text-amber-700">
+                  <AlertCircle className="h-3 w-3" />
+                  <span className="text-xs">General Knowledge</span>
+                </Badge>
+              )}
+              {currentVectorStoreId && chatMode === "assistant" && ( 
+                   <Badge variant="outline" className="flex items-center gap-1 border-blue-500 text-blue-700">
+                      <DatabaseIcon className="h-3 w-3" />
+                      <span className="text-xs">Database Search</span>
+                   </Badge>
+              )}
+            </div>
           </div>
-        </div>
-        <p className="text-sm text-muted-foreground">{subtitle}</p>
-      </div>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        </div> 
+      */}
 
-      <div className="flex-1 h-0 overflow-hidden"> {/* Ensures ScrollArea has a bounded height */}
+      <div className="flex-1 h-0 overflow-hidden">
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">
             {messages.map((message, index) => (
               <ChatMessage
-                key={index} // Consider using a unique message ID if available
+                key={index}
                 content={message.content}
                 isUser={message.role === "user"}
               />
@@ -39036,7 +39033,7 @@ export function ChatBot({
                           size="sm"
                           onClick={() => handleSendMessage(suggestion)}
                           className="text-xs"
-                          disabled={isLoading}
+                          disabled={isLoading || disabled}
                         >
                           {suggestion}
                         </Button>
@@ -39046,7 +39043,6 @@ export function ChatBot({
                 )}
               </div>
             )}
-            {/* Empty div at the end of messages for scrolling into view */}
             <div ref={messagesEndRef} /> 
           </div>
         </ScrollArea>
@@ -39057,6 +39053,7 @@ export function ChatBot({
           onSend={handleSendMessage}
           isLoading={isLoading}
           placeholder={placeholder}
+          disabled={disabled}
         />
       </div>
     </div>
@@ -39513,19 +39510,18 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
-export interface Message { // This is ChatUIMessage in SuperTutor
+export interface Message { 
   role: "user" | "assistant" | "system";
   content: string;
-  // id?: string; // Keep this commented if not used
 }
 
 interface WebChatBotProps {
-  title?: string;
-  subtitle?: string;
+  // title?: string; // Removed
+  // subtitle?: string; // Removed
   placeholder?: string;
   suggestions?: string[];
   disableToasts?: boolean;
@@ -39533,18 +39529,22 @@ interface WebChatBotProps {
   onResponseGenerationStateChange?: (isGenerating: boolean) => void;
   messages?: Message[]; 
   onMessagesChange?: (messagesOrUpdater: Message[] | ((prevMessages: Message[]) => Message[])) => void;
+  className?: string; // Added
+  disabled?: boolean; // Added
 }
 
 export function WebChatBot({
-  title = "Web Search",
-  subtitle = "Ask me to search the web",
+  // title, // Removed
+  // subtitle, // Removed
   placeholder = "Search the web...",
   suggestions = [],
   disableToasts = false,
   loadingIndicator,
   onResponseGenerationStateChange,
   messages: externalMessages,
-  onMessagesChange
+  onMessagesChange,
+  className, // Added
+  disabled, // Added
 }: WebChatBotProps) {
   const [internalMessages, setInternalMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -39564,22 +39564,21 @@ export function WebChatBot({
     }
   };
 
-  const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for the scroll target
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Effect to scroll to the bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]); // Dependency array includes messages
+  }, [messages]);
 
   useEffect(() => {
     onResponseGenerationStateChange?.(isLoading);
   }, [isLoading, onResponseGenerationStateChange]);
 
   const handleSendMessage = async (messageText: string) => {
-    if (!messageText.trim()) return;
+    if (disabled || !messageText.trim()) return;
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
     
@@ -39614,18 +39613,20 @@ export function WebChatBot({
   };
 
   return (
-    <div className="flex flex-col h-full w-full">
-      <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">{title}</h2>
-          <Badge variant="outline" className="flex items-center gap-1 border-blue-500 text-blue-700">
-            <Globe className="h-3 w-3" /> <span className="text-xs">Web Search</span>
-          </Badge>
+    <div className={cn("flex flex-col h-full w-full", className)}>
+      {/* REMOVED HEADER SECTION:
+        <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium">{title}</h2>
+            <Badge variant="outline" className="flex items-center gap-1 border-blue-500 text-blue-700">
+              <Globe className="h-3 w-3" /> <span className="text-xs">Web Search</span>
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
-        <p className="text-sm text-muted-foreground">{subtitle}</p>
-      </div>
+      */}
 
-      <div className="flex-1 h-0 overflow-hidden"> {/* Ensures ScrollArea has a bounded height */}
+      <div className="flex-1 h-0 overflow-hidden">
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">
             {messages.map((message, index) => (
@@ -39645,7 +39646,7 @@ export function WebChatBot({
                     <p className="text-sm font-medium">Try asking:</p>
                     <div className="flex flex-wrap gap-2 justify-center">
                       {suggestions.map((suggestion, i) => (
-                        <Button key={i} variant="outline" size="sm" onClick={() => handleSendMessage(suggestion)} className="text-xs" disabled={isLoading}>
+                        <Button key={i} variant="outline" size="sm" onClick={() => handleSendMessage(suggestion)} className="text-xs" disabled={isLoading || disabled}>
                           {suggestion}
                         </Button>
                       ))}
@@ -39654,14 +39655,13 @@ export function WebChatBot({
                 )}
               </div>
             )}
-            {/* Empty div at the end of messages for scrolling into view */}
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       </div>
 
       <div className="p-4 border-t flex-shrink-0">
-        <ChatInput onSend={handleSendMessage} isLoading={isLoading} placeholder={placeholder} />
+        <ChatInput onSend={handleSendMessage} isLoading={isLoading} placeholder={placeholder} disabled={disabled} />
       </div>
     </div>
   );
@@ -40324,16 +40324,14 @@ export function OpenAIConfigSection({
 ================
 File: src/components/class/dialog/WidgetSelectionSection.tsx
 ================
-import React from "react";
+// src/components/class/dialog/WidgetSelectionSection.tsx
+import React from "react"; // Removed unused useState and useEffect
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
 import { WidgetCard } from "@/components/widgets/WidgetCard";
-import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
-import { useToast } from "@/hooks/use-toast";
+import { WidgetType } from "@/hooks/use-widgets"; // Ensure WidgetType is imported
 
 interface Widget {
-  id: string;
+  id: WidgetType; // Changed from string to WidgetType for better type safety
   name: string;
   description: string;
   path: string;
@@ -40341,9 +40339,9 @@ interface Widget {
 }
 
 interface WidgetSelectionSectionProps {
-  selectedWidgets: string[];
+  selectedWidgets: WidgetType[]; // Changed from string[]
   availableWidgets: Widget[];
-  onToggleWidget: (id: string) => void;
+  onToggleWidget: (id: WidgetType) => void; // Changed from string
 }
 
 export function WidgetSelectionSection({
@@ -40351,33 +40349,28 @@ export function WidgetSelectionSection({
   availableWidgets,
   onToggleWidget
 }: WidgetSelectionSectionProps) {
-  const [isAddWidgetsOpen, setIsAddWidgetsOpen] = React.useState(false);
-  const { toast } = useToast();
+  // const [isAddWidgetsOpen, setIsAddWidgetsOpen] = React.useState(false); // No longer needed
+  // const { toast } = useToast(); // No longer needed if error handling is robust in parent or onToggleWidget
+
+  // Ensure selectedWidgets is always an array.
+  // The parent component (CreateClassDialogContent) should manage the default values.
+  const safeSelectedWidgets = Array.isArray(selectedWidgets) ? selectedWidgets : [];
   
-  // Ensure selectedWidgets is always an array with default values if not
-  const safeSelectedWidgets = Array.isArray(selectedWidgets) ? selectedWidgets : ["flashcards", "quizzes"];
+  // No longer slicing for recommendedWidgets, we will display all.
+  // const recommendedWidgets = availableWidgets.slice(0, 3); 
   
-  // Display only the recommended widgets (limit to 3)
-  const recommendedWidgets = availableWidgets.slice(0, 3);
-  
-  const handleToggleWidget = (id: string) => {
-    try {
-      onToggleWidget(id);
-    } catch (error) {
-      console.error(`Error toggling widget ${id}:`, error);
-      toast({
-        title: "Error updating widget",
-        description: "Failed to update widget selection. Please try again.",
-        variant: "destructive"
-      });
-    }
+  const handleToggleWidget = (id: WidgetType) => { // Changed id type to WidgetType
+    // The onToggleWidget prop is expected to handle any necessary logic,
+    // including potential error handling or state updates in the parent.
+    onToggleWidget(id);
   };
   
   return (
     <div>
       <Label className="mb-2 block">Select Widgets for this Class</Label>
-      <div className="space-y-3">
-        {recommendedWidgets.map(widget => (
+      {/* MODIFICATION: Changed layout to a 2-column grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-2"> 
+        {availableWidgets.map(widget => (
           <WidgetCard
             key={widget.id}
             id={widget.id}
@@ -40388,23 +40381,8 @@ export function WidgetSelectionSection({
             onToggle={() => handleToggleWidget(widget.id)}
           />
         ))}
-        
-        <Button
-          variant="outline"
-          className="w-full flex items-center justify-center py-6"
-          onClick={() => setIsAddWidgetsOpen(true)}
-        >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          See More Widgets
-        </Button>
       </div>
-      
-      <AddWidgetsDialog 
-        open={isAddWidgetsOpen} 
-        onOpenChange={setIsAddWidgetsOpen}
-        classMode={true}
-        currentClassName="Current Class"
-      />
+    
     </div>
   );
 }
@@ -41255,15 +41233,18 @@ export function AppLayout() {
 ================
 File: src/components/layout/AppSidebar.tsx
 ================
+// src/components/layout/AppSidebar.tsx
 import { 
-  MessageCircle,
   Home,
   Search,
   BookOpen,
   SquareCheck,
-  Database
+  Database,
+  CalendarDays, // Added
+  Terminal // Added
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+// useNavigate is not used directly here, NavLink handles navigation
+// import { useNavigate } from "react-router-dom"; 
 import { AddWidgetsDialog } from "@/components/widgets/AddWidgetsDialog";
 import { WidgetType } from "@/hooks/use-widgets";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
@@ -41277,7 +41258,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ onClose }: AppSidebarProps) {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Not directly used
   const { 
     user, 
     loading, 
@@ -41288,17 +41269,28 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     widgetsLoading
   } = useSidebarState();
 
-  // Define all navigation items - core features
+  // MODIFICATION: Added Calendar and Console to coreNavItems
   const coreNavItems = [
     {
       icon: <Home className="mr-2 h-5 w-5" />,
       label: "Home",
       to: "/",
       exact: true
+    },
+    {
+      icon: <CalendarDays className="mr-2 h-5 w-5" />, // New icon
+      label: "Calendar",
+      to: "/calendar",
+      exact: false // Typically false for sub-pages if any
+    },
+    {
+      icon: <Terminal className="mr-2 h-5 w-5" />, // New icon
+      label: "Console",
+      to: "/console",
+      exact: false
     }
   ];
   
-  // Define all possible widget navigation items
   const widgetNavItems = [
     {
       icon: <Search className="mr-2 h-5 w-5" />,
@@ -41326,7 +41318,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     }
   ];
   
-  // Filter widget nav items by enabled widgets for the current class
   const visibleWidgetNavItems = widgetNavItems.filter(item => 
     enabledWidgets.includes(item.widgetId)
   );
@@ -41350,7 +41341,6 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
         <SidebarAccount loading={loading} user={user} />
       </div>
       
-      {/* Add Widgets Dialog */}
       <AddWidgetsDialog 
         open={isWidgetsDialogOpen} 
         onOpenChange={setIsWidgetsDialogOpen} 
@@ -41480,6 +41470,527 @@ export function PolicyCard({ title, summary, details, icon, lastUpdated, departm
     </div>
   );
 }
+
+================
+File: src/components/Supertutor/ClassTutorView.tsx
+================
+// src/components/SuperTutor/ClassTutorView.tsx
+import React, { useState, useEffect } from 'react';
+import ConversationSidebar, { Conversation } from '@/components/SuperTutor/ConversationSidebar';
+import ChatMessages from '@/components/Chat/ChatMessages';
+import ChatInput from '@/components/Chat/ChatInput';
+import ClassTutorControls from './ClassTutorControls'; // Assuming path from repomix
+import { useSuperTutorStore } from '@/store/superTutorStore'; // For selectedClass, etc.
+
+// Define props for ClassTutorView to accept conversation related data and handlers
+interface ClassTutorViewProps {
+  conversations: Conversation[];
+  selectedConversationId: string | null;
+  isLoadingConversations: boolean;
+  onSelectConversation: (id: string) => void;
+  onCreateNewConversation: () => void;
+  onRenameConversation: (id: string, newName: string) => Promise<void>;
+  onDeleteConversation: (id: string) => Promise<void>;
+}
+
+// Define a simple Message type for mock data (replace with your actual Message type)
+interface MockMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'ai';
+  timestamp?: string;
+}
+
+
+const ClassTutorView: React.FC<ClassTutorViewProps> = ({
+  conversations,
+  selectedConversationId,
+  isLoadingConversations,
+  onSelectConversation,
+  onCreateNewConversation,
+  onRenameConversation,
+  onDeleteConversation,
+}) => {
+  // Local state for messages, input, and sending status.
+  // This will eventually be tied to the selectedConversationId and managed by Zustand/Supabase.
+  const [chatMessages, setChatMessages] = useState<MockMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const { selectedClass } = useSuperTutorStore(state => ({ selectedClass: state.selectedClass }));
+
+
+  // Effect to mock fetching messages when selectedConversationId changes
+  useEffect(() => {
+    if (selectedConversationId) {
+      console.log(`ClassTutorView: Fetching messages for conversation ${selectedConversationId}`);
+      // Simulate fetching messages for the selected conversation
+      setIsSending(true); // Use isSending to show loading for messages
+      setTimeout(() => {
+        // Mock messages based on conversation ID
+        const mockMsgs: MockMessage[] = [
+          { id: 'msg1-' + selectedConversationId, text: `Welcome to ${conversations.find(c=>c.id === selectedConversationId)?.name || 'this chat'}! How can I help with ${selectedClass?.class_title || 'your class'}?`, sender: 'ai', timestamp: new Date().toISOString() },
+        ];
+        setChatMessages(mockMsgs);
+        setIsSending(false);
+      }, 300);
+    } else {
+      setChatMessages([]); // Clear messages if no conversation is selected
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConversationId, selectedClass]); // Also depends on selectedClass for context in mock
+
+  const handleSendMessage = async (messageContent: string) => {
+    if (!selectedConversationId) {
+      alert("Please select or create a conversation first."); // User-friendly message
+      return;
+    }
+    if (!messageContent.trim()) return;
+
+    setIsSending(true);
+    const userMessage: MockMessage = {
+      id: `user-${Date.now()}`,
+      text: messageContent,
+      sender: 'user',
+      timestamp: new Date().toISOString(),
+    };
+    setChatMessages(prev => [...prev, userMessage]);
+    setInput(''); // Clear input immediately
+
+    // Simulate AI response
+    // In a real app, this would be an API call to your backend/LLM
+    // using selectedConversationId, messageContent, selectedClass context, etc.
+    console.log(`ClassTutorView: Sending message "${messageContent}" to conversation ${selectedConversationId} for class ${selectedClass?.class_id}`);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+
+    const aiResponse: MockMessage = {
+      id: `ai-${Date.now()}`,
+      text: `AI response to: "${messageContent}" (for ${selectedClass?.class_title || 'class'})`,
+      sender: 'ai',
+      timestamp: new Date().toISOString(),
+    };
+    setChatMessages(prev => [...prev, aiResponse]);
+    setIsSending(false);
+  };
+
+  return (
+    <div className="flex flex-1 h-full overflow-hidden" data-testid="class-tutor-view">
+      <ConversationSidebar
+        conversations={conversations}
+        selectedConversationId={selectedConversationId}
+        onSelectConversation={onSelectConversation}
+        onCreateNewConversation={onCreateNewConversation}
+        onRenameConversation={onRenameConversation}
+        onDeleteConversation={onDeleteConversation}
+        isLoading={isLoadingConversations}
+        className="h-full flex-shrink-0" // Ensure sidebar doesn't shrink unexpectedly
+      />
+      <div className="flex flex-col flex-1 h-full overflow-hidden bg-gray-800"> {/* Main content area */}
+        <ClassTutorControls /> {/* Controls specific to Class Tutor */}
+        
+        <div className="flex-1 flex flex-col overflow-y-auto relative px-4 pt-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"> {/* Chat messages area */}
+          {selectedConversationId ? (
+            <ChatMessages messages={chatMessages} isLoading={isSending && chatMessages.length === 0} /> // Show loading only if messages are empty
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-gray-400">
+              <p className="text-center">
+                Select a conversation from the left panel <br /> or create a new one to begin.
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <div className="p-4 border-t border-gray-700 bg-gray-800"> {/* Chat input area */}
+          <ChatInput
+            input={input}
+            setInput={setInput}
+            handleSubmit={handleSendMessage}
+            isLoading={isSending} // Loading state for when a message is being sent/received
+            placeholder={selectedConversationId ? `Ask about ${selectedClass?.class_title || 'your class'}...` : "Select or create a chat to begin"}
+            disabled={!selectedConversationId || isSending} 
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ClassTutorView;
+
+================
+File: src/components/Supertutor/ConversationSidebar.tsx
+================
+// src/components/SuperTutor/ConversationSidebar.tsx
+import React, { useState, useRef, useEffect } from 'react';
+import { PlusCircle, MessageSquare, MoreHorizontal, Edit3, Trash2, Loader2, MessageSquareText } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+export interface Conversation {
+  id: string;
+  name: string;
+  last_message_at?: string; 
+}
+
+interface ConversationItemProps {
+  conversation: Conversation;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  onRename: (id: string, newName: string) => void;
+  onDelete: (id: string) => void;
+}
+
+const ConversationItem: React.FC<ConversationItemProps> = ({
+  conversation,
+  isSelected,
+  onSelect,
+  onRename,
+  onDelete,
+}) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [newName, setNewName] = useState(conversation.name);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleRenameSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (newName.trim() && newName.trim() !== conversation.name) {
+      onRename(conversation.id, newName.trim());
+    }
+    setIsRenaming(false);
+    setIsMenuOpen(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isRenaming && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isRenaming]);
+
+  return (
+    <div
+      className={cn(
+        'flex items-center justify-between p-2.5 my-0.5 rounded-lg cursor-pointer group relative transition-colors duration-150',
+        isSelected
+          ? 'bg-slate-200 dark:bg-slate-700' 
+          : 'hover:bg-slate-100 dark:hover:bg-slate-700/60'
+      )}
+      onClick={() => !isRenaming && onSelect(conversation.id)}
+      title={conversation.name}
+    >
+      <div className="flex items-center overflow-hidden">
+        <MessageSquare 
+          size={18} 
+          className={cn(
+            'mr-2.5 flex-shrink-0',
+            isSelected ? 'text-slate-700 dark:text-slate-200' : 'text-slate-600 dark:text-slate-400'
+          )} 
+        />
+        {isRenaming ? (
+          <form onSubmit={handleRenameSubmit} className="flex-grow">
+            <input
+              ref={inputRef}
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="w-full bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 p-1 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary border border-slate-300 dark:border-slate-600" 
+              onClick={(e) => e.stopPropagation()}
+              onBlur={() => {
+                 setTimeout(() => setIsRenaming(false), 100); 
+              }}
+            />
+          </form>
+        ) : (
+          <p className={cn(
+            'text-sm truncate',
+            isSelected ? 'text-slate-800 dark:text-slate-50 font-medium' : 'text-slate-700 dark:text-slate-300'
+          )}>
+            {conversation.name}
+          </p>
+        )}
+      </div>
+
+      {!isRenaming && (
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity" ref={menuRef}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); 
+              setIsMenuOpen(!isMenuOpen);
+            }}
+            className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700"
+            aria-label="Conversation options"
+          >
+            <MoreHorizontal size={18} />
+          </button>
+          {isMenuOpen && (
+            <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-800 rounded-md shadow-lg z-20 border border-slate-200 dark:border-slate-700 py-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsRenaming(true);
+                  setIsMenuOpen(false); 
+                  setNewName(conversation.name);
+                }}
+                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+              >
+                <Edit3 size={14} className="mr-2" /> Rename
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(conversation.id);
+                  setIsMenuOpen(false);
+                }}
+                className="flex items-center w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+              >
+                <Trash2 size={14} className="mr-2" /> Delete
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface ConversationSidebarProps {
+  conversations: Conversation[];
+  selectedConversationId: string | null;
+  onSelectConversation: (id: string) => void;
+  onCreateNewConversation: () => void;
+  onRenameConversation: (id: string, newName: string) => Promise<void>;
+  onDeleteConversation: (id: string) => Promise<void>;
+  isLoading?: boolean;
+  className?: string;
+}
+
+const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
+  conversations,
+  selectedConversationId,
+  onSelectConversation,
+  onCreateNewConversation,
+  onRenameConversation,
+  onDeleteConversation,
+  isLoading = false,
+  className = '',
+}) => {
+  const newChatButtonColorClasses = "bg-primary hover:bg-primary/90 text-primary-foreground";
+
+  return (
+    <div
+      className={cn(
+        // Changed background to white for light mode, and dark:bg-card to match chat window in dark mode
+        'flex flex-col bg-white dark:bg-card w-64 h-full', 
+        className 
+      )}
+      data-testid="conversation-sidebar"
+    >
+      <div className="p-3 border-b border-slate-300 dark:border-zinc-700">
+        <button
+          onClick={onCreateNewConversation}
+          className={cn(
+            "flex items-center justify-center w-full p-2.5 rounded-lg text-sm font-medium transition-colors duration-150 shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:focus-visible:ring-offset-card", // Adjusted dark mode offset to dark:bg-card
+            newChatButtonColorClasses
+          )}
+        >
+          <PlusCircle size={18} className="mr-2" />
+          New Chat
+        </button>
+      </div>
+
+      <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-zinc-600 scrollbar-track-slate-100 dark:scrollbar-track-zinc-700/50">
+        {isLoading && !conversations.length ? (
+          <div className="flex-grow flex flex-col items-center justify-center p-4 text-center">
+            <Loader2 className="h-7 w-7 animate-spin text-primary" />
+            <p className="mt-2 text-sm text-slate-500 dark:text-zinc-400">Loading conversations...</p>
+          </div>
+        ) : !isLoading && conversations.length === 0 ? (
+          <div className="flex-grow flex flex-col items-center justify-center p-4 text-center min-h-[100px]">
+            <MessageSquareText size={36} className="mb-3 text-slate-400 dark:text-zinc-500" />
+            <p className="text-sm text-slate-500 dark:text-zinc-400">
+              No conversations yet.
+            </p>
+            <p className="text-xs text-slate-400/80 dark:text-zinc-500">
+              Start a new chat to begin!
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-0.5 p-2">
+            {conversations.map((convo) => (
+              <ConversationItem
+                key={convo.id}
+                conversation={convo}
+                isSelected={convo.id === selectedConversationId}
+                onSelect={onSelectConversation}
+                onRename={onRenameConversation}
+                onDelete={onDeleteConversation}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ConversationSidebar;
+
+================
+File: src/components/Supertutor/WebTutorView.tsx
+================
+// src/components/SuperTutor/ClassTutorView.tsx
+import React, { useState, useEffect } from 'react';
+import ConversationSidebar, { Conversation } from '@/components/SuperTutor/ConversationSidebar';
+import ChatMessages from '@/components/Chat/ChatMessages';
+import ChatInput from '@/components/Chat/ChatInput';
+import ClassTutorControls from './ClassTutorControls'; // Assuming path from repomix
+import { useSuperTutorStore } from '@/store/superTutorStore'; // For selectedClass, etc.
+
+// Define props for ClassTutorView to accept conversation related data and handlers
+interface ClassTutorViewProps {
+  conversations: Conversation[];
+  selectedConversationId: string | null;
+  isLoadingConversations: boolean;
+  onSelectConversation: (id: string) => void;
+  onCreateNewConversation: () => void;
+  onRenameConversation: (id: string, newName: string) => Promise<void>;
+  onDeleteConversation: (id: string) => Promise<void>;
+}
+
+// Define a simple Message type for mock data (replace with your actual Message type)
+interface MockMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'ai';
+  timestamp?: string;
+}
+
+
+const ClassTutorView: React.FC<ClassTutorViewProps> = ({
+  conversations,
+  selectedConversationId,
+  isLoadingConversations,
+  onSelectConversation,
+  onCreateNewConversation,
+  onRenameConversation,
+  onDeleteConversation,
+}) => {
+  // Local state for messages, input, and sending status.
+  // This will eventually be tied to the selectedConversationId and managed by Zustand/Supabase.
+  const [chatMessages, setChatMessages] = useState<MockMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const { selectedClass } = useSuperTutorStore(state => ({ selectedClass: state.selectedClass }));
+
+
+  // Effect to mock fetching messages when selectedConversationId changes
+  useEffect(() => {
+    if (selectedConversationId) {
+      console.log(`ClassTutorView: Fetching messages for conversation ${selectedConversationId}`);
+      // Simulate fetching messages for the selected conversation
+      setIsSending(true); // Use isSending to show loading for messages
+      setTimeout(() => {
+        // Mock messages based on conversation ID
+        const mockMsgs: MockMessage[] = [
+          { id: 'msg1-' + selectedConversationId, text: `Welcome to ${conversations.find(c=>c.id === selectedConversationId)?.name || 'this chat'}! How can I help with ${selectedClass?.class_title || 'your class'}?`, sender: 'ai', timestamp: new Date().toISOString() },
+        ];
+        setChatMessages(mockMsgs);
+        setIsSending(false);
+      }, 300);
+    } else {
+      setChatMessages([]); // Clear messages if no conversation is selected
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConversationId, selectedClass]); // Also depends on selectedClass for context in mock
+
+  const handleSendMessage = async (messageContent: string) => {
+    if (!selectedConversationId) {
+      alert("Please select or create a conversation first."); // User-friendly message
+      return;
+    }
+    if (!messageContent.trim()) return;
+
+    setIsSending(true);
+    const userMessage: MockMessage = {
+      id: `user-${Date.now()}`,
+      text: messageContent,
+      sender: 'user',
+      timestamp: new Date().toISOString(),
+    };
+    setChatMessages(prev => [...prev, userMessage]);
+    setInput(''); // Clear input immediately
+
+    // Simulate AI response
+    // In a real app, this would be an API call to your backend/LLM
+    // using selectedConversationId, messageContent, selectedClass context, etc.
+    console.log(`ClassTutorView: Sending message "${messageContent}" to conversation ${selectedConversationId} for class ${selectedClass?.class_id}`);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+
+    const aiResponse: MockMessage = {
+      id: `ai-${Date.now()}`,
+      text: `AI response to: "${messageContent}" (for ${selectedClass?.class_title || 'class'})`,
+      sender: 'ai',
+      timestamp: new Date().toISOString(),
+    };
+    setChatMessages(prev => [...prev, aiResponse]);
+    setIsSending(false);
+  };
+
+  return (
+    <div className="flex flex-1 h-full overflow-hidden" data-testid="class-tutor-view">
+      <ConversationSidebar
+        conversations={conversations}
+        selectedConversationId={selectedConversationId}
+        onSelectConversation={onSelectConversation}
+        onCreateNewConversation={onCreateNewConversation}
+        onRenameConversation={onRenameConversation}
+        onDeleteConversation={onDeleteConversation}
+        isLoading={isLoadingConversations}
+        className="h-full flex-shrink-0" // Ensure sidebar doesn't shrink unexpectedly
+      />
+      <div className="flex flex-col flex-1 h-full overflow-hidden bg-gray-800"> {/* Main content area */}
+        <ClassTutorControls /> {/* Controls specific to Class Tutor */}
+        
+        <div className="flex-1 flex flex-col overflow-y-auto relative px-4 pt-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"> {/* Chat messages area */}
+          {selectedConversationId ? (
+            <ChatMessages messages={chatMessages} isLoading={isSending && chatMessages.length === 0} /> // Show loading only if messages are empty
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-gray-400">
+              <p className="text-center">
+                Select a conversation from the left panel <br /> or create a new one to begin.
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <div className="p-4 border-t border-gray-700 bg-gray-800"> {/* Chat input area */}
+          <ChatInput
+            input={input}
+            setInput={setInput}
+            handleSubmit={handleSendMessage}
+            isLoading={isSending} // Loading state for when a message is being sent/received
+            placeholder={selectedConversationId ? `Ask about ${selectedClass?.class_title || 'your class'}...` : "Select or create a chat to begin"}
+            disabled={!selectedConversationId || isSending} 
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ClassTutorView;
 
 ================
 File: src/components/ui/accordion.tsx
@@ -51213,6 +51724,7 @@ import { classOpenAIConfigService, ClassConfig, OpenAIConfig } from "@/services/
 import { getEmojiForClass } from "@/utils/emojiUtils";
 import type { User } from "@supabase/supabase-js";
 import type { WidgetType } from "@/hooks/use-widgets";
+import { cn } from "@/lib/utils"; // Import cn for conditional classes
 
 interface ClassOption {
   class_id: string;
@@ -51232,11 +51744,11 @@ interface ClassOption {
 const DEFAULT_CLASS_WIDGETS: WidgetType[] = ["supertutor", "database"];
 
 const HomePage = () => {
-  const [userName, setUserName] = useState<string>("Student"); // Default to "Student"
+  const [userName, setUserName] = useState<string>("Student");
   const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
   const [isEditClassOpen, setIsEditClassOpen] = useState(false);
   const [selectedClassToEdit, setSelectedClassToEdit] = useState<ClassOption | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); 
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -51247,29 +51759,25 @@ const HomePage = () => {
     setIsLoading(true);
     try {
       if (currentUser) {
-        // Fetch full_name from public.profiles
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('full_name')
-          .eq('user_id', currentUser.id) // Match on user_id
+          .eq('user_id', currentUser.id) 
           .maybeSingle();
 
-        if (profileError && profileError.code !== 'PGRST116') { // PGRST116 means no rows found, not necessarily an error here
+        if (profileError && profileError.code !== 'PGRST116') { 
           console.error("Error fetching profile:", profileError);
-          // Potentially toast an error, but for greeting, fallback is okay
         }
 
         if (profile?.full_name) {
           const firstName = profile.full_name.split(' ')[0];
           setUserName(firstName);
         } else {
-          // Fallback to email prefix if full_name is not in profiles
           const emailName = currentUser.email?.split('@')[0] || "Student";
-          setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1)); // Capitalize first letter
+          setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1)); 
           console.log("No full_name in profile, using email prefix for greeting.");
         }
 
-        // Fetch classes (existing logic)
         const userClasses: ClassConfig[] = await classOpenAIConfigService.getAllClasses();
         if (userClasses && userClasses.length > 0) {
           const transformedOptions: ClassOption[] = userClasses.map((config): ClassOption => ({
@@ -51279,7 +51787,7 @@ const HomePage = () => {
             classTime: config.classTime,
             classroom: config.classroom,
             emoji: config.emoji || getEmojiForClass(config.title),
-            link: "/super-stu", // Assuming default link, adjust if dynamic
+            link: "/super-stu", 
             enabledWidgets: (config.enabledWidgets || DEFAULT_CLASS_WIDGETS) as WidgetType[],
             openAIConfig: config.openAIConfig,
             created_at: config.created_at,
@@ -51291,7 +51799,7 @@ const HomePage = () => {
           setClassOptions([]);
         }
       } else {
-        setUserName("Student"); // Default if no user
+        setUserName("Student");
         setClassOptions([]);
       }
     } catch (error) {
@@ -51304,35 +51812,32 @@ const HomePage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]); // Removed navigate from dependencies as it's stable
+  }, [toast]); 
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user || null;
       setUser(currentUser);
-      fetchUserDataAndClasses(currentUser); // Fetch data on auth state change
+      fetchUserDataAndClasses(currentUser); 
       if (_event === 'SIGNED_OUT') {
         sessionStorage.removeItem('activeClass');
         navigate("/auth");
       }
     });
 
-    // Initial fetch on component mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       const currentUser = session?.user || null;
       setUser(currentUser);
       fetchUserDataAndClasses(currentUser);
     });
     
-    // Clear active class from session storage when on homepage
     sessionStorage.removeItem('activeClass');
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [fetchUserDataAndClasses, navigate]); // Added navigate here
+  }, [fetchUserDataAndClasses, navigate]); 
 
-  // ... (handleCreateClass, handleUpdateClass, handleDeleteClass, handleEditClassClick, handleClassClick remain the same)
   const handleCreateClass = async (classDialogData: CreateClassDialogClassData) => {
     if (!user) {
       toast({ title: "Authentication Error", description: "You must be signed in.", variant: "destructive" });
@@ -51385,8 +51890,6 @@ const HomePage = () => {
     if (!selectedClassToEdit || !user) return;
 
     try {
-      // When updating, we need to provide the class_id to the service function
-      // Assuming saveConfigForClass can take class_id as its last optional parameter for updates
       const classIdToUpdate = selectedClassToEdit.class_id;
 
       const updatedDbClassRecord = await classOpenAIConfigService.saveConfigForClass(
@@ -51397,7 +51900,7 @@ const HomePage = () => {
         classDialogData.classTime,
         classDialogData.classroom,
         classDialogData.enabledWidgets as WidgetType[],
-        classIdToUpdate // Pass the ID of the class being updated
+        classIdToUpdate 
       );
       
        const updatedClassOption: ClassOption = {
@@ -51477,7 +51980,7 @@ const HomePage = () => {
         <Button
           onClick={() => setIsCreateClassOpen(true)}
           className="flex items-center gap-2"
-          disabled={!user} // Disable if no user
+          disabled={!user}
         >
           <PlusCircle className="h-4 w-4" />
           Add Class
@@ -51530,7 +52033,10 @@ const HomePage = () => {
                   <div className="mb-4 p-3 bg-primary/10 rounded-lg w-fit">
                     <span className="text-4xl">{option.emoji}</span>
                   </div>
-                  <CardTitle className="truncate" title={option.title}>{option.title}</CardTitle>
+                  {/* MODIFICATION: Added min-h-[3rem] (h-12) to ensure consistent height, removed flex items-center */}
+                  <CardTitle title={option.title} className="min-h-[3rem]"> 
+                    {option.title}
+                  </CardTitle> 
                 </CardHeader>
                 <CardContent className="pt-0 flex-grow">
                   <div className="text-sm space-y-1 text-muted-foreground">
@@ -51598,7 +52104,7 @@ const HomePage = () => {
         <EditClassDialog
           open={isEditClassOpen}
           onOpenChange={setIsEditClassOpen} 
-          initialData={{ // Ensure this matches the ClassData structure expected by EditClassDialog
+          initialData={{ 
             title: selectedClassToEdit.title,
             professor: selectedClassToEdit.professor,
             classTime: selectedClassToEdit.classTime,
@@ -51609,11 +52115,8 @@ const HomePage = () => {
                 assistantId: selectedClassToEdit.openAIConfig.assistantId,
                 vectorStoreId: selectedClassToEdit.openAIConfig.vectorStoreId,
             } : undefined,
-            // Pass class_id for the service layer to identify the record
             class_id: selectedClassToEdit.class_id 
-          } as any} // Using 'as any' here because ClassData in CreateClassDialog doesn't have class_id
-                     // This should be reconciled if ClassData is shared for both create/edit content.
-                     // For now, this makes sure the EditClassDialog gets the ID.
+          } as any} 
           onClassUpdate={handleUpdateClass}
           onClassDelete={handleDeleteClass}
         />
@@ -51654,6 +52157,38 @@ const NotFound = () => {
 };
 
 export default NotFound;
+
+================
+File: src/pages/PlaceholderPage.tsx
+================
+// src/pages/PlaceholderPage.tsx
+import React from 'react';
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { Construction } from "lucide-react"; // Using Construction icon
+
+interface PlaceholderPageProps {
+  pageName?: string; // Optional prop to customize the message slightly
+}
+
+const PlaceholderPage: React.FC<PlaceholderPageProps> = ({ pageName }) => {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-var(--header-height,60px)-4rem)] text-center p-4">
+      <Construction className="w-24 h-24 text-yellow-500 mb-8" strokeWidth={1} />
+      <h1 className="text-4xl font-bold mb-4">
+        {pageName ? `${pageName} - Coming Soon!` : "New Features Coming Soon!"}
+      </h1>
+      <p className="text-lg text-muted-foreground mb-8">
+        We're working hard to bring you this feature. Stay tuned!
+      </p>
+      <Button asChild>
+        <Link to="/">Return to Home</Link>
+      </Button>
+    </div>
+  );
+};
+
+export default PlaceholderPage;
 
 ================
 File: src/pages/PolicyCenter.tsx
@@ -52789,22 +53324,35 @@ export default QuizzesPage;
 File: src/pages/SuperTutor.tsx
 ================
 // src/pages/SuperTutor.tsx
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChatBot } from "@/components/chat/ChatBot";
-import { WebChatBot, Message as ChatUIMessage } from "@/components/chat/WebChatBot";
+import { WebChatBot, Message as ChatUIMessage } from "@/components/chat/WebChatBot"; // Assuming WebChatBot will be made headless similarly
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Settings, Bot, Globe, Split, Loader2 } from "lucide-react";
+import { AlertCircle, Settings, Bot, Globe, Split, Loader2, MessageSquarePlus, Database as DatabaseIconLucide } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client"; // For user session
-import { chatMessageService, ChatMessageApp, ChatMessageDBInsert } from "@/services/chatMessageService"; // Import the new service and types
+import { supabase } from "@/integrations/supabase/client"; 
+import { chatMessageService, ChatMessageApp, ChatMessageDBInsert as OriginalChatMessageDBInsert } from "@/services/chatMessageService";
 import type { User } from "@supabase/supabase-js";
+import { Badge } from "@/components/ui/badge"; // Import Badge component
 
+import ConversationSidebar, { Conversation as SidebarConversation } from '@/components/SuperTutor/ConversationSidebar';
+
+export interface Conversation extends SidebarConversation {
+  user_id: string;
+  class_id: string;
+  chat_mode: 'rag' | 'web';
+  created_at: string;
+}
+
+interface ChatMessageDBInsert extends OriginalChatMessageDBInsert {
+  conversation_id: string;
+}
 
 interface ActiveClassData {
   class_id: string;
@@ -52816,31 +53364,29 @@ interface ActiveClassData {
 
 type ChatMode = "rag" | "web" | "split";
 
-// Helper to map ChatMessageApp to ChatUIMessage
 const mapToChatUIMessage = (appMessage: ChatMessageApp): ChatUIMessage => ({
   role: appMessage.role,
   content: appMessage.content,
-  // id: appMessage.id // ChatUIMessage doesn't have id, but ChatMessageApp does
 });
 
 const SuperTutor = () => {
   const navigate = useNavigate();
   const [effectiveOpenAIConfig, setEffectiveOpenAIConfig] = useState<OpenAIConfig | undefined>(undefined);
-  const [activeClass, setActiveClass] = useState<ActiveClassData | null>(null); // Store the whole activeClass object
+  const [activeClass, setActiveClass] = useState<ActiveClassData | null>(null);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [isGeneratingRagResponse, setIsGeneratingRagResponse] = useState(false);
   const [isGeneratingWebResponse, setIsGeneratingWebResponse] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
-
   const [activeMode, setActiveMode] = useState<ChatMode>("rag");
+
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [isLoadingConversations, setIsLoadingConversations] = useState<boolean>(false);
   
-  // Use ChatMessageApp for state to include IDs and timestamps for persistence
-  const [ragMessages, setRagMessages] = useState<ChatMessageApp[]>([]);
-  const [webMessages, setWebMessages] = useState<ChatMessageApp[]>([]);
-  const [isLoadingRagHistory, setIsLoadingRagHistory] = useState(false);
-  const [isLoadingWebHistory, setIsLoadingWebHistory] = useState(false);
+  const [currentChatMessages, setCurrentChatMessages] = useState<ChatMessageApp[]>([]);
+  const [isLoadingChatMessages, setIsLoadingChatMessages] = useState<boolean>(false);
 
   const ragSuggestions = [
     "Explain the main concepts of [topic]",
@@ -52854,17 +53400,14 @@ const SuperTutor = () => {
     "How do I solve [specific problem]?",
   ];
 
-  // Effect to get current user
   useEffect(() => {
     const getCurrentUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
     };
     getCurrentUser();
-    // No need for onAuthStateChange here if AppLayout/AuthGuard handles global user state
   }, []);
 
-  // Effect to load active class and its initial config
   useEffect(() => {
     window.scrollTo(0, 0);
     setIsLoadingPage(true);
@@ -52874,8 +53417,7 @@ const SuperTutor = () => {
     if (activeClassDataString) {
       try {
         const parsedClass: ActiveClassData = JSON.parse(activeClassDataString);
-        setActiveClass(parsedClass); // Set the full activeClass object
-
+        setActiveClass(parsedClass);
         if (parsedClass.openAIConfig && parsedClass.openAIConfig.assistantId) {
           setEffectiveOpenAIConfig({
             assistantId: parsedClass.openAIConfig.assistantId,
@@ -52904,111 +53446,145 @@ const SuperTutor = () => {
     setIsLoadingPage(false);
   }, [toast]);
 
-  // Effect to fetch chat history when activeClass or activeMode changes
-  const loadChatHistory = useCallback(async () => {
-    if (!user || !activeClass?.class_id) {
-      setRagMessages([]);
-      setWebMessages([]);
+  useEffect(() => {
+    if (!user || !activeClass?.class_id || activeMode === 'split') {
+      setConversations([]);
+      setSelectedConversationId(null);
       return;
     }
+    setIsLoadingConversations(true);
+    console.log(`Mock fetching conversations for user: ${user.id}, class: ${activeClass.class_id}, mode: ${activeMode}`);
+    setTimeout(() => {
+      const mockFetchedConversations: Conversation[] = [
+        { id: `${activeMode}-convo1-${activeClass.class_id}`, name: `${activeMode === 'rag' ? 'Class AI' : 'Web'} Chat 1`, user_id: user.id, class_id: activeClass.class_id, chat_mode: activeMode, created_at: new Date().toISOString(), last_message_at: new Date().toISOString() },
+        { id: `${activeMode}-convo2-${activeClass.class_id}`, name: `Follow-up on ${activeMode === 'rag' ? 'Lecture 3' : 'Search Topic'}`, user_id: user.id, class_id: activeClass.class_id, chat_mode: activeMode, created_at: new Date().toISOString(), last_message_at: new Date(Date.now() - 3600000).toISOString() },
+      ].filter(c => c.chat_mode === activeMode && c.class_id === activeClass.class_id);
 
-    if (activeMode === 'rag' || activeMode === 'split') {
-      setIsLoadingRagHistory(true);
-      try {
-        const fetchedMessages = await chatMessageService.fetchMessages(activeClass.class_id, 'rag');
-        setRagMessages(fetchedMessages);
-      } catch (e) {
-        console.error("Error fetching RAG chat history:", e);
-        toast({ title: "Error", description: "Could not load Class AI chat history.", variant: "destructive" });
-      } finally {
-        setIsLoadingRagHistory(false);
+      setConversations(mockFetchedConversations.sort((a,b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime()));
+      if (mockFetchedConversations.length > 0) {
+        if (!selectedConversationId || !mockFetchedConversations.find(c => c.id === selectedConversationId)) {
+          setSelectedConversationId(mockFetchedConversations[0].id);
+        }
+      } else {
+        setSelectedConversationId(null);
       }
-    }
-
-    if (activeMode === 'web' || activeMode === 'split') {
-      setIsLoadingWebHistory(true);
-      try {
-        const fetchedMessages = await chatMessageService.fetchMessages(activeClass.class_id, 'web');
-        setWebMessages(fetchedMessages);
-      } catch (e) {
-        console.error("Error fetching Web chat history:", e);
-        toast({ title: "Error", description: "Could not load Web Search chat history.", variant: "destructive" });
-      } finally {
-        setIsLoadingWebHistory(false);
-      }
-    }
-  }, [user, activeClass?.class_id, activeMode, toast]);
+      setIsLoadingConversations(false);
+    }, 700);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, activeClass?.class_id, activeMode]);
 
   useEffect(() => {
-    loadChatHistory();
-  }, [loadChatHistory]);
+    if (!selectedConversationId || !user || !activeClass?.class_id) {
+      setCurrentChatMessages([]);
+      return;
+    }
+    setIsLoadingChatMessages(true);
+    console.log(`Mock fetching messages for conversation: ${selectedConversationId}`);
+    setTimeout(() => {
+      const currentConvo = conversations.find(c => c.id === selectedConversationId);
+      if (currentConvo) {
+        const mockMessages: ChatMessageApp[] = [
+          { id: `msg1-${selectedConversationId}`, role: 'assistant', content: `Welcome to conversation: ${currentConvo.name}. How can I help?`, createdAt: new Date() },
+        ];
+        setCurrentChatMessages(mockMessages);
+      } else {
+        setCurrentChatMessages([]);
+      }
+      setIsLoadingChatMessages(false);
+    }, 500);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConversationId, user, activeClass?.class_id]); 
 
+  const handleSelectConversation = useCallback((id: string) => {
+    setSelectedConversationId(id);
+  }, []);
 
-  // Unified handler for when ChatBot or WebChatBot internal state changes (new messages added)
-  // This will be responsible for persisting the new messages.
+  const handleCreateNewConversation = useCallback(async () => {
+    if (!user || !activeClass?.class_id || activeMode === 'split') return;
+    const newName = `New ${activeMode === 'rag' ? 'Class' : 'Web'} Chat ${conversations.filter(c => c.chat_mode === activeMode).length + 1}`;
+    const tempId = `temp-convo-${Date.now()}`;
+    const newConversationData: Omit<Conversation, 'id' | 'created_at' | 'last_message_at'> = { 
+        name: newName, 
+        user_id: user.id,
+        class_id: activeClass.class_id,
+        chat_mode: activeMode,
+    };
+    const createdConversation: Conversation = {
+        ...newConversationData,
+        id: tempId, 
+        created_at: new Date().toISOString(),
+        last_message_at: new Date().toISOString(),
+    };
+    setConversations(prev => [createdConversation, ...prev].sort((a,b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime()));
+    setSelectedConversationId(createdConversation.id);
+    setCurrentChatMessages([]);
+    toast({ title: "Success", description: `Conversation "${newName}" created.` });
+  }, [user, activeClass?.class_id, activeMode, conversations, toast]);
+
+  const handleRenameConversation = useCallback(async (id: string, newName: string) => {
+    setConversations(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
+    toast({ title: "Success", description: "Conversation renamed." });
+  }, [toast]);
+
+  const handleDeleteConversation = useCallback(async (id: string) => {
+    setConversations(prev => {
+        const remaining = prev.filter(c => c.id !== id);
+        if (selectedConversationId === id) {
+            setSelectedConversationId(remaining.length > 0 ? remaining[0].id : null);
+        }
+        return remaining;
+    });
+    toast({ title: "Success", description: "Conversation deleted." });
+  }, [selectedConversationId, toast]);
+
   const handleMessagesChange = useCallback(async (
     newMessagesOrUpdater: ChatUIMessage[] | ((prevMessages: ChatUIMessage[]) => ChatUIMessage[]),
     mode: 'rag' | 'web'
   ) => {
-    if (!user || !activeClass?.class_id) return;
-
-    const currentMessages = mode === 'rag' ? ragMessages : webMessages;
+    if (!user || !activeClass?.class_id || !selectedConversationId) {
+        toast({ title: "Error", description: "Cannot save message: No active conversation selected.", variant: "destructive" });
+        return;
+    }
     const updatedUIMessages = typeof newMessagesOrUpdater === 'function'
-      ? newMessagesOrUpdater(currentMessages.map(mapToChatUIMessage))
+      ? newMessagesOrUpdater(currentChatMessages.map(mapToChatUIMessage))
       : newMessagesOrUpdater;
-
-    // Update the local state first for immediate UI feedback
     const updatedAppMessages: ChatMessageApp[] = updatedUIMessages.map((uiMsg, index) => {
-        // Try to find existing message by index or content if IDs are temporary
-        const existingAppMsg = currentMessages[index];
+        const existingAppMsg = currentChatMessages[index];
         return {
-            id: existingAppMsg?.id || `temp-${mode}-${Date.now()}-${index}`, // Keep existing ID or generate temp
+            id: existingAppMsg?.id || `temp-msg-${Date.now()}-${index}`,
             role: uiMsg.role,
             content: uiMsg.content,
-            createdAt: existingAppMsg?.createdAt || new Date(), // Keep existing date or set new
+            createdAt: existingAppMsg?.createdAt || new Date(),
         };
     });
-
-    if (mode === 'rag') {
-      setRagMessages(updatedAppMessages);
-    } else {
-      setWebMessages(updatedAppMessages);
-    }
-
-    // Identify and save only the new messages
-    // A simple way: if the new array is longer, the last one or two messages are new.
-    if (updatedAppMessages.length > currentMessages.length) {
-      const newMessagesToSave = updatedAppMessages.slice(currentMessages.length);
-      
+    setCurrentChatMessages(updatedAppMessages);
+    if (updatedAppMessages.length > currentChatMessages.length) {
+      const newMessagesToSave = updatedAppMessages.slice(currentChatMessages.length);
       for (const newMessage of newMessagesToSave) {
-        if (newMessage.id.startsWith(`temp-${mode}`)) { // Only save if it's a new temp message
+        if (newMessage.id.startsWith(`temp-msg-`)) {
           try {
-            const payload: Omit<ChatMessageDBInsert, 'user_id' | 'id' | 'created_at'> = {
+            const payload: ChatMessageDBInsert = {
               class_id: activeClass.class_id,
-              chat_mode: mode,
+              chat_mode: mode, 
               role: newMessage.role,
               content: newMessage.content,
+              conversation_id: selectedConversationId,
             };
-            // The service will add user_id and handle created_at
             const savedMessage = await chatMessageService.saveMessage(payload);
             if (savedMessage) {
-              // Optionally, update the message in local state with the real ID and DB timestamp
-              if (mode === 'rag') {
-                setRagMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, id: savedMessage.id, createdAt: new Date(savedMessage.created_at) } : m));
-              } else {
-                setWebMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, id: savedMessage.id, createdAt: new Date(savedMessage.created_at) } : m));
-              }
+              setCurrentChatMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, id: savedMessage.id, createdAt: new Date(savedMessage.created_at) } : m));
+              setConversations(prevConvos => prevConvos.map(convo => 
+                convo.id === selectedConversationId ? { ...convo, last_message_at: new Date(savedMessage.created_at).toISOString() } : convo
+              ).sort((a,b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime()));
             }
           } catch (error) {
             console.error(`Error saving ${mode} message:`, error);
-            toast({ title: "Error", description: `Could not save ${mode} chat message.`, variant: "destructive" });
-            // Optionally, remove the unsaved message from UI or mark it as unsaved
+            toast({ title: "Error", description: `Could not save chat message.`, variant: "destructive" });
           }
         }
       }
     }
-  }, [user, activeClass?.class_id, ragMessages, webMessages, toast]);
-
+  }, [user, activeClass?.class_id, selectedConversationId, currentChatMessages, toast]);
 
   const handleGoToSettings = () => {
     navigate("/");
@@ -53017,7 +53593,7 @@ const SuperTutor = () => {
       description: "You can edit class settings from the Home page.",
     });
   };
-
+  
   const commonLoadingIndicator = (text: string) => (
     <div className="flex items-center justify-center py-4">
       <div className="animate-pulse flex items-center space-x-2">
@@ -53026,6 +53602,14 @@ const SuperTutor = () => {
         <div className="h-2 w-2 bg-primary rounded-full animation-delay-400"></div>
         <span className="text-sm text-muted-foreground ml-2">{text}</span>
       </div>
+    </div>
+  );
+  
+  const noConversationSelectedMessage = (
+    <div className="flex-1 flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
+        <MessageSquarePlus size={48} className="mb-4 opacity-50" />
+        <h3 className="text-lg font-semibold mb-1">No Chat Selected</h3>
+        <p className="text-sm">Select a chat from the sidebar or create a new one to begin.</p>
     </div>
   );
 
@@ -53039,9 +53623,39 @@ const SuperTutor = () => {
   }
   
   const activeClassTitleForDisplay = activeClass?.title || "your current class";
-
-  const tabContentWrapperClassName = "bg-card p-0 rounded-xl shadow-sm border flex-grow flex flex-col overflow-hidden min-h-0 h-full"; 
+  const tabContentWrapperClassName = "bg-card rounded-xl shadow-sm border flex flex-col flex-grow overflow-hidden min-h-0 h-full"; 
   const tabsContentClassName = "flex-grow flex flex-col overflow-hidden data-[state=inactive]:hidden min-h-0 h-full";
+
+  const renderTabHeader = (mode: 'rag' | 'web') => {
+    const title = mode === 'rag' ? "Class AI" : "Web Search AI";
+    let subtitle = mode === 'rag' ? `Ask questions about ${activeClassTitleForDisplay}` : "Ask me to search the web for supplemental information";
+    const currentConvoName = conversations.find(c=>c.id===selectedConversationId)?.name;
+    if (selectedConversationId && currentConvoName) {
+        subtitle += ` (Chat: ${currentConvoName})`;
+    }
+
+    return (
+        <div className="p-4 border-b border-slate-300 dark:border-zinc-700 flex justify-between items-center">
+            <div> 
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400">{subtitle}</p>
+            </div>
+            {/* Database Search Static Bubble - Styled like the one from ChatBot.tsx */}
+            {(mode === 'rag' && activeClass?.openAIConfig?.vectorStoreId) && ( 
+                 <Badge variant="outline" className="ml-auto flex items-center gap-1 border-blue-500 text-blue-700 dark:border-blue-400 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30">
+                    <DatabaseIconLucide className="h-3 w-3" />
+                    <span className="text-xs">Database Search</span>
+                 </Badge>
+            )}
+            {(mode === 'web' && activeClass?.openAIConfig?.vectorStoreId) && ( 
+                 <Badge variant="outline" className="ml-auto flex items-center gap-1 border-blue-500 text-blue-700 dark:border-blue-400 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30">
+                    <Globe className="h-3 w-3" />
+                    <span className="text-xs">Web Search</span>
+                 </Badge>
+            )}
+        </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-var(--header-height,30px)-2rem)]">
@@ -53091,70 +53705,110 @@ const SuperTutor = () => {
 
           <TabsContent value="rag" className={cn(tabsContentClassName, "mt-0")}>
             <div className={tabContentWrapperClassName}>
-              <ChatBot
-                disableToasts={true}
-                suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitleForDisplay))}
-                title="Class AI"
-                subtitle={`Ask questions about ${activeClassTitleForDisplay}`}
-                knowledgeBase={activeClassTitleForDisplay}
-                openAIConfig={effectiveOpenAIConfig}
-                onResponseGenerationStateChange={setIsGeneratingRagResponse}
-                messages={ragMessages.map(mapToChatUIMessage)} // Pass mapped messages
-                onMessagesChange={(updater) => handleMessagesChange(updater, 'rag')} // Pass unified handler
-                loadingIndicator={isGeneratingRagResponse || isLoadingRagHistory ? commonLoadingIndicator("Class AI is thinking...") : undefined}
-                placeholder="Ask about your class materials..."
-              />
+              {renderTabHeader('rag')}
+              <div className="flex flex-1 overflow-hidden"> 
+                <ConversationSidebar
+                    conversations={conversations.filter(c => c.chat_mode === 'rag')}
+                    selectedConversationId={selectedConversationId}
+                    onSelectConversation={handleSelectConversation}
+                    onCreateNewConversation={handleCreateNewConversation}
+                    onRenameConversation={handleRenameConversation}
+                    onDeleteConversation={handleDeleteConversation}
+                    isLoading={isLoadingConversations}
+                    className="h-full flex-shrink-0 !border-t-0 !border-l-0 !border-b-0 !rounded-none border-r border-slate-300 dark:border-zinc-700" 
+                />
+                <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-card"> 
+                  {selectedConversationId ? (
+                    <ChatBot
+                      className="!border-0 !shadow-none !rounded-none !p-0 h-full flex flex-col" 
+                      disableToasts={true}
+                      suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitleForDisplay))}
+                      knowledgeBase={activeClassTitleForDisplay}
+                      openAIConfig={effectiveOpenAIConfig}
+                      onResponseGenerationStateChange={setIsGeneratingRagResponse}
+                      messages={currentChatMessages.map(mapToChatUIMessage)}
+                      onMessagesChange={(updater) => handleMessagesChange(updater, 'rag')}
+                      loadingIndicator={isGeneratingRagResponse || isLoadingChatMessages ? commonLoadingIndicator("Class AI is thinking...") : undefined}
+                      placeholder="Ask about your class materials..."
+                      disabled={!selectedConversationId}
+                    />
+                  ) : (
+                    noConversationSelectedMessage 
+                  )}
+                </div>
+              </div>
             </div>
           </TabsContent>
 
           <TabsContent value="web" className={cn(tabsContentClassName, "mt-0")}>
-            <div className={tabContentWrapperClassName}>
-              <WebChatBot 
-                disableToasts={true}
-                suggestions={webSuggestions}
-                title="Web Search AI"
-                subtitle="Ask me to search the web for supplemental information"
-                placeholder="What would you like to search for?"
-                onResponseGenerationStateChange={setIsGeneratingWebResponse}
-                messages={webMessages.map(mapToChatUIMessage)} // Pass mapped messages
-                onMessagesChange={(updater) => handleMessagesChange(updater, 'web')} // Pass unified handler
-                loadingIndicator={isGeneratingWebResponse || isLoadingWebHistory ? commonLoadingIndicator("Searching the web...") : undefined}
-              />
+             <div className={tabContentWrapperClassName}>
+              {renderTabHeader('web')}
+              <div className="flex flex-1 overflow-hidden">
+                <ConversationSidebar
+                    conversations={conversations.filter(c => c.chat_mode === 'web')}
+                    selectedConversationId={selectedConversationId}
+                    onSelectConversation={handleSelectConversation}
+                    onCreateNewConversation={handleCreateNewConversation}
+                    onRenameConversation={handleRenameConversation}
+                    onDeleteConversation={handleDeleteConversation}
+                    isLoading={isLoadingConversations}
+                    className="h-full flex-shrink-0 !border-t-0 !border-l-0 !border-b-0 !rounded-none border-r border-slate-300 dark:border-zinc-700"
+                />
+                <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-card">
+                  {selectedConversationId ? (
+                    <WebChatBot 
+                      className="!border-0 !shadow-none !rounded-none !p-0 h-full flex flex-col"
+                      disableToasts={true}
+                      suggestions={webSuggestions}
+                      placeholder="What would you like to search for?"
+                      onResponseGenerationStateChange={setIsGeneratingWebResponse}
+                      messages={currentChatMessages.map(mapToChatUIMessage)}
+                      onMessagesChange={(updater) => handleMessagesChange(updater, 'web')}
+                      loadingIndicator={isGeneratingWebResponse || isLoadingChatMessages ? commonLoadingIndicator("Searching the web...") : undefined}
+                      disabled={!selectedConversationId}
+                    />
+                  ) : (
+                    noConversationSelectedMessage
+                  )}
+                </div>
+              </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="split" className={cn(tabsContentClassName, "mt-0")}>
+          {/* Split View - ChatBot and WebChatBot here will still use their internal headers if they have them */}
+          {/* To make them headless in split view as well, you'd apply similar className overrides */}
+          <TabsContent value="split" className={cn(tabsContentClassName.replace("flex flex-col", "flex"), "mt-0")}>
             <ResizablePanelGroup
               direction="horizontal"
               className="rounded-xl border shadow-sm flex-1 flex overflow-hidden min-h-0 h-full" 
             >
               <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col overflow-hidden min-h-0">
-                <ChatBot
+                <ChatBot // This instance in SplitView still uses its original props (title, subtitle)
                   disableToasts={true}
                   suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitleForDisplay))}
-                  title="Class AI"
-                  subtitle={`About ${activeClassTitleForDisplay}`}
+                  title="Class AI" 
+                  // subtitle={`About ${activeClassTitleForDisplay}`} // Subtitle removed as ChatBot no longer renders it
                   knowledgeBase={activeClassTitleForDisplay}
                   openAIConfig={effectiveOpenAIConfig}
                   onResponseGenerationStateChange={setIsGeneratingRagResponse}
-                  messages={ragMessages.map(mapToChatUIMessage)}
+                  messages={(selectedConversationId && conversations.find(c=>c.id === selectedConversationId)?.chat_mode === 'rag' ? currentChatMessages : []).map(mapToChatUIMessage)}
                   onMessagesChange={(updater) => handleMessagesChange(updater, 'rag')}
-                  loadingIndicator={isGeneratingRagResponse || isLoadingRagHistory ? commonLoadingIndicator("Class AI is thinking...") : undefined}
+                  loadingIndicator={isGeneratingRagResponse || (selectedConversationId && conversations.find(c=>c.id === selectedConversationId)?.chat_mode === 'rag' && isLoadingChatMessages) ? commonLoadingIndicator("Class AI is thinking...") : undefined}
                   placeholder="Ask about class materials..."
                 />
               </ResizablePanel>
               <ResizableHandle withHandle />
               <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col overflow-hidden min-h-0">
-                <WebChatBot 
+                <WebChatBot // This instance in SplitView also uses its original props
                   disableToasts={true}
                   suggestions={webSuggestions}
                   title="Web Search AI"
-                  subtitle="General web search"
+                  // subtitle="General web search" // Subtitle removed as WebChatBot (assumed) no longer renders it
                   placeholder="Search the web..."
                   onResponseGenerationStateChange={setIsGeneratingWebResponse}
-                  messages={webMessages.map(mapToChatUIMessage)}
+                  messages={(selectedConversationId && conversations.find(c=>c.id === selectedConversationId)?.chat_mode === 'web' ? currentChatMessages : []).map(mapToChatUIMessage)}
                   onMessagesChange={(updater) => handleMessagesChange(updater, 'web')}
-                  loadingIndicator={isGeneratingWebResponse || isLoadingWebHistory ? commonLoadingIndicator("Searching the web...") : undefined}
+                  loadingIndicator={isGeneratingWebResponse || (selectedConversationId && conversations.find(c=>c.id === selectedConversationId)?.chat_mode === 'web' && isLoadingChatMessages) ? commonLoadingIndicator("Searching the web...") : undefined}
                 />
               </ResizablePanel>
             </ResizablePanelGroup>
@@ -54687,11 +55341,11 @@ import SuperTutor from "./pages/SuperTutor";
 import AuthPage from "./pages/AuthPage";
 import AccountPage from "./pages/AccountPage";
 import NotFound from "./pages/NotFound";
-// Correctly import FilesPage.tsx from the features directory
 import DatabaseFeaturePage from "./features/files/pages/FilesPage"; 
 import FlashcardsPage from "./pages/FlashcardsPage";
 import QuizzesPage from "./pages/QuizzesPage";
 import QuizSessionPage from "./pages/QuizSessionPage";
+import PlaceholderPage from "./pages/PlaceholderPage"; // Import the new placeholder page
 import React from "react";
 
 const queryClient = new QueryClient();
@@ -54712,12 +55366,14 @@ const App = () => (
               <Route element={<AppLayout />}>
                 <Route path="/" element={<HomePage key="home-main" />} />
                 <Route path="/super-stu" element={<SuperTutor />} />
-                {/* Use the correctly imported page for the /database route */}
                 <Route path="/database" element={<DatabaseFeaturePage />} /> 
                 <Route path="/flashcards" element={<FlashcardsPage />} />
                 <Route path="/quizzes" element={<QuizzesPage />} />
                 <Route path="/quizzes/:quizId" element={<QuizSessionPage />} />
                 <Route path="/account" element={<AccountPage />} />
+                {/* MODIFICATION: Added new routes for Calendar and Console */}
+                <Route path="/calendar" element={<PlaceholderPage pageName="Calendar" />} />
+                <Route path="/console" element={<PlaceholderPage pageName="Admin Console" />} />
               </Route>
             </Route>
 

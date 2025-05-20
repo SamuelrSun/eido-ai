@@ -12,8 +12,9 @@ export type Database = {
       chat_messages: {
         Row: {
           chat_mode: string
-          class_id: string
+          class_id: string | null
           content: string
+          conversation_id: string | null
           created_at: string
           id: string
           role: string
@@ -21,8 +22,9 @@ export type Database = {
         }
         Insert: {
           chat_mode: string
-          class_id: string
+          class_id?: string | null
           content: string
+          conversation_id?: string | null
           created_at?: string
           id?: string
           role: string
@@ -30,8 +32,9 @@ export type Database = {
         }
         Update: {
           chat_mode?: string
-          class_id?: string
+          class_id?: string | null
           content?: string
+          conversation_id?: string | null
           created_at?: string
           id?: string
           role?: string
@@ -46,7 +49,14 @@ export type Database = {
             referencedColumns: ["class_id"]
           },
           {
-            foreignKeyName: "chat_messages_user_id_fkey"
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_user_id_fkey_cascade"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -99,7 +109,58 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "classes_user_id_fkey"
+            foreignKeyName: "classes_user_id_fkey_cascade"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          chat_mode: string | null
+          chatbot_type: string
+          class_id: string | null
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          chat_mode?: string | null
+          chatbot_type: string
+          class_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          chat_mode?: string | null
+          chatbot_type?: string
+          class_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "conversations_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -218,7 +279,7 @@ export type Database = {
             referencedColumns: ["folder_id"]
           },
           {
-            foreignKeyName: "file_folders_user_id_fkey1"
+            foreignKeyName: "file_folders_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
