@@ -1,5 +1,4 @@
 // supabase/functions/chat/index.ts
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
