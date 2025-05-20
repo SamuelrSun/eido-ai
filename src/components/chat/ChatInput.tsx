@@ -9,6 +9,7 @@ interface ChatInputProps {
   suggestions?: string[];
   isLoading?: boolean;
   placeholder?: string; // Added placeholder prop
+  disabled?: boolean;
 }
 
 export function ChatInput({

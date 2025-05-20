@@ -17,9 +17,11 @@ import { conversationService, AppConversation, ConversationDBInsert as AppConver
 import type { User } from "@supabase/supabase-js";
 import { Badge } from "@/components/ui/badge"; 
 
-import ConversationSidebar from '@/components/SuperTutor/ConversationSidebar';
+import ConversationSidebar from '@/components/Supertutor/ConversationSidebar';
 
-export interface Conversation extends AppConversation {} 
+export interface Conversation extends Omit<AppConversation, 'last_message_at'> {
+  last_message_at: string;
+}
 
 interface ActiveClassData {
   class_id: string;
@@ -228,11 +230,10 @@ const SuperTutor = () => {
     const newName = `New ${activeMode === 'rag' ? 'Class' : 'Web'} Chat ${
       conversations.filter(c => c.chat_mode === activeMode).length + 1
     }`;
-    const payload: Omit<AppConversationDBInsert, 'user_id' | 'id' | 'created_at' | 'last_message_at' | 'updated_at'> = { // id is conversation_id in DB
-      title: newName, 
+    const payload: { name: string; class_id: string; chat_mode: "rag" | "web" } = {
+      name: newName,
       class_id: activeClass.class_id,
-      chat_mode: activeMode,
-      chatbot_type: activeMode, 
+      chat_mode: activeMode
     };
     try {
       setIsLoadingConversations(true);
@@ -357,14 +358,14 @@ const SuperTutor = () => {
     let lastSavedMessageDate: Date | null = null;
 
     for (const newMessageToSave of messagesToPersist) {
-      const payload: ChatMessageDBInsert = {
+      const payload = {
         class_id: activeClass.class_id,
         chat_mode: mode, 
         role: newMessageToSave.role,
         content: newMessageToSave.content,
         conversation_id: targetConversationId,
-        // user_id will be set by service
-      };
+        user_id: user.id
+      } as const;
       try {
         const savedMessage = await chatMessageService.saveMessage(payload);
         if (savedMessage) {
@@ -509,7 +510,10 @@ const SuperTutor = () => {
                 {renderPanelHeader(activeMode)}
                 <div className="flex flex-1 overflow-hidden"> 
                   <ConversationSidebar
-                      conversations={conversations} 
+                      conversations={conversations.map(conv => ({
+                        ...conv,
+                        last_message_at: conv.last_message_at.toISOString()
+                      }))}
                       selectedConversationId={selectedConversationId}
                       onSelectConversation={handleSelectConversation}
                       onCreateNewConversation={handleCreateNewConversation}

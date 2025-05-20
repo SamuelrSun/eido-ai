@@ -69,7 +69,7 @@ export const chatMessageService = {
 
     const { data, error } = await supabase
       .from('chat_messages')
-      .insert(messageToSave as any) // Cast to any if ChatMessageDBInsert has optional id/created_at
+      .insert(messageToSave)
       .select()
       .single();
 
