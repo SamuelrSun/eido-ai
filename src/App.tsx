@@ -36,7 +36,7 @@ const App = () => (
             <Route element={<AuthGuard />}>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<HomePage key="home-main" />} />
-                <Route path="/super-stu" element={<SuperTutor />} />
+                <Route path="/supertutor" element={<SuperTutor />} />
                 <Route path="/database" element={<DatabaseFeaturePage />} /> 
                 <Route path="/flashcards" element={<FlashcardsPage />} />
                 <Route path="/quizzes" element={<QuizzesPage />} />

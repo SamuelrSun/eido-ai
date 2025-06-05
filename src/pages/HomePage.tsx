@@ -79,7 +79,7 @@ const HomePage = () => {
             classTime: config.classTime,
             classroom: config.classroom,
             emoji: config.emoji || getEmojiForClass(config.title),
-            link: "/super-stu", 
+            link: "/supertutor", 
             enabledWidgets: (config.enabledWidgets || DEFAULT_CLASS_WIDGETS) as WidgetType[],
             openAIConfig: config.openAIConfig,
             created_at: config.created_at,
@@ -181,7 +181,7 @@ const HomePage = () => {
         classTime: newDbClassRecord.class_time,
         classroom: newDbClassRecord.classroom,
         emoji: newDbClassRecord.emoji || getEmojiForClass(newDbClassRecord.class_title),
-        link: "/super-stu",
+        link: "/supertutor",
         enabledWidgets: (newDbClassRecord.enabled_widgets || DEFAULT_CLASS_WIDGETS) as WidgetType[],
         openAIConfig: {
           assistantId: newDbClassRecord.assistant_id,
@@ -230,7 +230,7 @@ const HomePage = () => {
         classTime: updatedDbClassRecord.class_time,
         classroom: updatedDbClassRecord.classroom,
         emoji: updatedDbClassRecord.emoji || getEmojiForClass(updatedDbClassRecord.class_title),
-        link: "/super-stu",
+        link: "/supertutor",
         enabledWidgets: (updatedDbClassRecord.enabled_widgets || DEFAULT_CLASS_WIDGETS) as WidgetType[],
         openAIConfig: {
           assistantId: updatedDbClassRecord.assistant_id,
