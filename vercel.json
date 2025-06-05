@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/((?!api/|assets/|robots.txt|favicon.ico|eido-icon.png|eido-icon.ico|placeholder.svg|_next/static/|_next/image/|sitemap.xml|manifest.json|sw.js|workbox-.*.js).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
