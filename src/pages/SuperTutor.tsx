@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ChatBot } from "@/components/chat/ChatBot";
 import { WebChatBot, Message as ChatUIMessage } from "@/components/chat/WebChatBot";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Settings, Bot, Globe, Split, Loader2, MessageSquarePlus, Database as DatabaseIconLucide, Search } from "lucide-react";
+import { AlertCircle, Settings, Bot, Globe, Split, Loader2, MessageSquarePlus, Database as DatabaseIconLucide, Search, Trash2 } from "lucide-react"; // Added Trash2
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
@@ -16,6 +16,17 @@ import { chatMessageService, ChatMessageApp, ChatMessageDBInsert } from "@/servi
 import { conversationService, AppConversation, ConversationDBInsert as AppConversationDBInsert } from "@/services/conversationService";
 import type { User } from "@supabase/supabase-js";
 import { Badge } from "@/components/ui/badge"; 
+// MODIFIED: Import AlertDialog components
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import ConversationSidebar from '@/components/Supertutor/ConversationSidebar';
 
@@ -37,6 +48,23 @@ const mapToChatUIMessage = (appMessage: ChatMessageApp): ChatUIMessage => ({
   role: appMessage.role,
   content: appMessage.content,
 });
+
+const generateChatTitle = async (firstMessage: string): Promise<string> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('generate-title', {
+      body: { query: firstMessage },
+    });
+
+    if (error) {
+      console.error("Error generating title via Edge Function:", error);
+      return firstMessage.split(' ').slice(0, 5).join(' ');
+    }
+    return data.title;
+  } catch (e) {
+    console.error("Exception while calling generate-title function:", e);
+    return firstMessage.split(' ').slice(0, 5).join(' ');
+  }
+};
 
 const SuperTutor = () => {
   const navigate = useNavigate();
@@ -64,6 +92,12 @@ const SuperTutor = () => {
   const [isLoadingSplitWebMessages, setIsLoadingSplitWebMessages] = useState<boolean>(false);
   const [isGeneratingSplitRagResponse, setIsGeneratingSplitRagResponse] = useState(false);
   const [isGeneratingSplitWebResponse, setIsGeneratingSplitWebResponse] = useState(false);
+
+  // MODIFIED: State for delete confirmation dialog
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [conversationPendingDeletion, setConversationPendingDeletion] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingConversation, setIsDeletingConversation] = useState(false);
+
 
   const ragSuggestions = [
     "Explain the main concepts of [topic]",
@@ -135,7 +169,7 @@ const SuperTutor = () => {
 
   useEffect(() => {
     if (!user || !activeClass?.class_id || activeMode === 'split') {
-      if (activeMode !== 'split') { // Only clear if not switching TO split view
+      if (activeMode !== 'split') { 
         setConversations([]);
         setSelectedConversationId(null);
         setCurrentChatMessages([]);
@@ -168,7 +202,7 @@ const SuperTutor = () => {
       }
     };
     loadConversations();
-  }, [user, activeClass?.class_id, activeMode, toast]);
+  }, [user, activeClass?.class_id, activeMode, toast, selectedConversationId]); // Added selectedConversationId to re-evaluate if it becomes null
 
   useEffect(() => {
     if (!selectedConversationId || !user || activeMode === 'split') {
@@ -222,6 +256,7 @@ const SuperTutor = () => {
   const handleSelectConversation = useCallback((id: string) => { 
     setSelectedConversationId(id);
   }, []);
+
   const handleCreateNewConversation = useCallback(async () => { 
     if (!user || !activeClass?.class_id || activeMode === 'split') {
       toast({ title: "Cannot Create Chat", description: "User, class, or valid mode not set.", variant: "destructive" });
@@ -249,6 +284,7 @@ const SuperTutor = () => {
       setIsLoadingConversations(false);
     }
   }, [user, activeClass?.class_id, activeMode, conversations, toast]);
+
   const handleRenameConversation = useCallback(async (id: string, newName: string) => { 
     if (!user) return;
     const originalName = conversations.find(c => c.id === id)?.name;
@@ -264,21 +300,28 @@ const SuperTutor = () => {
       toast({ title: "Error", description: "Could not rename chat.", variant: "destructive" });
     }
   }, [user, conversations, toast]);
-  const handleDeleteConversation = useCallback(async (id: string) => { 
-    if (!user) return;
-    const conversationToDelete = conversations.find(c => c.id === id);
-    if (!conversationToDelete) return;
 
-    const confirmed = window.confirm(`Are you sure you want to delete the chat "${conversationToDelete.name}" and all its messages?`);
-    if (!confirmed) return;
+  // MODIFIED: Function to open the delete confirmation dialog
+  const handleOpenDeleteDialog = (id: string, name: string) => {
+    setConversationPendingDeletion({ id, name });
+    setIsDeleteConfirmOpen(true);
+  };
+
+  // MODIFIED: Actual deletion logic, to be called by the AlertDialog
+  const confirmDeleteConversation = async () => {
+    if (!user || !conversationPendingDeletion) return;
+    
+    const { id: idToDelete, name: nameToDelete } = conversationPendingDeletion;
+    setIsDeletingConversation(true);
     
     const originalConversations = [...conversations];
     const originalSelectedId = selectedConversationId;
     const originalMessages = [...currentChatMessages];
 
+    // Optimistically update UI
     setConversations(prev => {
-      const remaining = prev.filter(c => c.id !== id);
-      if (selectedConversationId === id) {
+      const remaining = prev.filter(c => c.id !== idToDelete);
+      if (selectedConversationId === idToDelete) {
         setSelectedConversationId(remaining.length > 0 ? remaining[0].id : null);
         if (remaining.length === 0) setCurrentChatMessages([]);
       }
@@ -286,18 +329,24 @@ const SuperTutor = () => {
     });
 
     try {
-      await conversationService.deleteConversation(id, user.id);
-      toast({ title: "Chat Deleted", description: `"${conversationToDelete.name}" has been deleted.` });
-      if (id === lastSelectedRagConvoId) setLastSelectedRagConvoId(null);
-      if (id === lastSelectedWebConvoId) setLastSelectedWebConvoId(null);
+      await conversationService.deleteConversation(idToDelete, user.id);
+      toast({ title: "Chat Deleted", description: `"${nameToDelete}" has been deleted.` });
+      if (idToDelete === lastSelectedRagConvoId) setLastSelectedRagConvoId(null);
+      if (idToDelete === lastSelectedWebConvoId) setLastSelectedWebConvoId(null);
     } catch (error) {
       console.error("Error deleting conversation:", error);
+      // Revert UI on error
       setConversations(originalConversations);
       setSelectedConversationId(originalSelectedId);
       setCurrentChatMessages(originalMessages);
       toast({ title: "Error", description: "Could not delete chat.", variant: "destructive" });
+    } finally {
+      setIsDeletingConversation(false);
+      setIsDeleteConfirmOpen(false);
+      setConversationPendingDeletion(null);
     }
-  }, [user, conversations, selectedConversationId, currentChatMessages, toast, lastSelectedRagConvoId, lastSelectedWebConvoId]);
+  };
+
 
   const handleMessagesChange = useCallback(async (
     newOrUpdatedMessagesFromChild: ChatUIMessage[] | ((prevMessages: ChatUIMessage[]) => ChatUIMessage[]),
@@ -315,7 +364,7 @@ const SuperTutor = () => {
     let setMessagesFunction: React.Dispatch<React.SetStateAction<ChatMessageApp[]>>;
 
     if (activeMode === 'split') {
-        if (mode === 'rag' && targetConversationId === lastSelectedRagConvoId) { // Ensure we're updating the correct split panel's messages
+        if (mode === 'rag' && targetConversationId === lastSelectedRagConvoId) { 
             messagesSource = splitViewRagMessages;
             setMessagesFunction = setSplitViewRagMessages;
         } else if (mode === 'web' && targetConversationId === lastSelectedWebConvoId) {
@@ -323,9 +372,9 @@ const SuperTutor = () => {
             setMessagesFunction = setSplitViewWebMessages;
         } else {
             console.warn(`[handleMessagesChange] Split view message change for unselected/mismatched panel. Mode: ${mode}, TargetConvoID: ${targetConversationId}`);
-            return; // Don't proceed if the target doesn't match an active split panel's conversation
+            return; 
         }
-    } else { // RAG or WEB tab
+    } else { 
         messagesSource = currentChatMessages;
         setMessagesFunction = setCurrentChatMessages;
     }
@@ -343,6 +392,33 @@ const SuperTutor = () => {
     }));
         
     setMessagesFunction(newFullAppMessagesList);
+
+    const conversationToUpdate = conversations.find(c => c.id === targetConversationId);
+    const firstUserMessage = newFullAppMessagesList.find(m => m.role === 'user' && (m.id.startsWith('temp-msg-') || !messagesSource.some(src => src.id === m.id)));
+
+    if (
+      conversationToUpdate &&
+      conversationToUpdate.name.startsWith('New ') &&
+      messagesSource.length === 0 &&
+      firstUserMessage &&
+      user
+    ) {
+      (async () => {
+        try {
+          const newTitle = await generateChatTitle(firstUserMessage.content);
+          await conversationService.renameConversation(targetConversationId, newTitle, user.id);
+          setConversations(prev =>
+            prev.map(c => (c.id === targetConversationId ? { ...c, name: newTitle } : c))
+          );
+          toast({
+            title: "Chat Renamed",
+            description: `Chat automatically renamed to "${newTitle}".`,
+          });
+        } catch (error) {
+          console.error("Error auto-renaming conversation:", error);
+        }
+      })();
+    }
     
     const messagesToPersist: ChatMessageApp[] = [];
     const currentMessagesContent = new Set(messagesSource.map(m => `${m.role}-${m.content}`));
@@ -410,7 +486,6 @@ const SuperTutor = () => {
     </div>
   );
   
-  // Restored full JSX for noConversationSelectedMessage
   const noConversationSelectedMessage = (
     <div className="flex-1 flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
         <MessageSquarePlus size={48} className="mb-4 opacity-50" />
@@ -440,7 +515,7 @@ const SuperTutor = () => {
     if (isSplitViewContext) {
         const convoId = panelMode === 'rag' ? lastSelectedRagConvoId : lastSelectedWebConvoId;
         if (convoId) {
-            const allKnownConversations = conversations; // Use the main list for lookup
+            const allKnownConversations = conversations; 
             conversationNameToDisplay = allKnownConversations.find(c => c.id === convoId)?.name;
         }
     } else if (selectedConversationId) { 
@@ -481,7 +556,7 @@ const SuperTutor = () => {
     );
   };
 
-  return ( // ASI Fix: Opening parenthesis on the same line as return
+  return ( 
     <div className="flex flex-col h-[calc(100vh-var(--header-height,30px)-2rem)]">
       {!activeClass && ( <Alert variant="destructive" className="mt-0 mb-4"> <AlertCircle className="h-4 w-4" /> <AlertTitle>No Class Selected</AlertTitle> <AlertDescription> Please <Link to="/" className="underline hover:text-destructive/80">go to the homepage</Link> and select a class. </AlertDescription> </Alert> )}
       {activeClass && pageError && !effectiveOpenAIConfig?.assistantId && ( <Alert variant="default" className="bg-amber-50 border-amber-200 mt-0 mb-4"> <AlertCircle className="h-4 w-4 text-amber-700" /> <AlertTitle className="text-amber-800">Class AI Configuration Note</AlertTitle> <AlertDescription className="text-amber-700"> {pageError} <Button variant="link" size="sm" className="p-0 h-auto text-amber-700 hover:text-amber-700/80 ml-1" onClick={handleGoToSettings}> Check Class Settings </Button> </AlertDescription> </Alert> )}
@@ -512,13 +587,14 @@ const SuperTutor = () => {
                   <ConversationSidebar
                       conversations={conversations.map(conv => ({
                         ...conv,
-                        last_message_at: conv.last_message_at.toISOString()
+                        last_message_at: conv.last_message_at.toISOString() // Ensure it's string for Conversation component
                       }))}
                       selectedConversationId={selectedConversationId}
                       onSelectConversation={handleSelectConversation}
                       onCreateNewConversation={handleCreateNewConversation}
                       onRenameConversation={handleRenameConversation}
-                      onDeleteConversation={handleDeleteConversation}
+                      // MODIFIED: Pass the new handler
+                      onAttemptDeleteConversation={handleOpenDeleteDialog} 
                       isLoading={isLoadingConversations}
                       className="h-full flex-shrink-0 !border-t-0 !border-l-0 !border-b-0 !rounded-none border-r border-slate-300 dark:border-zinc-700" 
                   />
@@ -608,6 +684,38 @@ const SuperTutor = () => {
           </TabsContent>
         </Tabs>
       )}
+
+      {/* MODIFIED: Added AlertDialog for delete confirmation */}
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the chat
+              "{conversationPendingDeletion?.name || 'this chat'}" and all its messages.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsDeleteConfirmOpen(false)} disabled={isDeletingConversation}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteConversation} // Call the new handler
+              disabled={isDeletingConversation}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingConversation ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Chat"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

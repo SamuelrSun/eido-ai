@@ -86,9 +86,7 @@ src/
     policy/
       PolicyCard.tsx
     Supertutor/
-      ClassTutorView.tsx
       ConversationSidebar.tsx
-      WebTutorView.tsx
     ui/
       accordion.tsx
       alert-dialog.tsx
@@ -185,6 +183,7 @@ src/
       types.ts
     chatMessageService.ts
     classOpenAIConfig.ts
+    conversationService.ts
     flashcardService.ts
   types/
     flashcard.ts
@@ -196,6 +195,8 @@ src/
   main.tsx
   vite-env.d.ts
 supabase/
+  .branches/
+    _current_branch
   .temp/
     cli-latest
   functions/
@@ -210,6 +211,8 @@ supabase/
     generate-flashcards/
       index.ts
     generate-quiz/
+      index.ts
+    generate-title/
       index.ts
     list-vector-store-files/
       index.ts
@@ -39074,6 +39077,7 @@ interface ChatInputProps {
   suggestions?: string[];
   isLoading?: boolean;
   placeholder?: string; // Added placeholder prop
+  disabled?: boolean;
 }
 
 export function ChatInput({
@@ -41472,151 +41476,6 @@ export function PolicyCard({ title, summary, details, icon, lastUpdated, departm
 }
 
 ================
-File: src/components/Supertutor/ClassTutorView.tsx
-================
-// src/components/SuperTutor/ClassTutorView.tsx
-import React, { useState, useEffect } from 'react';
-import ConversationSidebar, { Conversation } from '@/components/SuperTutor/ConversationSidebar';
-import ChatMessages from '@/components/Chat/ChatMessages';
-import ChatInput from '@/components/Chat/ChatInput';
-import ClassTutorControls from './ClassTutorControls'; // Assuming path from repomix
-import { useSuperTutorStore } from '@/store/superTutorStore'; // For selectedClass, etc.
-
-// Define props for ClassTutorView to accept conversation related data and handlers
-interface ClassTutorViewProps {
-  conversations: Conversation[];
-  selectedConversationId: string | null;
-  isLoadingConversations: boolean;
-  onSelectConversation: (id: string) => void;
-  onCreateNewConversation: () => void;
-  onRenameConversation: (id: string, newName: string) => Promise<void>;
-  onDeleteConversation: (id: string) => Promise<void>;
-}
-
-// Define a simple Message type for mock data (replace with your actual Message type)
-interface MockMessage {
-  id: string;
-  text: string;
-  sender: 'user' | 'ai';
-  timestamp?: string;
-}
-
-
-const ClassTutorView: React.FC<ClassTutorViewProps> = ({
-  conversations,
-  selectedConversationId,
-  isLoadingConversations,
-  onSelectConversation,
-  onCreateNewConversation,
-  onRenameConversation,
-  onDeleteConversation,
-}) => {
-  // Local state for messages, input, and sending status.
-  // This will eventually be tied to the selectedConversationId and managed by Zustand/Supabase.
-  const [chatMessages, setChatMessages] = useState<MockMessage[]>([]);
-  const [input, setInput] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const { selectedClass } = useSuperTutorStore(state => ({ selectedClass: state.selectedClass }));
-
-
-  // Effect to mock fetching messages when selectedConversationId changes
-  useEffect(() => {
-    if (selectedConversationId) {
-      console.log(`ClassTutorView: Fetching messages for conversation ${selectedConversationId}`);
-      // Simulate fetching messages for the selected conversation
-      setIsSending(true); // Use isSending to show loading for messages
-      setTimeout(() => {
-        // Mock messages based on conversation ID
-        const mockMsgs: MockMessage[] = [
-          { id: 'msg1-' + selectedConversationId, text: `Welcome to ${conversations.find(c=>c.id === selectedConversationId)?.name || 'this chat'}! How can I help with ${selectedClass?.class_title || 'your class'}?`, sender: 'ai', timestamp: new Date().toISOString() },
-        ];
-        setChatMessages(mockMsgs);
-        setIsSending(false);
-      }, 300);
-    } else {
-      setChatMessages([]); // Clear messages if no conversation is selected
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedConversationId, selectedClass]); // Also depends on selectedClass for context in mock
-
-  const handleSendMessage = async (messageContent: string) => {
-    if (!selectedConversationId) {
-      alert("Please select or create a conversation first."); // User-friendly message
-      return;
-    }
-    if (!messageContent.trim()) return;
-
-    setIsSending(true);
-    const userMessage: MockMessage = {
-      id: `user-${Date.now()}`,
-      text: messageContent,
-      sender: 'user',
-      timestamp: new Date().toISOString(),
-    };
-    setChatMessages(prev => [...prev, userMessage]);
-    setInput(''); // Clear input immediately
-
-    // Simulate AI response
-    // In a real app, this would be an API call to your backend/LLM
-    // using selectedConversationId, messageContent, selectedClass context, etc.
-    console.log(`ClassTutorView: Sending message "${messageContent}" to conversation ${selectedConversationId} for class ${selectedClass?.class_id}`);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-
-    const aiResponse: MockMessage = {
-      id: `ai-${Date.now()}`,
-      text: `AI response to: "${messageContent}" (for ${selectedClass?.class_title || 'class'})`,
-      sender: 'ai',
-      timestamp: new Date().toISOString(),
-    };
-    setChatMessages(prev => [...prev, aiResponse]);
-    setIsSending(false);
-  };
-
-  return (
-    <div className="flex flex-1 h-full overflow-hidden" data-testid="class-tutor-view">
-      <ConversationSidebar
-        conversations={conversations}
-        selectedConversationId={selectedConversationId}
-        onSelectConversation={onSelectConversation}
-        onCreateNewConversation={onCreateNewConversation}
-        onRenameConversation={onRenameConversation}
-        onDeleteConversation={onDeleteConversation}
-        isLoading={isLoadingConversations}
-        className="h-full flex-shrink-0" // Ensure sidebar doesn't shrink unexpectedly
-      />
-      <div className="flex flex-col flex-1 h-full overflow-hidden bg-gray-800"> {/* Main content area */}
-        <ClassTutorControls /> {/* Controls specific to Class Tutor */}
-        
-        <div className="flex-1 flex flex-col overflow-y-auto relative px-4 pt-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"> {/* Chat messages area */}
-          {selectedConversationId ? (
-            <ChatMessages messages={chatMessages} isLoading={isSending && chatMessages.length === 0} /> // Show loading only if messages are empty
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-400">
-              <p className="text-center">
-                Select a conversation from the left panel <br /> or create a new one to begin.
-              </p>
-            </div>
-          )}
-        </div>
-        
-        <div className="p-4 border-t border-gray-700 bg-gray-800"> {/* Chat input area */}
-          <ChatInput
-            input={input}
-            setInput={setInput}
-            handleSubmit={handleSendMessage}
-            isLoading={isSending} // Loading state for when a message is being sent/received
-            placeholder={selectedConversationId ? `Ask about ${selectedClass?.class_title || 'your class'}...` : "Select or create a chat to begin"}
-            disabled={!selectedConversationId || isSending} 
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default ClassTutorView;
-
-================
 File: src/components/Supertutor/ConversationSidebar.tsx
 ================
 // src/components/SuperTutor/ConversationSidebar.tsx
@@ -41846,151 +41705,6 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
 };
 
 export default ConversationSidebar;
-
-================
-File: src/components/Supertutor/WebTutorView.tsx
-================
-// src/components/SuperTutor/ClassTutorView.tsx
-import React, { useState, useEffect } from 'react';
-import ConversationSidebar, { Conversation } from '@/components/SuperTutor/ConversationSidebar';
-import ChatMessages from '@/components/Chat/ChatMessages';
-import ChatInput from '@/components/Chat/ChatInput';
-import ClassTutorControls from './ClassTutorControls'; // Assuming path from repomix
-import { useSuperTutorStore } from '@/store/superTutorStore'; // For selectedClass, etc.
-
-// Define props for ClassTutorView to accept conversation related data and handlers
-interface ClassTutorViewProps {
-  conversations: Conversation[];
-  selectedConversationId: string | null;
-  isLoadingConversations: boolean;
-  onSelectConversation: (id: string) => void;
-  onCreateNewConversation: () => void;
-  onRenameConversation: (id: string, newName: string) => Promise<void>;
-  onDeleteConversation: (id: string) => Promise<void>;
-}
-
-// Define a simple Message type for mock data (replace with your actual Message type)
-interface MockMessage {
-  id: string;
-  text: string;
-  sender: 'user' | 'ai';
-  timestamp?: string;
-}
-
-
-const ClassTutorView: React.FC<ClassTutorViewProps> = ({
-  conversations,
-  selectedConversationId,
-  isLoadingConversations,
-  onSelectConversation,
-  onCreateNewConversation,
-  onRenameConversation,
-  onDeleteConversation,
-}) => {
-  // Local state for messages, input, and sending status.
-  // This will eventually be tied to the selectedConversationId and managed by Zustand/Supabase.
-  const [chatMessages, setChatMessages] = useState<MockMessage[]>([]);
-  const [input, setInput] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const { selectedClass } = useSuperTutorStore(state => ({ selectedClass: state.selectedClass }));
-
-
-  // Effect to mock fetching messages when selectedConversationId changes
-  useEffect(() => {
-    if (selectedConversationId) {
-      console.log(`ClassTutorView: Fetching messages for conversation ${selectedConversationId}`);
-      // Simulate fetching messages for the selected conversation
-      setIsSending(true); // Use isSending to show loading for messages
-      setTimeout(() => {
-        // Mock messages based on conversation ID
-        const mockMsgs: MockMessage[] = [
-          { id: 'msg1-' + selectedConversationId, text: `Welcome to ${conversations.find(c=>c.id === selectedConversationId)?.name || 'this chat'}! How can I help with ${selectedClass?.class_title || 'your class'}?`, sender: 'ai', timestamp: new Date().toISOString() },
-        ];
-        setChatMessages(mockMsgs);
-        setIsSending(false);
-      }, 300);
-    } else {
-      setChatMessages([]); // Clear messages if no conversation is selected
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedConversationId, selectedClass]); // Also depends on selectedClass for context in mock
-
-  const handleSendMessage = async (messageContent: string) => {
-    if (!selectedConversationId) {
-      alert("Please select or create a conversation first."); // User-friendly message
-      return;
-    }
-    if (!messageContent.trim()) return;
-
-    setIsSending(true);
-    const userMessage: MockMessage = {
-      id: `user-${Date.now()}`,
-      text: messageContent,
-      sender: 'user',
-      timestamp: new Date().toISOString(),
-    };
-    setChatMessages(prev => [...prev, userMessage]);
-    setInput(''); // Clear input immediately
-
-    // Simulate AI response
-    // In a real app, this would be an API call to your backend/LLM
-    // using selectedConversationId, messageContent, selectedClass context, etc.
-    console.log(`ClassTutorView: Sending message "${messageContent}" to conversation ${selectedConversationId} for class ${selectedClass?.class_id}`);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-
-    const aiResponse: MockMessage = {
-      id: `ai-${Date.now()}`,
-      text: `AI response to: "${messageContent}" (for ${selectedClass?.class_title || 'class'})`,
-      sender: 'ai',
-      timestamp: new Date().toISOString(),
-    };
-    setChatMessages(prev => [...prev, aiResponse]);
-    setIsSending(false);
-  };
-
-  return (
-    <div className="flex flex-1 h-full overflow-hidden" data-testid="class-tutor-view">
-      <ConversationSidebar
-        conversations={conversations}
-        selectedConversationId={selectedConversationId}
-        onSelectConversation={onSelectConversation}
-        onCreateNewConversation={onCreateNewConversation}
-        onRenameConversation={onRenameConversation}
-        onDeleteConversation={onDeleteConversation}
-        isLoading={isLoadingConversations}
-        className="h-full flex-shrink-0" // Ensure sidebar doesn't shrink unexpectedly
-      />
-      <div className="flex flex-col flex-1 h-full overflow-hidden bg-gray-800"> {/* Main content area */}
-        <ClassTutorControls /> {/* Controls specific to Class Tutor */}
-        
-        <div className="flex-1 flex flex-col overflow-y-auto relative px-4 pt-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"> {/* Chat messages area */}
-          {selectedConversationId ? (
-            <ChatMessages messages={chatMessages} isLoading={isSending && chatMessages.length === 0} /> // Show loading only if messages are empty
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-400">
-              <p className="text-center">
-                Select a conversation from the left panel <br /> or create a new one to begin.
-              </p>
-            </div>
-          )}
-        </div>
-        
-        <div className="p-4 border-t border-gray-700 bg-gray-800"> {/* Chat input area */}
-          <ChatInput
-            input={input}
-            setInput={setInput}
-            handleSubmit={handleSendMessage}
-            isLoading={isSending} // Loading state for when a message is being sent/received
-            placeholder={selectedConversationId ? `Ask about ${selectedClass?.class_title || 'your class'}...` : "Select or create a chat to begin"}
-            disabled={!selectedConversationId || isSending} 
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default ClassTutorView;
 
 ================
 File: src/components/ui/accordion.tsx
@@ -49441,8 +49155,9 @@ export type Database = {
       chat_messages: {
         Row: {
           chat_mode: string
-          class_id: string
+          class_id: string | null
           content: string
+          conversation_id: string | null
           created_at: string
           id: string
           role: string
@@ -49450,8 +49165,9 @@ export type Database = {
         }
         Insert: {
           chat_mode: string
-          class_id: string
+          class_id?: string | null
           content: string
+          conversation_id?: string | null
           created_at?: string
           id?: string
           role: string
@@ -49459,8 +49175,9 @@ export type Database = {
         }
         Update: {
           chat_mode?: string
-          class_id?: string
+          class_id?: string | null
           content?: string
+          conversation_id?: string | null
           created_at?: string
           id?: string
           role?: string
@@ -49475,7 +49192,14 @@ export type Database = {
             referencedColumns: ["class_id"]
           },
           {
-            foreignKeyName: "chat_messages_user_id_fkey"
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_user_id_fkey_cascade"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -49528,7 +49252,58 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "classes_user_id_fkey"
+            foreignKeyName: "classes_user_id_fkey_cascade"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          chat_mode: string | null
+          chatbot_type: string
+          class_id: string | null
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          chat_mode?: string | null
+          chatbot_type: string
+          class_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          chat_mode?: string | null
+          chatbot_type?: string
+          class_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "conversations_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -49647,7 +49422,7 @@ export type Database = {
             referencedColumns: ["folder_id"]
           },
           {
-            foreignKeyName: "file_folders_user_id_fkey1"
+            foreignKeyName: "file_folders_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -53327,9 +53102,9 @@ File: src/pages/SuperTutor.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChatBot } from "@/components/chat/ChatBot";
-import { WebChatBot, Message as ChatUIMessage } from "@/components/chat/WebChatBot"; // Assuming WebChatBot will be made headless similarly
+import { WebChatBot, Message as ChatUIMessage } from "@/components/chat/WebChatBot";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Settings, Bot, Globe, Split, Loader2, MessageSquarePlus, Database as DatabaseIconLucide } from "lucide-react";
+import { AlertCircle, Settings, Bot, Globe, Split, Loader2, MessageSquarePlus, Database as DatabaseIconLucide, Search } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
@@ -53337,21 +53112,15 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client"; 
-import { chatMessageService, ChatMessageApp, ChatMessageDBInsert as OriginalChatMessageDBInsert } from "@/services/chatMessageService";
+import { chatMessageService, ChatMessageApp, ChatMessageDBInsert } from "@/services/chatMessageService"; 
+import { conversationService, AppConversation, ConversationDBInsert as AppConversationDBInsert } from "@/services/conversationService";
 import type { User } from "@supabase/supabase-js";
-import { Badge } from "@/components/ui/badge"; // Import Badge component
+import { Badge } from "@/components/ui/badge"; 
 
-import ConversationSidebar, { Conversation as SidebarConversation } from '@/components/SuperTutor/ConversationSidebar';
+import ConversationSidebar from '@/components/Supertutor/ConversationSidebar';
 
-export interface Conversation extends SidebarConversation {
-  user_id: string;
-  class_id: string;
-  chat_mode: 'rag' | 'web';
-  created_at: string;
-}
-
-interface ChatMessageDBInsert extends OriginalChatMessageDBInsert {
-  conversation_id: string;
+export interface Conversation extends Omit<AppConversation, 'last_message_at'> {
+  last_message_at: string;
 }
 
 interface ActiveClassData {
@@ -53369,24 +53138,54 @@ const mapToChatUIMessage = (appMessage: ChatMessageApp): ChatUIMessage => ({
   content: appMessage.content,
 });
 
+// AI-EDIT START: Add helper function to call the title generation Edge Function
+const generateChatTitle = async (firstMessage: string): Promise<string> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('generate-title', {
+      body: { query: firstMessage },
+    });
+
+    if (error) {
+      console.error("Error generating title via Edge Function:", error);
+      // Fallback to a simple substring if the function fails
+      return firstMessage.split(' ').slice(0, 5).join(' ');
+    }
+    // Assuming the function returns an object like { title: "..." }
+    return data.title;
+  } catch (e) {
+    console.error("Exception while calling generate-title function:", e);
+    // Fallback to a simple substring on exception
+    return firstMessage.split(' ').slice(0, 5).join(' ');
+  }
+};
+// AI-EDIT END
+
 const SuperTutor = () => {
   const navigate = useNavigate();
   const [effectiveOpenAIConfig, setEffectiveOpenAIConfig] = useState<OpenAIConfig | undefined>(undefined);
   const [activeClass, setActiveClass] = useState<ActiveClassData | null>(null);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
-  const [isGeneratingRagResponse, setIsGeneratingRagResponse] = useState(false);
-  const [isGeneratingWebResponse, setIsGeneratingWebResponse] = useState(false);
+  const [isGeneratingResponse, setIsGeneratingResponse] = useState(false); 
   const [pageError, setPageError] = useState<string | null>(null);
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [activeMode, setActiveMode] = useState<ChatMode>("rag");
 
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<AppConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState<boolean>(false);
   
   const [currentChatMessages, setCurrentChatMessages] = useState<ChatMessageApp[]>([]);
   const [isLoadingChatMessages, setIsLoadingChatMessages] = useState<boolean>(false);
+
+  const [lastSelectedRagConvoId, setLastSelectedRagConvoId] = useState<string | null>(null);
+  const [lastSelectedWebConvoId, setLastSelectedWebConvoId] = useState<string | null>(null);
+  const [splitViewRagMessages, setSplitViewRagMessages] = useState<ChatMessageApp[]>([]);
+  const [splitViewWebMessages, setSplitViewWebMessages] = useState<ChatMessageApp[]>([]);
+  const [isLoadingSplitRagMessages, setIsLoadingSplitRagMessages] = useState<boolean>(false);
+  const [isLoadingSplitWebMessages, setIsLoadingSplitWebMessages] = useState<boolean>(false);
+  const [isGeneratingSplitRagResponse, setIsGeneratingSplitRagResponse] = useState(false);
+  const [isGeneratingSplitWebResponse, setIsGeneratingSplitWebResponse] = useState(false);
 
   const ragSuggestions = [
     "Explain the main concepts of [topic]",
@@ -53400,7 +53199,7 @@ const SuperTutor = () => {
     "How do I solve [specific problem]?",
   ];
 
-  useEffect(() => {
+  useEffect(() => { 
     const getCurrentUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
@@ -53408,7 +53207,7 @@ const SuperTutor = () => {
     getCurrentUser();
   }, []);
 
-  useEffect(() => {
+  useEffect(() => { 
     window.scrollTo(0, 0);
     setIsLoadingPage(true);
     setPageError(null);
@@ -53447,144 +53246,312 @@ const SuperTutor = () => {
   }, [toast]);
 
   useEffect(() => {
-    if (!user || !activeClass?.class_id || activeMode === 'split') {
-      setConversations([]);
-      setSelectedConversationId(null);
-      return;
-    }
-    setIsLoadingConversations(true);
-    console.log(`Mock fetching conversations for user: ${user.id}, class: ${activeClass.class_id}, mode: ${activeMode}`);
-    setTimeout(() => {
-      const mockFetchedConversations: Conversation[] = [
-        { id: `${activeMode}-convo1-${activeClass.class_id}`, name: `${activeMode === 'rag' ? 'Class AI' : 'Web'} Chat 1`, user_id: user.id, class_id: activeClass.class_id, chat_mode: activeMode, created_at: new Date().toISOString(), last_message_at: new Date().toISOString() },
-        { id: `${activeMode}-convo2-${activeClass.class_id}`, name: `Follow-up on ${activeMode === 'rag' ? 'Lecture 3' : 'Search Topic'}`, user_id: user.id, class_id: activeClass.class_id, chat_mode: activeMode, created_at: new Date().toISOString(), last_message_at: new Date(Date.now() - 3600000).toISOString() },
-      ].filter(c => c.chat_mode === activeMode && c.class_id === activeClass.class_id);
-
-      setConversations(mockFetchedConversations.sort((a,b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime()));
-      if (mockFetchedConversations.length > 0) {
-        if (!selectedConversationId || !mockFetchedConversations.find(c => c.id === selectedConversationId)) {
-          setSelectedConversationId(mockFetchedConversations[0].id);
-        }
-      } else {
-        setSelectedConversationId(null);
+    if (selectedConversationId) {
+      if (activeMode === 'rag') {
+        setLastSelectedRagConvoId(selectedConversationId);
+      } else if (activeMode === 'web') {
+        setLastSelectedWebConvoId(selectedConversationId);
       }
-      setIsLoadingConversations(false);
-    }, 700);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, activeClass?.class_id, activeMode]);
+    }
+  }, [selectedConversationId, activeMode]);
 
   useEffect(() => {
-    if (!selectedConversationId || !user || !activeClass?.class_id) {
-      setCurrentChatMessages([]);
-      return;
-    }
-    setIsLoadingChatMessages(true);
-    console.log(`Mock fetching messages for conversation: ${selectedConversationId}`);
-    setTimeout(() => {
-      const currentConvo = conversations.find(c => c.id === selectedConversationId);
-      if (currentConvo) {
-        const mockMessages: ChatMessageApp[] = [
-          { id: `msg1-${selectedConversationId}`, role: 'assistant', content: `Welcome to conversation: ${currentConvo.name}. How can I help?`, createdAt: new Date() },
-        ];
-        setCurrentChatMessages(mockMessages);
-      } else {
+    if (!user || !activeClass?.class_id || activeMode === 'split') {
+      if (activeMode !== 'split') { // Only clear if not switching TO split view
+        setConversations([]);
+        setSelectedConversationId(null);
         setCurrentChatMessages([]);
       }
-      setIsLoadingChatMessages(false);
-    }, 500);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedConversationId, user, activeClass?.class_id]); 
+      return;
+    }
+    const loadConversations = async () => {
+      setIsLoadingConversations(true);
+      try {
+        const fetchedConversations = await conversationService.fetchConversations(
+          user.id,
+          activeClass.class_id,
+          activeMode
+        );
+        setConversations(fetchedConversations);
+        if (fetchedConversations.length > 0) {
+          if (!selectedConversationId || !fetchedConversations.find(c => c.id === selectedConversationId)) {
+            setSelectedConversationId(fetchedConversations[0].id);
+          }
+        } else {
+          setSelectedConversationId(null);
+          setCurrentChatMessages([]);
+        }
+      } catch (error) {
+        console.error("Error fetching conversations:", error);
+        toast({ title: "Error", description: "Could not load conversations.", variant: "destructive" });
+        setConversations([]); setSelectedConversationId(null); setCurrentChatMessages([]);
+      } finally {
+        setIsLoadingConversations(false);
+      }
+    };
+    loadConversations();
+  }, [user, activeClass?.class_id, activeMode, toast]);
 
-  const handleSelectConversation = useCallback((id: string) => {
+  useEffect(() => {
+    if (!selectedConversationId || !user || activeMode === 'split') {
+      if (activeMode !== 'split') setCurrentChatMessages([]);
+      return;
+    }
+    const loadMessages = async () => {
+      setIsLoadingChatMessages(true);
+      try {
+        const messages = await chatMessageService.fetchMessagesByConversation(selectedConversationId);
+        setCurrentChatMessages(messages);
+      } catch (error) {
+        console.error(`Error fetching messages for conversation ${selectedConversationId}:`, error);
+        toast({ title: "Error", description: "Could not load messages for this chat.", variant: "destructive" });
+        setCurrentChatMessages([]);
+      } finally {
+        setIsLoadingChatMessages(false);
+      }
+    };
+    loadMessages();
+  }, [selectedConversationId, user, toast, activeMode]);
+
+  useEffect(() => {
+    if (activeMode === 'split' && lastSelectedRagConvoId && user) {
+      setIsLoadingSplitRagMessages(true);
+      chatMessageService.fetchMessagesByConversation(lastSelectedRagConvoId)
+        .then(setSplitViewRagMessages)
+        .catch(err => {
+          console.error("Error fetching split RAG messages:", err);
+          toast({ title: "Split View Error", description: "Could not load Class AI chat.", variant: "destructive" });
+          setSplitViewRagMessages([]);
+        })
+        .finally(() => setIsLoadingSplitRagMessages(false));
+    }
+  }, [activeMode, lastSelectedRagConvoId, user, toast]);
+
+  useEffect(() => {
+    if (activeMode === 'split' && lastSelectedWebConvoId && user) {
+      setIsLoadingSplitWebMessages(true);
+      chatMessageService.fetchMessagesByConversation(lastSelectedWebConvoId)
+        .then(setSplitViewWebMessages)
+        .catch(err => {
+          console.error("Error fetching split Web messages:", err);
+          toast({ title: "Split View Error", description: "Could not load Web Search chat.", variant: "destructive" });
+          setSplitViewWebMessages([]);
+        })
+        .finally(() => setIsLoadingSplitWebMessages(false));
+    }
+  }, [activeMode, lastSelectedWebConvoId, user, toast]);
+
+  const handleSelectConversation = useCallback((id: string) => { 
     setSelectedConversationId(id);
   }, []);
-
-  const handleCreateNewConversation = useCallback(async () => {
-    if (!user || !activeClass?.class_id || activeMode === 'split') return;
-    const newName = `New ${activeMode === 'rag' ? 'Class' : 'Web'} Chat ${conversations.filter(c => c.chat_mode === activeMode).length + 1}`;
-    const tempId = `temp-convo-${Date.now()}`;
-    const newConversationData: Omit<Conversation, 'id' | 'created_at' | 'last_message_at'> = { 
-        name: newName, 
-        user_id: user.id,
-        class_id: activeClass.class_id,
-        chat_mode: activeMode,
+  const handleCreateNewConversation = useCallback(async () => { 
+    if (!user || !activeClass?.class_id || activeMode === 'split') {
+      toast({ title: "Cannot Create Chat", description: "User, class, or valid mode not set.", variant: "destructive" });
+      return;
+    }
+    const newName = `New ${activeMode === 'rag' ? 'Class' : 'Web'} Chat ${
+      conversations.filter(c => c.chat_mode === activeMode).length + 1
+    }`;
+    const payload: { name: string; class_id: string; chat_mode: "rag" | "web" } = {
+      name: newName,
+      class_id: activeClass.class_id,
+      chat_mode: activeMode
     };
-    const createdConversation: Conversation = {
-        ...newConversationData,
-        id: tempId, 
-        created_at: new Date().toISOString(),
-        last_message_at: new Date().toISOString(),
-    };
-    setConversations(prev => [createdConversation, ...prev].sort((a,b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime()));
-    setSelectedConversationId(createdConversation.id);
-    setCurrentChatMessages([]);
-    toast({ title: "Success", description: `Conversation "${newName}" created.` });
+    try {
+      setIsLoadingConversations(true);
+      const newConversation = await conversationService.createConversation(payload, user.id);
+      setConversations(prev => [newConversation, ...prev].sort((a,b) => b.last_message_at.getTime() - a.last_message_at.getTime()));
+      setSelectedConversationId(newConversation.id);
+      setCurrentChatMessages([]);
+      toast({ title: "Chat Created", description: `"${newName}" is ready.` });
+    } catch (error) {
+      console.error("Error creating new conversation:", error);
+      toast({ title: "Error", description: "Could not create new chat.", variant: "destructive" });
+    } finally {
+      setIsLoadingConversations(false);
+    }
   }, [user, activeClass?.class_id, activeMode, conversations, toast]);
+  const handleRenameConversation = useCallback(async (id: string, newName: string) => { 
+    if (!user) return;
+    const originalName = conversations.find(c => c.id === id)?.name;
+    setConversations(prev => prev.map(c => (c.id === id ? { ...c, name: newName } : c)));
+    try {
+      await conversationService.renameConversation(id, newName, user.id);
+      toast({ title: "Chat Renamed", description: `Chat renamed to "${newName}".` });
+    } catch (error) {
+      console.error("Error renaming conversation:", error);
+      if (originalName) {
+        setConversations(prev => prev.map(c => (c.id === id ? { ...c, name: originalName } : c)));
+      }
+      toast({ title: "Error", description: "Could not rename chat.", variant: "destructive" });
+    }
+  }, [user, conversations, toast]);
+  const handleDeleteConversation = useCallback(async (id: string) => { 
+    if (!user) return;
+    const conversationToDelete = conversations.find(c => c.id === id);
+    if (!conversationToDelete) return;
 
-  const handleRenameConversation = useCallback(async (id: string, newName: string) => {
-    setConversations(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
-    toast({ title: "Success", description: "Conversation renamed." });
-  }, [toast]);
+    const confirmed = window.confirm(`Are you sure you want to delete the chat "${conversationToDelete.name}" and all its messages?`);
+    if (!confirmed) return;
+    
+    const originalConversations = [...conversations];
+    const originalSelectedId = selectedConversationId;
+    const originalMessages = [...currentChatMessages];
 
-  const handleDeleteConversation = useCallback(async (id: string) => {
     setConversations(prev => {
-        const remaining = prev.filter(c => c.id !== id);
-        if (selectedConversationId === id) {
-            setSelectedConversationId(remaining.length > 0 ? remaining[0].id : null);
-        }
-        return remaining;
+      const remaining = prev.filter(c => c.id !== id);
+      if (selectedConversationId === id) {
+        setSelectedConversationId(remaining.length > 0 ? remaining[0].id : null);
+        if (remaining.length === 0) setCurrentChatMessages([]);
+      }
+      return remaining;
     });
-    toast({ title: "Success", description: "Conversation deleted." });
-  }, [selectedConversationId, toast]);
+
+    try {
+      await conversationService.deleteConversation(id, user.id);
+      toast({ title: "Chat Deleted", description: `"${conversationToDelete.name}" has been deleted.` });
+      if (id === lastSelectedRagConvoId) setLastSelectedRagConvoId(null);
+      if (id === lastSelectedWebConvoId) setLastSelectedWebConvoId(null);
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      setConversations(originalConversations);
+      setSelectedConversationId(originalSelectedId);
+      setCurrentChatMessages(originalMessages);
+      toast({ title: "Error", description: "Could not delete chat.", variant: "destructive" });
+    }
+  }, [user, conversations, selectedConversationId, currentChatMessages, toast, lastSelectedRagConvoId, lastSelectedWebConvoId]);
 
   const handleMessagesChange = useCallback(async (
-    newMessagesOrUpdater: ChatUIMessage[] | ((prevMessages: ChatUIMessage[]) => ChatUIMessage[]),
-    mode: 'rag' | 'web'
+    newOrUpdatedMessagesFromChild: ChatUIMessage[] | ((prevMessages: ChatUIMessage[]) => ChatUIMessage[]),
+    mode: 'rag' | 'web',
+    instanceConversationId?: string 
   ) => {
-    if (!user || !activeClass?.class_id || !selectedConversationId) {
-        toast({ title: "Error", description: "Cannot save message: No active conversation selected.", variant: "destructive" });
-        return;
+    const targetConversationId = activeMode === 'split' ? instanceConversationId : selectedConversationId;
+
+    if (!user || !activeClass?.class_id || !targetConversationId) {
+      toast({ title: "Error", description: "Cannot save message: No active conversation context.", variant: "destructive" });
+      return;
     }
-    const updatedUIMessages = typeof newMessagesOrUpdater === 'function'
-      ? newMessagesOrUpdater(currentChatMessages.map(mapToChatUIMessage))
-      : newMessagesOrUpdater;
-    const updatedAppMessages: ChatMessageApp[] = updatedUIMessages.map((uiMsg, index) => {
-        const existingAppMsg = currentChatMessages[index];
-        return {
-            id: existingAppMsg?.id || `temp-msg-${Date.now()}-${index}`,
-            role: uiMsg.role,
-            content: uiMsg.content,
-            createdAt: existingAppMsg?.createdAt || new Date(),
-        };
-    });
-    setCurrentChatMessages(updatedAppMessages);
-    if (updatedAppMessages.length > currentChatMessages.length) {
-      const newMessagesToSave = updatedAppMessages.slice(currentChatMessages.length);
-      for (const newMessage of newMessagesToSave) {
-        if (newMessage.id.startsWith(`temp-msg-`)) {
-          try {
-            const payload: ChatMessageDBInsert = {
-              class_id: activeClass.class_id,
-              chat_mode: mode, 
-              role: newMessage.role,
-              content: newMessage.content,
-              conversation_id: selectedConversationId,
-            };
-            const savedMessage = await chatMessageService.saveMessage(payload);
-            if (savedMessage) {
-              setCurrentChatMessages(prev => prev.map(m => m.id === newMessage.id ? { ...m, id: savedMessage.id, createdAt: new Date(savedMessage.created_at) } : m));
-              setConversations(prevConvos => prevConvos.map(convo => 
-                convo.id === selectedConversationId ? { ...convo, last_message_at: new Date(savedMessage.created_at).toISOString() } : convo
-              ).sort((a,b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime()));
-            }
-          } catch (error) {
-            console.error(`Error saving ${mode} message:`, error);
-            toast({ title: "Error", description: `Could not save chat message.`, variant: "destructive" });
-          }
+    
+    let messagesSource: ChatMessageApp[];
+    let setMessagesFunction: React.Dispatch<React.SetStateAction<ChatMessageApp[]>>;
+
+    if (activeMode === 'split') {
+        if (mode === 'rag' && targetConversationId === lastSelectedRagConvoId) { // Ensure we're updating the correct split panel's messages
+            messagesSource = splitViewRagMessages;
+            setMessagesFunction = setSplitViewRagMessages;
+        } else if (mode === 'web' && targetConversationId === lastSelectedWebConvoId) {
+            messagesSource = splitViewWebMessages;
+            setMessagesFunction = setSplitViewWebMessages;
+        } else {
+            console.warn(`[handleMessagesChange] Split view message change for unselected/mismatched panel. Mode: ${mode}, TargetConvoID: ${targetConversationId}`);
+            return; // Don't proceed if the target doesn't match an active split panel's conversation
         }
+    } else { // RAG or WEB tab
+        messagesSource = currentChatMessages;
+        setMessagesFunction = setCurrentChatMessages;
+    }
+
+    const newFullUIMessagesList = typeof newOrUpdatedMessagesFromChild === 'function'
+      ? newOrUpdatedMessagesFromChild(messagesSource.map(mapToChatUIMessage))
+      : newOrUpdatedMessagesFromChild; 
+    
+    const newFullAppMessagesList: ChatMessageApp[] = newFullUIMessagesList.map((uiMsg, index) => ({
+      id: messagesSource[index]?.id || `temp-msg-${Date.now()}-${index}`,
+      role: uiMsg.role,
+      content: uiMsg.content,
+      createdAt: messagesSource[index]?.createdAt || new Date(),
+      conversation_id: targetConversationId,
+    }));
+        
+    setMessagesFunction(newFullAppMessagesList);
+
+    // AI-EDIT START: Add logic for auto-renaming a new chat
+    const conversationToUpdate = conversations.find(c => c.id === targetConversationId);
+    const firstUserMessage = newFullAppMessagesList.find(m => m.role === 'user' && (m.id.startsWith('temp-msg-') || !messagesSource.some(src => src.id === m.id)));
+
+    if (
+      conversationToUpdate &&
+      conversationToUpdate.name.startsWith('New ') &&
+      messagesSource.length === 0 &&
+      firstUserMessage &&
+      user
+    ) {
+      // Run this asynchronously to not block the message saving flow
+      (async () => {
+        try {
+          const newTitle = await generateChatTitle(firstUserMessage.content);
+          
+          // Update the name in the database via the service
+          await conversationService.renameConversation(targetConversationId, newTitle, user.id);
+          
+          // Update local state immediately for a responsive UI
+          setConversations(prev =>
+            prev.map(c => (c.id === targetConversationId ? { ...c, name: newTitle } : c))
+          );
+          
+          toast({
+            title: "Chat Renamed",
+            description: `Chat automatically renamed to "${newTitle}".`,
+          });
+        } catch (error) {
+          console.error("Error auto-renaming conversation:", error);
+          // Don't show an error toast for this background task failing
+        }
+      })();
+    }
+    // AI-EDIT END
+    
+    const messagesToPersist: ChatMessageApp[] = [];
+    const currentMessagesContent = new Set(messagesSource.map(m => `${m.role}-${m.content}`));
+
+    for (const appMsg of newFullAppMessagesList) {
+        if (appMsg.id.startsWith('temp-msg-') || !currentMessagesContent.has(`${appMsg.role}-${appMsg.content}`)) {
+            messagesToPersist.push(appMsg);
+        }
+    }
+    
+    if (messagesToPersist.length === 0) return;
+    
+    let lastSavedMessageDate: Date | null = null;
+
+    for (const newMessageToSave of messagesToPersist) {
+      const payload = {
+        class_id: activeClass.class_id,
+        chat_mode: mode, 
+        role: newMessageToSave.role,
+        content: newMessageToSave.content,
+        conversation_id: targetConversationId,
+        user_id: user.id
+      } as const;
+      try {
+        const savedMessage = await chatMessageService.saveMessage(payload);
+        if (savedMessage) {
+          lastSavedMessageDate = savedMessage.createdAt;
+          setMessagesFunction(prev => 
+            prev.map(m => m.id === newMessageToSave.id ? savedMessage : m)
+                .sort((a,b) => a.createdAt.getTime() - b.createdAt.getTime())
+          );
+        }
+      } catch (error) {
+        console.error(`Error saving message (${newMessageToSave.role}):`, error);
+        toast({ title: "Error", description: `Could not save ${newMessageToSave.role} message.`, variant: "destructive" });
       }
     }
-  }, [user, activeClass?.class_id, selectedConversationId, currentChatMessages, toast]);
+
+    if (lastSavedMessageDate && targetConversationId) {
+      try {
+        const updatedConvo = await conversationService.updateConversationTimestamp(targetConversationId, user.id, lastSavedMessageDate);
+        setConversations(prevConvos => 
+            prevConvos.map(convo => convo.id === updatedConvo.id ? updatedConvo : convo)
+                      .sort((a,b) => b.last_message_at.getTime() - a.last_message_at.getTime())
+        );
+      } catch (error) {
+        console.error("Error updating conversation timestamp:", error);
+      }
+    }
+  }, [user, activeClass?.class_id, selectedConversationId, currentChatMessages, splitViewRagMessages, splitViewWebMessages, toast, activeMode, conversations, lastSelectedRagConvoId, lastSelectedWebConvoId]);
+
 
   const handleGoToSettings = () => {
     navigate("/");
@@ -53596,12 +53563,8 @@ const SuperTutor = () => {
   
   const commonLoadingIndicator = (text: string) => (
     <div className="flex items-center justify-center py-4">
-      <div className="animate-pulse flex items-center space-x-2">
-        <div className="h-2 w-2 bg-primary rounded-full animation-delay-0"></div>
-        <div className="h-2 w-2 bg-primary rounded-full animate-ping animation-delay-200"></div>
-        <div className="h-2 w-2 bg-primary rounded-full animation-delay-400"></div>
-        <span className="text-sm text-muted-foreground ml-2">{text}</span>
-      </div>
+      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+      <span className="text-sm text-muted-foreground">{text}</span>
     </div>
   );
   
@@ -53626,28 +53589,46 @@ const SuperTutor = () => {
   const tabContentWrapperClassName = "bg-card rounded-xl shadow-sm border flex flex-col flex-grow overflow-hidden min-h-0 h-full"; 
   const tabsContentClassName = "flex-grow flex flex-col overflow-hidden data-[state=inactive]:hidden min-h-0 h-full";
 
-  const renderTabHeader = (mode: 'rag' | 'web') => {
-    const title = mode === 'rag' ? "Class AI" : "Web Search AI";
-    let subtitle = mode === 'rag' ? `Ask questions about ${activeClassTitleForDisplay}` : "Ask me to search the web for supplemental information";
-    const currentConvoName = conversations.find(c=>c.id===selectedConversationId)?.name;
-    if (selectedConversationId && currentConvoName) {
-        subtitle += ` (Chat: ${currentConvoName})`;
+  const renderPanelHeader = (panelMode: 'rag' | 'web', isSplitViewContext: boolean = false) => {
+    const title = panelMode === 'rag' ? "Class AI" : "Web Search AI";
+    let subtitle = panelMode === 'rag' ? `About ${activeClassTitleForDisplay}` : "General web search";
+    let conversationNameToDisplay: string | undefined = undefined;
+
+    if (isSplitViewContext) {
+        const convoId = panelMode === 'rag' ? lastSelectedRagConvoId : lastSelectedWebConvoId;
+        if (convoId) {
+            const allKnownConversations = conversations; // Use the main list for lookup
+            conversationNameToDisplay = allKnownConversations.find(c => c.id === convoId)?.name;
+        }
+    } else if (selectedConversationId) { 
+        const currentConvo = conversations.find(c => c.id === selectedConversationId);
+        if (currentConvo && currentConvo.chat_mode === panelMode) {
+            conversationNameToDisplay = currentConvo.name;
+        }
+    }
+    
+    if (conversationNameToDisplay) {
+        const baseSubtitle = panelMode === 'rag' ? `Database Search` : "Ask me to search the web";
+        subtitle = `${baseSubtitle} (Chat: ${conversationNameToDisplay})`;
+    } else if (!isSplitViewContext && panelMode === 'rag') {
+        subtitle = `Ask questions about ${activeClassTitleForDisplay}`;
+    } else if (!isSplitViewContext && panelMode === 'web') {
+        subtitle = "Ask me to search the web for supplemental information";
     }
 
     return (
-        <div className="p-4 border-b border-slate-300 dark:border-zinc-700 flex justify-between items-center">
+        <div className="p-4 border-b border-slate-300 dark:border-zinc-700 flex justify-between items-center flex-shrink-0">
             <div> 
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400">{subtitle}</p>
             </div>
-            {/* Database Search Static Bubble - Styled like the one from ChatBot.tsx */}
-            {(mode === 'rag' && activeClass?.openAIConfig?.vectorStoreId) && ( 
+            {(panelMode === 'rag' && activeClass?.openAIConfig?.vectorStoreId) && ( 
                  <Badge variant="outline" className="ml-auto flex items-center gap-1 border-blue-500 text-blue-700 dark:border-blue-400 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30">
                     <DatabaseIconLucide className="h-3 w-3" />
                     <span className="text-xs">Database Search</span>
                  </Badge>
             )}
-            {(mode === 'web' && activeClass?.openAIConfig?.vectorStoreId) && ( 
+            {(panelMode === 'web') && ( 
                  <Badge variant="outline" className="ml-auto flex items-center gap-1 border-blue-500 text-blue-700 dark:border-blue-400 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30">
                     <Globe className="h-3 w-3" />
                     <span className="text-xs">Web Search</span>
@@ -53657,159 +53638,128 @@ const SuperTutor = () => {
     );
   };
 
-  return (
+  return ( 
     <div className="flex flex-col h-[calc(100vh-var(--header-height,30px)-2rem)]">
-      {!activeClass && (
-        <Alert variant="destructive" className="mt-0 mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>No Class Selected</AlertTitle>
-          <AlertDescription>
-            Please <Link to="/" className="underline hover:text-destructive/80">go to the homepage</Link> and select a class.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {activeClass && pageError && !effectiveOpenAIConfig?.assistantId && (
-         <Alert variant="default" className="bg-amber-50 border-amber-200 mt-0 mb-4">
-            <AlertCircle className="h-4 w-4 text-amber-700" />
-            <AlertTitle className="text-amber-800">Class AI Configuration Note</AlertTitle>
-            <AlertDescription className="text-amber-700">
-              {pageError}
-              <Button variant="link" size="sm" className="p-0 h-auto text-amber-700 hover:text-amber-700/80 ml-1" onClick={handleGoToSettings}>
-                Check Class Settings
-            </Button>
-            </AlertDescription>
-        </Alert>
-      )}
+      {!activeClass && ( <Alert variant="destructive" className="mt-0 mb-4"> <AlertCircle className="h-4 w-4" /> <AlertTitle>No Class Selected</AlertTitle> <AlertDescription> Please <Link to="/" className="underline hover:text-destructive/80">go to the homepage</Link> and select a class. </AlertDescription> </Alert> )}
+      {activeClass && pageError && !effectiveOpenAIConfig?.assistantId && ( <Alert variant="default" className="bg-amber-50 border-amber-200 mt-0 mb-4"> <AlertCircle className="h-4 w-4 text-amber-700" /> <AlertTitle className="text-amber-800">Class AI Configuration Note</AlertTitle> <AlertDescription className="text-amber-700"> {pageError} <Button variant="link" size="sm" className="p-0 h-auto text-amber-700 hover:text-amber-700/80 ml-1" onClick={handleGoToSettings}> Check Class Settings </Button> </AlertDescription> </Alert> )}
       
       {activeClass && (
         <Tabs 
           value={activeMode} 
-          onValueChange={(value) => setActiveMode(value as ChatMode)} 
-          className={cn(
-            "w-full flex flex-col flex-grow min-h-0",
-            !pageError && "pt-2" 
-          )}
+          onValueChange={(value) => {
+            setActiveMode(value as ChatMode);
+            if (value !== 'split') {
+                setSelectedConversationId(null); 
+                setCurrentChatMessages([]);
+            }
+          }}
+          className={cn( "w-full flex flex-col flex-grow min-h-0", !pageError && "pt-2" )}
         >
           <TabsList className="w-full grid grid-cols-3 mb-4">
-            <TabsTrigger value="rag" className="flex-1 gap-2 data-[state=active]:shadow-md">
-              <Bot className="h-4 w-4" /> Class Materials
-            </TabsTrigger>
-            <TabsTrigger value="web" className="flex-1 gap-2 data-[state=active]:shadow-md">
-              <Globe className="h-4 w-4" /> Web Search
-            </TabsTrigger>
-            <TabsTrigger value="split" className="flex-1 gap-2 data-[state=active]:shadow-md">
-              <Split className="h-4 w-4" /> Split View
-            </TabsTrigger>
+            <TabsTrigger value="rag" className="flex-1 gap-2 data-[state=active]:shadow-md"> <Bot className="h-4 w-4" /> Class Materials </TabsTrigger>
+            <TabsTrigger value="web" className="flex-1 gap-2 data-[state=active]:shadow-md"> <Globe className="h-4 w-4" /> Web Search </TabsTrigger>
+            <TabsTrigger value="split" className="flex-1 gap-2 data-[state=active]:shadow-md"> <Split className="h-4 w-4" /> Split View </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="rag" className={cn(tabsContentClassName, "mt-0")}>
-            <div className={tabContentWrapperClassName}>
-              {renderTabHeader('rag')}
-              <div className="flex flex-1 overflow-hidden"> 
-                <ConversationSidebar
-                    conversations={conversations.filter(c => c.chat_mode === 'rag')}
-                    selectedConversationId={selectedConversationId}
-                    onSelectConversation={handleSelectConversation}
-                    onCreateNewConversation={handleCreateNewConversation}
-                    onRenameConversation={handleRenameConversation}
-                    onDeleteConversation={handleDeleteConversation}
-                    isLoading={isLoadingConversations}
-                    className="h-full flex-shrink-0 !border-t-0 !border-l-0 !border-b-0 !rounded-none border-r border-slate-300 dark:border-zinc-700" 
-                />
-                <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-card"> 
-                  {selectedConversationId ? (
-                    <ChatBot
-                      className="!border-0 !shadow-none !rounded-none !p-0 h-full flex flex-col" 
-                      disableToasts={true}
-                      suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitleForDisplay))}
-                      knowledgeBase={activeClassTitleForDisplay}
-                      openAIConfig={effectiveOpenAIConfig}
-                      onResponseGenerationStateChange={setIsGeneratingRagResponse}
-                      messages={currentChatMessages.map(mapToChatUIMessage)}
-                      onMessagesChange={(updater) => handleMessagesChange(updater, 'rag')}
-                      loadingIndicator={isGeneratingRagResponse || isLoadingChatMessages ? commonLoadingIndicator("Class AI is thinking...") : undefined}
-                      placeholder="Ask about your class materials..."
-                      disabled={!selectedConversationId}
-                    />
-                  ) : (
-                    noConversationSelectedMessage 
-                  )}
+          {(activeMode === 'rag' || activeMode === 'web') && (
+            <TabsContent value={activeMode} className={cn(tabsContentClassName, "mt-0")}>
+              <div className={tabContentWrapperClassName}>
+                {renderPanelHeader(activeMode)}
+                <div className="flex flex-1 overflow-hidden"> 
+                  <ConversationSidebar
+                      conversations={conversations.map(conv => ({
+                        ...conv,
+                        last_message_at: conv.last_message_at.toISOString()
+                      }))}
+                      selectedConversationId={selectedConversationId}
+                      onSelectConversation={handleSelectConversation}
+                      onCreateNewConversation={handleCreateNewConversation}
+                      onRenameConversation={handleRenameConversation}
+                      onDeleteConversation={handleDeleteConversation}
+                      isLoading={isLoadingConversations}
+                      className="h-full flex-shrink-0 !border-t-0 !border-l-0 !border-b-0 !rounded-none border-r border-slate-300 dark:border-zinc-700" 
+                  />
+                  <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-card"> 
+                    {selectedConversationId ? (
+                      activeMode === 'rag' ? (
+                        <ChatBot
+                          key={`${selectedConversationId}-rag`} 
+                          className="!border-0 !shadow-none !rounded-none !p-0 h-full flex flex-col" 
+                          disableToasts={true}
+                          suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitleForDisplay))}
+                          knowledgeBase={activeClassTitleForDisplay}
+                          openAIConfig={effectiveOpenAIConfig}
+                          onResponseGenerationStateChange={setIsGeneratingResponse}
+                          messages={currentChatMessages.map(mapToChatUIMessage)}
+                          onMessagesChange={(newMessages) => handleMessagesChange(newMessages, 'rag')}
+                          loadingIndicator={isGeneratingResponse || isLoadingChatMessages ? commonLoadingIndicator("Class AI is thinking...") : undefined}
+                          placeholder="Ask about your class materials..."
+                          disabled={!selectedConversationId || isGeneratingResponse}
+                        />
+                      ) : ( 
+                        <WebChatBot
+                          key={`${selectedConversationId}-web`} 
+                          className="!border-0 !shadow-none !rounded-none !p-0 h-full flex flex-col"
+                          disableToasts={true}
+                          suggestions={webSuggestions}
+                          placeholder="What would you like to search for?"
+                          onResponseGenerationStateChange={setIsGeneratingResponse}
+                          messages={currentChatMessages.map(mapToChatUIMessage)}
+                          onMessagesChange={(newMessages) => handleMessagesChange(newMessages, 'web')}
+                          loadingIndicator={isGeneratingResponse || isLoadingChatMessages ? commonLoadingIndicator("Searching the web...") : undefined}
+                          disabled={!selectedConversationId || isGeneratingResponse}
+                        />
+                      )
+                    ) : (
+                      noConversationSelectedMessage 
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
+          )}
 
-          <TabsContent value="web" className={cn(tabsContentClassName, "mt-0")}>
-             <div className={tabContentWrapperClassName}>
-              {renderTabHeader('web')}
-              <div className="flex flex-1 overflow-hidden">
-                <ConversationSidebar
-                    conversations={conversations.filter(c => c.chat_mode === 'web')}
-                    selectedConversationId={selectedConversationId}
-                    onSelectConversation={handleSelectConversation}
-                    onCreateNewConversation={handleCreateNewConversation}
-                    onRenameConversation={handleRenameConversation}
-                    onDeleteConversation={handleDeleteConversation}
-                    isLoading={isLoadingConversations}
-                    className="h-full flex-shrink-0 !border-t-0 !border-l-0 !border-b-0 !rounded-none border-r border-slate-300 dark:border-zinc-700"
-                />
-                <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-card">
-                  {selectedConversationId ? (
-                    <WebChatBot 
-                      className="!border-0 !shadow-none !rounded-none !p-0 h-full flex flex-col"
-                      disableToasts={true}
-                      suggestions={webSuggestions}
-                      placeholder="What would you like to search for?"
-                      onResponseGenerationStateChange={setIsGeneratingWebResponse}
-                      messages={currentChatMessages.map(mapToChatUIMessage)}
-                      onMessagesChange={(updater) => handleMessagesChange(updater, 'web')}
-                      loadingIndicator={isGeneratingWebResponse || isLoadingChatMessages ? commonLoadingIndicator("Searching the web...") : undefined}
-                      disabled={!selectedConversationId}
-                    />
-                  ) : (
-                    noConversationSelectedMessage
-                  )}
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Split View - ChatBot and WebChatBot here will still use their internal headers if they have them */}
-          {/* To make them headless in split view as well, you'd apply similar className overrides */}
           <TabsContent value="split" className={cn(tabsContentClassName.replace("flex flex-col", "flex"), "mt-0")}>
             <ResizablePanelGroup
               direction="horizontal"
-              className="rounded-xl border shadow-sm flex-1 flex overflow-hidden min-h-0 h-full" 
+              className="bg-card rounded-xl shadow-sm border flex-1 flex overflow-hidden min-h-0 h-full" 
             >
-              <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col overflow-hidden min-h-0">
-                <ChatBot // This instance in SplitView still uses its original props (title, subtitle)
-                  disableToasts={true}
-                  suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitleForDisplay))}
-                  title="Class AI" 
-                  // subtitle={`About ${activeClassTitleForDisplay}`} // Subtitle removed as ChatBot no longer renders it
-                  knowledgeBase={activeClassTitleForDisplay}
-                  openAIConfig={effectiveOpenAIConfig}
-                  onResponseGenerationStateChange={setIsGeneratingRagResponse}
-                  messages={(selectedConversationId && conversations.find(c=>c.id === selectedConversationId)?.chat_mode === 'rag' ? currentChatMessages : []).map(mapToChatUIMessage)}
-                  onMessagesChange={(updater) => handleMessagesChange(updater, 'rag')}
-                  loadingIndicator={isGeneratingRagResponse || (selectedConversationId && conversations.find(c=>c.id === selectedConversationId)?.chat_mode === 'rag' && isLoadingChatMessages) ? commonLoadingIndicator("Class AI is thinking...") : undefined}
-                  placeholder="Ask about class materials..."
-                />
+              <ResizablePanel defaultSize={50} minSize={30} className="flex flex-col overflow-hidden min-h-0">
+                {renderPanelHeader('rag', true)} 
+                <div className="flex-1 overflow-hidden"> 
+                    <ChatBot
+                        key={lastSelectedRagConvoId || 'split-rag-empty'}
+                        className="!border-0 !shadow-none !rounded-none !p-0 h-full flex flex-col" 
+                        disableToasts={true}
+                        suggestions={ragSuggestions.map(s => s.replace("[topic]", activeClassTitleForDisplay))}
+                        knowledgeBase={activeClassTitleForDisplay}
+                        openAIConfig={effectiveOpenAIConfig}
+                        onResponseGenerationStateChange={setIsGeneratingSplitRagResponse}
+                        messages={splitViewRagMessages.map(mapToChatUIMessage)}
+                        onMessagesChange={(newMessages) => handleMessagesChange(newMessages, 'rag', lastSelectedRagConvoId || undefined)}
+                        loadingIndicator={isGeneratingSplitRagResponse || isLoadingSplitRagMessages ? commonLoadingIndicator("Class AI is thinking...") : undefined}
+                        placeholder="Ask about class materials..."
+                        disabled={!lastSelectedRagConvoId || isGeneratingSplitRagResponse}
+                    />
+                </div>
               </ResizablePanel>
               <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={50} minSize={30} className="bg-card flex flex-col overflow-hidden min-h-0">
-                <WebChatBot // This instance in SplitView also uses its original props
-                  disableToasts={true}
-                  suggestions={webSuggestions}
-                  title="Web Search AI"
-                  // subtitle="General web search" // Subtitle removed as WebChatBot (assumed) no longer renders it
-                  placeholder="Search the web..."
-                  onResponseGenerationStateChange={setIsGeneratingWebResponse}
-                  messages={(selectedConversationId && conversations.find(c=>c.id === selectedConversationId)?.chat_mode === 'web' ? currentChatMessages : []).map(mapToChatUIMessage)}
-                  onMessagesChange={(updater) => handleMessagesChange(updater, 'web')}
-                  loadingIndicator={isGeneratingWebResponse || (selectedConversationId && conversations.find(c=>c.id === selectedConversationId)?.chat_mode === 'web' && isLoadingChatMessages) ? commonLoadingIndicator("Searching the web...") : undefined}
-                />
+              <ResizablePanel defaultSize={50} minSize={30} className="flex flex-col overflow-hidden min-h-0">
+                {renderPanelHeader('web', true)}
+                <div className="flex-1 overflow-hidden"> 
+                    <WebChatBot
+                        key={lastSelectedWebConvoId || 'split-web-empty'}
+                        className="!border-0 !shadow-none !rounded-none !p-0 h-full flex flex-col" 
+                        disableToasts={true}
+                        suggestions={webSuggestions}
+                        placeholder="Search the web..."
+                        onResponseGenerationStateChange={setIsGeneratingSplitWebResponse}
+                        messages={splitViewWebMessages.map(mapToChatUIMessage)}
+                        onMessagesChange={(newMessages) => handleMessagesChange(newMessages, 'web', lastSelectedWebConvoId || undefined)}
+                        loadingIndicator={isGeneratingSplitWebResponse || isLoadingSplitWebMessages ? commonLoadingIndicator("Searching the web...") : undefined}
+                        disabled={!lastSelectedWebConvoId || isGeneratingSplitWebResponse}
+                    />
+                </div>
               </ResizablePanel>
             </ResizablePanelGroup>
           </TabsContent>
@@ -54253,48 +54203,71 @@ File: src/services/chatMessageService.ts
 // src/services/chatMessageService.ts
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import type { CustomDatabase } from "@/integrations/supabase/client"; // Your custom DB types
+import type { CustomDatabase } from "@/integrations/supabase/client";
 
 // Type for a chat message as it's stored/retrieved from the DB
-// This should align with the columns in your public.chat_messages table
+// Ensure this matches your 'chat_messages' table from types.ts
 export type ChatMessageDBRow = CustomDatabase['public']['Tables']['chat_messages']['Row'];
 
-// Type for inserting a new chat message (id and created_at are auto-generated)
+// Type for inserting a new chat message
+// Ensure this includes 'conversation_id' and other necessary fields from your DB schema
+// 'conversation_id' should be part of ChatMessageDBRow if your types.ts is up-to-date.
+// If not, you might need to explicitly add it here:
+// export type ChatMessageDBInsert = Omit<ChatMessageDBRow, 'id' | 'created_at' | 'user_id'> & {
+//   user_id?: string;
+//   conversation_id: string; // Explicitly add if not in ChatMessageDBRow from types
+// };
+// Assuming conversation_id is in ChatMessageDBRow:
 export type ChatMessageDBInsert = CustomDatabase['public']['Tables']['chat_messages']['Insert'];
 
-// Type for a chat message as used in the application (similar to ChatBot.tsx's Message)
+
+// Type for a chat message as used in the application
 export interface ChatMessageApp {
-  id: string; // Keep the DB id for potential future use (e.g., keys in React lists)
+  id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  createdAt: Date; // Use Date object in the app
-  // Optional: include user_id, class_id, chat_mode if needed directly in app state
-  // userId?: string;
-  // classId?: string;
-  // chatMode?: 'rag' | 'web';
+  createdAt: Date;
+  conversation_id?: string; 
 }
+
+const mapToAppMessage = (dbRow: ChatMessageDBRow): ChatMessageApp => ({
+  id: dbRow.id,
+  role: dbRow.role as 'user' | 'assistant' | 'system', 
+  content: dbRow.content,
+  createdAt: new Date(dbRow.created_at),
+  conversation_id: dbRow.conversation_id || undefined, 
+});
 
 export const chatMessageService = {
   /**
    * Saves a chat message to the database.
-   * @param messagePayload - The message data to save.
-   * @returns The saved chat message row from the database.
+   * Requires conversation_id in the payload.
    */
   saveMessage: async (
-    messagePayload: Omit<ChatMessageDBInsert, 'user_id'> // user_id will be derived from auth session
-  ): Promise<ChatMessageDBRow | null> => {
+    // The payload should match ChatMessageDBInsert, excluding user_id which is added by the service
+    // And ensuring conversation_id is provided.
+    messagePayload: Omit<ChatMessageDBInsert, 'user_id' | 'id' | 'created_at'> & { conversation_id: string }
+  ): Promise<ChatMessageApp | null> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       console.error("chatMessageService.saveMessage: User not authenticated.");
       throw new Error("User must be authenticated to save messages.");
     }
 
+    // Ensure conversation_id is explicitly part of the payload passed to this function
+    if (!messagePayload.conversation_id) {
+        console.error("chatMessageService.saveMessage: conversation_id is required in the payload.");
+        throw new Error("conversation_id is required to save a message.");
+    }
+
     const messageToSave: ChatMessageDBInsert = {
       ...messagePayload,
-      user_id: user.id, // Ensure user_id is set from the authenticated user
+      user_id: user.id, // Set user_id from the authenticated user
+      // created_at will be set by the database default
+      // id will be generated by the database
     };
 
-    console.log("[chatMessageService.saveMessage] Saving message:", messageToSave);
+    console.log("[chatMessageService.saveMessage] Saving message:", JSON.stringify(messageToSave, null, 2));
 
     const { data, error } = await supabase
       .from('chat_messages')
@@ -54306,44 +54279,40 @@ export const chatMessageService = {
       console.error("chatMessageService.saveMessage: Error saving message:", error);
       throw error;
     }
+    if (!data) {
+        console.error("chatMessageService.saveMessage: No data returned after insert.");
+        return null;
+    }
     console.log("[chatMessageService.saveMessage] Message saved successfully:", data);
-    return data;
+    return mapToAppMessage(data as ChatMessageDBRow);
   },
 
   /**
-   * Fetches chat messages for a specific user, class, and chat mode.
-   * @param classId - The ID of the class.
-   * @param chatMode - The chat mode ('rag' or 'web').
-   * @param limit - The maximum number of messages to fetch (default 50).
-   * @param beforeTimestamp - Optional: Fetch messages created before this timestamp (for pagination).
-   * @returns An array of chat messages for the application.
+   * Fetches chat messages for a specific conversation.
    */
-  fetchMessages: async (
-    classId: string,
-    chatMode: 'rag' | 'web',
+  fetchMessagesByConversation: async (
+    conversationId: string,
     limit: number = 50,
-    beforeTimestamp?: string // ISO string
+    beforeTimestamp?: string // ISO string for pagination
   ): Promise<ChatMessageApp[]> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.warn("chatMessageService.fetchMessages: User not authenticated. Returning empty array.");
+      console.warn("chatMessageService.fetchMessagesByConversation: User not authenticated.");
       return [];
     }
-
-    if (!classId) {
-      console.warn("chatMessageService.fetchMessages: classId is required. Returning empty array.");
-      return [];
+    if (!conversationId) {
+        console.warn("chatMessageService.fetchMessagesByConversation: conversationId is required.");
+        return [];
     }
     
-    console.log(`[chatMessageService.fetchMessages] Fetching messages for user: ${user.id}, class: ${classId}, mode: ${chatMode}, limit: ${limit}, before: ${beforeTimestamp || 'N/A'}`);
+    console.log(`[chatMessageService.fetchMessagesByConversation] Fetching messages for conversation: ${conversationId}, limit: ${limit}, before: ${beforeTimestamp || 'N/A'}`);
 
     let query = supabase
       .from('chat_messages')
       .select('*')
-      .eq('user_id', user.id)
-      .eq('class_id', classId)
-      .eq('chat_mode', chatMode)
-      .order('created_at', { ascending: false }) // Fetch newest first for limit, then reverse for display
+      .eq('user_id', user.id) 
+      .eq('conversation_id', conversationId) 
+      .order('created_at', { ascending: false }) 
       .limit(limit);
 
     if (beforeTimestamp) {
@@ -54353,36 +54322,45 @@ export const chatMessageService = {
     const { data, error } = await query;
 
     if (error) {
-      console.error("chatMessageService.fetchMessages: Error fetching messages:", error);
+      console.error("chatMessageService.fetchMessagesByConversation: Error fetching messages:", error);
       throw error;
     }
 
-    const appMessages: ChatMessageApp[] = (data || []).map((dbRow: ChatMessageDBRow) => ({
-      id: dbRow.id,
-      role: dbRow.role as 'user' | 'assistant' | 'system', // Type assertion
-      content: dbRow.content,
-      createdAt: new Date(dbRow.created_at),
-    }));
-    
-    console.log(`[chatMessageService.fetchMessages] Fetched ${appMessages.length} messages.`);
-    return appMessages.reverse(); // Reverse to show oldest first in chat UI
+    const appMessages: ChatMessageApp[] = (data || []).map(mapToAppMessage);
+    console.log(`[chatMessageService.fetchMessagesByConversation] Fetched ${appMessages.length} messages.`);
+    return appMessages.reverse(); 
   },
-  
-  // Optional: Add a function to delete all messages for a class (e.g., if a class is deleted)
-  // This would typically be called by a service_role key from an Edge Function or admin panel.
-  // deleteMessagesForClass: async (classId: string, userId: string): Promise<void> => {
-  //   console.log(`[chatMessageService.deleteMessagesForClass] Deleting all messages for class: ${classId}, user: ${userId}`);
-  //   const { error } = await supabase
-  //     .from('chat_messages')
-  //     .delete()
-  //     .eq('class_id', classId)
-  //     .eq('user_id', userId);
-  //   if (error) {
-  //     console.error("chatMessageService.deleteMessagesForClass: Error deleting messages:", error);
-  //     throw error;
-  //   }
-  //   console.log(`[chatMessageService.deleteMessagesForClass] Messages deleted for class: ${classId}`);
-  // },
+
+  /**
+   * Original fetchMessages.
+   */
+  fetchMessages: async (
+    classId: string,
+    chatMode: 'rag' | 'web',
+    limit: number = 50,
+    beforeTimestamp?: string 
+  ): Promise<ChatMessageApp[]> => {
+    console.warn("[chatMessageService.fetchMessages] This function might be deprecated or need adaptation for conversation-based chat. Currently fetches messages with NULL conversation_id.");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    let query = supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('class_id', classId)
+      .eq('chat_mode', chatMode)
+      .is('conversation_id', null) 
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (beforeTimestamp) {
+      query = query.lt('created_at', beforeTimestamp);
+    }
+    const { data, error } = await query;
+    if (error) { console.error("Error in original fetchMessages:", error); throw error; }
+    return (data || []).map(mapToAppMessage).reverse();
+  },
 };
 
 ================
@@ -54796,6 +54774,204 @@ export const classOpenAIConfigService = {
       sessionStorage.removeItem('activeClass');
       console.log(`Cleared all database class data and session storage for user: ${user.id}.`);
     } catch (error) { console.error('Error clearing all class data:', error); throw error; }
+  },
+};
+
+================
+File: src/services/conversationService.ts
+================
+// src/services/conversationService.ts
+import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
+import type { CustomDatabase } from "@/integrations/supabase/client"; 
+
+// Align with the 'conversations' table schema from your Supabase PDF / types.ts
+export type ConversationDBRow = Omit<CustomDatabase['public']['Tables']['conversations']['Row'], 'conversation_title' | 'name'> & {
+    title: string; 
+};
+
+// For insert, we'll expect 'name' from the app, and map it to 'title' for the DB.
+// ADD chatbot_type to the insert payload.
+export type ConversationDBInsert = Omit<CustomDatabase['public']['Tables']['conversations']['Insert'], 'conversation_title' | 'name' | 'title' | 'chatbot_type'> & {
+    title: string; 
+    chatbot_type: string; // Added chatbot_type, assuming it's text like chat_mode
+};
+
+// For update, similar mapping.
+export type ConversationDBUpdate = Omit<CustomDatabase['public']['Tables']['conversations']['Update'], 'conversation_title' | 'name' | 'title' | 'chatbot_type'> & {
+    title?: string;
+    chatbot_type?: string; // Allow updating chatbot_type if needed
+    updated_at: string; 
+};
+
+
+// Interface for application use, uses 'name' for consistency in the app.
+export interface AppConversation {
+  id: string; 
+  name: string; 
+  user_id: string;
+  class_id: string;
+  chat_mode: 'rag' | 'web'; // This is used to determine chatbot_type for new conversations
+  chatbot_type: string; // Added to reflect the DB column
+  created_at: Date;
+  last_message_at: Date;
+  updated_at: Date; 
+}
+
+const mapToAppConversation = (dbRow: ConversationDBRow): AppConversation => ({
+  id: dbRow.id, 
+  name: dbRow.title, 
+  user_id: dbRow.user_id,
+  class_id: dbRow.class_id,
+  chat_mode: dbRow.chat_mode as 'rag' | 'web', 
+  chatbot_type: dbRow.chatbot_type, // Map from DB
+  created_at: new Date(dbRow.created_at),
+  last_message_at: new Date(dbRow.last_message_at),
+  updated_at: new Date(dbRow.updated_at),
+});
+
+export const conversationService = {
+  fetchConversations: async (
+    userId: string,
+    classId: string,
+    chatMode: 'rag' | 'web'
+  ): Promise<AppConversation[]> => {
+    console.log(`[conversationService] Fetching conversations for user: ${userId}, class: ${classId}, mode: ${chatMode}`);
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('class_id', classId)
+      .eq('chat_mode', chatMode) // Assuming you still want to filter by chat_mode for the sidebar
+      .order('last_message_at', { ascending: false });
+
+    if (error) {
+      console.error("[conversationService] Error fetching conversations:", error);
+      throw error;
+    }
+    console.log(`[conversationService] Fetched ${data?.length || 0} conversations.`);
+    return (data || []).map(dbRow => mapToAppConversation(dbRow as unknown as ConversationDBRow));
+  },
+
+  createConversation: async (
+    // Payload from app will have 'name' and 'chat_mode'. We use chat_mode for chatbot_type.
+    payload: { name: string; class_id: string; chat_mode: 'rag' | 'web'; },
+    userId: string
+  ): Promise<AppConversation> => {
+    console.log(`[conversationService] Creating conversation for user: ${userId} with app payload:`, payload);
+    const insertData: ConversationDBInsert = {
+      title: payload.name, 
+      class_id: payload.class_id,
+      chat_mode: payload.chat_mode,
+      chatbot_type: payload.chat_mode, // Use chat_mode as the value for chatbot_type
+      user_id: userId,
+    };
+    const { data, error } = await supabase
+      .from('conversations')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[conversationService] Error creating conversation:", error.message, error.details, error.hint);
+      throw error;
+    }
+    if (!data) {
+      throw new Error("Failed to create conversation: No data returned.");
+    }
+    console.log("[conversationService] Conversation created successfully:", data);
+    return mapToAppConversation(data as unknown as ConversationDBRow);
+  },
+
+  renameConversation: async (
+    conversationId: string,
+    newName: string, 
+    userId: string
+  ): Promise<AppConversation> => {
+    console.log(`[conversationService] Renaming conversation ${conversationId} to "${newName}" for user ${userId}`);
+    const updatePayload: ConversationDBUpdate = {
+        title: newName, 
+        updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase
+      .from('conversations')
+      .update(updatePayload)
+      .eq('id', conversationId) 
+      .eq('user_id', userId) 
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[conversationService] Error renaming conversation:", error);
+      throw error;
+    }
+    if (!data) {
+      throw new Error("Failed to rename conversation: Conversation not found or permission denied.");
+    }
+    console.log("[conversationService] Conversation renamed successfully:", data);
+    return mapToAppConversation(data as unknown as ConversationDBRow);
+  },
+
+  deleteConversation: async (
+    conversationId: string,
+    userId: string
+  ): Promise<void> => {
+    console.log(`[conversationService] Deleting conversation ${conversationId} for user ${userId}`);
+    
+    const { error: messagesError } = await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('conversation_id', conversationId) 
+      .eq('user_id', userId); 
+
+    if (messagesError) {
+      console.error(`[conversationService] Error deleting messages for conversation ${conversationId}:`, messagesError);
+      throw messagesError;
+    }
+    console.log(`[conversationService] Successfully deleted messages for conversation ${conversationId}.`);
+
+    const { error: conversationError } = await supabase
+      .from('conversations')
+      .delete()
+      .eq('id', conversationId) 
+      .eq('user_id', userId);
+
+    if (conversationError) {
+      console.error(`[conversationService] Error deleting conversation ${conversationId}:`, conversationError);
+      throw conversationError;
+    }
+    console.log(`[conversationService] Conversation ${conversationId} deleted successfully.`);
+  },
+
+  updateConversationTimestamp: async (
+    conversationId: string,
+    userId: string,
+    lastMessageAt?: Date 
+  ): Promise<AppConversation> => {
+    const timestamp = lastMessageAt || new Date();
+    console.log(`[conversationService] Updating timestamp for conversation ${conversationId} to ${timestamp.toISOString()} for user ${userId}`);
+    
+    const updatePayload: Partial<ConversationDBUpdate> = { 
+        last_message_at: timestamp.toISOString(),
+        updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase
+      .from('conversations')
+      .update(updatePayload)
+      .eq('id', conversationId) 
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[conversationService] Error updating conversation timestamp:", error);
+      throw error;
+    }
+    if (!data) {
+      throw new Error("Failed to update conversation timestamp: Conversation not found or permission denied.");
+    }
+    console.log("[conversationService] Conversation timestamp updated successfully:", data);
+    return mapToAppConversation(data as unknown as ConversationDBRow);
   },
 };
 
@@ -55503,9 +55679,14 @@ interface ImportMeta {
 }
 
 ================
+File: supabase/.branches/_current_branch
+================
+main
+
+================
 File: supabase/.temp/cli-latest
 ================
-v2.22.12
+v2.24.3
 
 ================
 File: supabase/functions/_shared/cors.ts
@@ -55519,17 +55700,15 @@ export const corsHeaders = {
 File: supabase/functions/chat/index.ts
 ================
 // supabase/functions/chat/index.ts
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ASSISTANT_RUN_TIMEOUT = 45000; 
 
-interface FileCitation { file_id: string; quote?: string; }
-interface FilePath { file_id: string; }
-interface FileCitationAnnotation { type: "file_citation"; text: string; start_index: number; end_index: number; file_citation: FileCitation; }
-interface FilePathAnnotation { type: "file_path"; text: string; start_index: number; end_index: number; file_path: FilePath; }
+// OpenAI Annotation Types (assuming these are defined as before)
+interface FileCitationAnnotation { type: "file_citation"; text: string; start_index: number; end_index: number; file_citation: { file_id: string; quote?: string; }; }
+interface FilePathAnnotation { type: "file_path"; text: string; start_index: number; end_index: number; file_path: { file_id: string; }; }
 type Annotation = FileCitationAnnotation | FilePathAnnotation;
 interface OpenAIMessageContentText { type: "text"; text: { value: string; annotations: Annotation[]; }; }
 type OpenAIMessageContent = OpenAIMessageContentText;
@@ -55539,6 +55718,22 @@ interface OpenAIRun { id: string; status: 'queued' | 'in_progress' | 'cancelling
 interface OpenAIMessagesList { data?: OpenAIMessage[]; }
 interface OpenAIChatCompletionChoice { message: { content: string; }; }
 interface OpenAIChatCompletion { choices: OpenAIChatCompletionChoice[]; }
+
+
+// Helper function to clean up excessive newlines
+function cleanResponseText(text: string): string {
+  let cleaned = text;
+  // Replace 3 or more newlines with exactly two (paragraph break)
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+  // Remove newlines that might occur directly after a list marker followed by a space
+  // e.g., "1. \nSome text" -> "1. Some text"
+  // e.g., "- \nSome text" -> "- Some text"
+  cleaned = cleaned.replace(/^(\s*(\d+\.|-|\*)\s+)\n+/gm, '$1');
+  // Remove leading/trailing newlines from the entire response
+  cleaned = cleaned.trim();
+  return cleaned;
+}
+
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -55560,10 +55755,11 @@ serve(async (req: Request) => {
     if (!message) throw new Error("User message is required.");
 
     const assistantId = openAIConfig.assistantId;
-    const vectorStoreId = openAIConfig.vectorStoreId;
+    // const vectorStoreId = openAIConfig.vectorStoreId; // Not directly used in prompt, but by assistant
 
     console.log(`[CHAT_FN] Request for: "${knowledgeBase}". AssistantID: ${assistantId || 'N/A'}`);
 
+    // MODIFIED: Added instruction for compact lists
     const citationInstructions = `
       When you use information from provided files, your response will contain annotations like 【1:0†source】 or similar.
       These annotations will be automatically replaced by the system with proper citations.
@@ -55574,7 +55770,17 @@ serve(async (req: Request) => {
       You do not need to manually create citation strings or include raw file paths in your narrative text.
     `;
 
-    const assistantBaseInstructions = `You are an AI Tutor for the class: "${knowledgeBase}". ${citationInstructions} Please be helpful and clear. When presenting lists or multiple points, use markdown formatting such as bullet points (-) or numbered lists (1., 2.) for better readability.`;
+    // MODIFIED: Enhanced instructions for list formatting
+    const assistantBaseInstructions = `You are an AI Tutor for the class: "${knowledgeBase}". ${citationInstructions} Please be helpful and clear. 
+    When presenting lists or multiple points, use markdown formatting such as bullet points (-) or numbered lists (1., 2.) for better readability.
+    Ensure that list items are compact. Do not add empty newlines between list items unless it's a new paragraph within an item. 
+    For example, prefer:
+    1. Point one.
+    2. Point two.
+    Instead of:
+    1. Point one.
+
+    2. Point two.`;
 
     if (assistantId) {
       try {
@@ -55630,36 +55836,23 @@ serve(async (req: Request) => {
                 else if (annotation.type === "file_path") openAIFileId = annotation.file_path.file_id;
 
                 if (openAIFileId) {
-                  console.log(`[CHAT_FN] Processing annotation for OpenAI File ID: ${openAIFileId}, Original text: "${annotation.text}"`);
                   const { data: fileData, error: dbError } = await supabaseAdminClient
                     .from('files')
                     .select('name, url') 
                     .eq('openai_file_id', openAIFileId)
                     .single();
                   
-                  console.log(`[CHAT_FN] DB result for ${openAIFileId} - Name: ${fileData?.name}, URL from DB: "${fileData?.url}", Error: ${dbError?.message}`);
-
-                  let citationText = `(${annotation.text.trim() || `Source: ${openAIFileId}`})`; // Default fallback with parentheses
-
+                  let citationText = `(${annotation.text.trim() || `Source: ${openAIFileId}`})`;
                   if (!dbError && fileData && fileData.name) {
                     let urlForLink = fileData.url;
                     if (urlForLink) {
-                      // ** MORE DIRECT URL HOTFIX **
-                      // Replace both encoded and unencoded forms of <em> if they corrupt 'file_storage'
                       urlForLink = urlForLink.replace(/file%3Cem%3Estorage/g, 'file_storage')
-                                             .replace(/file%3C\/em%3Estorage/g, 'file_storage') // Handle if slash is also encoded
+                                             .replace(/file%3C\/em%3Estorage/g, 'file_storage')
                                              .replace(/file<em>storage/g, 'file_storage');
-                      
-                      console.log(`[CHAT_FN] URL after potential hotfix: "${urlForLink}"`);
-                      citationText = `([${fileData.name}](${urlForLink}))`; // Wrap Markdown link in parentheses
+                      citationText = `([${fileData.name}](${urlForLink}))`;
                     } else {
                       citationText = `(${fileData.name})`; 
-                      console.warn(`[CHAT_FN] File record for OpenAI file ID ${openAIFileId} has NO URL. Citation: ${citationText}`);
                     }
-                  } else if (dbError) {
-                    console.error(`[CHAT_FN] DB lookup error for OpenAI file ID ${openAIFileId}:`, dbError.message);
-                  } else {
-                     console.warn(`[CHAT_FN] No file record or name in DB for OpenAI file ID ${openAIFileId}. Fallback citation: ${citationText}`);
                   }
                   replacements.push({ start: annotation.start_index, end: annotation.end_index, text: ` ${citationText} ` });
                 }
@@ -55671,29 +55864,23 @@ serve(async (req: Request) => {
               
               assistantMessageContent = rawText; 
               assistantMessageContent = assistantMessageContent.replace(/【\s*\d+:\d+†(?:source)?\s*】/g, ''); 
-              
-              // Simplified italic/bold cleanup: remove them if they are directly around our generated citations.
-              // This is less aggressive and relies more on the AI not adding them in the first place.
-              assistantMessageContent = assistantMessageContent.replace(/\*([(\[][^)]*?[)\]])\*/g, '$1'); // For * (citation) * or * [citation](url) *
-              assistantMessageContent = assistantMessageContent.replace(/_([(\[][^)]*?[)\]])_/g, '$1'); // For _ (citation) _ or _ [citation](url) _
-
+              assistantMessageContent = assistantMessageContent.replace(/\*([(\[][^)]*?[)\]])\*/g, '$1'); 
+              assistantMessageContent = assistantMessageContent.replace(/_([(\[][^)]*?[)\]])_/g, '$1'); 
               assistantMessageContent = assistantMessageContent.replace(/(\[[^\]]+\]\([^)]+\))\s*\|\s*\1/gi, '$1');
               assistantMessageContent = assistantMessageContent.replace(/(\([^)]+\.(?:pdf|docx?|pptx?|txt))\)\s*\|\s*\1/gi, '$1');
               
-              assistantMessageContent = assistantMessageContent.replace(/[ \t]{2,}/g, ' '); 
-              assistantMessageContent = assistantMessageContent.replace(/\n\s*\n/g, '\n\n'); 
-              assistantMessageContent = assistantMessageContent.trim(); 
+              // Apply cleanup for newlines
+              assistantMessageContent = cleanResponseText(assistantMessageContent);
             }
           }
 
           if (!assistantMessageContent && latestAssistantMessages && latestAssistantMessages.length > 0 && latestAssistantMessages[0].content[0]?.type === 'text') {
-             assistantMessageContent = latestAssistantMessages[0].content[0].text.value || "[Could not retrieve citation details]";
+             assistantMessageContent = cleanResponseText(latestAssistantMessages[0].content[0].text.value || "[Could not retrieve citation details]");
           } else if (!assistantMessageContent) {
-            console.warn("No textual assistant message content was derived after processing.");
-            assistantMessageContent = "[Assistant provided a non-text response or text processing resulted in empty content]";
+            throw new Error('No assistant response content received.');
           }
 
-          return new Response(JSON.stringify({ response: assistantMessageContent, assistantId: assistantId, vectorStoreId: vectorStoreId, usedAssistant: true }),
+          return new Response(JSON.stringify({ response: assistantMessageContent, assistantId: assistantId, vectorStoreId: openAIConfig.vectorStoreId, usedAssistant: true }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         } else {
           throw new Error(`Assistant run failed. Status: ${run.status}. ${run.last_error?.message || ''}`);
@@ -55704,9 +55891,10 @@ serve(async (req: Request) => {
       }
     }
 
-    // Fallback logic ...
+    // Fallback logic
     console.log("Using fallback Chat Completions API.");
-    let systemMessageContent = `You are a helpful AI Tutor. The user is asking about "${knowledgeBase}". Provide clear and concise explanations. When presenting lists or multiple points, use markdown formatting such as bullet points (-) or numbered lists (1., 2.) for better readability.`;
+    // MODIFIED: Added instruction for compact lists to fallback as well
+    let systemMessageContent = `You are a helpful AI Tutor. The user is asking about "${knowledgeBase}". Provide clear and concise explanations. When presenting lists or multiple points, use markdown formatting such as bullet points (-) or numbered lists (1., 2.) for better readability. Ensure that list items are compact and do not have empty lines between them unless it's a new paragraph within an item.`;
     if (assistantId) systemMessageContent += ` (Note: An attempt to use a specialized class assistant (ID: ${assistantId}) failed.)`;
     else systemMessageContent += ` (Note: No specific class assistant was configured.)`;
 
@@ -55720,11 +55908,10 @@ serve(async (req: Request) => {
     let fallbackMessageContent = fallbackData.choices?.[0]?.message?.content || ""; 
     if (!fallbackMessageContent) throw new Error('Invalid response from fallback OpenAI API');
     
-    fallbackMessageContent = fallbackMessageContent.replace(/[ \t]{2,}/g, ' ');
-    fallbackMessageContent = fallbackMessageContent.replace(/\n{3,}/g, '\n\n');
-    fallbackMessageContent = fallbackMessageContent.trim();
+    // Apply cleanup for newlines to fallback response
+    fallbackMessageContent = cleanResponseText(fallbackMessageContent);
 
-    return new Response(JSON.stringify({ response: fallbackMessageContent, assistantId: assistantId, vectorStoreId: vectorStoreId, usedAssistant: false, usedFallback: true }),
+    return new Response(JSON.stringify({ response: fallbackMessageContent, assistantId: assistantId, vectorStoreId: openAIConfig.vectorStoreId, usedAssistant: false, usedFallback: true }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error: unknown) {
@@ -56479,6 +56666,84 @@ Example: {"questions": [{"question_text": "What is...", "options": ["A", "B", "C
     );
   }
 });
+
+================
+File: supabase/functions/generate-title/index.ts
+================
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { OpenAI } from "https://deno.land/x/openai/mod.ts";
+
+// Define the CORS headers that our function will use
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*', // Allow any origin
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  // This is for the browser's preflight "permission slip" request
+  if (req.method === 'OPTIONS') {
+    console.log("--- [INFO] Handled OPTIONS preflight request ---");
+    return new Response('ok', { headers: CORS_HEADERS });
+  }
+
+  try {
+    console.log("--- [1] generate-title function invoked (POST) ---");
+
+    console.log("--- [2] Checking for API Key ---");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      console.error("--- [ERROR] Missing OPENAI_API_KEY secret. ---");
+      throw new Error("Missing OPENAI_API_KEY secret.");
+    }
+    console.log("--- [3] API Key found. Parsing request body. ---");
+
+    const { query } = await req.json();
+    if (!query) {
+      console.error("--- [ERROR] Missing query in request body. ---");
+      return new Response(JSON.stringify({ error: 'Missing query in request body' }), {
+        status: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+    console.log("--- [4] Request body parsed. Initializing OpenAI client. ---");
+
+    const openai = new OpenAI(OPENAI_API_KEY);
+
+    console.log("--- [5] Calling OpenAI API... ---");
+    const chatCompletion = await openai.chat.completions.create({
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are an expert at creating short, concise, 3-4 word titles for chat conversations based on the user\'s first message. Do not use quotes in the title. Be direct and relevant.' 
+        },
+        { 
+          role: 'user', 
+          content: `Generate a title for a conversation starting with: "${query}"` 
+        },
+      ],
+      model: 'gpt-3.5-turbo',
+      max_tokens: 20,
+      temperature: 0.3,
+    });
+    console.log("--- [6] OpenAI API call successful. ---");
+
+    const title = chatCompletion.choices[0].message.content?.trim() || "New Chat";
+
+    // Return the successful response with CORS headers
+    return new Response(JSON.stringify({ title }), {
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error("--- [7] CAUGHT ERROR BLOCK ---");
+    console.error(error.message);
+    // Return the error response with CORS headers
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+})
 
 ================
 File: supabase/functions/list-vector-store-files/index.ts

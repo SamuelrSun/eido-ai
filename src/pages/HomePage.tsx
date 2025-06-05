@@ -1,5 +1,5 @@
 // src/pages/HomePage.tsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react"; // Added useRef
 import { ArrowRight, PlusCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -11,9 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import { EditClassDialog } from "@/components/class/EditClassDialog";
 import { classOpenAIConfigService, ClassConfig, OpenAIConfig } from "@/services/classOpenAIConfig";
 import { getEmojiForClass } from "@/utils/emojiUtils";
-import type { User } from "@supabase/supabase-js";
+import type { User, Session } from "@supabase/supabase-js"; // Added Session
 import type { WidgetType } from "@/hooks/use-widgets";
-import { cn } from "@/lib/utils"; // Import cn for conditional classes
+import { cn } from "@/lib/utils"; 
 
 interface ClassOption {
   class_id: string;
@@ -43,8 +43,12 @@ const HomePage = () => {
 
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
   const [user, setUser] = useState<User | null>(null);
+  
+  // MODIFICATION: Added useRef to track previous user ID
+  const prevUserIdRef = useRef<string | null | undefined>(undefined);
 
   const fetchUserDataAndClasses = useCallback(async (currentUser: User | null) => {
+    console.log("[HomePage] fetchUserDataAndClasses called with user:", currentUser?.id);
     setIsLoading(true);
     try {
       if (currentUser) {
@@ -64,7 +68,6 @@ const HomePage = () => {
         } else {
           const emailName = currentUser.email?.split('@')[0] || "Student";
           setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1)); 
-          console.log("No full_name in profile, using email prefix for greeting.");
         }
 
         const userClasses: ClassConfig[] = await classOpenAIConfigService.getAllClasses();
@@ -101,23 +104,49 @@ const HomePage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]); 
+  }, [toast]); // toast is stable, classOpenAIConfigService.getAllClasses is stable as it's an import
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user || null;
-      setUser(currentUser);
-      fetchUserDataAndClasses(currentUser); 
-      if (_event === 'SIGNED_OUT') {
+    // MODIFICATION: Moved auth logic into a handler function
+    const handleAuthChange = async (event: string, session: Session | null) => {
+      console.log("[HomePage] onAuthStateChange event:", event, "session user:", session?.user?.id);
+      const currentAuthUser = session?.user || null;
+      const currentUserId = currentAuthUser?.id;
+
+      // Only update user state if the user object reference or ID actually changes
+      // This helps prevent re-setting user state if the session object is new but user is the same
+      if (user?.id !== currentUserId || (!user && currentAuthUser) || (user && !currentAuthUser) ) {
+         setUser(currentAuthUser);
+      }
+
+      // Only refetch if user ID changes, or if it's the first time we have a user
+      // and it wasn't the same as the very initial (potentially null) prevUserIdRef
+      if (currentUserId !== prevUserIdRef.current || (currentUserId && prevUserIdRef.current === undefined)) {
+        console.log(`[HomePage] User ID changed or initial valid user. Old: ${prevUserIdRef.current}, New: ${currentUserId}. Fetching data.`);
+        fetchUserDataAndClasses(currentAuthUser);
+      } else {
+        console.log(`[HomePage] User ID same as previous (${prevUserIdRef.current}). Skipping data fetch on this auth event.`);
+      }
+      prevUserIdRef.current = currentUserId; // Update ref after comparison
+
+      if (event === 'SIGNED_OUT') {
         sessionStorage.removeItem('activeClass');
         navigate("/auth");
       }
-    });
+    };
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(handleAuthChange);
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      const currentUser = session?.user || null;
-      setUser(currentUser);
-      fetchUserDataAndClasses(currentUser);
+      console.log("[HomePage] Initial getSession user:", session?.user?.id);
+      const initialAuthUser = session?.user || null;
+      // Set user state first
+      setUser(initialAuthUser); 
+      // Then, if this is the first time we're setting prevUserIdRef or if it's different
+      if (initialAuthUser?.id !== prevUserIdRef.current || (initialAuthUser?.id && prevUserIdRef.current === undefined)) {
+        fetchUserDataAndClasses(initialAuthUser);
+      }
+      prevUserIdRef.current = initialAuthUser?.id; // Set ref after initial fetch consideration
     });
     
     sessionStorage.removeItem('activeClass');
@@ -125,6 +154,8 @@ const HomePage = () => {
     return () => {
       authListener.subscription.unsubscribe();
     };
+  // fetchUserDataAndClasses is stable due to its useCallback deps
+  // navigate is stable
   }, [fetchUserDataAndClasses, navigate]); 
 
   const handleCreateClass = async (classDialogData: CreateClassDialogClassData) => {
@@ -258,7 +289,6 @@ const HomePage = () => {
     navigate(classOption.link);
   };
 
-
   return (
     <div className="space-y-8 pb-8">
       <div className="flex justify-between items-center">
@@ -322,7 +352,6 @@ const HomePage = () => {
                   <div className="mb-4 p-3 bg-primary/10 rounded-lg w-fit">
                     <span className="text-4xl">{option.emoji}</span>
                   </div>
-                  {/* MODIFICATION: Added min-h-[3rem] (h-12) to ensure consistent height, removed flex items-center */}
                   <CardTitle title={option.title} className="min-h-[3rem]"> 
                     {option.title}
                   </CardTitle> 

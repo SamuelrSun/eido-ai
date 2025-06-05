@@ -1,4 +1,4 @@
-// src/components/SuperTutor/ConversationSidebar.tsx
+// src/components/Supertutor/ConversationSidebar.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { PlusCircle, MessageSquare, MoreHorizontal, Edit3, Trash2, Loader2, MessageSquareText } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,7 +14,7 @@ interface ConversationItemProps {
   isSelected: boolean;
   onSelect: (id: string) => void;
   onRename: (id: string, newName: string) => void;
-  onDelete: (id: string) => void;
+  onAttemptDelete: (id: string, name: string) => void; 
 }
 
 const ConversationItem: React.FC<ConversationItemProps> = ({
@@ -22,12 +22,17 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
   isSelected,
   onSelect,
   onRename,
-  onDelete,
+  onAttemptDelete, 
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(conversation.name);
-  const menuRef = useRef<HTMLDivElement>(null);
+  
+  // MODIFICATION: Renamed menuRef to triggerRef for clarity
+  const triggerRef = useRef<HTMLDivElement>(null); 
+  // MODIFICATION: Added a new ref for the dropdown menu itself
+  const dropdownMenuRef = useRef<HTMLDivElement>(null); 
+  
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleRenameSubmit = (e?: React.FormEvent) => {
@@ -39,17 +44,30 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
     setIsMenuOpen(false);
   };
 
+  // MODIFICATION: Updated handleClickOutside to check both refs
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      // If the menu is open and the click is outside both the trigger and the menu content
+      if (
+        isMenuOpen &&
+        triggerRef.current && 
+        !triggerRef.current.contains(event.target as Node) &&
+        dropdownMenuRef.current && 
+        !dropdownMenuRef.current.contains(event.target as Node)
+      ) {
         setIsMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+
+    // Add listener only when menu is open
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [isMenuOpen]); // Re-run when isMenuOpen changes
 
   useEffect(() => {
     if (isRenaming && inputRef.current) {
@@ -102,7 +120,8 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
       </div>
 
       {!isRenaming && (
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity" ref={menuRef}>
+        // MODIFICATION: Attached triggerRef to the trigger's container div
+        <div className="opacity-100" ref={triggerRef}> 
           <button
             onClick={(e) => {
               e.stopPropagation(); 
@@ -114,7 +133,11 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
             <MoreHorizontal size={18} />
           </button>
           {isMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-800 rounded-md shadow-lg z-20 border border-slate-200 dark:border-slate-700 py-1">
+            // MODIFICATION: Attached dropdownMenuRef to the dropdown menu div
+            <div 
+              ref={dropdownMenuRef} 
+              className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-800 rounded-md shadow-lg z-20 border border-slate-200 dark:border-slate-700 py-1"
+            >
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -129,7 +152,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDelete(conversation.id);
+                  onAttemptDelete(conversation.id, conversation.name); 
                   setIsMenuOpen(false);
                 }}
                 className="flex items-center w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
@@ -150,7 +173,7 @@ interface ConversationSidebarProps {
   onSelectConversation: (id: string) => void;
   onCreateNewConversation: () => void;
   onRenameConversation: (id: string, newName: string) => Promise<void>;
-  onDeleteConversation: (id: string) => Promise<void>;
+  onAttemptDeleteConversation: (id: string, name: string) => void; 
   isLoading?: boolean;
   className?: string;
 }
@@ -161,7 +184,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   onSelectConversation,
   onCreateNewConversation,
   onRenameConversation,
-  onDeleteConversation,
+  onAttemptDeleteConversation, 
   isLoading = false,
   className = '',
 }) => {
@@ -170,7 +193,6 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   return (
     <div
       className={cn(
-        // Changed background to white for light mode, and dark:bg-card to match chat window in dark mode
         'flex flex-col bg-white dark:bg-card w-64 h-full', 
         className 
       )}
@@ -180,7 +202,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         <button
           onClick={onCreateNewConversation}
           className={cn(
-            "flex items-center justify-center w-full p-2.5 rounded-lg text-sm font-medium transition-colors duration-150 shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:focus-visible:ring-offset-card", // Adjusted dark mode offset to dark:bg-card
+            "flex items-center justify-center w-full p-2.5 rounded-lg text-sm font-medium transition-colors duration-150 shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:focus-visible:ring-offset-card",
             newChatButtonColorClasses
           )}
         >
@@ -214,7 +236,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                 isSelected={convo.id === selectedConversationId}
                 onSelect={onSelectConversation}
                 onRename={onRenameConversation}
-                onDelete={onDeleteConversation}
+                onAttemptDelete={onAttemptDeleteConversation} 
               />
             ))}
           </div>
