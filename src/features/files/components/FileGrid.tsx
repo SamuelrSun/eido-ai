@@ -1,9 +1,9 @@
 // src/features/files/components/FileGrid.tsx
-import * as React from "react";
-import { File as FileIcon, Folder as FolderIcon, MoreHorizontal, Trash2 } from "lucide-react";
+import React from "react";
+import { File as FileIcon, Folder as FolderIcon, MoreHorizontal, Trash2 as TrashIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { FileType, FolderType, SelectedItem } from "@/features/files/types"; // Adjusted import path
+import { FileType, FolderType, SelectedItem } from "@/features/files/types";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatFileSize } from "@/lib/utils";
@@ -16,9 +16,9 @@ interface FileGridProps {
   loading: boolean;
   selectionMode: boolean;
   selectedItems: SelectedItem[];
-  onFileSelect: (file: FileType) => void; // For selection mode
-  onFolderClick: (folder: FolderType) => void; // For navigating into folders
-  onDeleteItem: (id: string, isFolder: boolean, name: string) => void;
+  onFileSelect: (file: FileType) => void;
+  onFolderClick: (folder: FolderType) => void;
+  onDeleteItem: (id: string, itemType: 'file' | 'folder', name: string) => void; // Corrected prop signature
   onFileOpen: (url: string) => void;
   currentFolderId: string | null;
 }
@@ -30,7 +30,7 @@ export function FileGrid({
   selectionMode,
   selectedItems,
   onFileSelect,
-  onFolderClick, 
+  onFolderClick,
   onDeleteItem,
   onFileOpen,
   currentFolderId,
@@ -44,20 +44,7 @@ export function FileGrid({
     );
   }
 
-  if (files.length === 0 && folders.length === 0 && currentFolderId === null) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center py-10">
-        <FolderIcon className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
-        <h3 className="text-lg font-medium text-gray-700">No files or folders</h3>
-        <p className="text-gray-500 mb-4 max-w-md">
-          Upload files or create folders to get started. You can also drag and drop
-          files here.
-        </p>
-      </div>
-    );
-  }
-
-  if (files.length === 0 && folders.length === 0 && currentFolderId !== null) {
+  if (files.length === 0 && folders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center py-10">
         <FolderIcon className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
@@ -72,7 +59,6 @@ export function FileGrid({
   return (
     <ScrollArea className="h-full">
       <div className="space-y-4">
-        {/* Folders Section */}
         {folders.length > 0 && (
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-2 px-1">Folders</h3>
@@ -81,16 +67,13 @@ export function FileGrid({
                 <Card
                   key={folder.folder_id}
                   className={`p-3 transition-all hover:shadow-md cursor-pointer border-border`}
-                  onClick={() => {
-                    onFolderClick(folder);
-                  }}
+                  onClick={() => onFolderClick(folder)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 truncate">
                       <FolderIcon className="h-6 w-6 text-yellow-500 flex-shrink-0" />
                       <span className="text-sm font-medium truncate" title={folder.name}>{folder.name}</span>
                     </div>
-                    {/* Keep dropdown for folders as they are not part of multi-select delete */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
@@ -101,11 +84,12 @@ export function FileGrid({
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
-                            onDeleteItem(folder.folder_id, true, folder.name);
+                            // Correctly passing 'folder' as a string
+                            onDeleteItem(folder.folder_id, 'folder', folder.name);
                           }}
                           className="text-destructive focus:text-destructive focus:bg-destructive/10"
                         >
-                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                          <TrashIcon className="h-4 w-4 mr-2" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -116,7 +100,6 @@ export function FileGrid({
           </div>
         )}
 
-        {/* Files Section */}
         {files.length > 0 && (
           <div className={folders.length > 0 ? "mt-6" : ""}>
             <h3 className="text-sm font-medium text-muted-foreground mb-2 px-1">Files</h3>
@@ -127,13 +110,13 @@ export function FileGrid({
                   className={`p-3 transition-all hover:shadow-md cursor-pointer ${
                     selectedItems.some((item) => item.id === file.file_id && item.type === 'file')
                       ? "ring-2 ring-primary border-primary"
-                      : "border-border" // Restored normal border
+                      : "border-border"
                   }`}
                   onClick={() => {
                     if (selectionMode) {
-                      onFileSelect(file); // This toggles selection for the file
+                      onFileSelect(file);
                     } else if (file.url) {
-                      onFileOpen(file.url); // Opens the file if not in selection mode
+                      onFileOpen(file.url);
                     }
                   }}
                 >
@@ -143,18 +126,14 @@ export function FileGrid({
                         <Checkbox
                           id={`select-file-${file.file_id}`}
                           checked={selectedItems.some((item) => item.id === file.file_id && item.type === 'file')}
-                          onCheckedChange={() => onFileSelect(file)} 
-                          onClick={(e) => {
-                            e.stopPropagation(); 
-                            onFileSelect(file);   
-                          }}
+                          onCheckedChange={() => onFileSelect(file)}
+                          onClick={(e) => { e.stopPropagation(); onFileSelect(file); }}
                           aria-label={`Select file ${file.name}`}
                         />
                       )}
                       <FileIcon className="h-6 w-6 text-blue-500 flex-shrink-0" />
                       <span className="text-sm font-medium truncate" title={file.name}>{file.name}</span>
                     </div>
-                    {/* DropdownMenu for files is intentionally REMOVED here */}
                   </div>
                   {file.status === 'uploading' && file.progress !== undefined ? (
                     <div className="mt-2">

@@ -1,7 +1,6 @@
 // src/services/classOpenAIConfig.ts
 import { supabase } from "@/integrations/supabase/client";
-import type { User } from '@supabase/supabase-js';
-import type { CustomDatabase } from "@/integrations/supabase/client"; // Ensure this path is correct for your project
+import type { CustomDatabase } from "@/integrations/supabase/client";
 
 // Interface for OpenAI specific configurations for a class
 export interface OpenAIConfig {
@@ -9,41 +8,23 @@ export interface OpenAIConfig {
   assistantId?: string | null;
 }
 
-// Interface for the application's representation of a class
-// This is what components will typically work with.
 export interface ClassConfig {
-  class_id: string; // Matches 'classes.class_id'
-  title: string;    // Matches 'classes.class_title'
+  class_id: string;
+  title: string;
   professor?: string | null;
   classTime?: string | null;
   classroom?: string | null;
   emoji?: string | null;
-  enabledWidgets?: string[] | null; // Consider using WidgetType[] if defined globally
+  enabledWidgets?: string[] | null;
   openAIConfig: OpenAIConfig;
-  user_id?: string | null; // Added for completeness, though usually implicit from context
+  user_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
 
-// Type alias for the Insert payload for the 'classes' table from CustomDatabase
-type ClassesDBInsertPayload = NonNullable<CustomDatabase['public']['Tables']['classes']['Insert']>;
-// Type alias for a Row from the 'classes' table
-type ClassesDBRow = NonNullable<CustomDatabase['public']['Tables']['classes']['Row']>;
-
-// For updates, we define a specific payload to only include fields that are intended to be updatable.
-type ClassesDBUpdatePayload = {
-  class_title?: string; // Title might be updatable
-  professor?: string | null;
-  class_time?: string | null;
-  classroom?: string | null;
-  emoji?: string | null;
-  enabled_widgets?: string[] | null; // Or WidgetType[]
-  vector_store_id?: string | null; // Can be updated if manually changed or re-provisioned
-  assistant_id?: string | null;   // Can be updated
-  updated_at: string; // Always update this timestamp
-  // user_id and created_at should not be in an update payload directly
-};
-
+type ClassesDBInsertPayload = CustomDatabase['public']['Tables']['classes']['Insert'];
+type ClassesDBRow = CustomDatabase['public']['Tables']['classes']['Row'];
+type ClassesDBUpdatePayload = Partial<ClassesDBRow>;
 
 /**
  * Service to manage class configurations, including OpenAI resource provisioning.
@@ -312,85 +293,79 @@ export const classOpenAIConfigService = {
 
   deleteClass: async (class_id: string): Promise<void> => {
     if (!class_id) {
-      console.error('Invalid class_id provided for deletion.');
       throw new Error('Valid class_id is required for deletion');
     }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.error('No authenticated user found when deleting class.');
-      throw new Error('Authentication required to delete class configuration');
+      throw new Error('Authentication required to delete a class.');
     }
 
-    let assistantIdToDelete: string | null = null;
-    let vectorStoreIdToDelete: string | null = null;
-    let classTitleForSessionClear: string | undefined;
+    console.log(`[deleteClass] Starting deletion process for class_id: ${class_id}`);
 
     try {
-      console.log(`Preparing to delete class with class_id: ${class_id} for user: ${user.id}`);
-      const { data: classDetails, error: fetchDetailsError } = await supabase
+      // Step 1: Delete all dependent data in Supabase tables.
+      // The order matters if there are dependencies between these tables.
+      // We delete items that depend on others first.
+      console.log(`[deleteClass] Deleting associated chat messages for class ${class_id}...`);
+      const { error: msgError } = await supabase.from('chat_messages').delete().eq('class_id', class_id);
+      if (msgError) console.error("Error deleting chat messages:", msgError);
+
+      console.log(`[deleteClass] Deleting associated conversations for class ${class_id}...`);
+      const { error: convoError } = await supabase.from('conversations').delete().eq('class_id', class_id);
+      if (convoError) console.error("Error deleting conversations:", convoError);
+
+      console.log(`[deleteClass] Deleting associated files for class ${class_id}...`);
+      const { error: filesError } = await supabase.from('files').delete().eq('class_id', class_id);
+      if (filesError) console.error("Error deleting files:", filesError);
+
+      console.log(`[deleteClass] Deleting associated folders for class ${class_id}...`);
+      const { error: foldersError } = await supabase.from('file_folders').delete().eq('class_id', class_id);
+      if (foldersError) console.error("Error deleting file_folders:", foldersError);
+
+      console.log(`[deleteClass] Deleting associated quiz questions for class ${class_id}...`);
+      const { error: quizQError } = await supabase.from('quiz_questions').delete().eq('class_id', class_id);
+      if (quizQError) console.error("Error deleting quiz questions:", quizQError);
+
+      console.log(`[deleteClass] Deleting associated quizzes for class ${class_id}...`);
+      const { error: quizError } = await supabase.from('quizzes').delete().eq('class_id', class_id);
+      if (quizError) console.error("Error deleting quizzes:", quizError);
+      
+      console.log(`[deleteClass] Deleting associated flashcards for class ${class_id}...`);
+      const { error: flashcardsError } = await supabase.from('flashcards').delete().eq('class_id', class_id);
+      if(flashcardsError) console.error("Error deleting flashcards:", flashcardsError);
+
+      console.log(`[deleteClass] Deleting associated flashcard decks for class ${class_id}...`);
+      const { error: decksError } = await supabase.from('flashcard-decks').delete().eq('class_id', class_id);
+      if(decksError) console.error("Error deleting flashcard decks:", decksError);
+      
+      // Step 2: Call the new Edge Function to delete data from Weaviate
+      console.log(`[deleteClass] Invoking function to delete Weaviate data for class ${class_id}...`);
+      const { error: weaviateDeleteError } = await supabase.functions.invoke(
+        'delete-weaviate-data-by-class',
+        { body: { class_id_to_delete: class_id } }
+      );
+      if (weaviateDeleteError) {
+          console.error("Error cleaning up Weaviate data:", weaviateDeleteError);
+          // We can choose to continue or throw an error. For now, we'll log it and proceed.
+      }
+
+      // Step 3: Now it's safe to delete the class record itself.
+      console.log(`[deleteClass] Deleting class record for class_id: ${class_id}`);
+      const { error: deleteClassError } = await supabase
         .from('classes')
-        .select('assistant_id, vector_store_id, class_title')
-        .eq('class_id', class_id)
-        .eq('user_id', user.id)
-        .single();
-
-      if (fetchDetailsError) {
-        console.error(`Error fetching class details for class_id ${class_id} before deletion:`, fetchDetailsError);
-        throw new Error(`Failed to find class to delete (ID: ${class_id}): ${fetchDetailsError.message}`);
+        .delete()
+        .eq('class_id', class_id);
+      
+      if (deleteClassError) {
+        console.error("Error deleting the final class record:", deleteClassError);
+        throw deleteClassError; // This is a critical failure
       }
 
-      assistantIdToDelete = classDetails.assistant_id;
-      vectorStoreIdToDelete = classDetails.vector_store_id;
-      classTitleForSessionClear = classDetails.class_title;
-      console.log(`Found OpenAI resource IDs for class ${classDetails.class_title}: Assistant ID - ${assistantIdToDelete}, Vector Store ID - ${vectorStoreIdToDelete}`);
+      console.log(`[deleteClass] Successfully completed deletion for class_id: ${class_id}`);
 
-      if (assistantIdToDelete || vectorStoreIdToDelete) {
-        console.log(`Invoking 'delete-openai-resources' Edge Function.`);
-        try {
-          const { data: deleteResourcesData, error: deleteResourcesError } = await supabase.functions.invoke(
-            'delete-openai-resources',
-            { body: { assistantId: assistantIdToDelete, vectorStoreId: vectorStoreIdToDelete } }
-          );
-          if (deleteResourcesError) console.error('Error invoking delete-openai-resources Edge Function:', deleteResourcesError);
-          else {
-            console.log('delete-openai-resources Edge Function invoked. Response:', deleteResourcesData);
-            if (deleteResourcesData && !deleteResourcesData.success) {
-                console.warn('OpenAI resource deletion reported partial or full failure:', deleteResourcesData.details);
-            }
-          }
-        } catch (invokeError) { console.error('Exception calling delete-openai-resources Edge Function:', invokeError); }
-      } else {
-        console.log(`No OpenAI resource IDs found for class_id ${class_id}, skipping OpenAI resource deletion.`);
-      }
-
-      const { error: deleteDbError, count } = await supabase
-        .from('classes')
-        .delete({ count: 'exact' })
-        .eq('class_id', class_id)
-        .eq('user_id', user.id);
-
-      if (deleteDbError) {
-        console.error('Error deleting class from Supabase DB:', deleteDbError);
-        throw new Error(`Failed to delete class from database: ${deleteDbError.message}`);
-      }
-      if (count === 0) { // Should not happen if .single() above succeeded
-        console.warn(`Class with class_id '${class_id}' was not deleted from DB (count: 0).`);
-        throw new Error(`Failed to delete class '${classTitleForSessionClear}' from database.`);
-      } else {
-        console.log(`Successfully deleted ${count} class record(s) with class_id '${class_id}'.`);
-      }
-
-      const activeClassJSON = sessionStorage.getItem('activeClass');
-      if (activeClassJSON) {
-        const parsedClass = JSON.parse(activeClassJSON) as Partial<ClassConfig & { class_id: string; title?: string }>;
-        if (parsedClass.class_id === class_id || (classTitleForSessionClear && parsedClass.title === classTitleForSessionClear)) {
-          sessionStorage.removeItem('activeClass');
-        }
-      }
     } catch (error) {
-      console.error('Error during deleteClass process:', error);
-      if (error instanceof Error) throw error;
-      throw new Error(String(error) || 'Unknown error occurred while deleting class');
+      console.error(`[deleteClass] A critical error occurred during the deletion process for class ${class_id}:`, error);
+      throw error;
     }
   },
 

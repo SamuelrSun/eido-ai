@@ -1,6 +1,6 @@
 // src/components/chat/ChatBot.tsx
 import { useState, useRef, useEffect } from "react";
-import { Send, Database as DatabaseIcon, Bot, AlertCircle } from "lucide-react";
+import { Bot, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
@@ -17,53 +17,49 @@ export interface Message {
 }
 
 interface ChatBotProps {
-  // title and subtitle are no longer used for internal rendering
-  // title?: string; 
-  // subtitle?: string;
   placeholder?: string;
   suggestions?: string[];
   knowledgeBase?: string; 
   openAIConfig?: OpenAIConfig; 
+  classId?: string;
   disableToasts?: boolean;
   loadingIndicator?: React.ReactNode;
   onResponseGenerationStateChange?: (isGenerating: boolean) => void;
   messages?: Message[]; 
   onMessagesChange?: (messagesOrUpdater: Message[] | ((prevMessages: Message[]) => Message[])) => void;
-  className?: string; // To accept styling from parent (SuperTutor.tsx)
+  className?: string;
   disabled?: boolean; 
 }
 
 export function ChatBot({
-  // title, // Removed from destructuring
-  // subtitle, // Removed from destructuring
   placeholder = "Ask about your class materials...",
   suggestions = [],
   knowledgeBase,
   openAIConfig,
+  classId,
   disableToasts = false,
   loadingIndicator,
   onResponseGenerationStateChange,
   messages: externalMessages,
   onMessagesChange,
-  className, // Added className to props
+  className,
   disabled, 
 }: ChatBotProps) {
   const [internalMessages, setInternalMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [chatMode, setChatMode] = useState<"assistant" | "fallback" | "error" | "idle">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const messages = externalMessages !== undefined ? externalMessages : internalMessages;
   
   const setMessagesWrapper = (newMessagesOrFn: Message[] | ((prevMessages: Message[]) => Message[])) => {
+    const newMessages = typeof newMessagesOrFn === 'function'
+      ? newMessagesOrFn(messages)
+      : newMessagesOrFn;
+
     if (onMessagesChange) {
-      if (typeof newMessagesOrFn === 'function' && externalMessages) {
-        onMessagesChange(newMessagesOrFn(externalMessages));
-      } else if (Array.isArray(newMessagesOrFn)) {
-        onMessagesChange(newMessagesOrFn);
-      }
-    } else { 
-      setInternalMessages(newMessagesOrFn);
+      onMessagesChange(newMessages);
+    } else {
+      setInternalMessages(newMessages);
     }
   };
 
@@ -80,50 +76,45 @@ export function ChatBot({
     onResponseGenerationStateChange?.(isLoading);
   }, [isLoading, onResponseGenerationStateChange]);
 
-  useEffect(() => {
-    if (openAIConfig?.assistantId && openAIConfig?.vectorStoreId) {
-        setChatMode("assistant");
-    } else if (openAIConfig?.assistantId) {
-        setChatMode("assistant"); 
-        console.warn("ChatBot: Assistant ID provided but Vector Store ID is missing. RAG might not function as expected.");
-    } else {
-        setChatMode("fallback");
-    }
-  }, [openAIConfig]);
-
   const handleSendMessage = async (messageText: string) => {
     if (disabled || !messageText.trim()) return;
 
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
-    const currentMessagesForAPI = externalMessages ? [...externalMessages] : [...internalMessages];
-    setMessagesWrapper(prevMessages => [...prevMessages, userMessage]); 
+
+    // Create the new list of messages for the UI *now*
+    const messagesWithUserQuery = [...messages, userMessage];
+    
+    // Update the UI immediately with the user's message
+    setMessagesWrapper(messagesWithUserQuery); 
     setIsLoading(true);
 
     try {
       const { data, error: functionError } = await supabase.functions.invoke("chat", {
         body: {
           message: messageText,
-          history: currentMessagesForAPI, 
+          // Pass the history that *doesn't* include the current message,
+          // as the 'message' param on the backend handles appending it.
+          history: messages,
           openAIConfig: openAIConfig, 
-          knowledgeBase: knowledgeBase 
+          knowledgeBase: knowledgeBase,
+          class_id: classId 
         }
       });
 
       if (functionError) throw new Error(`Service connection error: ${functionError.message}`);
       if (data.error) {
         setErrorMessage(data.error);
-        setChatMode("error");
         const aiErrorMessage: Message = { role: "assistant", content: `Sorry, I encountered an issue: ${data.error}` };
-        setMessagesWrapper(prevMessages => [...prevMessages, aiErrorMessage]);
+        // When adding an error message, append it to the list that already has the user's query
+        setMessagesWrapper([...messagesWithUserQuery, aiErrorMessage]);
         if (!disableToasts) toast({ title: "AI Response Error", description: data.error, variant: "destructive" });
         return;
       }
       const aiMessage: Message = { role: "assistant", content: data.response };
-      setMessagesWrapper(prevMessages => [...prevMessages, aiMessage]);
 
-      if (data.usedAssistant) setChatMode("assistant");
-      else if (data.usedFallback) setChatMode("fallback");
+      // Append the AI response to the list that already contains the user's message
+      setMessagesWrapper([...messagesWithUserQuery, aiMessage]);
 
     } catch (error: unknown) {
       let friendlyErrorMessage = "Failed to get a response. Please try again.";
@@ -133,42 +124,17 @@ export function ChatBot({
         else friendlyErrorMessage = error.message;
       }
       setErrorMessage(friendlyErrorMessage);
-      setChatMode("error");
       const aiErrorMessage: Message = { role: "assistant", content: `Sorry, I couldn't process your request. ${friendlyErrorMessage}` };
-      setMessagesWrapper(prevMessages => [...prevMessages, aiErrorMessage]);
+      // Also append to the list that has the user's query
+      setMessagesWrapper([...messagesWithUserQuery, aiErrorMessage]);
       if (!disableToasts) toast({ title: "Chat Error", description: friendlyErrorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Apply the className passed from SuperTutor.tsx to this root div
-  // The internal header div has been removed.
   return (
-    <div className={cn("flex flex-col h-full", className)}> 
-      {/* REMOVED HEADER SECTION:
-        <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">{title}</h2>
-            <div className="flex gap-2">
-              {chatMode === "fallback" && (
-                <Badge variant="outline" className="flex items-center gap-1 border-amber-500 text-amber-700">
-                  <AlertCircle className="h-3 w-3" />
-                  <span className="text-xs">General Knowledge</span>
-                </Badge>
-              )}
-              {currentVectorStoreId && chatMode === "assistant" && ( 
-                   <Badge variant="outline" className="flex items-center gap-1 border-blue-500 text-blue-700">
-                      <DatabaseIcon className="h-3 w-3" />
-                      <span className="text-xs">Database Search</span>
-                   </Badge>
-              )}
-            </div>
-          </div>
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
-        </div> 
-      */}
-
+    <div className={cn("flex flex-col h-full", className)}>
       <div className="flex-1 h-0 overflow-hidden">
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">
@@ -180,7 +146,7 @@ export function ChatBot({
               />
             ))}
 
-            {errorMessage && chatMode === "error" && !isLoading && (
+            {errorMessage && !isLoading && (
               <Alert variant="destructive" className="my-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Error</AlertTitle>

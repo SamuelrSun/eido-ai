@@ -6,15 +6,15 @@ export interface FolderType {
   parent_id: string | null;
   user_id: string;
   created_at: string;
-  class_id: string | null; // Added from your DatabasePage.tsx usage
-  database_id: string | null; // Added from your DatabasePage.tsx usage
+  class_id: string | null;
+  database_id: string | null;
 }
 
 export interface FileType {
   file_id: string; // PK
   name: string;
   size: number;
-  type: string; // This is the file's MIME type (e.g., "application/pdf", "image/png")
+  type: string; // This is the file's MIME type
   url?: string | null;
   folder_id: string | null;
   user_id: string;
@@ -22,20 +22,21 @@ export interface FileType {
   created_at: string;
   category: string | null;
   tags: string[] | null;
-  status: string | null; // e.g., 'uploading', 'complete', 'error'
-  class_id: string | null; // Added from your DatabasePage.tsx usage
-  database_id: string | null; // Added from your DatabasePage.tsx usage
-  openai_file_id?: string | null; 
-  document_title?: string | null; 
+  status: string | null;
+  progress?: number; // <<-- FIX: Added optional progress property
+  class_id: string | null;
+  database_id: string | null;
+  openai_file_id?: string | null;
+  document_title?: string | null;
 }
 
 export interface SelectedItem {
   id: string; 
   name: string;
-  type: 'file' | 'folder'; // Distinguishes between file and folder item types
-  url?: string | null; // Relevant for files
-  size?: number; // Relevant for files
-  fileMimeType?: string; // MODIFICATION: Added to store the MIME type for files
+  type: 'file' | 'folder';
+  url?: string | null;
+  size?: number;
+  fileMimeType?: string;
 }
 
 export interface UserStorage {

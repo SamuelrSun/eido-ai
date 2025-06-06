@@ -16,8 +16,6 @@ export interface Message {
 }
 
 interface WebChatBotProps {
-  // title?: string; // Removed
-  // subtitle?: string; // Removed
   placeholder?: string;
   suggestions?: string[];
   disableToasts?: boolean;
@@ -25,13 +23,11 @@ interface WebChatBotProps {
   onResponseGenerationStateChange?: (isGenerating: boolean) => void;
   messages?: Message[]; 
   onMessagesChange?: (messagesOrUpdater: Message[] | ((prevMessages: Message[]) => Message[])) => void;
-  className?: string; // Added
-  disabled?: boolean; // Added
+  className?: string;
+  disabled?: boolean;
 }
 
 export function WebChatBot({
-  // title, // Removed
-  // subtitle, // Removed
   placeholder = "Search the web...",
   suggestions = [],
   disableToasts = false,
@@ -39,8 +35,8 @@ export function WebChatBot({
   onResponseGenerationStateChange,
   messages: externalMessages,
   onMessagesChange,
-  className, // Added
-  disabled, // Added
+  className,
+  disabled,
 }: WebChatBotProps) {
   const [internalMessages, setInternalMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -78,14 +74,13 @@ export function WebChatBot({
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
     
-    const currentMessagesForAPI = externalMessages ? [...externalMessages] : [...internalMessages];
+    const currentMessagesForAPI = externalMessages ? [...externalMessages, userMessage] : [...internalMessages, userMessage];
     setMessagesWrapper(prevMessages => [...prevMessages, userMessage]);
     setIsLoading(true);
 
     try {
-      console.log("WebChatBot: Sending message:", messageText);
       const { data, error: functionError } = await supabase.functions.invoke("web-chat", {
-        body: { message: messageText, history: currentMessagesForAPI }
+        body: { message: messageText, history: currentMessagesForAPI.slice(0, -1) } // Pass history without the latest message
       });
 
       if (functionError) throw new Error(`Service connection error: ${functionError.message}`);
@@ -110,18 +105,6 @@ export function WebChatBot({
 
   return (
     <div className={cn("flex flex-col h-full w-full", className)}>
-      {/* REMOVED HEADER SECTION:
-        <div className="p-4 sm:p-6 pb-4 border-b flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">{title}</h2>
-            <Badge variant="outline" className="flex items-center gap-1 border-blue-500 text-blue-700">
-              <Globe className="h-3 w-3" /> <span className="text-xs">Web Search</span>
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
-        </div>
-      */}
-
       <div className="flex-1 h-0 overflow-hidden">
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">

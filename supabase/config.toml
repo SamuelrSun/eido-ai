@@ -1,3 +1,4 @@
+# supabase/config.toml
 project_id = "uzdtqomtbrccinrkhzme"
 
 [api]
@@ -19,8 +20,7 @@ port = 54324
 
 [auth]
 enabled = true
-site_url = "http://localhost:8080" # Ensure this matches your Vite dev port (was 5173, changed to 8080 based on vite.config.ts)
-# If your Vite dev server is on 5173, use that. If it's 8080 (as per vite.config.ts), use 8080.
+site_url = "http://localhost:8080"
 
 [storage]
 enabled = true
@@ -42,8 +42,9 @@ verify_jwt = true
 [functions.list-vector-store-files]
 verify_jwt = true
 
-[functions.process-syllabus]
-verify_jwt = true 
+# FIX: Removed the entry for the non-existent 'process-syllabus' function
+# [functions.process-syllabus]
+# verify_jwt = true 
 
 [functions.upload-to-vector-store]
 verify_jwt = true 
@@ -57,6 +58,5 @@ verify_jwt = true
 [functions.provision-class-resources]
 verify_jwt = true
 
-# ** ADDED NEW FUNCTION CONFIGURATION **
-[functions.delete-user-account]
-verify_jwt = true # Important: This function should only be callable by an authenticated user
+[functions.check-env-vars]
+verify_jwt = true 

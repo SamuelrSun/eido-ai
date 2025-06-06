@@ -14,8 +14,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-// PageHeader import is no longer needed
-// import { PageHeader } from "@/components/layout/PageHeader"; 
 import {
   Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, 
   DialogFooter, DialogHeader as DialogHeaderComponent, DialogTitle as DialogTitleComponent,
@@ -42,8 +40,8 @@ import {
   FolderType as FolderTypeDb,
   SelectedItem, UserStorage as UserStorageType, VectorStoreFileType
 } from "@/features/files/types";
-import { StorageUsage } from "@/features/files/components/StorageUsage";
-import { UploadDialog } from "@/features/files/components/UploadDialog";
+import { StorageUsage } from "../components/StorageUsage";
+import { UploadDialog } from "../components/UploadDialog";
 import type { User } from "@supabase/supabase-js";
 import { formatFileSize } from "@/lib/utils";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
@@ -193,68 +191,42 @@ const FilesPage = () => {
   }, [fetchCurrentFolderContents, activeClass?.class_id, currentFolderId]);
 
   const fetchVectorStoreFiles = useCallback(async () => {
-    if (!user || !activeClass?.openAIConfig?.vectorStoreId || !activeClass?.class_id) {
-      if (activeTab === "vectorStore") {
-         // toast({title: "Configuration Missing", description: "Vector Store ID or Class ID not found for the active class.", variant: "default"});
-      }
+    if (!user || !activeClass?.class_id) {
       setVectorStoreFiles([]);
-      setIsLoadingVectorFiles(false);
       return;
     }
     setIsLoadingVectorFiles(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) throw new Error("Authentication required");
+        const { data: indexedFiles, error } = await supabase
+            .from('files')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('class_id', activeClass.class_id)
+            .not('document_title', 'is', null);
 
-      const { data, error: functionError } = await supabase.functions.invoke('list-vector-store-files', {
-        body: { vectorStoreId: activeClass.openAIConfig.vectorStoreId }
-      });
-      if (functionError) {
-        throw functionError;
-      }
-      if (data.error) {
-        throw new Error(data.error);
-      }
+        if (error) throw error;
+        
+        const mappedFiles: VectorStoreFileType[] = (indexedFiles || []).map(file => ({
+            id: file.file_id,
+            filename: file.name,
+            document_title: file.document_title,
+            usage_bytes: file.size,
+            created_at: new Date(file.created_at).getTime() / 1000,
+            status: 'completed',
+            object: "vector_store.file",
+            vector_store_id: "weaviate_global_store",
+            last_error: null,
+        }));
 
-      const openAIFilesFromEdgeFn = (data.files || []) as VectorStoreFileType[];
-      const openAIFileIds = openAIFilesFromEdgeFn.map(f => f.id);
-      let mappedFiles: VectorStoreFileType[] = openAIFilesFromEdgeFn;
-
-      if (openAIFileIds.length > 0) {
-        const { data: filesFromDB, error: dbError } = await supabase
-          .from('files')
-          .select('name, document_title, openai_file_id')
-          .in('openai_file_id', openAIFileIds)
-          .eq('class_id', activeClass.class_id)
-          .eq('user_id', user.id);
-
-        if (dbError) {
-          console.error("Error fetching file details from DB for vector store list:", dbError);
-        } else if (filesFromDB) {
-          const localFileMap = new Map<string, {name: string, document_title: string | null}>();
-          filesFromDB.forEach(dbFile => {
-            if(dbFile.openai_file_id) {
-              localFileMap.set(dbFile.openai_file_id, { name: dbFile.name, document_title: dbFile.document_title });
-            }
-          });
-          mappedFiles = openAIFilesFromEdgeFn.map(vsFile => ({
-            ...vsFile,
-            filename: localFileMap.get(vsFile.id)?.name || `OpenAI File: ${vsFile.id.substring(0,15)}...`,
-            document_title: localFileMap.get(vsFile.id)?.document_title
-          }));
-        }
-      }
-      setVectorStoreFiles(mappedFiles);
+        setVectorStoreFiles(mappedFiles);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error.";
-      console.error("fetchVectorStoreFiles: Exception - ", message, error);
-      toast({ title: "Vector Store Error", description: `Failed to fetch files: ${message}`, variant: "destructive" });
-      setVectorStoreFiles([]);
+        const message = error instanceof Error ? error.message : "Unknown error.";
+        toast({ title: "Vector Store Error", description: `Failed to fetch files: ${message}`, variant: "destructive" });
+        setVectorStoreFiles([]);
     } finally {
-      setIsLoadingVectorFiles(false);
+        setIsLoadingVectorFiles(false);
     }
-  }, [user, activeClass, toast, activeTab]);
-
+  }, [user, activeClass, toast]);
 
   useEffect(() => { if (activeTab === "vectorStore") { fetchVectorStoreFiles(); } }, [activeTab, fetchVectorStoreFiles]);
 
@@ -308,17 +280,15 @@ const FilesPage = () => {
 
     let totalStorageNeeded = 0;
     Array.from(uploadedFiles).forEach(file => totalStorageNeeded += file.size);
-
     if (userStorage && (userStorage.storage_used + totalStorageNeeded > userStorage.storage_limit)) {
       toast({
         title: "Storage Limit Exceeded",
         description: "Cannot upload files, you have insufficient storage space.",
         variant: "destructive",
       });
-      setFiles(prev => prev.filter(f => !tempFileEntries.find(tf => tf.file_id === f.file_id))); 
+      setFiles(prev => prev.filter(f => !tempFileEntries.find(tf => tf.file_id === f.file_id)));
       return;
     }
-
 
     for (let i = 0; i < uploadedFiles.length; i++) {
       const file = uploadedFiles[i];
@@ -344,16 +314,16 @@ const FilesPage = () => {
         const { data: dbFile, error: insertError } = await supabase.from('files').insert(fileToInsert).select().single();
         if (insertError) throw insertError;
         setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...(dbFile as FileTypeDb), progress: 100 } : f).filter(f => f.file_id !== tempFileId || f.progress === 100));
-         if (userStorage) {
+        if (userStorage) {
           const newStorageUsed = userStorage.storage_used + file.size;
-          setUserStorage(prev => ({...prev!, storage_used: newStorageUsed}));
+          setUserStorage(prev => ({ ...prev!, storage_used: newStorageUsed }));
           await supabase.from('user_storage').update({ storage_used: newStorageUsed }).eq('user_id', user.id);
         }
         toast({ title: "File Uploaded", description: `${file.name} uploaded successfully.` });
       } catch (error) {
         console.error(`Error uploading ${file.name}:`, error);
         setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...f, status: 'error', progress: 0 } : f));
-        toast({ title: `Failed to upload ${file.name}`, description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive"});
+        toast({ title: `Failed to upload ${file.name}`, description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
       }
     }
     fetchCurrentFolderContents();
@@ -382,146 +352,56 @@ const FilesPage = () => {
       toast({ title: "Folder Created", description: `"${data.name}" has been created.` });
     } catch (error) {
       console.error("Error creating folder:", error);
-      toast({ title: "Failed to Create Folder", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
+      toast({ title: "Failed to Create Folder", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
     }
   };
 
-  const handleDeleteItem = async (itemId: string, itemType: 'file' | 'folder', itemName: string) => {
-    if (!user || !activeClass?.class_id) return;
+  const handleDeleteItem = (itemId: string, itemType: 'file' | 'folder', itemName: string) => {
+    setItemsToDelete([{ id: itemId, name: itemName, type: itemType }]);
+    setShowDeleteConfirmDialog(true);
+  };
 
-    if (itemType === 'folder') {
-        const confirmDelete = window.confirm(`Are you sure you want to delete the folder "${itemName}" and all its contents? This action cannot be undone.`);
-        if (!confirmDelete) return;
-    }
-
-    try {
-      if (itemType === 'folder') {
-        const deleteFolderAndContents = async (folderIdToDelete: string) => {
-            const { data: filesInFolder, error: filesError } = await supabase
-                .from('files')
-                .select('file_id, url, size')
-                .eq('folder_id', folderIdToDelete)
-                .eq('user_id', user.id)
-                .eq('class_id', activeClass!.class_id);
-
-            if (filesError) throw filesError;
-
-            let totalFreedSpace = 0;
-            for (const file of filesInFolder || []) {
-                if (file.url) {
-                    const filePathParts = file.url.split('/');
+  const confirmDeleteItems = async () => {
+    if (!user) return;
+    setShowDeleteConfirmDialog(false);
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const item of itemsToDelete) {
+        try {
+            if (item.type === 'folder') {
+                const { error } = await supabase.from('file_folders').delete().eq('folder_id', item.id).eq('user_id', user.id);
+                if (error) throw error;
+            } else {
+                const fileToDelete = files.find(f => f.file_id === item.id) || selectedItems.find(f => f.id === item.id);
+                if (fileToDelete?.url) {
+                    const filePathParts = fileToDelete.url.split('/');
                     const storagePath = filePathParts.slice(filePathParts.indexOf('public')).join('/');
                     await supabase.storage.from('file_storage').remove([storagePath]);
                 }
-                await supabase.from('files').delete().eq('file_id', file.file_id);
-                totalFreedSpace += file.size || 0;
+                const { error } = await supabase.from('files').delete().eq('file_id', item.id).eq('user_id', user.id);
+                if (error) throw error;
+                if (fileToDelete && userStorage) {
+                    const newStorageUsed = Math.max(0, userStorage.storage_used - (fileToDelete.size || 0));
+                    setUserStorage(prev => ({ ...prev!, storage_used: newStorageUsed }));
+                    await supabase.from('user_storage').update({ storage_used: newStorageUsed }).eq('user_id', user.id);
+                }
             }
-
-            const { data: subfolders, error: subfoldersError } = await supabase
-                .from('file_folders')
-                .select('folder_id')
-                .eq('parent_id', folderIdToDelete)
-                .eq('user_id', user.id)
-                .eq('class_id', activeClass!.class_id);
-
-            if (subfoldersError) throw subfoldersError;
-
-            for (const subfolder of subfolders || []) {
-                totalFreedSpace += await deleteFolderAndContents(subfolder.folder_id);
-            }
-
-            await supabase.from('file_folders').delete().eq('folder_id', folderIdToDelete);
-            return totalFreedSpace;
-        };
-
-        const freedSpace = await deleteFolderAndContents(itemId);
-        if (userStorage && freedSpace > 0) {
-            const newStorageUsed = Math.max(0, userStorage.storage_used - freedSpace);
-            setUserStorage(prev => ({ ...prev!, storage_used: newStorageUsed }));
-            await supabase.from('user_storage').update({ storage_used: newStorageUsed }).eq('user_id', user.id);
+            successCount++;
+        } catch (error) {
+            failCount++;
+            console.error(`Failed to delete ${item.type} ${item.name}:`, error);
         }
-        toast({ title: "Folder Deleted", description: `"${itemName}" and its contents have been removed.` });
-
-      } else { 
-        const fileToDelete = files.find(f => f.file_id === itemId) || selectedItems.find(f => f.id === itemId && f.type === 'file');
-        if (fileToDelete?.url) {
-            const filePathParts = fileToDelete.url.split('/');
-            const storagePath = filePathParts.slice(filePathParts.indexOf('public')).join('/');
-            await supabase.storage.from('file_storage').remove([storagePath]);
-        }
-        const { error } = await supabase.from('files').delete().eq('file_id', itemId).eq('user_id', user.id);
-        if (error) throw error;
-
-        if (fileToDelete && userStorage) {
-            const newStorageUsed = Math.max(0, userStorage.storage_used - (fileToDelete.size || 0));
-            setUserStorage(prev => ({...prev!, storage_used: newStorageUsed}));
-            await supabase.from('user_storage').update({ storage_used: newStorageUsed }).eq('user_id', user.id);
-        }
-      }
-      fetchCurrentFolderContents();
-    } catch (error) {
-      console.error(`Error deleting ${itemType}:`, error);
-      toast({ title: `Failed to Delete ${itemType}`, description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
     }
-  };
-
-
-  const handleDeleteSelectedItems = async () => {
-    const filesToDelete = selectedItems.filter(item => item.type === 'file');
-    if (filesToDelete.length === 0) {
-      toast({ title: "No Files Selected", description: "Please select files to delete.", variant: "default" });
-      return;
-    }
-    setItemsToDelete(filesToDelete); 
-    setShowDeleteConfirmDialog(true); 
-  };
-
-  const confirmDeleteSelectedItems = async () => {
-    if (!user) return;
-    setShowDeleteConfirmDialog(false); 
-    const filesToDelete = itemsToDelete.filter(item => item.type === 'file'); 
-
-    let successCount = 0;
-    let failCount = 0;
-    let totalFreedSpace = 0;
-
-    for (const file of filesToDelete) {
-      try {
-        const fileData = files.find(f => f.file_id === file.id) ||
-                         (await supabase.from('files').select('url, size').eq('file_id', file.id).single()).data;
-
-        if (fileData?.url) {
-          const filePathParts = fileData.url.split('/');
-          const storagePath = filePathParts.slice(filePathParts.indexOf('public')).join('/');
-          await supabase.storage.from('file_storage').remove([storagePath]);
-        }
-        await supabase.from('files').delete().eq('file_id', file.id).eq('user_id', user.id);
-        totalFreedSpace += fileData?.size || 0;
-        successCount++;
-      } catch (error) {
-        failCount++;
-        console.error(`Failed to delete file ${file.name}:`, error);
-      }
-    }
-
-    if (userStorage && totalFreedSpace > 0) {
-      const newStorageUsed = Math.max(0, userStorage.storage_used - totalFreedSpace);
-      setUserStorage(prev => ({ ...prev!, storage_used: newStorageUsed }));
-      await supabase.from('user_storage').update({ storage_used: newStorageUsed }).eq('user_id', user.id);
-    }
-
-    if (successCount > 0) {
-      toast({ title: "Files Deleted", description: `${successCount} file(s) successfully deleted.` });
-    }
-    if (failCount > 0) {
-      toast({ title: "Deletion Error", description: `${failCount} file(s) could not be deleted.`, variant: "destructive" });
-    }
-
+    
+    if (successCount > 0) toast({ title: "Items Deleted", description: `${successCount} item(s) successfully deleted.` });
+    if (failCount > 0) toast({ title: "Deletion Error", description: `${failCount} item(s) could not be deleted.`, variant: "destructive" });
+    
     setSelectedItems([]);
+    setItemsToDelete([]);
     fetchCurrentFolderContents();
-    setItemsToDelete([]); 
   };
-
 
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
      e.preventDefault();
@@ -535,12 +415,22 @@ const FilesPage = () => {
      }
   };
 
+  const pushToVectorStore = () => {
+    const filesToUpload = selectedItems.filter(item => item.type === 'file' && item.url);
+    if (filesToUpload.length === 0) {
+      toast({ title: "No Files Selected", description: "Please select one or more files to sync with the AI.", variant: "default" });
+      return;
+    }
+    setIsVectorUploadDialogOpen(true);
+  };
+  
   const confirmVectorUpload = async () => {
-    if (!user || !activeClass?.openAIConfig?.vectorStoreId || !activeClass?.class_id ) {
-      toast({ title: "Upload Error", description: "Missing user, vector store configuration, or class ID.", variant: "destructive" });
+    if (!user || !activeClass?.class_id) {
+      toast({ title: "Sync Error", description: "Missing user or class information.", variant: "destructive" });
       setIsVectorUploadDialogOpen(false);
       return;
     }
+
     const filesToUpload = selectedItems.filter(item => item.type === 'file' && item.url);
     if (filesToUpload.length === 0) {
       toast({ title: "No Files to Upload", description: "Please select valid files with URLs.", variant: "default" });
@@ -549,256 +439,179 @@ const FilesPage = () => {
     }
 
     setIsUploadingToVectorStore(true);
-    setVectorStoreUploadProgress(10);
+    setVectorStoreUploadProgress(10); 
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) throw new Error("Authentication required for vector store upload.");
-
       const payloadFiles = filesToUpload.map(f => ({
+        file_id: f.id,
+        folder_id: currentFolderId,
         name: f.name,
-        url: f.url,
+        url: f.url!,
         size: f.size,
-        internal_file_id: f.id,
-        type: f.fileMimeType
+        type: f.fileMimeType!,
       }));
 
-      const { data: functionResponse, error: functionError } = await supabase.functions.invoke('upload-to-vector-store', {
+      const { data, error } = await supabase.functions.invoke('upload-to-vector-store', {
         body: {
           files: payloadFiles,
-          vectorStoreId: activeClass.openAIConfig.vectorStoreId
-        }
+          class_id: activeClass.class_id
+        },
       });
 
-      if (functionError) throw functionError;
-      if (functionResponse.error) throw new Error(String(functionResponse.error));
-
-      setVectorStoreUploadProgress(50);
-
-      let successCount = 0;
-      let failCount = 0;
-
-      if (functionResponse.results && Array.isArray(functionResponse.results)) {
-        for (const result of functionResponse.results) {
-          if (result.success && result.openAiFileId && result.internal_file_id) {
-            successCount++;
-            await supabase
-              .from('files')
-              .update({ openai_file_id: result.openAiFileId })
-              .eq('file_id', result.internal_file_id)
-              .eq('user_id', user.id);
-          } else {
-            failCount++;
-            console.error(`Failed to upload ${result.fileName} to vector store: ${result.error}`);
-          }
-        }
+      if (error) throw error;
+      
+      if (!data.success) {
+        throw new Error(data.message || 'One or more files failed to process during sync.');
       }
-
+      
       setVectorStoreUploadProgress(100);
-      toast({ title: "Vector Store Sync Complete", description: `${successCount} files processed for sync, ${failCount} failed.`});
-
-      fetchCurrentFolderContents();
-      if (activeTab === "vectorStore" || successCount > 0) {
-        setTimeout(() => fetchVectorStoreFiles(), 1000);
+      toast({ title: "AI Sync Complete", description: data.message || `${filesToUpload.length} file(s) have been processed.` });
+      
+      if (activeTab === "vectorStore") {
+        fetchVectorStoreFiles();
       }
 
     } catch (error) {
-      console.error("confirmVectorUpload: Exception -", error);
-      toast({ title: "Vector Store Upload Failed", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
-      setVectorStoreUploadProgress(0);
+      console.error("Error syncing files with Weaviate:", error);
+      toast({ title: "AI Sync Failed", description: error instanceof Error ? error.message : "An unknown error occurred.", variant: "destructive" });
     } finally {
       setIsUploadingToVectorStore(false);
       setIsVectorUploadDialogOpen(false);
       setSelectionMode(false);
       setSelectedItems([]);
+      setVectorStoreUploadProgress(0);
     }
   };
 
-  const filteredFolders = folders.filter(folder =>
-    folder.name && folder.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const filteredFiles = files.filter(file =>
-    file.name && file.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  if (!user || !activeClass) {
-    return ( <div className="flex flex-col items-center justify-center min-h-screen p-4"> <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" /> <p className="text-muted-foreground">Loading class information or redirecting...</p> </div> );
-  }
-
+  const filteredFolders = folders.filter(folder => folder.name && folder.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredFiles = files.filter(file => file.name && file.name.toLowerCase().includes(searchQuery.toLowerCase()));
   const selectedFileCount = selectedItems.filter(item => item.type === 'file').length;
 
+  if (!user || !activeClass) {
+    return (<div className="flex flex-col items-center justify-center min-h-screen p-4"> <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" /> <p className="text-muted-foreground">Loading class information...</p> </div>);
+  }
 
   return (
-    // MODIFICATION: Reverted root div to simpler layout for page scroll
-    <div className="space-y-6"> 
-      {/* PageHeader is removed as per request */}
-      {/* <PageHeader 
-        title={`Database: ${activeClass?.title || 'Loading...'}`} 
-        description="Store, organize, and sync files with your AI knowledge base." 
-      /> 
-      */}
-
-      {/* MODIFICATION: Main content card no longer needs to manage its own height with flex-grow */}
-      <div className="bg-card p-4 sm:p-6 rounded-xl shadow-sm border">
-        <div className="mb-6 space-y-4"> {/* This section remains as is */}
-          <div className="relative"> <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" /> <Input type="search" placeholder="Search files and folders..." className="pl-10" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /> </div>
-          {userStorage && <StorageUsage storage={userStorage} />}
+    <div className="space-y-6">
+        <div className="bg-card p-4 sm:p-6 rounded-xl shadow-sm border">
+            <div className="mb-6 space-y-4">
+                <div className="relative"> <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" /> <Input type="search" placeholder="Search files and folders..." className="pl-10" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /> </div>
+                {userStorage && <StorageUsage storage={userStorage} />}
+            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+                <TabsList className="grid w-full max-w-md grid-cols-2">
+                    <TabsTrigger value="myFiles">My Files</TabsTrigger>
+                    <TabsTrigger value="vectorStore">Vector Store <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700">AI</Badge></TabsTrigger>
+                </TabsList>
+                <TabsContent value="myFiles" className="mt-6">
+                    <div className="flex flex-wrap gap-2 mb-6 mt-4 items-center">
+                    {!selectionMode ? (
+                        <>
+                        <Button onClick={() => setIsUploadDialogOpen(true)}> <Upload className="h-4 w-4 mr-2" /> Upload Files </Button>
+                        <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)}> <FolderPlus className="h-4 w-4 mr-2" /> New Folder </Button>
+                        <Button variant="outline" onClick={() => setSelectionMode(true)} className="ml-auto"> <Check className="h-4 w-4 mr-2" /> Select Items </Button>
+                        </>
+                    ) : (
+                        <>
+                        <Button onClick={pushToVectorStore} disabled={selectedFileCount === 0 || isUploadingToVectorStore}>
+                            {isUploadingToVectorStore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4 mr-2" />} 
+                            Sync with AI ({selectedFileCount})
+                        </Button>
+                        <Button variant="destructive" onClick={() => handleDeleteItem(selectedItems.map(i=>i.id).join(), 'file', `${selectedItems.length} files`)} disabled={selectedFileCount === 0}>
+                            <TrashIcon className="h-4 w-4 mr-2" /> Delete Selected ({selectedFileCount})
+                        </Button>
+                        <Button variant="outline" onClick={() => { setSelectionMode(false); setSelectedItems([]); }}> Cancel Selection </Button>
+                        </>
+                    )}
+                    </div>
+                    <Breadcrumb className="mb-4">
+                        <BreadcrumbList>
+                            {breadcrumbs.map((crumb, index) => (
+                            <div key={crumb.id || 'root-crumb'}> 
+                                <BreadcrumbItem>
+                                {index === breadcrumbs.length - 1 ? (<BreadcrumbPage>{crumb.name}</BreadcrumbPage>) : (<BreadcrumbLink href="#" onClick={(e) => { e.preventDefault(); navigateToFolder(crumb.id, crumb.name); }} className="cursor-pointer hover:text-primary">{crumb.name}</BreadcrumbLink>)}
+                                </BreadcrumbItem>
+                                {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
+                            </div>
+                            ))}
+                        </BreadcrumbList>
+                    </Breadcrumb>
+                    <div className={`min-h-[300px] border-2 border-dashed rounded-lg p-4 ${dragging ? "border-primary bg-primary/10" : "border-input"}`}
+                        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                        onDragLeave={() => setDragging(false)}
+                        onDrop={handleFileDrop}>
+                        <FileGrid files={filteredFiles} folders={filteredFolders} loading={loading} selectionMode={selectionMode} selectedItems={selectedItems}
+                            onFileSelect={(file) => setSelectedItems(prev => prev.some(i => i.id === file.file_id) ? prev.filter(i => i.id !== file.file_id) : [...prev, { id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size, fileMimeType: file.type }])}
+                            onFolderClick={(folder) => navigateToFolder(folder.folder_id, folder.name)}
+                            onDeleteItem={handleDeleteItem}
+                            onFileOpen={(url) => window.open(url, "_blank")} currentFolderId={currentFolderId} />
+                    </div>
+                </TabsContent>
+                <TabsContent value="vectorStore" className="mt-6">
+                    <div className="mb-6">
+                    <div className="flex justify-between items-center"><h3 className="text-lg font-medium">Indexed Files</h3><Button variant="outline" size="sm" onClick={fetchVectorStoreFiles} disabled={isLoadingVectorFiles}>{isLoadingVectorFiles ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Refresh List</Button></div>
+                    <div className="text-muted-foreground text-sm mt-1">Files indexed in Weaviate are available to your AI assistants.</div>
+                    </div>
+                    {isLoadingVectorFiles ?
+                    (<div className="flex flex-col items-center justify-center h-full py-10"><Loader2 className="h-10 w-10 text-primary animate-spin mb-4" /><p className="text-muted-foreground">Loading indexed files...</p></div>) :
+                    vectorStoreFiles.length === 0 ?
+                        (<div className="flex flex-col items-center justify-center h-full text-center py-10"><CloudLightning className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" /><h3 className="text-lg font-medium">No Files Indexed for this Class</h3><p className="text-muted-foreground mb-4">Select files from the "My Files" tab and sync them with the AI.</p><Button onClick={() => { setActiveTab("myFiles"); setSelectionMode(true); }}>Select Files to Sync</Button></div>) :
+                        (<ScrollArea className="h-[400px] sm:h-[500px]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {vectorStoreFiles.map((file) => (
+                            <Card key={file.id} className="p-3">
+                                <div className="flex items-center gap-2 mb-2"><FileIcon className="h-6 w-6 text-indigo-500 flex-shrink-0" /> <span className="text-sm font-medium truncate" title={file.filename}>{file.filename}</span></div>
+                                <div className="text-xs text-muted-foreground">Size: {formatFileSize(file.usage_bytes || 0)}</div>
+                                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <span>Status:</span>
+                                    <Badge variant={file.status === 'completed' ? 'default' : 'secondary'} className={file.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>{file.status}</Badge>
+                                </div>
+                            </Card>))}
+                        </div>
+                        </ScrollArea>)}
+                </TabsContent>
+            </Tabs>
         </div>
-        
-        {/* MODIFICATION: Tabs component styling reverted, mb-6 restored */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6"> 
-          <TabsList className="grid w-full max-w-md grid-cols-2"> 
-            <TabsTrigger value="myFiles">My Files</TabsTrigger> 
-            <TabsTrigger value="vectorStore">Vector Store <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700">AI</Badge></TabsTrigger> 
-          </TabsList>
-          
-          {/* MODIFICATION: TabsContent styling reverted */}
-          <TabsContent value="myFiles" className="mt-6"> 
-            <div className="flex flex-wrap gap-2 mb-6 mt-4 items-center"> {/* This section remains as is */}
-              {!selectionMode ? (
-                <>
-                  <Button onClick={() => setIsUploadDialogOpen(true)}> <Upload className="h-4 w-4 mr-2" /> Upload Files </Button>
-                  <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(true)}> <FolderPlus className="h-4 w-4 mr-2" /> New Folder </Button>
-                  <Button variant="outline" onClick={() => setSelectionMode(true)} className="ml-auto"> <Check className="h-4 w-4 mr-2" /> Select Items </Button>
-                </>
-              ) : (
-                <>
-                  <Button onClick={() => setIsVectorUploadDialogOpen(true)} disabled={selectedFileCount === 0}>
-                     <ArrowUp className="h-4 w-4 mr-2" /> Push to Vector Store ({selectedFileCount})
-                  </Button>
-                  <Button variant="destructive" onClick={handleDeleteSelectedItems} disabled={selectedFileCount === 0}>
-                    <TrashIcon className="h-4 w-4 mr-2" /> Delete Selected ({selectedFileCount})
-                  </Button>
-                  <Button variant="outline" onClick={() => { setSelectionMode(false); setSelectedItems([]); }}> Cancel Selection </Button>
-                </>
-              )}
-            </div>
-            <Breadcrumb className="mb-4"> {/* This section remains as is */}
-              <BreadcrumbList>
-                {breadcrumbs.map((crumb, index) => (
-                  <React.Fragment key={crumb.id || 'root-crumb'}>
-                    <BreadcrumbItem>
-                      {index === breadcrumbs.length - 1 ? (
-                        <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
-                      ) : (
-                        <BreadcrumbLink
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            navigateToFolder(crumb.id, crumb.name);
-                          }}
-                          className="cursor-pointer hover:text-primary"
-                        >
-                          {crumb.name}
-                        </BreadcrumbLink>
-                      )}
-                    </BreadcrumbItem>
-                    {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
-                  </React.Fragment>
-                ))}
-              </BreadcrumbList>
-            </Breadcrumb>
-            {/* MODIFICATION: Drag-and-drop div styling reverted, no longer flex-grow or overflow-auto */}
-            <div 
-              className={`min-h-[300px] border-2 border-dashed rounded-lg p-4 ${dragging ? "border-primary bg-primary/10" : "border-input"}`}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={handleFileDrop}
-            >
-              {/* FileGrid's internal ScrollArea will now determine its own scroll behavior based on its content,
-                  or we might need to adjust FileGrid.tsx if this causes issues.
-                  The key is that its parent (this div) is no longer constraining its height. */}
-              <FileGrid
-                files={filteredFiles}
-                folders={filteredFolders}
-                loading={loading}
-                selectionMode={selectionMode}
-                selectedItems={selectedItems}
-                onFileSelect={(file) => toggleSelectItem({ id: file.file_id, name: file.name, type: 'file', url: file.url, size: file.size, fileMimeType: file.type })}
-                onFolderClick={(folder) => navigateToFolder(folder.folder_id, folder.name)}
-                onDeleteItem={handleDeleteItem} 
-                onFileOpen={(url) => window.open(url, "_blank")}
-                currentFolderId={currentFolderId}
-              />
-            </div>
-          </TabsContent>
-
-          {/* MODIFICATION: TabsContent styling reverted */}
-          <TabsContent value="vectorStore" className="mt-6"> 
-             <div className="mb-6"> {/* This section remains as is */}
-                <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-medium">Vector Store Files</h3>
-                    <Button variant="outline" size="sm" onClick={fetchVectorStoreFiles} disabled={isLoadingVectorFiles}>
-                        {isLoadingVectorFiles ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : null}Refresh List
+        <UploadDialog isOpen={isUploadDialogOpen} onClose={() => setIsUploadDialogOpen(false)} onFileSelect={handleFileUpload} />
+        <Dialog open={isNewFolderDialogOpen} onOpenChange={(open) => { setIsNewFolderDialogOpen(open); if (!open) setNewFolderName(''); }}>
+            <DialogContent>
+                <DialogHeaderComponent><DialogTitleComponent>Create New Folder</DialogTitleComponent><DialogDescriptionComponent>Enter a name for your new folder.</DialogDescriptionComponent></DialogHeaderComponent>
+                <Input placeholder="Folder Name" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} autoFocus className="my-4" />
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => { setIsNewFolderDialogOpen(false); setNewFolderName(''); }}>Cancel</Button>
+                    <Button onClick={createNewFolder}>Create Folder</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        <Dialog open={isVectorUploadDialogOpen} onOpenChange={setIsVectorUploadDialogOpen}>
+            <DialogContent>
+                <DialogHeaderComponent><DialogTitleComponent>Sync with AI</DialogTitleComponent><DialogDescriptionComponent>Confirm syncing {selectedFileCount} file(s) with your AI knowledge base.</DialogDescriptionComponent></DialogHeaderComponent>
+                {isUploadingToVectorStore ?
+                    (<div className="py-6 text-center"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" /><p>Processing & Indexing... {vectorStoreUploadProgress}%</p></div>) :
+                    (<ScrollArea className="max-h-60 my-4"><ul className="space-y-1">{selectedItems.map(file => (<li key={file.id} className="text-sm p-1 border-b truncate">{file.name}</li>))}</ul></ScrollArea>)}
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsVectorUploadDialogOpen(false)} disabled={isUploadingToVectorStore}>Cancel</Button>
+                    <Button onClick={confirmVectorUpload} disabled={isUploadingToVectorStore || selectedFileCount === 0}>
+                        {isUploadingToVectorStore ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowUp className="h-4 w-4 mr-2" />}
+                        Confirm & Sync
                     </Button>
-                </div> 
-                <p className="text-muted-foreground text-sm mt-1">Files synced with your class AI knowledge base.</p> 
-            </div>
-            {isLoadingVectorFiles ?
-            (<div className="flex flex-col items-center justify-center h-full py-10"><Loader2 className="h-10 w-10 text-primary animate-spin mb-4" /><p className="text-muted-foreground">Loading Vector Store files...</p></div>
-            ) : vectorStoreFiles.length === 0 ?
-            (<div className="flex flex-col items-center justify-center h-full text-center py-10"><CloudLightning className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" /><h3 className="text-lg font-medium">Vector Store is Empty</h3><p className="text-muted-foreground mb-4">Upload files from "My Files" to populate the Vector Store for this class.</p><Button onClick={() => {setActiveTab("myFiles"); setSelectionMode(true);}}>Go to My Files & Select</Button></div>
-            ) : ( 
-              // MODIFICATION: ScrollArea height restored to fixed values
-              <ScrollArea className="h-[400px] sm:h-[500px]"> 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {vectorStoreFiles.map((file) => ( <Card key={file.id} className="p-3"> <div className="flex items-center gap-2 mb-2"><FileIcon className="h-6 w-6 text-indigo-500 flex-shrink-0" /> <span className="text-sm font-medium truncate" title={file.document_title || file.filename || file.id}> {file.document_title || file.filename || `File ID: ${file.id.substring(0,15)}...`} </span> </div> {file.filename && file.document_title && file.document_title !== file.filename && ( <p className="text-xs text-muted-foreground truncate" title={file.filename}>Original Filename: {file.filename}</p> )} <p className="text-xs text-muted-foreground">Size: {formatFileSize(file.usage_bytes || 0)}</p> <p className="text-xs text-muted-foreground">Status: <Badge variant={file.status === 'completed' ? 'default' : 'secondary'} className={file.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>{file.status}</Badge></p> <p className="text-xs text-muted-foreground">Added: {new Date(file.created_at * 1000).toLocaleDateString()}</p> </Card> ))}
-                </div> 
-              </ScrollArea> 
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
-      <UploadDialog
-        isOpen={isUploadDialogOpen}
-        onClose={() => setIsUploadDialogOpen(false)}
-        onFileSelect={handleFileUpload}
-      />
-      <Dialog open={isNewFolderDialogOpen} onOpenChange={(open) => {setIsNewFolderDialogOpen(open); if(!open) setNewFolderName('');}}>
-        <DialogContent>
-            <DialogHeaderComponent><DialogTitleComponent>Create New Folder</DialogTitleComponent><DialogDescriptionComponent>Enter a name for your new folder.</DialogDescriptionComponent></DialogHeaderComponent>
-            <Input placeholder="Folder Name" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} autoFocus className="my-4"/>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => {setIsNewFolderDialogOpen(false); setNewFolderName('');}}>Cancel</Button>
-                <Button onClick={createNewFolder}>Create Folder</Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={isVectorUploadDialogOpen} onOpenChange={setIsVectorUploadDialogOpen}>
-        <DialogContent>
-            <DialogHeaderComponent><DialogTitleComponent>Push to Vector Store</DialogTitleComponent><DialogDescriptionComponent>Confirm uploading {selectedItems.filter(item => item.type === 'file' && item.url).length} selected file(s) to the AI knowledge base.</DialogDescriptionComponent></DialogHeaderComponent>
-             {isUploadingToVectorStore ? (<div className="py-6 text-center"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" /><p>Uploading... {vectorStoreUploadProgress}%</p></div>
-            ) : (<ScrollArea className="max-h-60 my-4"><ul className="space-y-1">{selectedItems.filter(item => item.type === 'file' && item.url).map(file => (<li key={file.id} className="text-sm p-1 border-b truncate">{file.name}</li>))}</ul></ScrollArea>)}
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setIsVectorUploadDialogOpen(false)} disabled={isUploadingToVectorStore}>Cancel</Button>
-                <Button onClick={confirmVectorUpload} disabled={isUploadingToVectorStore || selectedItems.filter(item => item.type === 'file' && item.url).length === 0}>
-                    {isUploadingToVectorStore ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowUp className="h-4 w-4 mr-2" />}
-                    Confirm Upload
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {itemsToDelete.length} selected file(s)? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {setShowDeleteConfirmDialog(false); setItemsToDelete([]);}}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteSelectedItems}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    Are you sure you want to delete {itemsToDelete.length} item(s)? This action cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => { setShowDeleteConfirmDialog(false); setItemsToDelete([]); }}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmDeleteItems} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 };
