@@ -1,17 +1,13 @@
-// src/components/auth/Auth.tsx
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 
-// Simple SVG for Google Icon
 const GoogleIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="mr-2">
     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
     <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
     <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
@@ -23,10 +19,9 @@ const GoogleIcon = () => (
 export function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false); // Separate loading state for Google
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -39,13 +34,14 @@ export function Auth() {
         if (password.length < 10) {
           throw new Error("Password should be at least 10 characters long.");
         }
-        const { error } = await supabase.auth.signUp({ 
-          email, 
+        const generatedName = email.split('@')[0];
+        const { error } = await supabase.auth.signUp({
+          email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/`, // Redirect to home after confirmation
+            emailRedirectTo: `${window.location.origin}/`,
             data: {
-              full_name: fullName // This will be used by the trigger to populate profiles
+              full_name: generatedName
             }
           }
         });
@@ -54,13 +50,9 @@ export function Auth() {
           title: "Account created successfully",
           description: "We've sent you a confirmation link to complete your signup.",
         });
-      } else {
+      } else { // 'signin'
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast({
-          title: "Welcome back!", // Changed from "Welcome to Eido beta!"
-          description: "You have been signed in successfully.",
-        });
         navigate('/');
       }
     } catch (error) {
@@ -70,7 +62,7 @@ export function Auth() {
         if (error.message.includes("Email not confirmed")) errorMessage = "Please check your email and confirm your address.";
         else if (error.message.includes("Invalid login credentials")) errorMessage = "Invalid email or password.";
         else if (error.message.includes("User already registered")) errorMessage = "An account with this email already exists. Please sign in or use a different email.";
-        else if (error.message.includes("Password should be")) errorMessage = "Password should be at least 10 characters long.";
+        else if (error.message.includes("Password should be")) errorMessage = "Password must be at least 10 characters long.";
         else errorMessage = error.message;
       }
       toast({ title: "Authentication Error", description: errorMessage, variant: "destructive" });
@@ -84,18 +76,9 @@ export function Auth() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`, // Redirect to home after Google sign-in
-          // You can add scopes if needed, but Supabase defaults usually cover profile & email
-          // scopes: 'email profile https://www.googleapis.com/auth/user.birthday.read', 
-          // queryParams: { access_type: 'offline', prompt: 'consent' } // Example query params
-        },
+        options: { redirectTo: `${window.location.origin}/` },
       });
       if (error) throw error;
-      // Note: The user is redirected to Google and then back. 
-      // The actual session creation and navigation happens after the redirect.
-      // A toast here might not be seen if the redirect is too fast.
-      // Successful sign-in is usually handled by the AuthGuard or onAuthStateChange listener.
     } catch (error) {
       console.error('Google Sign-In error:', error);
       toast({
@@ -109,7 +92,7 @@ export function Auth() {
   };
 
   const toggleAuthMode = () => {
-    setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
+    setAuthMode(prevMode => (prevMode === 'signin' ? 'signup' : 'signin'));
   };
 
   const toggleShowPassword = () => {
@@ -117,123 +100,132 @@ export function Auth() {
   };
 
   return (
-    <Card className="w-full max-w-md bg-white shadow-lg border-0">
-      <CardHeader className="space-y-2">
-        <CardTitle className="text-2xl font-bold text-center">
-          {authMode === 'signin' ? 'Sign In' : 'Welcome to Eido'}
-        </CardTitle>
-        <CardDescription className="text-center">
+    <div className="w-full">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 font-serif">
+          {authMode === 'signin' ? 'Log in' : 'Sign Up'}
+        </h1>
+        <p className="text-sm text-gray-600 mt-2">
           {authMode === 'signin' 
-            ? 'Enter your credentials to access your account' 
-            : 'Get started with your personal AI copilot for coursework!'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {authMode === 'signup' && (
-          <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name</Label>
-            <Input
-              id="fullName"
-              type="text"
-              placeholder="Your name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="bg-muted/30"
-              required
-            />
-          </div>
-        )}
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <div className="relative">
-            <Input
-              id="email"
-              type="email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="bg-muted/30 pl-10"
-            />
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          </div>
+            ? 'Welcome back to Eido! What will you study today?' 
+            : 'Get started with your personal, educational copilot.'}
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-3">
+          <Button
+            variant="outline"
+            onClick={handleGoogleSignIn}
+            disabled={loading || googleLoading}
+            className="w-full justify-center py-3 text-xs h-11 text-gray-700 hover:text-gray-700 hover:bg-gray-100 hover:ring-1 hover:ring-gray-800"
+          >
+            {googleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
+            Continue with Google
+          </Button>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              placeholder="••••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={authMode === 'signup' ? 10 : undefined}
-              className="bg-muted/30 pl-10"
-            />
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Button 
-              type="button" 
-              variant="ghost" 
-              size="icon" 
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground"
-              onClick={toggleShowPassword}
+
+        <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+                <span className="bg-white px-2 text-gray-500">OR</span>
+            </div>
+        </div>
+
+        <form className="space-y-6" onSubmit={handleEmailAuth}>
+          <div className="space-y-4">
+            {/* CORRECTED EMAIL INPUT */}
+            <div className="rounded-md border border-gray-300 px-3 py-2 focus-within:ring-1 focus-within:border-primary focus-within:ring-primary">
+              <Label htmlFor="email" className="block text-xs font-medium text-gray-500 uppercase">
+                Email
+              </Label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full p-0 border-none bg-transparent focus:outline-none focus:ring-0 text-sm placeholder:text-muted-foreground h-auto"
+                placeholder="yourname@email.com"
+              />
+            </div>
+
+            {/* CORRECTED PASSWORD INPUT */}
+            <div className="rounded-md border border-gray-300 px-3 py-2 focus-within:ring-1 focus-within:border-primary focus-within:ring-primary">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="password" className="block text-xs font-medium text-gray-500 uppercase">
+                  Password
+                </Label>
+                {authMode === 'signin' && (
+                  <a href="#" className="text-xs font-medium text-primary hover:underline">
+                    Forgot Password?
+                  </a>
+                )}
+              </div>
+              <div className="flex items-center">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={authMode === 'signup' ? 10 : undefined}
+                  className="w-full p-0 border-none bg-transparent focus:outline-none focus:ring-0 text-sm placeholder:text-muted-foreground h-auto"
+                  placeholder="••••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={toggleShowPassword}
+                  className="flex items-center text-gray-400 hover:text-gray-600 pl-2"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Button
+              type="submit"
+              className="w-full flex justify-center items-center py-3 px-4 text-xs font-semibold rounded-md text-white bg-gray-800 hover:bg-gray-900 h-11"
+              disabled={loading || googleLoading}
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  {authMode === 'signin' ? 'Log in' : 'Create Account'}
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </>
+              )}
             </Button>
           </div>
-          {authMode === 'signup' && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Password must be at least 10 characters long.
-            </p>
-          )}
-        </div>
+        </form>
+      </div>
 
-        <Button 
-          type="submit" 
-          onClick={handleEmailAuth}
-          className="w-full bg-sidebar hover:bg-sidebar-accent text-white"
-          disabled={loading || googleLoading}
-        >
-          {loading && !googleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {loading && !googleLoading ? 'Processing...' : authMode === 'signin' ? 'Sign In' : 'Create Account'}
-        </Button>
-
-        {/* "OR" Separator */}
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-muted-foreground">
-              Or
-            </span>
-          </div>
-        </div>
-
-        {/* Google Sign-In Button */}
-        <Button 
-          variant="outline" 
-          className="w-full" 
-          onClick={handleGoogleSignIn}
-          disabled={loading || googleLoading}
-        >
-          {googleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
-          <span className="ml-2">Continue with Google</span>
-        </Button>
-      </CardContent>
-      <CardFooter className="flex flex-col space-y-2">
-        <Button 
-          variant="link" 
-          onClick={toggleAuthMode} 
-          className="w-full text-sm text-muted-foreground hover:text-primary"
-          disabled={googleLoading || loading}
-        >
-          {authMode === 'signin' 
-            ? "Don't have an account? Sign Up" 
-            : "Already have an account? Sign In"}
-        </Button>
-      </CardFooter>
-    </Card>
+      <div className="mt-8 space-y-2 text-center text-xs">
+        <p className="text-gray-500">
+          By signing up, you agree to the{' '}
+          <a href="#" className="font-medium text-gray-900 hover:underline">Terms of Use</a> and{' '}
+          <a href="#" className="font-medium text-gray-900 hover:underline">Privacy Policy</a>.
+        </p>
+        <p className="text-gray-500">
+          {authMode === 'signin' ? 'New user? ' : 'Already have an account? '}
+          <button
+            onClick={toggleAuthMode}
+            className="font-medium text-gray-700 hover:text-black"
+            disabled={loading || googleLoading}
+          >
+            {authMode === 'signin' ? 'Sign up' : 'Log in'}
+          </button>
+        </p>
+      </div>
+    </div>
   );
 }
