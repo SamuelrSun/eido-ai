@@ -212,7 +212,7 @@ export function Auth() {
       <div className="mt-8 space-y-2 text-center text-xs">
         <p className="text-gray-500">
           By signing up, you agree to the{' '}
-          <Link to="/privacy" className="font-medium text-gray-900 hover:underline" target="_blank">Terms of Use</Link> and{' '}
+          <Link to="/terms" className="font-medium text-gray-900 hover:underline" target="_blank">Terms of Service</Link> and{' '}
           <Link to="/privacy" className="font-medium text-gray-900 hover:underline" target="_blank">Privacy Policy</Link>.
         </p>
         <p className="text-gray-500">

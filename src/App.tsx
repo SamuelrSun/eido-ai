@@ -20,7 +20,8 @@ import QuizSessionPage from "./pages/QuizSessionPage";
 import ProfilePage from "./pages/ProfilePage";
 import DashboardPage from "./pages/DashboardPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
-import PrivacyPolicyPage from "./pages/PrivacyPolicyPage"; // Import the new page
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsOfServicePage from "./pages/TermsOfServicePage"; // Import the new page
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
               {/* Public routes */}
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} /> 
+              <Route path="/terms" element={<TermsOfServicePage />} />
 
               {/* Protected routes wrapped by AuthGuard */}
               <Route element={<AuthGuard />}>
