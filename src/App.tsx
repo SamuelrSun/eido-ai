@@ -1,59 +1,70 @@
 // src/App.tsx
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AppLayout } from "./components/layout/AppLayout";
 import { AuthGuard } from "./components/auth/AuthGuard";
 import { WidgetsProvider } from "./hooks/use-widgets";
-import HomePage from "./pages/HomePage";
-import SuperTutor from "./pages/SuperTutor";
+import { HelmetProvider } from 'react-helmet-async';
+
+// Import all active page components
 import AuthPage from "./pages/AuthPage";
-import AccountPage from "./pages/AccountPage";
 import NotFound from "./pages/NotFound";
-import DatabaseFeaturePage from "./features/files/pages/FilesPage"; 
+import OraclePage from "./pages/OraclePage";
+import DatasetsPage from "./pages/DatasetsPage";
 import FlashcardsPage from "./pages/FlashcardsPage";
 import QuizzesPage from "./pages/QuizzesPage";
 import QuizSessionPage from "./pages/QuizSessionPage";
-import PlaceholderPage from "./pages/PlaceholderPage"; // Import the new placeholder page
-import React from "react";
+import ProfilePage from "./pages/ProfilePage";
+import DashboardPage from "./pages/DashboardPage";
+import PlaceholderPage from "./pages/PlaceholderPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage"; // Import the new page
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <WidgetsProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/auth" element={<AuthPage />} />
+  <HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <WidgetsProvider>
+           <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} /> 
 
-            {/* Protected routes */}
-            <Route element={<AuthGuard />}>
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<HomePage key="home-main" />} />
-                <Route path="/supertutor" element={<SuperTutor />} />
-                <Route path="/database" element={<DatabaseFeaturePage />} /> 
+              {/* Protected routes wrapped by AuthGuard */}
+              <Route element={<AuthGuard />}>
+                
+                {/* Your active pages */}
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/oracle" element={<OraclePage />} />
+                <Route path="/datasets" element={<DatasetsPage />} />
                 <Route path="/flashcards" element={<FlashcardsPage />} />
                 <Route path="/quizzes" element={<QuizzesPage />} />
                 <Route path="/quizzes/:quizId" element={<QuizSessionPage />} />
-                <Route path="/account" element={<AccountPage />} />
-                {/* MODIFICATION: Added new routes for Calendar and Console */}
-                <Route path="/calendar" element={<PlaceholderPage pageName="Calendar" />} />
-                <Route path="/console" element={<PlaceholderPage pageName="Admin Console" />} />
-              </Route>
-            </Route>
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </WidgetsProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+                {/* Placeholder routes for future features */}
+                <Route path="/command" element={<PlaceholderPage pageName="Command" />} />
+                <Route path="/calendar" element={<PlaceholderPage pageName="Calendar" />} />
+                <Route path="/billing" element={<PlaceholderPage pageName="Billing" />} />
+                <Route path="/chrono" element={<PlaceholderPage pageName="Chrono" />} />
+                <Route path="/codex" element={<PlaceholderPage pageName="Codex" />} />
+              </Route>
+
+              {/* Catch-all 404 route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </WidgetsProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </HelmetProvider>
 );
 
 export default App;

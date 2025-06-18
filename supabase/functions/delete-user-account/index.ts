@@ -1,7 +1,7 @@
 // supabase/functions/delete-user-account/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from "../_shared/cors.ts"; // Ensure this path is correct relative to your function
+import { corsHeaders } from "../_shared/cors.ts";
 
 console.log("[delete-user-account] Function cold start or new instance.");
 
@@ -28,10 +28,8 @@ serve(async (req: Request) => {
     console.log("[delete-user-account] Environment variables loaded.");
 
     // 2. Create a Supabase client with the Service Role Key for admin operations
-    // This client can perform privileged actions.
     const supabaseAdminClient: SupabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: {
-        // For server-to-server, session persistence and auto-refresh are not needed.
         persistSession: false,
         autoRefreshToken: false,
       }
@@ -39,9 +37,6 @@ serve(async (req: Request) => {
     console.log("[delete-user-account] Supabase admin client initialized.");
 
     // 3. Get the user ID from the JWT of the authenticated user making the request.
-    // This is crucial to ensure a user can only request their own account deletion.
-    // The function must be invoked with the user's access token (Authorization: Bearer <token>).
-    // Ensure 'verify_jwt' is true for this function in your supabase/config.toml.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       console.error("[delete-user-account] No Authorization header provided.");
@@ -78,9 +73,12 @@ serve(async (req: Request) => {
     }
 
     console.log(`[delete-user-account] Successfully initiated deletion for user ${userIdToDelete} from Supabase Auth. Response:`, deleteData);
-
-    // Note: The actual deletion from auth.users might take a moment to reflect everywhere.
-    // The client will need to handle signing out and redirecting.
+    
+    // Note: The `delete-weaviate-data-by-class` function isn't needed here because deleting the user
+    // in Supabase will cascade and delete their classes, which in turn should trigger the
+    // cleanup for each class in Weaviate via your existing database triggers/functions.
+    // However, if that trigger doesn't exist, we would need to manually iterate and delete.
+    // The current setup assumes the cascade is sufficient.
 
     return new Response(
       JSON.stringify({

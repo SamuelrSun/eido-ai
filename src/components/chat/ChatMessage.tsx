@@ -1,102 +1,86 @@
 // src/components/chat/ChatMessage.tsx
-import React from 'react';
-import { ThumbsUp, ThumbsDown, Copy, Check } from 'lucide-react';
+import React, { forwardRef } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { FileText, Image as ImageIcon } from 'lucide-react';
 
 interface ChatMessageProps {
   content: string;
   isUser: boolean;
-  timestamp?: string;
-  onCopy?: () => void;
-  isCopied?: boolean;
+  senderName: string;
+  avatarUrl?: string | null;
+  isSelected?: boolean;
+  onClick?: () => void;
+  onCitationClick?: (sourceNumber: number) => void;
+  attachedFiles?: { name: string; type: string; }[];
 }
 
-export function ChatMessage({ content, isUser, timestamp, onCopy, isCopied = false }: ChatMessageProps) {
-  // Original classes from your index.css for basic bubble styling
-  // user-message: bg-cybercoach-blue-light/20 ml-auto
-  // ai-message: bg-gray-100 mr-auto
-  // chat-message: p-4 rounded-lg my-2 max-w-[85%] (applied by user-message/ai-message)
-  // We'll add shadow-sm for a little depth, which was in the previous version.
-  const bubbleBaseClasses = "p-3 rounded-lg my-2 max-w-[85%] shadow-sm"; // Adjusted padding slightly from p-4 to p-3
+export const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(({
+    content,
+    isUser,
+    senderName,
+    avatarUrl,
+    isSelected,
+    onClick,
+    onCitationClick,
+    attachedFiles,
+}, ref) => {
+  
+  const userInitials = senderName.split(' ').map(n => n[0]).join('').toUpperCase();
 
   return (
     <div 
-      className={`${bubbleBaseClasses} ${
-        isUser 
-          ? 'bg-cybercoach-blue-light/20 ml-auto' // Reverted to original user message background
-          : 'bg-gray-100 dark:bg-gray-700 mr-auto' // Kept AI message background
-      }`}
+        ref={ref}
+        onClick={onClick}
+        className={cn(
+            "group flex h-fit w-full flex-col gap-2 rounded-md p-2 text-left md:flex-row transition-all duration-200 ease-in-out",
+            !isUser && "cursor-pointer",
+            isSelected 
+                ? "bg-stone-100 border border-stone-400"
+                : "border border-transparent hover:bg-stone-100"
+        )}
     >
-      {/* Header section for name and timestamp/actions */}
-      <div 
-        className={`flex items-center mb-1 ${
-          isUser ? 'justify-end' : 'justify-between' // Keeps "You" on the right
-        }`}
-      >
-        {isUser ? (
-          <>
-            {timestamp && (
-              // User message text color will be default (dark) from parent, opacity for timestamp
-              <span className="text-xs opacity-80 mr-2">{timestamp}</span>
-            )}
-            <span className="font-medium text-sm">
-              You
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="font-medium text-sm text-gray-800 dark:text-gray-200"> {/* Ensured AI name color */}
-              Super Tutor
-            </span>
-            <div className="flex items-center">
-              {timestamp && (
-                <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">{timestamp}</span>
-              )}
-              {onCopy && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-blue-300 h-7 px-2"
-                  onClick={onCopy}
-                  title="Copy to clipboard"
-                >
-                  {isCopied ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+        {/* Avatar Section */}
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded">
+            <Avatar className="h-9 w-9">
+                {isUser && avatarUrl ? (
+                    <AvatarImage src={avatarUrl} alt={senderName} />
+                ) : !isUser ? (
+                    <AvatarImage src="/chatboteido.png" alt="Eido AI Avatar" />
+                ) : null}
+                <AvatarFallback className="text-xs bg-stone-200">{userInitials}</AvatarFallback>
+            </Avatar>
+        </div>
 
-      {/* Message content section */}
-      {/* Text alignment is handled by ml-auto/mr-auto on the main div and text-left/text-right here */}
-      <div className={`${isUser ? 'text-right' : 'text-left'}`}>
-        {isUser ? (
-          // User message text color will be default (dark)
-          <p className="whitespace-pre-wrap text-gray-800 dark:text-gray-700">{content}</p>
-        ) : (
-          <>
-            {/* AI message text color comes from MarkdownRenderer or its parent */}
-            <MarkdownRenderer content={content} />
-            {/* Feedback buttons */}
-            <div className="flex items-center mt-3 space-x-2 text-sm ${isUser ? 'justify-end' : ''}">
-              <Button variant="ghost" size="sm" className="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-blue-300">
-                <ThumbsUp className="h-4 w-4 mr-1" />
-                <span>Helpful</span>
-              </Button>
-              <Button variant="ghost" size="sm" className="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-blue-300">
-                <ThumbsDown className="h-4 w-4 mr-1" />
-                <span>Not helpful</span>
-              </Button>
+        {/* Message Content Section */}
+        <div className="max-w-message items-left flex w-full flex-1 flex-col flex-wrap gap-x-1 md:flex-nowrap">
+            <div className="flex w-full flex-col gap-y-1 py-1">
+                {/* Render Attached File Pills for User Messages if they exist */}
+                {isUser && attachedFiles && attachedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                        {attachedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center gap-1.5 pl-2 pr-2 py-1 rounded-md bg-stone-100 border border-stone-200 max-w-[180px]">
+                                {file.type.startsWith('image/') ? 
+                                    <ImageIcon className="h-3.5 w-3.5 text-stone-500 flex-shrink-0" /> : 
+                                    <FileText className="h-3.5 w-3.5 text-stone-500 flex-shrink-0" />
+                                }
+                                <span className="text-xs text-stone-600 truncate" title={file.name}>
+                                    {file.name}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                
+                {/* Render the main text content */}
+                {content && (
+                    <div className="text-sm text-stone-700 flex flex-col gap-y-1 whitespace-pre-wrap [overflow-wrap:anywhere] md:max-w-4xl">
+                       <MarkdownRenderer content={content} onCitationClick={onCitationClick} />
+                    </div>
+                )}
             </div>
-          </>
-        )}
-      </div>
+        </div>
     </div>
   );
-}
+});

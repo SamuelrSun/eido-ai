@@ -19,6 +19,7 @@ export type Database = {
           id: string
           role: string
           user_id: string
+          attached_files: Json | null // VERIFIED
         }
         Insert: {
           chat_mode: string
@@ -29,6 +30,7 @@ export type Database = {
           id?: string
           role: string
           user_id: string
+          attached_files?: Json | null // VERIFIED
         }
         Update: {
           chat_mode?: string
@@ -39,6 +41,7 @@ export type Database = {
           id?: string
           role?: string
           user_id?: string
+          attached_files?: Json | null // VERIFIED
         }
         Relationships: [
           {
@@ -64,6 +67,7 @@ export type Database = {
           },
         ]
       }
+      // ... (rest of the tables are unchanged)
       classes: {
         Row: {
           assistant_id: string | null
@@ -498,6 +502,48 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
+        ]
+      }
+      message_sources: {
+        Row: {
+          id: string
+          message_id: string
+          source_number: number
+          name: string | null
+          url: string | null
+          content: string | null
+          created_at: string
+          highlight: string | null
+          page_number: number | null
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          source_number: number
+          name?: string | null
+          url?: string | null
+          content?: string | null
+          created_at?: string
+          highlight?: string | null
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          source_number?: number
+          name?: string | null
+          url?: string | null
+          content?: string | null
+          created_at?: string
+          highlight?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_sources_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          }
         ]
       }
       profiles: {

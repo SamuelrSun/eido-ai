@@ -1,0 +1,119 @@
+// src/components/oracle/HistorySidebar.tsx
+import React, { useState, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { MoreHorizontal, Edit, Trash2, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from '../ui/scroll-area';
+import { AppConversation } from '@/services/conversationService'; // Original import is correct
+import { Input } from '../ui/input';
+
+// FIX: Export the AppConversation type so other components can import it
+export type { AppConversation };
+
+interface HistoryItemProps {
+  conversation: AppConversation;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  onRename: (id: string, newName: string) => Promise<void>;
+  onDelete: (conversation: AppConversation) => void;
+}
+
+const HistoryItem: React.FC<HistoryItemProps> = ({ conversation, isSelected, onSelect, onRename, onDelete }) => {
+    const [isRenaming, setIsRenaming] = useState(false);
+    const [name, setName] = useState(conversation.name);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (isRenaming) {
+            inputRef.current?.focus();
+            inputRef.current?.select();
+        }
+    }, [isRenaming]);
+
+    const handleRenameSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (name.trim() && name.trim() !== conversation.name) {
+            onRename(conversation.id, name.trim());
+        }
+        setIsRenaming(false);
+    };
+
+  return (
+    <div
+      onClick={() => !isRenaming && onSelect(conversation.id)}
+      className={cn('flex items-center justify-between p-2 my-0.5 rounded-md cursor-pointer group relative transition-colors duration-150', isSelected ? 'bg-stone-200' : 'hover:bg-stone-100')}
+      title={name}
+    >
+      <div className="flex items-center overflow-hidden flex-grow">
+        {isRenaming ? (
+            <form onSubmit={handleRenameSubmit} className="w-full">
+                <Input ref={inputRef} value={name} onChange={(e) => setName(e.target.value)} onBlur={handleRenameSubmit} className="h-7 text-sm" onClick={(e) => e.stopPropagation()} />
+            </form>
+        ) : (
+             <p className={cn('text-sm truncate pl-1', isSelected ? 'text-stone-800 font-semibold' : 'text-stone-700')}>{name}</p>
+        )}
+      </div>
+
+      {!isRenaming && (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}><MoreHorizontal size={18} /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setIsRenaming(true); }}>
+                <Edit className="mr-2 h-4 w-4" /><span>Rename</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(conversation); }}>
+                <Trash2 className="mr-2 h-4 w-4" /><span>Delete</span>
+            </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+};
+
+interface HistorySidebarProps {
+    conversations: AppConversation[];
+    selectedConversationId: string | null;
+    onSelectConversation: (id: string) => void;
+    onRenameConversation: (id: string, newName: string) => Promise<void>;
+    onDeleteConversation: (conversation: AppConversation) => void;
+    isLoading: boolean;
+}
+
+export const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversations, selectedConversationId, onSelectConversation, onRenameConversation, onDeleteConversation, isLoading }) => {
+    if (isLoading) {
+        return <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+    }
+
+    if (conversations.length === 0) {
+        return <div className="flex flex-col items-center justify-center h-full text-center p-4"><p className="text-sm text-muted-foreground">No chat history yet.</p></div>;
+    }
+    
+    return (
+        <div className="flex flex-col h-full bg-marble-100">
+            <ScrollArea className="flex-grow">
+                <div className="space-y-0.5 p-2">
+                    {conversations.map((convo) => (
+                        <HistoryItem 
+                            key={convo.id} 
+                            conversation={convo}
+                            isSelected={convo.id === selectedConversationId} 
+                            onSelect={onSelectConversation}
+                            onRename={onRenameConversation}
+                            onDelete={onDeleteConversation}
+                        />
+                    ))}
+                </div>
+            </ScrollArea>
+        </div>
+    );
+};

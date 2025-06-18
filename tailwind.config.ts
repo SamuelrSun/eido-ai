@@ -1,5 +1,5 @@
-
 import type { Config } from "tailwindcss";
+import animate from "tailwindcss-animate";
 
 export default {
 	darkMode: ["class"],
@@ -73,7 +73,8 @@ export default {
 					grey: '#8E9196',
 					'grey-light': '#F6F6F7',
 					'grey-dark': '#403E43'
-				}
+				},
+                volcanic: '#212121' /* Added dark charcoal color */
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -113,5 +114,5 @@ export default {
 			}
 		}
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [animate],
 } satisfies Config;

@@ -1,23 +1,27 @@
 // supabase/functions/upload-to-vector-store/index.ts
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import weaviate, { WeaviateClient, ApiKey } from 'npm:weaviate-ts-client@2.0.0';
 import { corsHeaders } from "../_shared/cors.ts";
-// FIX: Correctly import the pdf-parse library
-import pdf from 'npm:pdf-parse';
+import pdf from 'npm:pdf-parse@1.1.1';
 import mammoth from 'npm:mammoth@1.6.0';
 
-interface FilePayload {
-  url: string; name: string; type: string; file_id: string; folder_id: string | null;
+interface FileStoragePayload {
+  storage_path: string;
+  original_name: string;
+  mime_type: string;
+  size: number;
+  class_id: string;
+  folder_id: string | null;
 }
+
 interface RequestBody {
-  files: FilePayload[]; class_id: string;
+  files: FileStoragePayload[];
 }
 
 async function extractTextFromFile(fileBuffer: ArrayBuffer, contentType: string): Promise<string> {
     if (contentType === 'application/pdf') {
-        // The library expects a Buffer, so we create one from the ArrayBuffer
         const data = await pdf(fileBuffer);
         return data.text;
     } else if (contentType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
@@ -26,6 +30,7 @@ async function extractTextFromFile(fileBuffer: ArrayBuffer, contentType: string)
     } else if (contentType.startsWith('text/')) {
         return new TextDecoder().decode(fileBuffer);
     }
+    console.warn(`Unsupported content type for text extraction: ${contentType}`);
     return '';
 }
 
@@ -43,101 +48,100 @@ function chunkText(text: string, chunkSize = 1000, chunkOverlap = 100): string[]
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  console.log("[Upload Function] Received request.");
-
+  
   try {
-    const supabaseClient = createClient(
+    const supabaseAdminClient: SupabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    const { data: { user } } = await createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
-    const { data: { user } } = await supabaseClient.auth.getUser();
+    ).auth.getUser();
     if (!user) throw new Error("User not authenticated.");
-    console.log(`[Upload Function] Authenticated user: ${user.id}`);
 
-
-    const { files, class_id }: RequestBody = await req.json();
-    if (!files?.length || !class_id) throw new Error('Request body must include a "files" array and a "class_id".');
-    console.log(`[Upload Function] Received ${files.length} files to process for class_id: ${class_id}`);
-
+    const { files }: RequestBody = await req.json();
+    if (!files?.length) throw new Error('Request body must include a "files" array.');
 
     const weaviateHost = Deno.env.get("WEAVIATE_URL");
     const weaviateApiKey = Deno.env.get("WEAVIATE_API_KEY");
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!weaviateHost || !weaviateApiKey || !openAIApiKey) throw new Error('Weaviate/OpenAI secrets not configured.');
-    console.log("[Upload Function] All secrets found. Initializing Weaviate client.");
-
     const weaviateClient: WeaviateClient = weaviate.client({
-      scheme: 'https',
-      host: weaviateHost,
-      apiKey: new ApiKey(weaviateApiKey),
+      scheme: 'https', host: weaviateHost, apiKey: new ApiKey(weaviateApiKey),
       headers: { 'X-OpenAI-Api-Key': openAIApiKey },
     });
-
     const results = [];
     for (const file of files) {
       try {
-        console.log(`[Upload Function] Processing file: ${file.name} (ID: ${file.file_id})`);
-        const fileResponse = await fetch(file.url);
-        if (!fileResponse.ok) throw new Error(`Fetch failed for ${file.name}: ${fileResponse.statusText}`);
+        const { data: urlData } = supabaseAdminClient.storage.from('file_storage').getPublicUrl(file.storage_path);
+        if (!urlData.publicUrl) throw new Error(`Could not get public URL for ${file.storage_path}`);
+        const { data: dbFile, error: dbError } = await supabaseAdminClient
+          .from('files')
+          .insert({
+              name: file.original_name, size: file.size, type: file.mime_type,
+              url: urlData.publicUrl, user_id: user.id, class_id: file.class_id,
+              folder_id: file.folder_id,
+              status: 'processing',
+          })
+          .select()
+          .single();
+        if (dbError) throw new Error(`Database insert failed for ${file.original_name}: ${dbError.message}`);
+        const { data: fileBuffer, error: downloadError } = await supabaseAdminClient.storage
+            .from('file_storage')
+            .download(file.storage_path);
+        if (downloadError) throw new Error(`Failed to download ${file.original_name}: ${downloadError.message}`);
         
-        const fileBuffer = await fileResponse.arrayBuffer();
-        console.log(`[Upload Function] Fetched file buffer for ${file.name}, size: ${fileBuffer.byteLength}`);
+        const text = await extractTextFromFile(await fileBuffer.arrayBuffer(), file.mime_type);
+        if (text.trim()) {
+            const chunks = chunkText(text);
+            const weaviateObjects = chunks.map((chunk, index) => ({
+              class: "DocumentChunk",
+              properties: {
+                text_chunk: chunk, 
+                source_file_id: dbFile.file_id,
+                user_id: user.id, 
+                class_id: file.class_id, // ADDED: Pass class_id to Weaviate
+                chunk_index: index,
+              },
+            }));
 
-        const text = await extractTextFromFile(fileBuffer, file.type);
-        if (!text.trim()) {
-            console.log(`[Upload Function] Skipped ${file.name} because it has no text content.`);
-            results.push({ fileName: file.name, success: true, message: 'Skipped (no text content)' });
-            continue;
+            console.log(`--- [UPLOAD DEBUG] Preparing to batch import ${weaviateObjects.length} chunks for file_id: ${dbFile.file_id}.`);
+            console.log(`--- [UPLOAD DEBUG] Data for first chunk: ${JSON.stringify(weaviateObjects[0], null, 2)}`);
+
+            if (weaviateObjects.length > 0) {
+                let batcher = weaviateClient.batch.objectsBatcher();
+                for (const obj of weaviateObjects) { batcher = batcher.withObject(obj); }
+                const res = await batcher.do();
+                const errors = res.filter(item => item.result?.errors);
+                if (errors.length > 0) throw new Error(`Failed to import ${errors.length} chunks to Weaviate.`);
+            }
         }
 
-        const chunks = chunkText(text);
-        if (chunks.length === 0) {
-            console.log(`[Upload Function] Skipped ${file.name} because no text chunks were created.`);
-            results.push({ fileName: file.name, success: true, message: 'Skipped (no chunks created)' });
-            continue;
+        const { data: updatedFile, error: updateError } = await supabaseAdminClient
+            .from('files')
+            .update({ status: 'complete' })
+            .eq('file_id', dbFile.file_id)
+            .select()
+            .single();
+        if (updateError) throw new Error(`Failed to update file status: ${updateError.message}`);
+        // FIX for updatedFile possibly being null
+        if (updatedFile) {
+          results.push({ ...updatedFile, success: true });
         }
-        console.log(`[Upload Function] Created ${chunks.length} chunks for ${file.name}.`);
-
-        const weaviateObjects = chunks.map((chunk, index) => ({
-          class: "DocumentChunk",
-          properties: {
-            text_chunk: chunk,
-            source_file_id: file.file_id,
-            class_db_id: class_id,
-            user_id: user.id,
-            chunk_index: index,
-          },
-        }));
-
-        console.log(`[Upload Function] Preparing to batch import ${weaviateObjects.length} objects for ${file.name}.`);
-        console.log(`[Upload Function] Sample object properties: ${JSON.stringify(weaviateObjects[0].properties)}`);
-
-        let batcher = weaviateClient.batch.objectsBatcher();
-        for (const obj of weaviateObjects) {
-          batcher = batcher.withObject(obj);
-        }
-        const res = await batcher.do();
-        console.log(`[Upload Function] Weaviate batch response for ${file.name}:`, res);
-        
-        const errors = res.filter(item => item.result?.errors);
-        if (errors.length > 0) {
-          console.error(`[Upload Function] Weaviate batch import failed for ${file.name}:`, JSON.stringify(errors, null, 2));
-          throw new Error(`Failed to import ${errors.length} chunks for file ${file.name}.`);
-        }
-
-        results.push({ fileName: file.name, success: true, chunksImported: weaviateObjects.length });
-        console.log(`[Upload Function] Successfully processed ${file.name}.`);
 
       } catch (e) {
-        console.error(`[Upload Function] Error processing file ${file.name}:`, e.message);
-        results.push({ fileName: file.name, success: false, error: e.message });
+        // FIX for unknown error type
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        results.push({ original_name: file.original_name, success: false, error: errorMessage });
       }
     }
     
     return new Response(JSON.stringify({ success: true, results }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
-    console.error("Critical error in upload-to-vector-store function:", error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return new Response(JSON.stringify({ success: false, error: errorMessage }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

@@ -1,11 +1,10 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 195 33% 97%;
+    --background: 38 56% 96%;
     --foreground: 220 10% 22%;
 
     --card: 0 0% 100%;
@@ -33,7 +32,7 @@
     --input: 220 13% 91%;
     --ring: 185 72% 36%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem; /* MODIFIED: Was 0.75rem */
 
     --sidebar-background: 220 30% 18%;
     --sidebar-foreground: 210 40% 98%;
@@ -81,6 +80,7 @@
     @apply bg-white rounded-lg shadow-md p-6 border border-slate-200 hover:shadow-lg transition-all duration-300;
   }
 
+  
   .section-header {
     @apply text-2xl font-semibold text-cybercoach-blue-dark mb-4;
   }

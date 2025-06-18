@@ -10,25 +10,31 @@ import type { OpenAIConfig } from "@/services/classOpenAIConfig";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { User } from "@supabase/supabase-js";
 
 export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
 }
 
+interface ProfileData {
+  full_name: string | null;
+  avatar_url: string | null;
+}
+
 interface ChatBotProps {
   placeholder?: string;
   suggestions?: string[];
-  knowledgeBase?: string; 
-  openAIConfig?: OpenAIConfig; 
+  knowledgeBase?: string;
+  openAIConfig?: OpenAIConfig;
   classId?: string;
   disableToasts?: boolean;
   loadingIndicator?: React.ReactNode;
   onResponseGenerationStateChange?: (isGenerating: boolean) => void;
-  messages?: Message[]; 
+  messages?: Message[];
   onMessagesChange?: (messagesOrUpdater: Message[] | ((prevMessages: Message[]) => Message[])) => void;
   className?: string;
-  disabled?: boolean; 
+  disabled?: boolean;
 }
 
 export function ChatBot({
@@ -43,11 +49,13 @@ export function ChatBot({
   messages: externalMessages,
   onMessagesChange,
   className,
-  disabled, 
+  disabled,
 }: ChatBotProps) {
   const [internalMessages, setInternalMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   const messages = externalMessages !== undefined ? externalMessages : internalMessages;
   
@@ -67,6 +75,30 @@ export function ChatBot({
   const { toast } = useToast();
 
   useEffect(() => {
+    const fetchUserAndProfile = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUser = session?.user;
+        setUser(currentUser || null);
+
+        if (currentUser) {
+            const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('full_name, avatar_url')
+                .eq('user_id', currentUser.id)
+                .single();
+
+            if (error) {
+                console.error("Error fetching profile for chat:", error);
+            } else if (profileData) {
+                setUserProfile(profileData);
+            }
+        }
+    };
+    fetchUserAndProfile();
+  }, []);
+
+
+  useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
@@ -82,23 +114,19 @@ export function ChatBot({
     setErrorMessage(null);
     const userMessage: Message = { role: "user", content: messageText };
 
-    // Create the new list of messages for the UI *now*
     const messagesWithUserQuery = [...messages, userMessage];
     
-    // Update the UI immediately with the user's message
-    setMessagesWrapper(messagesWithUserQuery); 
+    setMessagesWrapper(messagesWithUserQuery);
     setIsLoading(true);
 
     try {
       const { data, error: functionError } = await supabase.functions.invoke("chat", {
         body: {
           message: messageText,
-          // Pass the history that *doesn't* include the current message,
-          // as the 'message' param on the backend handles appending it.
           history: messages,
-          openAIConfig: openAIConfig, 
+          openAIConfig: openAIConfig,
           knowledgeBase: knowledgeBase,
-          class_id: classId 
+          class_id: classId
         }
       });
 
@@ -106,14 +134,12 @@ export function ChatBot({
       if (data.error) {
         setErrorMessage(data.error);
         const aiErrorMessage: Message = { role: "assistant", content: `Sorry, I encountered an issue: ${data.error}` };
-        // When adding an error message, append it to the list that already has the user's query
         setMessagesWrapper([...messagesWithUserQuery, aiErrorMessage]);
         if (!disableToasts) toast({ title: "AI Response Error", description: data.error, variant: "destructive" });
         return;
       }
       const aiMessage: Message = { role: "assistant", content: data.response };
 
-      // Append the AI response to the list that already contains the user's message
       setMessagesWrapper([...messagesWithUserQuery, aiMessage]);
 
     } catch (error: unknown) {
@@ -125,13 +151,18 @@ export function ChatBot({
       }
       setErrorMessage(friendlyErrorMessage);
       const aiErrorMessage: Message = { role: "assistant", content: `Sorry, I couldn't process your request. ${friendlyErrorMessage}` };
-      // Also append to the list that has the user's query
       setMessagesWrapper([...messagesWithUserQuery, aiErrorMessage]);
       if (!disableToasts) toast({ title: "Chat Error", description: friendlyErrorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
+  
+  const getUserName = () => {
+    if (userProfile?.full_name) return userProfile.full_name;
+    if (user?.email) return user.email.split('@')[0];
+    return "You";
+  }
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
@@ -143,6 +174,8 @@ export function ChatBot({
                 key={index}
                 content={message.content}
                 isUser={message.role === "user"}
+                senderName={message.role === 'user' ? getUserName() : 'Eido AI'}
+                avatarUrl={message.role === 'user' ? userProfile?.avatar_url : undefined}
               />
             ))}
 
@@ -182,7 +215,7 @@ export function ChatBot({
                 )}
               </div>
             )}
-            <div ref={messagesEndRef} /> 
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       </div>
