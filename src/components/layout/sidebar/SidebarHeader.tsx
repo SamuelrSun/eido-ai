@@ -1,4 +1,3 @@
-
 import { X, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -13,24 +12,24 @@ export function SidebarHeader({ onClose, activeClassName }: SidebarHeaderProps) 
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
           <div className="w-8 h-8 rounded-md flex items-center justify-center mr-2">
-            <img 
-              src="/eido-icon.png" 
-              alt="Eido AI Logo" 
+            <img
+              src="/eido-icon.png"
+              alt="Eido AI Logo"
               className="h-8 w-8 object-contain"
             />
           </div>
           <span className="font-semibold text-xl">Eido</span>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onClose}
           className="md:hidden text-sidebar-foreground hover:bg-sidebar-accent"
         >
           <X className="h-5 w-5" />
         </Button>
       </div>
-      
+
       {/* Display active class at the top under Eido */}
       {activeClassName && (
         <div className="py-1 px-1">

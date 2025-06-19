@@ -11,7 +11,7 @@ const PrivacyPolicyPage = () => {
   return (
     <>
       <Helmet>
-        <title>Privacy Policy | Eido AI</title>
+        <title>Privacy Policy | Eido AI Copilot</title>
       </Helmet>
       <div className="bg-gray-50">
         <div className="max-w-4xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
@@ -27,7 +27,7 @@ const PrivacyPolicyPage = () => {
           
             <div className="mt-12 text-gray-700 space-y-6">
               <p className="text-lg leading-relaxed">
-                Welcome to Eido AI ("Eido," "we," "our," or "us"). We are committed to protecting your privacy and being transparent about how we handle your data. This Privacy Policy explains what information we collect, how we use and share it, and your rights concerning your data when you use our application (the "Service"). This policy is an integral part of our <Link to="/terms" className="text-blue-600 hover:text-blue-800 underline">Terms of Service</Link>.
+                Welcome to Eido AI Copilot ("Eido," "we," "our," or "us"). We are committed to protecting your privacy and being transparent about how we handle your data. This Privacy Policy explains what information we collect, how we use and share it, and your rights concerning your data when you use our application (the "Service"). This policy is an integral part of our <Link to="/terms" className="text-blue-600 hover:text-blue-800 underline">Terms of Service</Link>.
               </p>
 
               <SectionTitle>1. Information We Collect</SectionTitle>
@@ -45,7 +45,7 @@ const PrivacyPolicyPage = () => {
               </ul>
 
               <SectionTitle>2. How We Use Your Information</SectionTitle>
-              <p>We use your information for the sole purpose of providing and improving the Eido AI service. This includes:</p>
+              <p>We use your information for the sole purpose of providing and improving the Eido AI Copilot service. This includes:</p>
               <ul className="list-disc list-outside space-y-3 pl-6">
                 <li><strong>To Operate the Service:</strong> We use your Account Information to create and manage your account. We process your User Content to power the core features of the app, such as enabling the AI to answer questions about your documents.</li>
                 <li><strong>To Provide AI Features:</strong> To generate chat responses, flashcards, and quizzes, we send relevant portions of your User Content to our AI service providers.</li>
@@ -65,7 +65,7 @@ const PrivacyPolicyPage = () => {
                     <strong>OpenAI:</strong> As our primary AI model provider, we send relevant text chunks from your User Content, along with your query, to the OpenAI API to generate intelligent responses. Per OpenAI's policy, they do not use data submitted via their API to train their models.
                   </li>
               </ul>
-              <p>We may also disclose your information if required by law or to protect the rights, property, or safety of Eido AI, our users, or others.</p>
+              <p>We may also disclose your information if required by law or to protect the rights, property, or safety of Eido AI Copilot, our users, or others.</p>
 
               <SectionTitle>4. Data Storage, Security, and Retention</SectionTitle>
               <p>We take the security of your data very seriously. We rely on the industry-standard security practices of our cloud providers (Supabase, Weaviate, and OpenAI). All data is encrypted in transit and at rest.</p>

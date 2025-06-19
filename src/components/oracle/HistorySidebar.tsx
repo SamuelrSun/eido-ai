@@ -10,11 +10,9 @@ import {
 import { MoreHorizontal, Edit, Trash2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
-import { AppConversation } from '@/services/conversationService'; // Original import is correct
+// MODIFIED: Importing AppConversation from its new canonical source
+import { AppConversation } from '@/services/conversationService';
 import { Input } from '../ui/input';
-
-// FIX: Export the AppConversation type so other components can import it
-export type { AppConversation };
 
 interface HistoryItemProps {
   conversation: AppConversation;
@@ -45,7 +43,7 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ conversation, isSelected, onS
         setIsRenaming(false);
     };
 
-  return (
+    return (
     <div
       onClick={() => !isRenaming && onSelect(conversation.id)}
       className={cn('flex items-center justify-between p-2 my-0.5 rounded-md cursor-pointer group relative transition-colors duration-150', isSelected ? 'bg-stone-200' : 'hover:bg-stone-100')}
@@ -64,7 +62,7 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ conversation, isSelected, onS
       {!isRenaming && (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}><MoreHorizontal size={18} /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}><MoreHorizontal size={18} /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setIsRenaming(true); }}>

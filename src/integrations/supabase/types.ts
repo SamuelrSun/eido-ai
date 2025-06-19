@@ -18,8 +18,8 @@ export type Database = {
           created_at: string
           id: string
           role: string
-          user_id: string
           attached_files: Json | null // VERIFIED
+          user_id: string // User ID is explicitly not nullable
         }
         Insert: {
           chat_mode: string
@@ -29,8 +29,8 @@ export type Database = {
           created_at?: string
           id?: string
           role: string
-          user_id: string
           attached_files?: Json | null // VERIFIED
+          user_id: string // User ID is explicitly not nullable
         }
         Update: {
           chat_mode?: string
@@ -40,8 +40,8 @@ export type Database = {
           created_at?: string
           id?: string
           role?: string
-          user_id?: string
           attached_files?: Json | null // VERIFIED
+          user_id?: string // User ID is explicitly not nullable
         }
         Relationships: [
           {
@@ -67,49 +67,30 @@ export type Database = {
           },
         ]
       }
-      // ... (rest of the tables are unchanged)
       classes: {
         Row: {
-          assistant_id: string | null
           class_id: string
-          class_time: string | null
-          class_title: string
-          classroom: string | null
-          created_at: string | null
-          emoji: string | null
-          enabled_widgets: string[] | null
-          professor: string | null
-          updated_at: string | null
-          user_id: string | null
-          vector_store_id: string | null
+          class_name: string // Renamed from class_title
+          user_id: string | null // Keep user_id as it's a FK 
+          created_at: string | null // Keep created_at 
+          updated_at: string | null // Keep updated_at 
+          // Deleted: assistant_id, class_time, classroom, emoji, enabled_widgets, professor, vector_store_id
         }
         Insert: {
-          assistant_id?: string | null
           class_id?: string
-          class_time?: string | null
-          class_title: string
-          classroom?: string | null
-          created_at?: string | null
-          emoji?: string | null
-          enabled_widgets?: string[] | null
-          professor?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-          vector_store_id?: string | null
+          class_name: string // Renamed from class_title
+          user_id?: string | null // Keep user_id as it's a FK 
+          created_at?: string | null // Keep created_at 
+          updated_at?: string | null // Keep updated_at 
+          // Deleted: assistant_id, class_time, classroom, emoji, enabled_widgets, professor, vector_store_id
         }
         Update: {
-          assistant_id?: string | null
           class_id?: string
-          class_time?: string | null
-          class_title?: string
-          classroom?: string | null
-          created_at?: string | null
-          emoji?: string | null
-          enabled_widgets?: string[] | null
-          professor?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-          vector_store_id?: string | null
+          class_name?: string // Renamed from class_title
+          user_id?: string | null // Keep user_id as it's a FK 
+          created_at?: string | null // Keep created_at 
+          updated_at?: string | null // Keep updated_at 
+          // Deleted: assistant_id, class_time, classroom, emoji, enabled_widgets, professor, vector_store_id
         }
         Relationships: [
           {
@@ -172,42 +153,7 @@ export type Database = {
           },
         ]
       }
-      database: {
-        Row: {
-          class_id: string | null
-          created_at: string
-          database_id: string
-          user_id: string | null
-        }
-        Insert: {
-          class_id?: string | null
-          created_at?: string
-          database_id?: string
-          user_id?: string | null
-        }
-        Update: {
-          class_id?: string | null
-          created_at?: string
-          database_id?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "database_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "database_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
+      // The 'database' table has been entirely removed from here.
       embeddings: {
         Row: {
           content: string
@@ -232,58 +178,52 @@ export type Database = {
         }
         Relationships: []
       }
-      file_folders: {
+      folders: { // Renamed from file_folders
         Row: {
           class_id: string | null
           created_at: string
-          database_id: string | null
           folder_id: string
-          name: string
+          folder_name: string // Renamed from name
           parent_id: string | null
           user_id: string
+          // Deleted: database_id
         }
         Insert: {
           class_id?: string | null
           created_at?: string
-          database_id?: string | null
           folder_id?: string
-          name: string
+          folder_name: string // Renamed from name
           parent_id?: string | null
           user_id: string
+          // Deleted: database_id
         }
         Update: {
           class_id?: string | null
           created_at?: string
-          database_id?: string | null
           folder_id?: string
-          name?: string
+          folder_name?: string // Renamed from name
           parent_id?: string | null
           user_id?: string
+          // Deleted: database_id
         }
         Relationships: [
           {
-            foreignKeyName: "file_folders_class_id_fkey"
+            foreignKeyName: "file_folders_class_id_fkey" // Keep old FK name unless migrated
             columns: ["class_id"]
             isOneToOne: false
             referencedRelation: "classes"
             referencedColumns: ["class_id"]
           },
+          // Deleted: file_folders_database_id_fkey relationship
           {
-            foreignKeyName: "file_folders_database_id_fkey"
-            columns: ["database_id"]
-            isOneToOne: false
-            referencedRelation: "database"
-            referencedColumns: ["database_id"]
-          },
-          {
-            foreignKeyName: "file_folders_parent_id_fkey"
+            foreignKeyName: "file_folders_parent_id_fkey" // Keep old FK name unless migrated
             columns: ["parent_id"]
             isOneToOne: false
-            referencedRelation: "file_folders"
+            referencedRelation: "folders" // Self-referencing
             referencedColumns: ["folder_id"]
           },
           {
-            foreignKeyName: "file_folders_user_id_fkey"
+            foreignKeyName: "file_folders_user_id_fkey" // Keep old FK name unless migrated
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -296,55 +236,52 @@ export type Database = {
           category: string | null
           class_id: string | null
           created_at: string
-          database_id: string | null
           document_title: string | null
           file_id: string
           folder_id: string | null
           last_modified: string
           name: string
-          openai_file_id: string | null
           size: number
           status: string | null
           tags: string[] | null
           type: string
           url: string | null
           user_id: string
+          // Deleted: openai_file_id, database_id
         }
         Insert: {
           category?: string | null
           class_id?: string | null
           created_at?: string
-          database_id?: string | null
           document_title?: string | null
           file_id?: string
           folder_id?: string | null
           last_modified?: string
           name: string
-          openai_file_id?: string | null
           size: number
           status?: string | null
           tags?: string[] | null
           type: string
           url?: string | null
           user_id: string
+          // Deleted: openai_file_id, database_id
         }
         Update: {
           category?: string | null
           class_id?: string | null
           created_at?: string
-          database_id?: string | null
           document_title?: string | null
           file_id?: string
           folder_id?: string | null
           last_modified?: string
           name?: string
-          openai_file_id?: string | null
           size?: number
           status?: string | null
           tags?: string[] | null
           type?: string
           url?: string | null
           user_id?: string
+          // Deleted: openai_file_id, database_id
         }
         Relationships: [
           {
@@ -354,18 +291,12 @@ export type Database = {
             referencedRelation: "classes"
             referencedColumns: ["class_id"]
           },
-          {
-            foreignKeyName: "files_database_id_fkey"
-            columns: ["database_id"]
-            isOneToOne: false
-            referencedRelation: "database"
-            referencedColumns: ["database_id"]
-          },
+          // Deleted: files_database_id_fkey relationship
           {
             foreignKeyName: "files_folder_id_fkey"
             columns: ["folder_id"]
             isOneToOne: false
-            referencedRelation: "file_folders"
+            referencedRelation: "folders" // Changed from file_folders
             referencedColumns: ["folder_id"]
           },
           {
@@ -525,6 +456,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           highlight?: string | null
+          page_number?: number | null // Added back page_number based on previous analysis of repomix
         }
         Update: {
           id?: string
@@ -535,6 +467,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           highlight?: string | null
+          page_number?: number | null // Added back page_number based on previous analysis of repomix
         }
         Relationships: [
           {

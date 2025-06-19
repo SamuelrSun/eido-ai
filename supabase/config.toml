@@ -33,11 +33,11 @@ port = 54327
 [functions.chat]
 verify_jwt = true 
 
-[functions.generate-flashcards]
-verify_jwt = true
+# Removed: [functions.generate-flashcards]
+# Removed: verify_jwt = true
 
-[functions.generate-quiz]
-verify_jwt = true
+# Removed: [functions.generate-quiz]
+# Removed: verify_jwt = true
 
 [functions.list-vector-store-files]
 verify_jwt = true

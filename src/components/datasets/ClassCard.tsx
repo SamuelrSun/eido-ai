@@ -7,27 +7,27 @@ import { MoreHorizontal, Trash2 } from 'lucide-react';
 
 interface ClassCardProps {
   id: string;
-  name: string;
+  className: string; // Renamed from 'name'
   files: number;
   size: string;
   isSelected: boolean;
   onClick: () => void;
-  onDelete: (id: string, name: string) => void;
+  onDelete: (id: string, className: string) => void; // Renamed 'name' to 'className'
 }
 
-export const ClassCard: React.FC<ClassCardProps> = ({ id, name, files, size, isSelected, onClick, onDelete }) => {
+export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size, isSelected, onClick, onDelete }) => { // Renamed 'name' to 'className'
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent the card's onClick from firing
-    onDelete(id, name);
+    onDelete(id, className); // Renamed 'name' to 'className'
   };
 
   return (
-    <div 
+    <div
       onClick={onClick}
       className={cn(
         "group p-3 rounded-lg cursor-pointer transition-all border relative",
-        isSelected 
-          ? 'bg-stone-200 border-stone-400' 
+        isSelected
+          ? 'bg-stone-200 border-stone-400'
           : 'bg-stone-100 border-stone-200 hover:bg-stone-200 hover:border-stone-300'
     )}>
       <DropdownMenu>
@@ -54,7 +54,7 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, name, files, size, isS
       </DropdownMenu>
 
       <div className="mb-2">
-        <h3 className="font-semibold text-sm text-stone-700 truncate pr-8" title={name}>{name}</h3>
+        <h3 className="font-semibold text-sm text-stone-700 truncate pr-8" title={className}>{className}</h3> {/* Renamed 'name' to 'className' */}
       </div>
       <div className="text-xs text-muted-foreground">
         <span>{files} Files</span>

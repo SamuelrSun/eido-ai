@@ -1,18 +1,19 @@
-
+// src/hooks/use-sidebar-state.ts
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useClassWidgets } from "@/hooks/use-class-widgets";
-import { WidgetType } from "@/hooks/use-widgets";
+// Removed: import { useClassWidgets } from "@/hooks/use-class-widgets";
+// Removed: import { WidgetType } from "@/hooks/use-widgets";
+import type { User } from "@supabase/supabase-js";
 
 export function useSidebarState() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isWidgetsDialogOpen, setIsWidgetsDialogOpen] = useState(false);
+  // Removed: const [isWidgetsDialogOpen, setIsWidgetsDialogOpen] = useState(false);
   const [activeClassName, setActiveClassName] = useState<string | null>(null);
   const location = useLocation();
-  const { enabledWidgets, isLoading: widgetsLoading } = useClassWidgets();
-  
+  // Removed: const { enabledWidgets, isLoading: widgetsLoading } = useClassWidgets(); // No longer used
+
   // Load user and auth state
   useEffect(() => {
     const fetchUser = async () => {
@@ -26,7 +27,7 @@ export function useSidebarState() {
     
     fetchUser();
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
     });
     
@@ -34,9 +35,9 @@ export function useSidebarState() {
     const activeClass = sessionStorage.getItem('activeClass');
     if (activeClass) {
       try {
-        const parsedClass = JSON.parse(activeClass);
-        setActiveClassName(parsedClass.title);
-      } catch (e) {
+        const parsedClass: { class_id: string; class_name: string; } = JSON.parse(activeClass);
+        setActiveClassName(parsedClass.class_name);
+      } catch (e: unknown) {
         console.error("Error parsing active class:", e);
       }
     }
@@ -52,9 +53,9 @@ export function useSidebarState() {
       const activeClass = sessionStorage.getItem('activeClass');
       if (activeClass) {
         try {
-          const parsedClass = JSON.parse(activeClass);
-          setActiveClassName(parsedClass.title);
-        } catch (e) {
+          const parsedClass: { class_id: string; class_name: string; } = JSON.parse(activeClass);
+          setActiveClassName(parsedClass.class_name);
+        } catch (e: unknown) {
           console.error("Error parsing active class:", e);
         }
       }
@@ -64,10 +65,10 @@ export function useSidebarState() {
   return {
     user,
     loading,
-    isWidgetsDialogOpen,
-    setIsWidgetsDialogOpen,
+    // Removed: isWidgetsDialogOpen,
+    // Removed: setIsWidgetsDialogOpen,
     activeClassName,
-    enabledWidgets,
-    widgetsLoading
+    // Removed: enabledWidgets,
+    // Removed: widgetsLoading
   };
 }

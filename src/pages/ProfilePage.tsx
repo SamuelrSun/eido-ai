@@ -31,20 +31,20 @@ const ProfilePage = () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      
       // FIX: Clear client-side cache on sign out
       localStorage.removeItem('eidoRecentFiles');
-
+      // Also remove active class from session storage to ensure full logout state
+      sessionStorage.removeItem('activeClass');
       toast({
         title: "Signed out successfully",
         description: "You've been signed out of your account",
       });
       // The auth listener in App.tsx will handle the redirect
-    } catch (error) {
+    } catch (error: unknown) { // Use unknown for error type
       console.error("Error signing out:", error);
       toast({
         title: "Sign out failed",
-        description: "There was a problem signing you out. Please try again.",
+        description: (error instanceof Error) ? error.message : "There was a problem signing you out. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -55,27 +55,33 @@ const ProfilePage = () => {
   const handleDeleteAccount = async () => {
     setIsDeletingAccount(true);
     try {
+      // The 'delete-user-account' Edge Function should be updated to handle the new schema
+      // and delete all user data from ALL relevant tables (classes, folders, files, etc.).
       const { data, error: functionError } = await supabase.functions.invoke('delete-user-account');
+      
+      const responseData: { error?: string } = data as { error?: string }; // Cast to specific type
+
       if (functionError) {
         throw new Error(functionError.message || "Failed to initiate account deletion process.");
       }
-      if (data.error) {
-        throw new Error(data.error);
+      if (responseData.error) {
+        throw new Error(responseData.error);
       }
 
       // FIX: Clear client-side cache on account deletion
       localStorage.removeItem('eidoRecentFiles');
-      
+      // Also clear active class from session storage
+      sessionStorage.removeItem('activeClass');
       toast({
         title: "Account Deletion Successful",
         description: "Your account and all associated data are being deleted.",
       });
       await supabase.auth.signOut();
-    } catch (error) {
+    } catch (error: unknown) { // Use unknown for error type
       console.error('Error deleting account:', error);
       toast({
         title: "Account Deletion Failed",
-        description: error instanceof Error ? error.message : "An unexpected error occurred.",
+        description: (error instanceof Error) ? error.message : "An unexpected error occurred.",
         variant: "destructive",
       });
     } finally {
@@ -98,7 +104,7 @@ const ProfilePage = () => {
               <a data-element="Link" href="/">
                  <div className="mr-3 flex items-baseline" data-component="NavigationLogo">
                   <span className="text-logo lowercase font-variable ml-1 font-light text-green-700">eido ai</span>
-                 </div>
+                </div>
               </a>
                <div className="hidden md:flex flex-row items-center gap-x-4 gap-y-0 lg:gap-x-6 justify-between md:w-fit md:max-w-[680px] lg:max-w-[820px]">
                 <a href="/"><p className="text-overline uppercase font-code text-volcanic-800 hover:text-volcanic-900">Dashboard</p></a>
@@ -122,7 +128,7 @@ const ProfilePage = () => {
                     <Link to="/oracle"><span className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900"><span>Oracle</span></span></Link>
                   </div>
                    <div className="flex flex-col gap-y-1">
-                    <span className="text-overline uppercase font-code font-bold text-dark-blue">Settings</span>
+                     <span className="text-overline uppercase font-code font-bold text-dark-blue">Settings</span>
                     <Link to="/billing"><span className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900"><span>Billing</span></span></Link>
                     <Link to="/profile"><span className="text-p font-body flex items-center py-0.5 text-volcanic-900"><div className="mr-3 h-2 w-2 rounded-full bg-coral-500"></div><span className="font-medium">Profile</span></span></Link>
                    </div>
@@ -131,7 +137,7 @@ const ProfilePage = () => {
             </div>
              <main className="mx-3 flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-marble-400 bg-marble-100 md:ml-0">
                {/* Main Content Area for Profile */}
-               <div className="flex flex-col gap-y-8 p-4 md:p-9 lg:p-10">
+                <div className="flex flex-col gap-y-8 p-4 md:p-9 lg:p-10">
                   <div>
                     <h1 className="text-h5-m lg:text-h4 font-variable font-[420] text-volcanic-900">
                       Profile & Settings
@@ -163,8 +169,8 @@ const ProfilePage = () => {
                             </div>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button 
-                                  variant="destructive" 
+                                <Button
+                                  variant="destructive"
                                   disabled={isDeletingAccount}
                                   className="w-full sm:w-auto flex-shrink-0"
                                 >
@@ -181,8 +187,8 @@ const ProfilePage = () => {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel disabled={isDeletingAccount}>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction 
-                                    onClick={handleDeleteAccount} 
+                                  <AlertDialogAction
+                                    onClick={handleDeleteAccount}
                                     disabled={isDeletingAccount}
                                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                                   >
@@ -197,10 +203,10 @@ const ProfilePage = () => {
                     </div>
                   </div>
                   <div className="pt-6 border-t mt-4">
-                        <Button 
-                          variant="outline" 
-                          onClick={handleSignOut} 
-                          disabled={isSignOutLoading || isDeletingAccount} 
+                        <Button
+                          variant="outline"
+                          onClick={handleSignOut}
+                          disabled={isSignOutLoading || isDeletingAccount}
                         >
                           {isSignOutLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                           Sign Out

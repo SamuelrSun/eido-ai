@@ -6,7 +6,7 @@ export type ConversationDBRow = CustomDatabase['public']['Tables']['conversation
 export type ConversationDBInsert = CustomDatabase['public']['Tables']['conversations']['Insert'];
 export type ConversationDBUpdate = CustomDatabase['public']['Tables']['conversations']['Update'];
 
-// This type is now exported to be used by other components
+// MOVED & EXPORTED: This type is now defined here as its canonical source.
 export interface AppConversation {
   id: string;
   name: string;
@@ -33,20 +33,20 @@ const mapToAppConversation = (dbRow: ConversationDBRow): AppConversation => ({
 
 export const conversationService = {
   fetchConversations: async (userId: string, class_id?: string, chat_mode?: 'rag' | 'web'): Promise<AppConversation[]> => {
-   let query = supabase
+    let query = supabase
       .from('conversations')
       .select('*')
       .eq('user_id', userId);
-  
-    if(class_id){
+      
+    if (class_id) {
       query = query.eq('class_id', class_id);
     }
-    if(chat_mode){
+    if (chat_mode) {
       query = query.eq('chat_mode', chat_mode);
     }
   
     query = query.order('last_message_at', { ascending: false });
-
+    
     const { data, error } = await query;
 
     if (error) {
@@ -67,12 +67,13 @@ export const conversationService = {
       chatbot_type: payload.chatbot_type || 'oracle',
       user_id: userId,
     };
+    
     const { data, error } = await supabase
       .from('conversations')
       .insert(insertData)
-       .select()
-       .single();
-
+      .select()
+      .single();
+      
     if (error) {
       console.error("[conversationService] Error creating conversation:", error);
       throw error;
@@ -85,18 +86,19 @@ export const conversationService = {
     newName: string,
     userId: string
   ): Promise<AppConversation> => {
-   const updatePayload: Partial<ConversationDBUpdate> = {
+    const updatePayload: Partial<ConversationDBUpdate> = {
         title: newName,
         updated_at: new Date().toISOString(),
     };
+    
     const { data, error } = await supabase
-       .from('conversations')
+      .from('conversations')
       .update(updatePayload)
       .eq('id', conversationId)
       .eq('user_id', userId)
       .select()
       .single();
-
+      
     if (error) {
       console.error("[conversationService] Error renaming conversation:", error);
       throw error;
@@ -109,11 +111,11 @@ export const conversationService = {
     userId: string
   ): Promise<void> => {
     const { error: messagesError } = await supabase
-       .from('chat_messages')
+      .from('chat_messages')
       .delete()
       .eq('conversation_id', conversationId)
       .eq('user_id', userId);
-
+      
     if (messagesError) {
       console.error(`[conversationService] Error deleting messages for conversation ${conversationId}:`, messagesError);
       throw messagesError;
@@ -124,7 +126,7 @@ export const conversationService = {
       .delete()
       .eq('id', conversationId)
       .eq('user_id', userId);
-
+      
     if (conversationError) {
       console.error(`[conversationService] Error deleting conversation ${conversationId}:`, conversationError);
       throw conversationError;
@@ -139,7 +141,7 @@ export const conversationService = {
       .eq('user_id', userId)
       .select()
       .single();
-
+      
     if (error) {
       console.error(`[conversationService] Error updating timestamp for conversation ${conversationId}:`, error);
       throw error;

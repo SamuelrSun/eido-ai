@@ -1,10 +1,12 @@
+// src/components/auth/Auth.tsx
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
-import { useNavigate, Link } from 'react-router-dom'; // Import Link
+import { useNavigate, Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 const GoogleIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="mr-2">
@@ -23,11 +25,22 @@ export function Auth() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [showPassword, setShowPassword] = useState(false);
+  
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    setEmailTouched(true);
+    setPasswordTouched(true);
+
+    if (!email || !password) {
+      return;
+    }
+
     setLoading(true);
     try {
       if (authMode === 'signup') {
@@ -35,22 +48,35 @@ export function Auth() {
           throw new Error("Password should be at least 10 characters long.");
         }
         const generatedName = email.split('@')[0];
-        const { error } = await supabase.auth.signUp({
+        
+        // MODIFIED: This block is updated for automatic sign-in
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: {
-              full_name: generatedName
-            }
+            // The emailRedirectTo is no longer necessary if email confirmation is off
+            data: { full_name: generatedName }
           }
         });
+
         if (error) throw error;
-        toast({
-          title: "Account created successfully",
-          description: "We've sent you a confirmation link to complete your signup.",
-        });
-      } else { // 'signin'
+
+        // With email confirmation disabled, the 'data' object contains an active session.
+        // We can now navigate the user directly.
+        if (data.session) {
+            toast({
+                title: "Account Created!",
+                description: "Welcome to Eido AI.",
+            });
+            navigate('/');
+        } else {
+            // This is a fallback case if email confirmation is somehow still enabled
+            toast({
+                title: "Account created successfully",
+                description: "We've sent you a confirmation link to complete your signup.",
+            });
+        }
+      } else { // 'signin' mode
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         navigate('/');
@@ -93,6 +119,8 @@ export function Auth() {
 
   const toggleAuthMode = () => {
     setAuthMode(prevMode => (prevMode === 'signin' ? 'signup' : 'signin'));
+    setEmailTouched(false);
+    setPasswordTouched(false);
   };
 
   const toggleShowPassword = () => {
@@ -126,7 +154,7 @@ export function Auth() {
         </div>
 
         <div className="relative">
-            <div className="absolute inset-0 flex items-center">
+           <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300" />
             </div>
             <div className="relative flex justify-center text-xs">
@@ -134,19 +162,26 @@ export function Auth() {
             </div>
         </div>
 
-        <form className="space-y-6" onSubmit={handleEmailAuth}>
+        <form className="space-y-6" onSubmit={handleEmailAuth} noValidate>
           <div className="space-y-4">
-            {/* CORRECTED EMAIL INPUT */}
-            <div className="rounded-md border border-gray-300 px-3 py-2 focus-within:ring-1 focus-within:border-primary focus-within:ring-primary">
-              <Label htmlFor="email" className="block text-xs font-medium text-gray-500 uppercase">
+            <div className={cn(
+                "relative rounded-md border px-3 py-2 transition-all",
+                "focus-within:border-gray-800",
+                emailTouched && !email ? "border-red-700/70" : "border-gray-300"
+            )}>
+              {emailTouched && !email && (
+                  <span className="absolute top-1 right-2 text-xs text-red-700">*required</span>
+              )}
+              <Label htmlFor="email" className="block text-xs font-medium text-gray-400 uppercase">
                 Email
-              </Label>
+               </Label>
               <input
                 id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
                 value={email}
+                onBlur={() => setEmailTouched(true)}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full p-0 border-none bg-transparent focus:outline-none focus:ring-0 text-sm placeholder:text-muted-foreground h-auto"
@@ -154,39 +189,48 @@ export function Auth() {
               />
             </div>
 
-            {/* CORRECTED PASSWORD INPUT */}
-            <div className="rounded-md border border-gray-300 px-3 py-2 focus-within:ring-1 focus-within:border-primary focus-within:ring-primary">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="password" className="block text-xs font-medium text-gray-500 uppercase">
+            <div>
+              <div className={cn(
+                  "relative rounded-md border px-3 py-2 transition-all",
+                  "focus-within:border-gray-800",
+                  passwordTouched && !password ? "border-red-700/70" : "border-gray-300"
+              )}>
+                {passwordTouched && !password && (
+                    <span className="absolute top-1 right-2 text-xs text-red-700">*required</span>
+                )}
+                <Label htmlFor="password" className="block text-xs font-medium text-gray-400 uppercase">
                   Password
                 </Label>
-                {authMode === 'signin' && (
-                  <a href="#" className="text-xs font-medium text-primary hover:underline">
-                    Forgot Password?
-                  </a>
-                )}
+                <div className="flex items-center">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={password}
+                    onBlur={() => setPasswordTouched(true)}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={authMode === 'signup' ? 10 : undefined}
+                    className="w-full p-0 border-none bg-transparent focus:outline-none focus:ring-0 text-sm placeholder:text-muted-foreground h-auto"
+                    placeholder="••••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleShowPassword}
+                    className="flex items-center text-gray-400 hover:text-gray-600 pl-2"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={authMode === 'signup' ? 10 : undefined}
-                  className="w-full p-0 border-none bg-transparent focus:outline-none focus:ring-0 text-sm placeholder:text-muted-foreground h-auto"
-                  placeholder="••••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={toggleShowPassword}
-                  className="flex items-center text-gray-400 hover:text-gray-600 pl-2"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
+              {authMode === 'signin' && (
+                  <div className="flex justify-end mt-2">
+                    <a href="#" className="text-xs font-medium text-gray-800 hover:underline">
+                      Forgot Password?
+                    </a>
+                  </div>
+              )}
             </div>
           </div>
 

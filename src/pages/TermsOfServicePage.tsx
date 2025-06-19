@@ -11,7 +11,7 @@ const TermsOfServicePage = () => {
   return (
     <>
       <Helmet>
-        <title>Terms of Service | Eido AI</title>
+        <title>Terms of Service | Eido AI Copilot</title>
       </Helmet>
       <div className="bg-gray-50">
         <div className="max-w-4xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
@@ -27,18 +27,18 @@ const TermsOfServicePage = () => {
           
             <div className="mt-12 text-gray-700 space-y-6">
               <p className="text-lg leading-relaxed">
-                Welcome to Eido AI ("Eido," "we," "our," or "us"). These Terms of Service ("Terms") govern your access to and use of our web application and services (collectively, the "Service"). By accessing or using the Service, you agree to be bound by these Terms and our <Link to="/privacy" className="text-blue-600 hover:text-blue-800 underline">Privacy Policy</Link>.
+                Welcome to Eido AI Copilot ("Eido," "we," "our," or "us"). These Terms of Service ("Terms") govern your access to and use of our web application and services (collectively, the "Service"). By accessing or using the Service, you agree to be bound by these Terms and our <Link to="/privacy" className="text-blue-600 hover:text-blue-800 underline">Privacy Policy</Link>.
               </p>
 
               <SectionTitle>1. Description of Service</SectionTitle>
-              <p>Eido AI is an educational copilot designed to help users create smart, searchable knowledge bases from their course materials. The Service uses artificial intelligence to allow users to chat with their documents and generate study aids like flashcards and quizzes ("AI-Generated Content").</p>
+              <p>Eido AI Copilot is an educational copilot designed to help users create smart, searchable knowledge bases from their course materials. The Service uses artificial intelligence to allow users to chat with their documents and generate study aids like flashcards and quizzes ("AI-Generated Content").</p>
 
               <SectionTitle>2. User Accounts</SectionTitle>
               <p>To access most features of the Service, you must register for an account. You agree to provide accurate, current, and complete information during the registration process and to update such information to keep it accurate, current, and complete. You are responsible for safeguarding your password and for any activities or actions under your account.</p>
               
               <SectionTitle>3. User Content and Data</SectionTitle>
               <p>
-                You retain full ownership of all documents, text, and other materials you upload to the Service ("User Content"). By uploading User Content, you grant Eido AI a worldwide, non-exclusive, royalty-free license to use, process, store, and transmit your User Content solely for the purpose of providing and improving the Service for you. This includes:
+                You retain full ownership of all documents, text, and other materials you upload to the Service ("User Content"). By uploading User Content, you grant Eido AI Copilot a worldwide, non-exclusive, royalty-free license to use, process, store, and transmit your User Content solely for the purpose of providing and improving the Service for you. This includes:
               </p>
               <ul className="list-disc list-outside space-y-2 pl-6">
                   <li>Processing your documents to create vector embeddings for search and retrieval.</li>
@@ -58,16 +58,16 @@ const TermsOfServicePage = () => {
               <p>Violation of this policy may result in the immediate suspension or termination of your account.</p>
 
               <SectionTitle>5. AI-Generated Content</SectionTitle>
-              <p>The Service uses artificial intelligence to generate content such as chat responses, flashcards, and quizzes. While we strive for accuracy, AI-Generated Content may contain errors or inaccuracies. It is provided for educational and informational purposes only. You should independently verify any critical information before relying on it. Eido AI does not guarantee the accuracy, completeness, or usefulness of any AI-Generated Content.</p>
+              <p>The Service uses artificial intelligence to generate content such as chat responses, flashcards, and quizzes. While we strive for accuracy, AI-Generated Content may contain errors or inaccuracies. It is provided for educational and informational purposes only. You should independently verify any critical information before relying on it. Eido AI Copilot does not guarantee the accuracy, completeness, or usefulness of any AI-Generated Content.</p>
               
               <SectionTitle>6. Intellectual Property</SectionTitle>
-              <p>Excluding your User Content, the Service and all materials therein, including, without limitation, software, images, text, graphics, logos, patents, trademarks, service marks, and copyrights (the "Eido AI Content"), and all Intellectual Property Rights related thereto, are the exclusive property of Eido AI. Use of the Eido AI Content for any purpose not expressly permitted by these Terms is strictly prohibited.</p>
+              <p>Excluding your User Content, the Service and all materials therein, including, without limitation, software, images, text, graphics, logos, patents, trademarks, service marks, and copyrights (the "Eido AI Content"), and all Intellectual Property Rights related thereto, are the exclusive property of Eido AI Copilot. Use of the Eido AI Copilot Content for any purpose not expressly permitted by these Terms is strictly prohibited.</p>
 
               <SectionTitle>7. Termination</SectionTitle>
               <p>We may terminate or suspend your account and bar access to the Service immediately, without prior notice or liability, under our sole discretion, for any reason whatsoever, including but not limited to a breach of the Terms. If you wish to terminate your account, you may do so through the "Delete Account" feature in your profile settings. This action is irreversible.</p>
 
               <SectionTitle>8. Disclaimer of Warranties; Limitation of Liability</SectionTitle>
-              <p>The Service is provided on an "AS IS" and "AS AVAILABLE" basis. Your use of the Service is at your sole risk. The Service is provided without warranties of any kind, whether express or implied. In no event shall Eido AI be liable for any indirect, incidental, special, consequential, or punitive damages arising out of or in connection with your use of the Service.</p>
+              <p>The Service is provided on an "AS IS" and "AS AVAILABLE" basis. Your use of the Service is at your sole risk. The Service is provided without warranties of any kind, whether express or implied. In no event shall Eido AI Copilot be liable for any indirect, incidental, special, consequential, or punitive damages arising out of or in connection with your use of the Service.</p>
 
               <SectionTitle>9. Governing Law</SectionTitle>
               <p>These Terms shall be governed and construed in accordance with the laws of the State of California, United States, without regard to its conflict of law provisions.</p>

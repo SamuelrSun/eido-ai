@@ -1,22 +1,19 @@
 // src/App.tsx
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthGuard } from "./components/auth/AuthGuard";
-import { WidgetsProvider } from "./hooks/use-widgets";
 import { HelmetProvider } from 'react-helmet-async';
+// MODIFIED: Import the new LoaderProvider
+import { LoaderProvider } from './context/LoaderContext'; 
 
 // Import all active page components
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import OraclePage from "./pages/OraclePage";
 import DatasetsPage from "./pages/DatasetsPage";
-import FlashcardsPage from "./pages/FlashcardsPage";
-import QuizzesPage from "./pages/QuizzesPage";
-import QuizSessionPage from "./pages/QuizSessionPage";
 import ProfilePage from "./pages/ProfilePage";
 import DashboardPage from "./pages/DashboardPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
@@ -31,13 +28,14 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <WidgetsProvider>
-           <BrowserRouter>
+        <BrowserRouter>
+          {/* MODIFIED: Wrap Routes with LoaderProvider */}
+          <LoaderProvider>
             <Routes>
               {/* Public routes that anyone can see */}
               <Route path="/" element={<DashboardPage />} />
               <Route path="/auth" element={<AuthPage />} />
-              <Route path="/privacy" element={<PrivacyPolicyPage />} /> 
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
               <Route path="/terms" element={<TermsOfServicePage />} />
 
               {/* Protected routes wrapped by AuthGuard, requiring login */}
@@ -45,11 +43,7 @@ const App = () => (
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/oracle" element={<OraclePage />} />
                 <Route path="/datasets" element={<DatasetsPage />} />
-                <Route path="/flashcards" element={<FlashcardsPage />} />
-                <Route path="/quizzes" element={<QuizzesPage />} />
-                <Route path="/quizzes/:quizId" element={<QuizSessionPage />} />
-
-                {/* Placeholder routes for future features */}
+                {/* Placeholder routes */}
                 <Route path="/command" element={<PlaceholderPage pageName="Command" />} />
                 <Route path="/calendar" element={<PlaceholderPage pageName="Calendar" />} />
                 <Route path="/billing" element={<PlaceholderPage pageName="Billing" />} />
@@ -60,8 +54,8 @@ const App = () => (
               {/* Catch-all 404 route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
-        </WidgetsProvider>
+          </LoaderProvider>
+        </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
   </HelmetProvider>

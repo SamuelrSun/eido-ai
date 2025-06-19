@@ -21,22 +21,17 @@ export interface CustomDatabase extends Database {
       // Ensure all your existing tables are listed here, referencing Database['public']['Tables']
       profiles: Database['public']['Tables']['profiles'];
       classes: Database['public']['Tables']['classes'];
-      // The 'database' table from your types.ts seems to be a reserved keyword or might cause issues.
-      // If it's truly named 'database', ensure it's correctly defined in types.ts.
-      // For safety, if it's not used or was a placeholder, consider removing or renaming.
-      // For now, I'll assume it exists as per your types.ts.
-      database: Database['public']['Tables']['database']; 
-      file_folders: Database['public']['Tables']['file_folders'];
+      folders: Database['public']['Tables']['folders']; // Changed from file_folders to folders
       files: Database['public']['Tables']['files']; 
       "flashcard-decks": Database['public']['Tables']['flashcard-decks'];
       flashcards: Database['public']['Tables']['flashcards'];
       quiz_questions: Database['public']['Tables']['quiz_questions'];
       quizzes: Database['public']['Tables']['quizzes'];
       user_storage: Database['public']['Tables']['user_storage'];
-      embeddings: Database['public']['Tables']['embeddings']; // Kept as optional from previous version
-
-      // ** ADDED chat_messages table **
-      chat_messages: Database['public']['Tables']['chat_messages']; 
+      embeddings: Database['public']['Tables']['embeddings'];
+      // Keep embeddings as optional if it was, or remove if not used.
+      // The 'database' table has been removed.
+      chat_messages: Database['public']['Tables']['chat_messages'];
     };
     // Views and Functions can also be extended here if needed
     Views: Database['public']['Views'];
