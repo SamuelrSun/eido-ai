@@ -21,7 +21,7 @@ import ProfilePage from "./pages/ProfilePage";
 import DashboardPage from "./pages/DashboardPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
-import TermsOfServicePage from "./pages/TermsOfServicePage"; // Import the new page
+import TermsOfServicePage from "./pages/TermsOfServicePage";
 
 const queryClient = new QueryClient();
 
@@ -34,16 +34,14 @@ const App = () => (
         <WidgetsProvider>
            <BrowserRouter>
             <Routes>
-              {/* Public routes */}
+              {/* Public routes that anyone can see */}
+              <Route path="/" element={<DashboardPage />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} /> 
               <Route path="/terms" element={<TermsOfServicePage />} />
 
-              {/* Protected routes wrapped by AuthGuard */}
+              {/* Protected routes wrapped by AuthGuard, requiring login */}
               <Route element={<AuthGuard />}>
-                
-                {/* Your active pages */}
-                <Route path="/" element={<DashboardPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/oracle" element={<OraclePage />} />
                 <Route path="/datasets" element={<DatasetsPage />} />

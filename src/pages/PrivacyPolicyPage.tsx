@@ -1,6 +1,11 @@
 // src/pages/PrivacyPolicyPage.tsx
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
+
+const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+  <h3 className="text-2xl font-bold text-gray-800 mt-10 mb-4 border-b pb-2">{children}</h3>
+);
 
 const PrivacyPolicyPage = () => {
   return (
@@ -8,72 +13,82 @@ const PrivacyPolicyPage = () => {
       <Helmet>
         <title>Privacy Policy | Eido AI</title>
       </Helmet>
-      <div className="bg-white py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-extrabold text-gray-900 text-center">Privacy Policy</h1>
-          <p className="mt-4 text-center text-lg text-gray-600">Last Updated: June 17, 2025</p>
+      <div className="bg-gray-50">
+        <div className="max-w-4xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+          <div className="bg-white p-8 md:p-12 rounded-2xl shadow-lg">
+            <div className="text-center">
+              <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+                Privacy Policy
+              </h1>
+              <p className="mt-4 text-lg text-gray-500">
+                Last Updated: June 18, 2025
+              </p>
+            </div>
           
-          <div className="mt-10 prose prose-indigo lg:prose-lg text-gray-700 mx-auto">
-            <p>
-              Welcome to Eido AI ("we," "our," or "us"). We are committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our application.
-            </p>
+            <div className="mt-12 text-gray-700 space-y-6">
+              <p className="text-lg leading-relaxed">
+                Welcome to Eido AI ("Eido," "we," "our," or "us"). We are committed to protecting your privacy and being transparent about how we handle your data. This Privacy Policy explains what information we collect, how we use and share it, and your rights concerning your data when you use our application (the "Service"). This policy is an integral part of our <Link to="/terms" className="text-blue-600 hover:text-blue-800 underline">Terms of Service</Link>.
+              </p>
 
-            <h2>1. Information We Collect</h2>
-            <p>We may collect information about you in a variety of ways. The information we may collect on the Service includes:</p>
-            <ul>
-              <li>
-                <strong>Personal Data:</strong> Personally identifiable information, such as your name and email address, that you voluntarily give to us when you register with the application.
-              </li>
-              <li>
-                <strong>User Content:</strong> All documents, text, images, and other content you upload to create your knowledge bases. This content is the core of your use of Eido AI.
-              </li>
-               <li>
-                <strong>Interaction Data:</strong> We store the questions you ask our AI, the responses it provides, and your interactions with features like flashcards and quizzes to provide you with a history of your activities and improve our services.
-              </li>
-            </ul>
+              <SectionTitle>1. Information We Collect</SectionTitle>
+              <p>To provide our Service, we collect the following types of information:</p>
+              <ul className="list-disc list-outside space-y-3 pl-6">
+                  <li>
+                    <strong>Account Information:</strong> When you register, we collect personal information such as your name, email address, and encrypted password. If you sign up using Google OAuth, we receive your name and email address from Google.
+                  </li>
+                  <li>
+                    <strong>User Content:</strong> Any files, documents, text, and images you upload to the Service to create your knowledge bases. You retain full ownership of your User Content.
+                  </li>
+                  <li>
+                    <strong>Service Usage Data:</strong> We collect information about your interactions with the Service, including the questions you ask the AI, the AI-generated responses, flashcards, and quizzes you create. This is stored to provide you with your conversation history and access to your study materials.
+                  </li>
+              </ul>
 
-            <h2>2. Use of Your Information</h2>
-            <p>Having accurate information about you permits us to provide you with a smooth, efficient, and customized experience. Specifically, we may use information collected about you via the application to:</p>
-            <ul>
-              <li>Create and manage your account.</li>
-              <li>Process your uploaded documents to create vector embeddings for our AI to access.</li>
-              <li>Provide you with AI-powered tutoring, flashcards, and quizzes based on your User Content.</li>
-              <li>Monitor and analyze usage and trends to improve your experience with the application.</li>
-            </ul>
-            
-            <h2>3. Disclosure of Your Information</h2>
-            <p>We do not share your information with any third parties except as described in this Privacy Policy. We may share information we have collected about you in certain situations:</p>
-            <ul>
-                <li>
-                    <strong>With Our Service Providers:</strong> We use third-party services for hosting, database management, and AI processing.
-                    <ul>
-                        <li><strong>Supabase:</strong> For database hosting and user authentication.</li>
-                        <li><strong>Weaviate:</strong> For creating and storing vector embeddings of your User Content.</li>
-                        <li><strong>OpenAI:</strong> To process your queries and generate AI responses. Your content may be sent to OpenAI to provide the service.</li>
-                    </ul>
-                </li>
-                 <li>
-                    <strong>By Law or to Protect Rights:</strong> If we believe the release of information about you is necessary to respond to legal process, to investigate or remedy potential violations of our policies, or to protect the rights, property, and safety of others.
-                </li>
-            </ul>
+              <SectionTitle>2. How We Use Your Information</SectionTitle>
+              <p>We use your information for the sole purpose of providing and improving the Eido AI service. This includes:</p>
+              <ul className="list-disc list-outside space-y-3 pl-6">
+                <li><strong>To Operate the Service:</strong> We use your Account Information to create and manage your account. We process your User Content to power the core features of the app, such as enabling the AI to answer questions about your documents.</li>
+                <li><strong>To Provide AI Features:</strong> To generate chat responses, flashcards, and quizzes, we send relevant portions of your User Content to our AI service providers.</li>
+                <li><strong>To Improve Our Service:</strong> We may analyze anonymized usage data to understand how our features are being used, diagnose technical issues, and improve the overall user experience. We will never use your personal User Content to train our own models without your explicit consent.</li>
+              </ul>
+              
+              <SectionTitle>3. How We Share and Disclose Information</SectionTitle>
+              <p>We do not sell your personal information. We only share your data with the essential third-party service providers (sub-processors) that are required to operate our Service:</p>
+              <ul className="list-disc list-outside space-y-3 pl-6">
+                  <li>
+                    <strong>Supabase:</strong> We use Supabase for our primary database, user authentication, and file storage. Your Account Information, Service Usage Data, and uploaded files are stored securely with Supabase.
+                  </li>
+                  <li>
+                    <strong>Weaviate:</strong> We use Weaviate as our vector database. When you upload a document, we create vector embeddings (numerical representations) of your content, which are stored in Weaviate to enable fast and relevant semantic search.
+                  </li>
+                  <li>
+                    <strong>OpenAI:</strong> As our primary AI model provider, we send relevant text chunks from your User Content, along with your query, to the OpenAI API to generate intelligent responses. Per OpenAI's policy, they do not use data submitted via their API to train their models.
+                  </li>
+              </ul>
+              <p>We may also disclose your information if required by law or to protect the rights, property, or safety of Eido AI, our users, or others.</p>
 
-            <h2>4. Security of Your Information</h2>
-            <p>
-              We use administrative, technical, and physical security measures to help protect your personal information and User Content. While we have taken reasonable steps to secure the personal information you provide to us, please be aware that despite our efforts, no security measures are perfect or impenetrable, and no method of data transmission can be guaranteed against any interception or other type of misuse.
-            </p>
-            
-            <h2>5. Your Data Rights</h2>
-            <p>You have the right to:</p>
-            <ul>
-                <li>Access the personal data we hold about you.</li>
-                <li>Request that we correct any errors in the data we hold.</li>
-                <li>Request that we delete your data. You can do this via the "Delete Account" button in your profile settings. This action is irreversible and will permanently delete your account and all associated data from our systems.</li>
-            </ul>
+              <SectionTitle>4. Data Storage, Security, and Retention</SectionTitle>
+              <p>We take the security of your data very seriously. We rely on the industry-standard security practices of our cloud providers (Supabase, Weaviate, and OpenAI). All data is encrypted in transit and at rest.</p>
+              <p>We retain your data for as long as your account is active. If you choose to delete your account, we will initiate a process to permanently delete all your associated data, including your account information, user content, and usage data from all our systems and those of our sub-processors within 30 days.</p>
+              
+              <SectionTitle>5. Your Rights and Choices</SectionTitle>
+              <p>You have control over your personal information. You have the right to:</p>
+              <ul className="list-disc list-outside space-y-3 pl-6">
+                <li><strong>Access and Update:</strong> You can access and update your account information at any time through your profile settings.</li>
+                <li><strong>Data Portability:</strong> You can download the files you have uploaded to the Service at any time.</li>
+                <li><strong>Deletion:</strong> You can delete your account at any time through the "Delete Account" feature in your profile settings. This action is irreversible and will permanently delete all of your data as described in the section above.</li>
+              </ul>
 
-            <h2>6. Contact Us</h2>
-            <p>
-              If you have questions or comments about this Privacy Policy, please contact us at: <a href="mailto:srwang@usc.edu">srwang@usc.edu or 17 Moonray, Irvine, CA, 92603</a>
-            </p>
+              <SectionTitle>6. Children's Privacy</SectionTitle>
+              <p>Our Service is not intended for or directed at children under the age of 13. We do not knowingly collect personal information from children under 13. If we become aware that we have collected personal information from a child under 13, we will take steps to delete such information from our files as soon as possible.</p>
+
+              <SectionTitle>7. Contact Us</SectionTitle>
+              <p>
+                If you have any questions or concerns about this Privacy Policy or our data practices, please contact us at: <a href="mailto:privacy@eido-ai.com" className="text-blue-600 hover:text-blue-800 underline">privacy@eido-ai.com</a>.
+
+              </p>
+              <p>Mailing: 17 Moonray, Irvine, CA, 92603</p>
+            </div>
           </div>
         </div>
       </div>
