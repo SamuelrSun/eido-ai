@@ -1,56 +1,36 @@
-import { ReactNode, useEffect, useState } from "react";
+// src/components/auth/AuthGuard.tsx
+import { ReactNode } from "react";
 import { Navigate, useLocation, Outlet } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+// MODIFICATION: Import the new useAuth hook and remove unused imports
+import { useAuth } from "@/context/AuthContext";
 
 interface AuthGuardProps {
   children?: ReactNode;
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isChecking, setIsChecking] = useState(true);
+  // MODIFICATION: State is now consumed from the global context
+  const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
-  const { toast } = useToast();
 
-  useEffect(() => {
-    // onAuthStateChange is the most reliable way to get the session,
-    // especially after an OAuth redirect. It fires when the session is ready.
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-      // We stop checking ONLY after this initial event has fired.
-      setIsChecking(false);
+  // This spinner will only show on the very first load of the application
+  // REMOVED: Full-page loading spinner. The page content will now load instantly.
+  // if (isLoading) {
+  //   return (
+  //     <div className="flex justify-center items-center min-h-screen">
+  //       <Loader2 className="h-12 w-12 animate-spin text-primary" />
+  //     </div>
+  //   );
+  // }
 
-      if (_event === "SIGNED_IN") {
-        toast({
-          title: "Signed in successfully",
-          description: "Welcome back!",
-        });
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [toast]);
-
-  // While we wait for the first auth event, show a loading indicator.
-  if (isChecking) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // Once checking is complete, if the user is not authenticated, redirect them.
-  if (!isAuthenticated) {
+  // Once loading is complete, redirect if not authenticated
+  if (!isAuthenticated && !isLoading) { // Ensure isLoading is false to prevent redirect loops on initial check
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // If authenticated, show the protected page content.
+  // If authenticated (or still loading but not yet determined as unauthenticated), render the page content instantly
+  // The 'isLoading' check is removed here, so the page content attempts to render immediately.
+  // Individual components within the page should handle their own loading states.
   return children ? <>{children}</> : <Outlet />;
 }

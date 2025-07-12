@@ -3,17 +3,14 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search, FolderPlus, Upload, File as FileIcon, Folder as FolderIcon,
-  MoreHorizontal, Trash2 as TrashIcon, ArrowUp, Loader2, ChevronRight, CloudLightning, Check
+  Trash2 as TrashIcon, ArrowUp, Loader2, Check, CloudLightning
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, 
   DialogFooter, DialogHeader as DialogHeaderComponent, DialogTitle as DialogTitleComponent,
@@ -33,7 +30,6 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import {
   FileType as FileTypeDb,
@@ -45,8 +41,9 @@ import { UploadDialog } from "../components/UploadDialog";
 import type { User } from "@supabase/supabase-js";
 import { formatFileSize } from "@/lib/utils";
 import type { OpenAIConfig } from "@/services/classOpenAIConfig";
-import { FileGrid } from "../components/FileGrid"; 
-import { cn } from "@/lib/utils"; 
+import { FileGrid } from "../components/FileGrid";
+import { fileService } from "@/services/fileService";
+import { classOpenAIConfigService } from "@/services/classOpenAIConfig";
 
 interface ActiveClassData {
   class_id: string;
@@ -84,7 +81,7 @@ const FilesPage = () => {
   const [activeClass, setActiveClass] = useState<ActiveClassData | null>(null);
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [itemsToDelete, setItemsToDelete] = useState<{ id: string; name: string; type: 'file' | 'folder' }[]>([]);
-
+  const [allClassFiles, setAllClassFiles] = useState<FileTypeDb[]>([]);
 
   useEffect(() => {
     const initializePage = async () => {
@@ -102,6 +99,8 @@ const FilesPage = () => {
         try {
           const parsedClass: ActiveClassData = JSON.parse(activeClassDataString);
           setActiveClass(parsedClass);
+          const allFiles = await fileService.getAllFilesForClass(parsedClass.class_id);
+          setAllClassFiles(allFiles);
         }
         catch (e) {
           toast({ title: "Error", description: "Could not load class data. Please re-select from Home.", variant: "destructive" });
@@ -126,7 +125,7 @@ const FilesPage = () => {
         } else if (user) {
           const { data: newStorage, error: insertError } = await supabase
             .from('user_storage')
-            .insert({ user_id: user.id, storage_used: 0, storage_limit: 1024 * 1024 * 1024 }) 
+            .insert({ user_id: user.id, storage_used: 0, storage_limit: 1024 * 1024 * 1024 })
             .select()
             .single();
           if (insertError) throw insertError;
@@ -148,33 +147,16 @@ const FilesPage = () => {
     }
     setLoading(true);
     try {
-      let folderQuery = supabase
-        .from('file_folders')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('class_id', activeClass.class_id);
-      if (currentFolderId === null) {
-        folderQuery = folderQuery.is('parent_id', null);
-      } else {
-        folderQuery = folderQuery.eq('parent_id', currentFolderId);
-      }
-      const { data: folderData, error: folderError } = await folderQuery;
-      if (folderError) throw folderError;
-      setFolders((folderData || []) as FolderTypeDb[]);
+      const [folderData, fileData, allFiles] = await Promise.all([
+          fileService.getFolders(activeClass.class_id, currentFolderId),
+          fileService.getFiles(activeClass.class_id, currentFolderId),
+          fileService.getAllFilesForClass(activeClass.class_id)
+      ]);
 
-      let fileQuery = supabase
-        .from('files')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('class_id', activeClass.class_id);
-      if (currentFolderId === null) {
-        fileQuery = fileQuery.is('folder_id', null);
-      } else {
-        fileQuery = fileQuery.eq('folder_id', currentFolderId);
-      }
-      const { data: fileData, error: fileError } = await fileQuery;
-      if (fileError) throw fileError;
-      setFiles((fileData || []).map(f => ({ ...f, status: f.status || 'complete', progress: (f.status === 'complete' ? 100 : 0) })) as FileWithProgress[]);
+      setFolders(folderData);
+      setFiles(fileData.map(f => ({ ...f, status: f.status || 'complete', progress: (f.status === 'complete' ? 100 : 0) })));
+      setAllClassFiles(allFiles);
+
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error loading files.";
       toast({ title: "Error Loading Files", description: message, variant: "destructive" });
@@ -246,7 +228,6 @@ const FilesPage = () => {
     );
   };
 
-
   const navigateToFolder = (folderId: string | null, folderName: string) => {
     setCurrentFolderId(folderId);
     if (folderId === null) {
@@ -264,7 +245,6 @@ const FilesPage = () => {
     setSelectedItems([]);
   };
 
-  // MODIFIED: This is the robust one-by-one upload function.
   const handleFileUpload = async (uploadedFiles: FileList) => {
     if (!user || !activeClass?.class_id) {
       toast({ title: "Upload Failed", description: "Missing user or class information.", variant: "destructive" });
@@ -277,12 +257,11 @@ const FilesPage = () => {
       file_id: `temp-upload-${Date.now()}-${index}`, name: file.name, size: file.size, type: file.type,
       folder_id: currentFolderId, user_id: user.id, class_id: activeClass.class_id,
       last_modified: new Date().toISOString(), created_at: new Date().toISOString(), status: 'uploading', progress: 0,
-      url: null, category: null, tags: null, database_id: null, openai_file_id: null, document_title: null,
+      url: null, category: null, tags: null, document_title: null,
     }));
     setFiles(prev => [...prev, ...tempFileEntries]);
 
     toast({ title: `Starting upload for ${filesToUpload.length} file(s)...`, description: "Processing files one by one for reliability." });
-    
     let successCount = 0;
     let errorCount = 0;
 
@@ -293,10 +272,9 @@ const FilesPage = () => {
             setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...f, progress: 15 } : f));
             const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
             const storagePath = `public/${user.id}/${activeClass.class_id}/${currentFolderId || 'root'}/${Date.now()}_${sanitizedName}`;
-            
             const { data: storageData, error: uploadError } = await supabase.storage.from('file_storage').upload(storagePath, file);
             if (uploadError) throw new Error(`Storage Error: ${uploadError.message}`);
-
+            
             setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...f, progress: 50, status: 'processing' } : f));
             
             const processingPayload = {
@@ -307,7 +285,7 @@ const FilesPage = () => {
                 class_id: activeClass.class_id,
                 folder_id: currentFolderId,
             };
-
+            
             const { data: functionResponse, error: functionError } = await supabase.functions.invoke('upload-to-vector-store', {
                 body: { files: [processingPayload] }
             });
@@ -318,8 +296,11 @@ const FilesPage = () => {
             if (!result || !result.success) {
                 throw new Error(result?.error || `Server failed to process ${file.name}`);
             }
-            
-            setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...f, status: 'complete', progress: 100 } : f));
+
+            // **FIX: Update the file in state with the final details from the server**
+            const finalFile = result.file; // Assuming the function returns the complete file object
+            setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...finalFile, status: 'complete', progress: 100 } : f));
+
             successCount++;
         } catch (error) {
             errorCount++;
@@ -329,8 +310,9 @@ const FilesPage = () => {
     }
     
     toast({ title: "Upload Session Finished", description: `${successCount} successful, ${errorCount} failed.`});
+    // Now, refetch everything to ensure consistency
     fetchCurrentFolderContents();
-  };
+};
 
   const createNewFolder = async () => {
     if (!user || !activeClass?.class_id || !newFolderName.trim()) {
@@ -338,17 +320,7 @@ const FilesPage = () => {
       return;
     }
     try {
-      const { data, error } = await supabase
-        .from('file_folders')
-        .insert({
-          name: newFolderName.trim(),
-          parent_id: currentFolderId,
-          user_id: user.id,
-          class_id: activeClass.class_id,
-        })
-        .select()
-        .single();
-      if (error) throw error;
+      const data = await fileService.createFolder(newFolderName.trim(), activeClass.class_id, currentFolderId);
       setFolders(prev => [...prev, data as FolderTypeDb]);
       setIsNewFolderDialogOpen(false);
       setNewFolderName('');
@@ -367,42 +339,25 @@ const FilesPage = () => {
   const confirmDeleteItems = async () => {
     if (!user) return;
     setShowDeleteConfirmDialog(false);
-    
+
     let successCount = 0;
     let failCount = 0;
-    
+
     for (const item of itemsToDelete) {
         try {
             if (item.type === 'folder') {
-                const { error } = await supabase.from('file_folders').delete().eq('folder_id', item.id).eq('user_id', user.id);
-                if (error) throw error;
+                await fileService.deleteFolder(item.id);
             } else {
-                const fileToDelete = files.find(f => f.file_id === item.id) || selectedItems.find(f => f.id === item.id);
-                if (fileToDelete?.url) {
-                    const filePathParts = fileToDelete.url.split('/');
-                    const storagePath = filePathParts.slice(filePathParts.indexOf('public')).join('/');
-                    await supabase.storage.from('file_storage').remove([storagePath]);
-                }
-              
-                const { error: weaviateError } = await supabase.functions.invoke('delete-weaviate-chunks-by-file', {
-                    body: { file_id: item.id }
-                });
-
-                if (weaviateError) {
-                    console.error(`Failed to delete Weaviate chunks for file ${item.id}:`, weaviateError);
-                    toast({
-                        title: "Partial Deletion",
-                        description: `Could not clear AI memory for ${item.name}. Please try deleting again or contact support.`,
-                        variant: "destructive"
-                    });
-                }
-
-                const { error } = await supabase.from('files').delete().eq('file_id', item.id).eq('user_id', user.id);
-                if (error) throw error;
-                if (fileToDelete && userStorage) {
-                    const newStorageUsed = Math.max(0, userStorage.storage_used - (fileToDelete.size || 0));
-                    setUserStorage(prev => ({ ...prev!, storage_used: newStorageUsed }));
-                    await supabase.from('user_storage').update({ storage_used: newStorageUsed }).eq('user_id', user.id);
+                const fileToDelete = allClassFiles.find(f => f.file_id === item.id);
+                if (fileToDelete) {
+                    await fileService.deleteFile(fileToDelete);
+                    if (userStorage) {
+                        const newStorageUsed = Math.max(0, userStorage.storage_used - (fileToDelete.size || 0));
+                        setUserStorage(prev => ({ ...prev!, storage_used: newStorageUsed }));
+                        await supabase.from('user_storage').update({ storage_used: newStorageUsed }).eq('user_id', user.id);
+                    }
+                } else {
+                    throw new Error(`Could not find file with ID ${item.id} to delete.`);
                 }
             }
             successCount++;
@@ -411,10 +366,10 @@ const FilesPage = () => {
             console.error(`Failed to delete ${item.type} ${item.name}:`, error);
         }
     }
-    
+
     if (successCount > 0) toast({ title: "Items Deleted", description: `${successCount} item(s) successfully deleted.` });
     if (failCount > 0) toast({ title: "Deletion Error", description: `${failCount} item(s) could not be deleted.`, variant: "destructive" });
-    
+
     setSelectedItems([]);
     setItemsToDelete([]);
     fetchCurrentFolderContents();
@@ -467,14 +422,12 @@ const FilesPage = () => {
         size: f.size,
         type: f.fileMimeType!,
       }));
-
       const { data, error } = await supabase.functions.invoke('upload-to-vector-store', {
         body: {
           files: payloadFiles,
           class_id: activeClass.class_id
         },
       });
-
       if (error) throw error;
       
       if (!data.success) {
@@ -483,7 +436,6 @@ const FilesPage = () => {
       
       setVectorStoreUploadProgress(100);
       toast({ title: "AI Sync Complete", description: data.message || `${filesToUpload.length} file(s) have been processed.` });
-      
       if (activeTab === "vectorStore") {
         fetchVectorStoreFiles();
       }
@@ -569,10 +521,8 @@ const FilesPage = () => {
                     <div className="flex justify-between items-center"><h3 className="text-lg font-medium">Indexed Files</h3><Button variant="outline" size="sm" onClick={fetchVectorStoreFiles} disabled={isLoadingVectorFiles}>{isLoadingVectorFiles ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Refresh List</Button></div>
                     <div className="text-muted-foreground text-sm mt-1">Files indexed in Weaviate are available to your AI assistants.</div>
                     </div>
-                    {isLoadingVectorFiles ?
-                    (<div className="flex flex-col items-center justify-center h-full py-10"><Loader2 className="h-10 w-10 text-primary animate-spin mb-4" /><p className="text-muted-foreground">Loading indexed files...</p></div>) :
-                    vectorStoreFiles.length === 0 ?
-                        (<div className="flex flex-col items-center justify-center h-full text-center py-10"><CloudLightning className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" /><h3 className="text-lg font-medium">No Files Indexed for this Class</h3><p className="text-muted-foreground mb-4">Select files from the "My Files" tab and sync them with the AI.</p><Button onClick={() => { setActiveTab("myFiles"); setSelectionMode(true); }}>Select Files to Sync</Button></div>) :
+                    {isLoadingVectorFiles ? (<div className="flex flex-col items-center justify-center h-full py-10"><Loader2 className="h-10 w-10 text-primary animate-spin mb-4" /><p className="text-muted-foreground">Loading indexed files...</p></div>) :
+                    vectorStoreFiles.length === 0 ? (<div className="flex flex-col items-center justify-center h-full text-center py-10"><CloudLightning className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" /><h3 className="text-lg font-medium">No Files Indexed for this Class</h3><p className="text-muted-foreground mb-4">Select files from the "My Files" tab and sync them with the AI.</p><Button onClick={() => { setActiveTab("myFiles"); setSelectionMode(true); }}>Select Files to Sync</Button></div>) :
                         (<ScrollArea className="h-[400px] sm:h-[500px]">
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                             {vectorStoreFiles.map((file) => (
@@ -585,11 +535,11 @@ const FilesPage = () => {
                                 </div>
                             </Card>))}
                         </div>
-                    </ScrollArea>)}
+                        </ScrollArea>)}
                 </TabsContent>
             </Tabs>
         </div>
-        <UploadDialog isOpen={isUploadDialogOpen} onClose={() => setIsUploadDialogOpen(false)} onFileSelect={handleFileUpload} />
+        <UploadDialog isOpen={isUploadDialogOpen} onClose={() => setIsUploadDialogOpen(false)} onFileSelect={handleFileUpload}/>
         <Dialog open={isNewFolderDialogOpen} onOpenChange={(open) => { setIsNewFolderDialogOpen(open); if (!open) setNewFolderName(''); }}>
             <DialogContent>
                 <DialogHeaderComponent><DialogTitleComponent>Create New Folder</DialogTitleComponent><DialogDescriptionComponent>Enter a name for your new folder.</DialogDescriptionComponent></DialogHeaderComponent>
@@ -603,8 +553,7 @@ const FilesPage = () => {
         <Dialog open={isVectorUploadDialogOpen} onOpenChange={setIsVectorUploadDialogOpen}>
             <DialogContent>
                 <DialogHeaderComponent><DialogTitleComponent>Sync with AI</DialogTitleComponent><DialogDescriptionComponent>Confirm syncing {selectedFileCount} file(s) with your AI knowledge base.</DialogDescriptionComponent></DialogHeaderComponent>
-                {isUploadingToVectorStore ?
-                    (<div className="py-6 text-center"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" /><p>Processing & Indexing... {vectorStoreUploadProgress}%</p></div>) :
+                {isUploadingToVectorStore ? (<div className="py-6 text-center"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" /><p>Processing & Indexing... {vectorStoreUploadProgress}%</p></div>) :
                     (<ScrollArea className="max-h-60 my-4"><ul className="space-y-1">{selectedItems.map(file => (<li key={file.id} className="text-sm p-1 border-b truncate">{file.name}</li>))}</ul></ScrollArea>)}
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setIsVectorUploadDialogOpen(false)} disabled={isUploadingToVectorStore}>Cancel</Button>

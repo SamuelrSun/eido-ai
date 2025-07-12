@@ -31,15 +31,13 @@ export const LoaderProvider = ({ children }: LoaderProviderProps) => {
       // Start the loading bar animation immediately
       loaderRef.current.continuousStart();
     }
-    // Use a very short timeout. This ensures the bar is visible before the browser hangs to render the next page.
-    setTimeout(() => {
-      navigate(path);
-    }, 100); // Reduced delay to 100ms for a faster feel
+    // MODIFICATION: The setTimeout wrapper is removed to navigate instantly.
+    navigate(path);
   };
 
   return (
     <LoaderContext.Provider value={{ loader: loaderRef.current, loadPage }}>
-      {/* MODIFIED: Changed the color to your desired value */}
+      {/* The loading bar component remains */}
       <LoadingBar color='#F6F2E9' ref={loaderRef} shadow={true} height={3} />
       {children}
     </LoaderContext.Provider>

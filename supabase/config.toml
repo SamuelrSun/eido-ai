@@ -30,8 +30,6 @@ enabled = true
 port = 54327
 
 # Functions configuration
-[functions.chat]
-verify_jwt = true 
 
 # Removed: [functions.generate-flashcards]
 # Removed: verify_jwt = true
@@ -39,32 +37,38 @@ verify_jwt = true
 # Removed: [functions.generate-quiz]
 # Removed: verify_jwt = true
 
-[functions.list-vector-store-files]
-verify_jwt = true
-
 [functions.upload-to-vector-store]
 verify_jwt = true 
 
-[functions.delete-openai-resources]
-verify_jwt = true 
-
-[functions.web-chat]
-verify_jwt = true 
-
-[functions.provision-class-resources]
+[functions.check-env-vars]
 verify_jwt = true
 
-[functions.check-env-vars]
+[functions.generate-title]
+verify_jwt = true
+
+[functions.generate-previews]
+verify_jwt = true
+
+[functions.request-previews]
+verify_jwt = true
+
+[functions.oracle-chat]
+verify_jwt = true
+
+[functions.debug-weaviate-chunks]
+verify_jwt = true
+
+[functions.serve-file]
+verify_jwt = true
+
+[functions.semantic-search]
+verify_jwt = true
+
+[functions.delete-from-cloudinary]
 verify_jwt = true
 
 [functions.delete-user-account]
 verify_jwt = true
 
 [functions.delete-weaviate-chunks-by-file]
-verify_jwt = true
-
-[functions.delete-weaviate-data-by-class]
-verify_jwt = true
-
-[functions.generate-title]
 verify_jwt = true

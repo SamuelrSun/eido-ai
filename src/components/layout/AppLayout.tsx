@@ -6,8 +6,7 @@ import { AppSidebar } from "./AppSidebar";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
-// Removed: import { WidgetsProvider } from "@/hooks/use-widgets";
-// Removed: import { ClassWidgetsProvider } from "@/hooks/use-class-widgets";
+import { Header } from "./Header"; // Import the centralized Header component
 
 export function AppLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -37,7 +36,6 @@ export function AppLayout() {
   }, [location.pathname]);
 
   return (
-    // Removed WidgetsProvider and ClassWidgetsProvider
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Mobile sidebar */}
       <div className="md:hidden">
@@ -62,26 +60,34 @@ export function AppLayout() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile header */}
-        <header className="flex items-center px-4 py-2 border-b md:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsSidebarOpen(true)}
-          >
-            <Menu className="h-6 w-6" />
-          </Button>
-          <div className="flex items-center mx-auto">
-            <div className="w-8 h-8 rounded-md flex items-center justify-center mr-2">
-              <img
-                src="/eido-icon.png"
-                alt="Eido AI Logo"
-                className="h-8 w-8 object-contain"
-              />
+        {/* Unified Header for both mobile (when sidebar closed) and desktop */}
+        {/* This header will be consistent across all pages using AppLayout */}
+        <header className="flex-shrink-0">
+          {/* Mobile menu button and Eido logo will still be here for mobile if sidebar is closed */}
+          <div className="flex items-center px-4 py-2 border-b md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              <Menu className="h-6 w-6" />
+            </Button>
+            <div className="flex items-center mx-auto">
+              <div className="w-8 h-8 rounded-md flex items-center justify-center mr-2">
+                <img
+                  src="/eido-icon.png"
+                  alt="Eido AI Logo"
+                  className="h-8 w-8 object-contain"
+                />
+              </div>
+              <h1 className="text-lg font-semibold">Eido</h1>
             </div>
-            <h1 className="text-lg font-semibold">Eido</h1>
+            <div className="w-9"></div> {/* Empty div for centering */}
           </div>
-          <div className="w-9"></div> {/* Empty div for centering */}
+          {/* The main Header component, always visible on desktop */}
+          <div className="hidden md:block">
+            <Header />
+          </div>
         </header>
 
         {/* Content area */}

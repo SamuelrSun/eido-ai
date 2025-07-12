@@ -3,13 +3,21 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { usePageLoader } from '@/context/LoaderContext';
-import { MainAppLayout } from '@/components/layout/MainAppLayout'; // Import the new layout
+import { MainAppLayout } from '@/components/layout/MainAppLayout';
 
 const DashboardPage = () => {
+  // 1. All useState hooks must be called at the top level, before other logic.
   const [user, setUser] = useState<User | null>(null);
-  const { loadPage } = usePageLoader();
+  const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
+  const { loadPage, loader } = usePageLoader();
+  const [isLoading, setIsLoading] = useState(true);
 
+  // 2. The first useEffect handles fetching the user and setting up the auth listener.
   useEffect(() => {
+    if (loader) {
+      loader.complete();
+    }
+    
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
@@ -18,12 +26,36 @@ const DashboardPage = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      // When auth state changes to logged out, clear the profile
+      if (!session?.user) {
+        setProfile(null);
+      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loader]);
+
+  // 3. A second, separate useEffect fetches the profile *after* the user object is available.
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          console.error("Error fetching user profile:", error);
+        } else if (data) {
+          setProfile(data);
+        }
+      }
+    };
+    fetchProfile();
+  }, [user]); // This effect depends on the 'user' state
 
   const handleProtectedLinkClick = (path: string) => {
     if (user) {
@@ -34,16 +66,20 @@ const DashboardPage = () => {
   };
 
   return (
-    <MainAppLayout pageTitle="Dashboard | Eido AI Copilot">
+    // DashboardPage now wraps its content directly in MainAppLayout.
+    // The MainAppLayout provides the Header/Navbar and global styling.
+    <MainAppLayout pageTitle="Dashboard | Eido AI" showFooter={true}>
       <div className="flex w-full flex-grow justify-self-center pb-3 md:gap-x-3 main-content">
+        {/* This sidebar is specific to the DashboardPage, not the main AppSidebar */}
         <div className="ml-3 hidden md:flex">
           <div className="flex flex-col justify-between overflow-auto border-marble-400 bg-marble-100 md:rounded-lg md:border md:w-42 w-full lg:w-56 px-4 md:py-6">
+            {/* Removed hardcoded navigation - now handled by centralized Header */}
             <nav className="hidden w-full flex-col gap-y-8 md:flex">
               <div className="flex flex-col gap-y-1">
                 <span className="text-overline uppercase font-code font-bold text-dark-blue">Platform</span>
                 <span onClick={() => handleProtectedLinkClick('/')} className="text-p font-body flex items-center py-0.5 text-volcanic-900 cursor-pointer"><div className="mr-3 h-2 w-2 rounded-full bg-coral-500"></div><span className="font-medium">Dashboard</span></span>
+                <span onClick={() => handleProtectedLinkClick('/classes')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Classes</span></span>
                 <span onClick={() => handleProtectedLinkClick('/command')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Command</span></span>
-                <span onClick={() => handleProtectedLinkClick('/datasets')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Datasets</span></span>
                 <span onClick={() => handleProtectedLinkClick('/calendar')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Calendar</span></span>
               </div>
               <div className="flex flex-col gap-y-1">
@@ -54,8 +90,8 @@ const DashboardPage = () => {
               </div>
               <div className="flex flex-col gap-y-1">
                 <span className="text-overline uppercase font-code font-bold text-dark-blue">Settings</span>
-                <span onClick={() => handleProtectedLinkClick('/billing')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Billing</span></span>
                 <span onClick={() => handleProtectedLinkClick('/profile')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Profile</span></span>
+                <span onClick={() => handleProtectedLinkClick('/billing')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Billing</span></span>
               </div>
             </nav>
           </div>
@@ -64,8 +100,8 @@ const DashboardPage = () => {
           <div className="mb-8 border-b border-marble-400 bg-cover md:mb-10 flex-shrink-0 bg-mushroom-50 bg-[url(/images/whiteCellBackground.svg)]">
             <div className="flex w-full flex-col overflow-hidden md:flex-row">
               <div className="flex flex-col px-4 pt-10 pb-4 md:w-2/3 md:px-9 md:pt-16 lg:px-10">
-                <p className="text-h3-m lg:text-h2 font-variable font-[420] mb-6 text-volcanic-700">Welcome{user ? `, ${user.email?.split('@')[0] || 'User'}` : ''}!</p>
-                <h1 className="text-h5-m lg:text-h4 font-variable font-[420] mb-3 text-volcanic-900">What is Eido AI Copilot?</h1>
+              <p className="text-h3-m lg:text-h2 font-variable font-[420] mb-6 text-volcanic-700">Welcome{user ? `, ${profile?.full_name?.split(' ')[0] || user.email?.split('@')[0] || 'User'}` : ''}!</p>
+                <h1 className="text-h5-m lg:text-h4 font-variable font-[420] mb-3 text-volcanic-900">What is Eido AI?</h1>
                 <p className="text-p font-body pb-6 text-volcanic-900 md:pb-10">Eido AI is your educational copilot, allowing you to create smart, searchable knowledge bases built on your coursework. Get started with Eido AI by exploring the tools below.</p>
               </div>
               <div className="hidden items-end md:flex md:w-1/3">
@@ -85,7 +121,7 @@ const DashboardPage = () => {
                     <span className="text-blue-700 bg-white border border-blue-200 flex w-fit items-center rounded px-2 py-1">New</span>
                   </div>
                   <h2 className="text-h5-m lg:text-h5 font-variable font-[420]">Oracle</h2>
-                  <p className="text-p font-body">Eido's central AI chat interface, featuring different modes to assist with your studies. You can ask questions about your uploaded class materials using the RAG-powered "Class AI" or perform general queries with the "Web AI" for supplemental information. </p>
+                  <p className="text-p font-body">Eido's central AI chat interface, featuring different modes to assist with your studies. You can ask questions about your uploaded class materials using the RAG-powered "Class AI" or perform general queries with the "Web AI" for supplemental information.</p>
                   <div onClick={() => handleProtectedLinkClick('/oracle')} className="w-fit pb-3 pt-7 focus:outline-none disabled:cursor-not-allowed inline-block cursor-pointer">
                     <div className="relative flex grow">
                       <div className="z-10 flex grow gap-x-2.5">

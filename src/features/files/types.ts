@@ -4,7 +4,7 @@
 
 export interface FolderType {
   folder_id: string;
-  folder_name: string; // Renamed from 'name' 
+  name: string; // Renamed from 'name' 
   parent_id: string | null;
   user_id: string;
   created_at: string;
@@ -17,10 +17,10 @@ export interface FolderType {
 }
 
 export interface FileType {
-  file_id: string; // PK
+  file_id: string;
   name: string;
   size: number;
-  type: string; // This is the file's MIME type
+  type: string;
   url?: string | null;
   folder_id: string | null;
   user_id: string;
@@ -29,11 +29,14 @@ export interface FileType {
   category: string | null;
   tags: string[] | null;
   status: string | null;
-  progress?: number; // <<-- FIX: Added optional progress property (kept as per your original provided code for this file)
+  progress?: number;
   class_id: string | null;
-  // Deleted: database_id 
-  // Deleted: openai_file_id 
   document_title?: string | null;
+  // --- ADD THESE NEW PROPERTIES ---
+  thumbnail_url?: string | null;
+  page_count?: number | null;
+  page_previews?: string[] | null; // Assuming page_previews is an array of strings
+  image_summaries?: { page: number, summary: string }[] | null;
 }
 
 export interface SelectedItem {

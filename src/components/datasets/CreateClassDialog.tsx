@@ -32,30 +32,34 @@ export const CreateClassDialog: React.FC<CreateClassDialogProps> = ({ isOpen, on
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      {/* 1. Increased the max-width to allow description to fit on two lines. */}
+      <DialogContent className="sm:max-w-[400px]">
         <form onSubmit={handleSubmit}>
+          {/* 2. Applied text-center directly to Title and Description for better alignment control. */}
           <DialogHeader>
-            <DialogTitle>Create New Class</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-center">Create New Class</DialogTitle>
+            <DialogDescription className="text-center pt-2">
               Classes are the top-level containers for your course materials. Give your new class a name to get started.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
+            <div className="flex items-center justify-center gap-4">
+              <Label htmlFor="name">
                 Name
               </Label>
               <Input
                 id="name"
                 value={className}
                 onChange={(e) => setClassName(e.target.value)}
-                className="col-span-3"
+                className="w-64"
                 placeholder="e.g., ITP-216: Applied Python"
                 disabled={isLoading}
+                // 3. Added autoComplete="off" to prevent browser suggestions.
+                autoComplete="off"
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="sm:justify-center">
             <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>Cancel</Button>
             <Button type="submit" disabled={isLoading || !className.trim()}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

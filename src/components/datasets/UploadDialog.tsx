@@ -55,8 +55,10 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Upload Files</DialogTitle>
-          <DialogDescription>
+          {/* 1. Centered the DialogTitle */}
+          <DialogTitle className="text-center">Upload Files</DialogTitle>
+          {/* 2. Centered the DialogDescription and added padding */}
+          <DialogDescription className="text-center pt-2">
             Add files to the current directory. PDF, DOCX, and TXT are supported for indexing.
           </DialogDescription>
         </DialogHeader>

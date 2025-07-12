@@ -1,14 +1,16 @@
 // src/components/layout/MainAppLayout.tsx
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { Header } from './Header'; // Import the new centralized Header component
 
 interface MainAppLayoutProps {
   children: React.ReactNode;
   pageTitle: string;
+  showFooter?: boolean; // New prop to conditionally show the footer
 }
 
+// Define the Footer component
 const Footer = () => (
   <footer className="w-full mt-auto px-4 py-6 md:px-9 lg:px-10 border-t border-marble-400 bg-marble-100 flex-shrink-0">
     <div className="flex flex-col md:flex-row justify-between items-center text-sm text-volcanic-800">
@@ -21,30 +23,26 @@ const Footer = () => (
   </footer>
 );
 
-export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
-  const location = useLocation();
-
-  const navLinks = [
-    { to: "/", label: "Dashboard" },
-    { to: "/datasets", label: "Datasets" },
-    { to: "/docs", label: "Docs", isExternal: true },
-    { to: "/community", label: "Community", isExternal: true },
-  ];
-
+export const MainAppLayout = ({ children, pageTitle, showFooter = false }: MainAppLayoutProps) => {
   return (
     <>
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="viewport" content="initial-scale=1.0, width=device-width, viewport-fit=cover, maximum-scale=1.0" />
         <link rel="icon" href="/favicon.ico" />
+        {/* Re-adding essential inline styles to avoid layout breakage.
+            Ideally, these should be systematically moved to global CSS (src/index.css or tailwind.config.ts)
+            and applied via Tailwind utility classes. */}
         <style type="text/css">{`
           :root { --volcanic: #212121; --marble: #fafafa; --green: #39594d; --coral: #ff7759; }
           html, body { font-family: "Trebuchet MS", sans-serif; }
+          
           .bg-mushroom-100 { background-color: #75909C; } .mx-auto { margin-left: auto; margin-right: auto; }
           .flex { display: flex; } .h-screen { height: 100vh; } .w-screen { width: 100vw; }
           .max-w-page { max-width: 1440px; } .flex-1 { flex: 1 1 0%; } .flex-col { flex-direction: column; }
           .overflow-y-auto { overflow-y: auto; } .m-3 { margin: 0.75rem; } .z-navigation { z-index: 50; }
-          .w-full { width: 100%; } .items-center { align-items: center; } .justify-between { justify-content: space-between; }
+          .w-full { width: 100%; } 
+          .items-center { align-items: center; } .justify-between { justify-content: space-between; }
           .rounded-lg { border-radius: 0.5rem; } .border { border-width: 1px; } .px-4 { padding-left: 1rem; padding-right: 1rem; }
           .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; } .border-marble-400 { border-color:rgb(176, 197, 206); }
           .bg-marble-100 { background-color: #F8F7F4; } .mr-3 { margin-right: 0.75rem; } .h-full { height: 100%; }
@@ -89,41 +87,13 @@ export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
         `}</style>
       </Helmet>
       <div className="h-full w-full bg-mushroom-100">
-        <div className="mx-auto flex h-screen w-screen max-w-page flex-1 flex-col">
-          <div className="m-3">
-            <nav className="z-navigation flex w-full items-center justify-between rounded-lg border border-marble-400 bg-marble-100 px-4 py-3">
-              <Link to="/">
-                <div className="mr-3 flex items-baseline">
-                  <span className="text-logo lowercase font-variable ml-1 font-light text-green-700">eido ai</span>
-                </div>
-              </Link>
-              <div className="hidden md:flex flex-row items-center gap-x-4 lg:gap-x-6">
-                {navLinks.map((link) => {
-                  const isActive = location.pathname === link.to;
-                  if (link.isExternal) {
-                    return (
-                      <a key={link.to} target="_blank" rel="noopener noreferrer" href={link.to}>
-                        <p className="text-overline uppercase font-code text-volcanic-800 hover:text-volcanic-900">{link.label}</p>
-                      </a>
-                    );
-                  }
-                  return (
-                    <Link key={link.to} to={link.to}>
-                      <p className={cn(
-                        "text-overline uppercase font-code hover:text-volcanic-900",
-                        isActive ? "font-bold text-volcanic-900" : "text-volcanic-800"
-                      )}>
-                        {link.label}
-                      </p>
-                    </Link>
-                  );
-                })}
-              </div>
-            </nav>
-          </div>
+        <div className="mx-auto flex min-h-screen w-screen max-w-page flex-1 flex-col">
+          {/* Render the centralized Header component */}
+          <Header />
           {/* Children (the page-specific content) will be rendered here */}
           {children}
-          <Footer />
+          {/* Conditionally render the Footer based on the prop */}
+          {showFooter && <Footer />}
         </div>
       </div>
     </>

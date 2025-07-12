@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       chat_messages: {
         Row: {
+          attached_files: Json | null
           chat_mode: string
           class_id: string | null
           content: string
@@ -18,10 +19,10 @@ export type Database = {
           created_at: string
           id: string
           role: string
-          attached_files: Json | null // VERIFIED
-          user_id: string // User ID is explicitly not nullable
+          user_id: string
         }
         Insert: {
+          attached_files?: Json | null
           chat_mode: string
           class_id?: string | null
           content: string
@@ -29,10 +30,10 @@ export type Database = {
           created_at?: string
           id?: string
           role: string
-          attached_files?: Json | null // VERIFIED
-          user_id: string // User ID is explicitly not nullable
+          user_id: string
         }
         Update: {
+          attached_files?: Json | null
           chat_mode?: string
           class_id?: string | null
           content?: string
@@ -40,8 +41,7 @@ export type Database = {
           created_at?: string
           id?: string
           role?: string
-          attached_files?: Json | null // VERIFIED
-          user_id?: string // User ID is explicitly not nullable
+          user_id?: string
         }
         Relationships: [
           {
@@ -70,27 +70,24 @@ export type Database = {
       classes: {
         Row: {
           class_id: string
-          class_name: string // Renamed from class_title
-          user_id: string | null // Keep user_id as it's a FK 
-          created_at: string | null // Keep created_at 
-          updated_at: string | null // Keep updated_at 
-          // Deleted: assistant_id, class_time, classroom, emoji, enabled_widgets, professor, vector_store_id
+          class_name: string
+          created_at: string | null
+          updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           class_id?: string
-          class_name: string // Renamed from class_title
-          user_id?: string | null // Keep user_id as it's a FK 
-          created_at?: string | null // Keep created_at 
-          updated_at?: string | null // Keep updated_at 
-          // Deleted: assistant_id, class_time, classroom, emoji, enabled_widgets, professor, vector_store_id
+          class_name: string
+          created_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           class_id?: string
-          class_name?: string // Renamed from class_title
-          user_id?: string | null // Keep user_id as it's a FK 
-          created_at?: string | null // Keep created_at 
-          updated_at?: string | null // Keep updated_at 
-          // Deleted: assistant_id, class_time, classroom, emoji, enabled_widgets, professor, vector_store_id
+          class_name?: string
+          created_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -153,7 +150,6 @@ export type Database = {
           },
         ]
       }
-      // The 'database' table has been entirely removed from here.
       embeddings: {
         Row: {
           content: string
@@ -178,59 +174,6 @@ export type Database = {
         }
         Relationships: []
       }
-      folders: { // Renamed from file_folders
-        Row: {
-          class_id: string | null
-          created_at: string
-          folder_id: string
-          folder_name: string // Renamed from name
-          parent_id: string | null
-          user_id: string
-          // Deleted: database_id
-        }
-        Insert: {
-          class_id?: string | null
-          created_at?: string
-          folder_id?: string
-          folder_name: string // Renamed from name
-          parent_id?: string | null
-          user_id: string
-          // Deleted: database_id
-        }
-        Update: {
-          class_id?: string | null
-          created_at?: string
-          folder_id?: string
-          folder_name?: string // Renamed from name
-          parent_id?: string | null
-          user_id?: string
-          // Deleted: database_id
-        }
-        Relationships: [
-          {
-            foreignKeyName: "file_folders_class_id_fkey" // Keep old FK name unless migrated
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          // Deleted: file_folders_database_id_fkey relationship
-          {
-            foreignKeyName: "file_folders_parent_id_fkey" // Keep old FK name unless migrated
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "folders" // Self-referencing
-            referencedColumns: ["folder_id"]
-          },
-          {
-            foreignKeyName: "file_folders_user_id_fkey" // Keep old FK name unless migrated
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
       files: {
         Row: {
           category: string | null
@@ -239,15 +182,18 @@ export type Database = {
           document_title: string | null
           file_id: string
           folder_id: string | null
+          image_summaries: Json | null
           last_modified: string
           name: string
+          page_count: number | null
+          page_previews: Json | null
           size: number
           status: string | null
           tags: string[] | null
+          thumbnail_url: string | null
           type: string
           url: string | null
           user_id: string
-          // Deleted: openai_file_id, database_id
         }
         Insert: {
           category?: string | null
@@ -256,15 +202,18 @@ export type Database = {
           document_title?: string | null
           file_id?: string
           folder_id?: string | null
+          image_summaries?: Json | null
           last_modified?: string
           name: string
+          page_count?: number | null
+          page_previews?: Json | null
           size: number
           status?: string | null
           tags?: string[] | null
+          thumbnail_url?: string | null
           type: string
           url?: string | null
           user_id: string
-          // Deleted: openai_file_id, database_id
         }
         Update: {
           category?: string | null
@@ -273,15 +222,18 @@ export type Database = {
           document_title?: string | null
           file_id?: string
           folder_id?: string | null
+          image_summaries?: Json | null
           last_modified?: string
           name?: string
+          page_count?: number | null
+          page_previews?: Json | null
           size?: number
           status?: string | null
           tags?: string[] | null
+          thumbnail_url?: string | null
           type?: string
           url?: string | null
           user_id?: string
-          // Deleted: openai_file_id, database_id
         }
         Relationships: [
           {
@@ -291,12 +243,11 @@ export type Database = {
             referencedRelation: "classes"
             referencedColumns: ["class_id"]
           },
-          // Deleted: files_database_id_fkey relationship
           {
             foreignKeyName: "files_folder_id_fkey"
             columns: ["folder_id"]
             isOneToOne: false
-            referencedRelation: "folders" // Changed from file_folders
+            referencedRelation: "folders"
             referencedColumns: ["folder_id"]
           },
           {
@@ -435,76 +386,218 @@ export type Database = {
           },
         ]
       }
-      message_sources: {
+      folders: {
         Row: {
-          id: string
-          message_id: string
-          source_number: number
-          name: string | null
-          url: string | null
-          content: string | null
+          class_id: string | null
           created_at: string
-          highlight: string | null
-          page_number: number | null
+          folder_id: string
+          name: string | null
+          parent_id: string | null
+          user_id: string
         }
         Insert: {
-          id?: string
-          message_id: string
-          source_number: number
-          name?: string | null
-          url?: string | null
-          content?: string | null
+          class_id?: string | null
           created_at?: string
-          highlight?: string | null
-          page_number?: number | null // Added back page_number based on previous analysis of repomix
+          folder_id?: string
+          name?: string | null
+          parent_id?: string | null
+          user_id: string
         }
         Update: {
-          id?: string
-          message_id?: string
-          source_number?: number
-          name?: string | null
-          url?: string | null
-          content?: string | null
+          class_id?: string | null
           created_at?: string
-          highlight?: string | null
-          page_number?: number | null // Added back page_number based on previous analysis of repomix
+          folder_id?: string
+          name?: string | null
+          parent_id?: string | null
+          user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "file_folders_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "file_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["folder_id"]
+          },
+        ]
+      }
+      message_sources: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          file_id: string | null
+          highlight: string | null
+          id: string
+          message_id: string
+          name: string | null
+          page_number: number | null
+          source_number: number
+          url: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          file_id?: string | null
+          highlight?: string | null
+          id?: string
+          message_id: string
+          name?: string | null
+          page_number?: number | null
+          source_number: number
+          url?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          file_id?: string | null
+          highlight?: string | null
+          id?: string
+          message_id?: string
+          name?: string | null
+          page_number?: number | null
+          source_number?: number
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_sources_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["file_id"]
+          },
           {
             foreignKeyName: "message_sources_message_id_fkey"
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "chat_messages"
             referencedColumns: ["id"]
-          }
+          },
+        ]
+      }
+      preview_queue: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          file_id: string
+          id: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          file_id: string
+          id?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          file_id?: string
+          id?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_queue_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["file_id"]
+          },
+        ]
+      }
+      processing_queue: {
+        Row: {
+          class_id: string
+          created_at: string
+          error_message: string | null
+          folder_id: string | null
+          id: number
+          mime_type: string
+          original_name: string
+          size: number
+          status: string
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          error_message?: string | null
+          folder_id?: string | null
+          id?: number
+          mime_type: string
+          original_name: string
+          size: number
+          status?: string
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          error_message?: string | null
+          folder_id?: string | null
+          id?: number
+          mime_type?: string
+          original_name?: string
+          size?: number
+          status?: string
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_queue_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "processing_queue_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["folder_id"]
+          },
         ]
       }
       profiles: {
         Row: {
-          avatar_url: string | null
           created_at: string
           email: string | null
           full_name: string | null
           updated_at: string
-          usage_description: string | null
           user_id: string
         }
         Insert: {
-          avatar_url?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           updated_at?: string
-          usage_description?: string | null
           user_id: string
         }
         Update: {
-          avatar_url?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           updated_at?: string
-          usage_description?: string | null
           user_id?: string
         }
         Relationships: []

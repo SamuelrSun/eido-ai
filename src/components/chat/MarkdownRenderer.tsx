@@ -10,25 +10,22 @@ export function MarkdownRenderer({ content, onCitationClick }: MarkdownRendererP
   
   const renderMarkdown = (text: string) => {
     let rendered = text;
-
     rendered = rendered.replace(/(\*\*|__)(.*?)\1/g, '<strong>$2</strong>');
     rendered = rendered.replace(/(?<!\S)(\*|_)(?!\s)((?:(?!\1).)+)(?<!\s)\1(?!\S)/g, '<em>$2</em>');
     rendered = rendered.replace(/(?:^\s*-\s+(.+)$\n?)+/gm, match => `<ul class="list-disc pl-5 my-2 space-y-0.5">${match.split('\n').filter(Boolean).map(line => `<li>${line.replace(/^\s*-\s+/, '')}</li>`).join('')}</ul>`);
     rendered = rendered.replace(/(?:^\s*\d+\.\s+(.+)$\n?)+/gm, match => `<ol class="list-decimal pl-5 my-2 space-y-0.5">${match.split('\n').filter(Boolean).map(line => `<li>${line.replace(/^\s*\d+\.\s+/, '')}</li>`).join('')}</ol>`);
     rendered = rendered.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 rounded text-sm">$1</code>');
     
-    // Render citations as "[SOURCE #]"
-    rendered = rendered.replace(/\(SOURCE (\d+)\)/g, (match, numberStr) => {
-      return `<span class="source-citation" data-source-number="${numberStr}">[SOURCE ${numberStr}]</span>`;
+    // MODIFICATION: Looks for [SOURCE #] and wraps it in a subscript tag.
+    rendered = rendered.replace(/\[SOURCE (\d+)]/g, (match, numberStr) => {
+      return `<sub><span class="source-citation" data-source-number="${numberStr}">[${numberStr}]</span></sub>`;
     });
-
     rendered = rendered.replace(/\n/g, '<br />');
     
     return rendered;
   };
 
   const containerRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     const container = containerRef.current;
     if (container && onCitationClick) {
@@ -50,24 +47,24 @@ export function MarkdownRenderer({ content, onCitationClick }: MarkdownRendererP
       };
     }
   }, [content, onCitationClick]);
-  
+
+  // MODIFICATION: New styles for subscripted, muted-blue citation links.
   const citationStyles = `
     .source-citation {
-      font-size: 0.75em;
-      vertical-align: super;
-      color: #005780;
+      font-family: sans-serif;
+      color: hsl(220 10% 40%); /* muted-foreground color */
       font-weight: 600;
       cursor: pointer;
-      padding: 0 2px;
+      padding: 0 3px;
       text-decoration: none;
       border-radius: 4px;
+      transition: background-color 0.2s;
     }
     .source-citation:hover {
-      background-color: #e0f2fe;
-      text-decoration: underline;
+      background-color: hsl(220 13% 91%); /* border color */
+      text-decoration: none;
     }
   `;
-
   return (
     <>
       <style>{citationStyles}</style>
