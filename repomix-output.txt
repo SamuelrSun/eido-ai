@@ -8902,7 +8902,9 @@ const FilesPage = () => {
             const storagePath = `public/${user.id}/${activeClass.class_id}/${currentFolderId || 'root'}/${Date.now()}_${sanitizedName}`;
             const { data: storageData, error: uploadError } = await supabase.storage.from('file_storage').upload(storagePath, file);
             if (uploadError) throw new Error(`Storage Error: ${uploadError.message}`);
+            
             setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...f, progress: 50, status: 'processing' } : f));
+            
             const processingPayload = {
                 storage_path: storageData!.path,
                 original_name: file.name,
@@ -8911,17 +8913,22 @@ const FilesPage = () => {
                 class_id: activeClass.class_id,
                 folder_id: currentFolderId,
             };
+            
             const { data: functionResponse, error: functionError } = await supabase.functions.invoke('upload-to-vector-store', {
                 body: { files: [processingPayload] }
             });
+
             if (functionError) throw new Error(`Processing Error: ${functionError.message}`);
 
             const result = functionResponse.results?.[0];
             if (!result || !result.success) {
                 throw new Error(result?.error || `Server failed to process ${file.name}`);
             }
-            
-            setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...f, status: 'complete', progress: 100 } : f));
+
+            // **FIX: Update the file in state with the final details from the server**
+            const finalFile = result.file; // Assuming the function returns the complete file object
+            setFiles(prev => prev.map(f => f.file_id === tempFileId ? { ...finalFile, status: 'complete', progress: 100 } : f));
+
             successCount++;
         } catch (error) {
             errorCount++;
@@ -8931,8 +8938,9 @@ const FilesPage = () => {
     }
     
     toast({ title: "Upload Session Finished", description: `${successCount} successful, ${errorCount} failed.`});
+    // Now, refetch everything to ensure consistency
     fetchCurrentFolderContents();
-  };
+};
 
   const createNewFolder = async () => {
     if (!user || !activeClass?.class_id || !newFolderName.trim()) {
@@ -10831,16 +10839,16 @@ const ClassesPage = () => {
             }
             return;
         }
-
+    
         const channelId = `files-class-${selectedClass.class_id}`;
-        if (fileSubscription.current && fileSubscription.current.topic === `realtime:public:files:class_id=eq.${selectedClass.class_id}`) {
-            return;
+        if (fileSubscription.current && fileSubscription.current.topic.includes(selectedClass.class_id)) {
+            return; // Already subscribed to the correct channel
         }
-
+    
         if (fileSubscription.current) {
             supabase.removeChannel(fileSubscription.current);
         }
-
+    
         console.log(`Subscribing to file updates for class: ${selectedClass.class_id}`);
         const channel = supabase
             .channel(channelId)
@@ -10853,35 +10861,81 @@ const ClassesPage = () => {
                     filter: `class_id=eq.${selectedClass.class_id}`,
                 },
                 (payload) => {
-                    console.log('Realtime update received, re-fetching data...', payload);
-                    // This is the most reliable way to ensure the UI is in sync.
-                    fetchData();
-                    
-                    // This logic updates the toast based on the incoming record.
-                    const record = (payload.new || payload.old) as FileType;
-                    if (record) {
-                        setUploadingFiles(prev => {
-                            return prev.map(uf => {
-                                if (uf.name === record.name) {
-                                    let newStatus: UploadingFile['status'] = 'processing';
-                                    if (record.status === 'complete' || record.status === 'processed_text') {
-                                        newStatus = 'complete';
-                                    } else if (record.status === 'error') {
-                                        newStatus = 'error';
-                                    }
-                                    return { ...uf, status: newStatus };
-                                }
-                                return uf;
-                            });
+                    console.log('Realtime file update received:', payload);
+    
+                    if (payload.eventType === 'INSERT') {
+                        const newFile = payload.new as FileType;
+                        
+                        // Add to the list used for statistics
+                        setAllClassFiles(prev => {
+                            // Check if file already exists to avoid duplicates
+                            const exists = prev.some(f => f.file_id === newFile.file_id);
+                            if (exists) return prev;
+                            return [...prev, newFile];
                         });
+                        
+                        // Add to the visible file grid if it's in the current folder
+                        if (newFile.folder_id === currentFolderId || (currentFolderId === null && newFile.folder_id === null)) {
+                            setFiles(prev => {
+                                // Remove temporary placeholder files that match this file's name
+                                // and don't have a real file_id (they start with 'temp-upload-')
+                                const filtered = prev.filter(f => 
+                                    !(f.name === newFile.name && f.file_id.startsWith('temp-upload-'))
+                                );
+                                
+                                // Check if the real file already exists
+                                const realFileExists = filtered.some(f => f.file_id === newFile.file_id);
+                                if (realFileExists) return filtered;
+                                
+                                return [...filtered, newFile];
+                            });
+                        }
+                    }
+    
+                    if (payload.eventType === 'UPDATE') {
+                        const updatedFile = payload.new as FileType;
+                        // Update the file in both state arrays with its final, complete data
+                        setAllClassFiles(prev => prev.map(f => f.file_id === updatedFile.file_id ? updatedFile : f));
+                        setFiles(prev => prev.map(f => f.file_id === updatedFile.file_id ? updatedFile : f));
+                    }
+    
+                    if (payload.eventType === 'DELETE') {
+                        const deletedFileId = (payload.old as { file_id: string }).file_id;
+                        setAllClassFiles(prev => prev.filter(f => f.file_id !== deletedFileId));
+                        setFiles(prev => prev.filter(f => f.file_id !== deletedFileId));
+                    }
+    
+                    // This logic updates the UploadProgressToast
+                    const recordForToast = (payload.new || payload.old) as FileType;
+                    if (recordForToast) {
+                        setUploadingFiles(prev => prev.map(uf => {
+                            if (uf.name === recordForToast.name) {
+                                const newStatus = 
+                                    (recordForToast.status === 'complete' || recordForToast.status === 'processed_text') ? 'complete' :
+                                    recordForToast.status === 'error' ? 'error' :
+                                    'processing';
+                                return { ...uf, status: newStatus };
+                            }
+                            return uf;
+                        }));
                     }
                 }
             )
-            .subscribe();
-        
+            .subscribe((status, err) => {
+                if (err) {
+                    console.error(`Realtime subscription error for class ${selectedClass.class_id}:`, err);
+                }
+            });
+    
         fileSubscription.current = channel;
-
-    }, [user, selectedClass, fetchData]);
+    
+        return () => {
+            if (fileSubscription.current) {
+                supabase.removeChannel(fileSubscription.current);
+                fileSubscription.current = null;
+            }
+        };
+    }, [user, selectedClass, currentFolderId]);
 
     const handleUploadFiles = async (filesToUpload: File[]) => {
         if (!user || !selectedClass) {
@@ -16010,7 +16064,7 @@ File: index.html
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Eido - The AI Copilot for Elevated Education</title>
+    <title>Eido AI: Your Personal Education Copilot</title>
     <meta name="description" content="Eido - The AI Copilot for Elevated Education" />
     <meta name="author" content="Eido" />
 

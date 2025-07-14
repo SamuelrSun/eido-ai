@@ -28,6 +28,7 @@ export const MainAppLayout = ({ children, pageTitle, showFooter = false }: MainA
     <>
       <Helmet>
         <title>{pageTitle}</title>
+        <link rel="canonical" href="https://www.eido-ai.com/" /> 
         <meta name="viewport" content="initial-scale=1.0, width=device-width, viewport-fit=cover, maximum-scale=1.0" />
         <link rel="icon" href="/favicon.ico" />
         {/* Re-adding essential inline styles to avoid layout breakage.

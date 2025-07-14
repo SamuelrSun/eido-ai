@@ -1,5 +1,8 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /auth
+Disallow: /profile
+Disallow: /classes
 
 User-agent: Bingbot
 Allow: /
