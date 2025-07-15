@@ -42,6 +42,7 @@ const FilePreview = ({ file }: { file: FileType }) => {
 // src/components/datasets/FileGridCard.tsx
 
 export const FileGridCard: React.FC<FileGridCardProps> = ({ file, onClick, isSelected }) => {
+  console.log(`[5. RENDER] FileGridCard rendering for: ${file.name}, Status: ${file.status}`);
   const isImage = file.type.startsWith('image/');
 
   // --- 1. APPLY a fixed height to the main Card element ---

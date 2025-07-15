@@ -12,8 +12,8 @@ export const Header = () => {
   const navLinks = [
     { to: "/", label: "Dashboard" },
     { to: "/classes", label: "Classes", state: { reset: true } }, // <-- ADD THIS STATE
-    { to: "/docs", label: "Docs", isExternal: true, href: "https://docs.cohere.com/" },
-    { to: "/community", label: "Community", isExternal: true, href: "#" },
+    { to: "/calendar", label: "Calendar", state: { reset: true } },
+    { to: "/classes", label: "Classes", state: { reset: true } },
   ];
 
   return (

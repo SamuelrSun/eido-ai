@@ -56,6 +56,7 @@ import { usePageLoader } from '@/context/LoaderContext';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UploadProgressToast, UploadingFile } from '@/features/files/components/UploadProgressToast';
+import { DeletionProgressToast, DeletingFile } from '@/features/files/components/DeletionProgressToast';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 const ClassesPage = () => {
@@ -85,6 +86,7 @@ const ClassesPage = () => {
     const { toast } = useToast();
     const [isDeleting, setIsDeleting] = useState(false);
     const [filesToDelete, setFilesToDelete] = useState<FileType[]>([]);
+    const [deletingFiles, setDeletingFiles] = useState<DeletingFile[]>([]);
     const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
     const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -119,8 +121,6 @@ const ClassesPage = () => {
         };
     }, [loader]);
 
-    // FIX: This useEffect was added to ensure that any changes to the
-    // `recentFiles` state are persisted to localStorage.
     useEffect(() => {
         try {
             window.localStorage.setItem('eidoRecentFiles', JSON.stringify(recentFiles));
@@ -148,7 +148,7 @@ const ClassesPage = () => {
                     classOpenAIConfigService.getAllClasses(),
                     fileService.getAllFilesWithClass()
                 ]);
-            
+
                 setClasses(fetchedClasses);
                 setAllFiles(fetchedAllFilesResult as (FileType & { class: string })[]);
                 setFolders([]);
@@ -166,112 +166,6 @@ const ClassesPage = () => {
         fetchData();
     }, [fetchData]);
 
-    useEffect(() => {
-        if (!user || !selectedClass) {
-            if (fileSubscription.current) {
-                supabase.removeChannel(fileSubscription.current);
-                fileSubscription.current = null;
-            }
-            return;
-        }
-    
-        const channelId = `files-class-${selectedClass.class_id}`;
-        if (fileSubscription.current && fileSubscription.current.topic.includes(selectedClass.class_id)) {
-            return; // Already subscribed to the correct channel
-        }
-    
-        if (fileSubscription.current) {
-            supabase.removeChannel(fileSubscription.current);
-        }
-    
-        console.log(`Subscribing to file updates for class: ${selectedClass.class_id}`);
-        const channel = supabase
-            .channel(channelId)
-            .on<FileType>(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'files',
-                    filter: `class_id=eq.${selectedClass.class_id}`,
-                },
-                (payload) => {
-                    console.log('Realtime file update received:', payload);
-    
-                    if (payload.eventType === 'INSERT') {
-                        const newFile = payload.new as FileType;
-                        
-                        // Add to the list used for statistics
-                        setAllClassFiles(prev => {
-                            // Check if file already exists to avoid duplicates
-                            const exists = prev.some(f => f.file_id === newFile.file_id);
-                            if (exists) return prev;
-                            return [...prev, newFile];
-                        });
-                        
-                        // Add to the visible file grid if it's in the current folder
-                        if (newFile.folder_id === currentFolderId || (currentFolderId === null && newFile.folder_id === null)) {
-                            setFiles(prev => {
-                                // Remove temporary placeholder files that match this file's name
-                                // and don't have a real file_id (they start with 'temp-upload-')
-                                const filtered = prev.filter(f => 
-                                    !(f.name === newFile.name && f.file_id.startsWith('temp-upload-'))
-                                );
-                                
-                                // Check if the real file already exists
-                                const realFileExists = filtered.some(f => f.file_id === newFile.file_id);
-                                if (realFileExists) return filtered;
-                                
-                                return [...filtered, newFile];
-                            });
-                        }
-                    }
-    
-                    if (payload.eventType === 'UPDATE') {
-                        const updatedFile = payload.new as FileType;
-                        // Update the file in both state arrays with its final, complete data
-                        setAllClassFiles(prev => prev.map(f => f.file_id === updatedFile.file_id ? updatedFile : f));
-                        setFiles(prev => prev.map(f => f.file_id === updatedFile.file_id ? updatedFile : f));
-                    }
-    
-                    if (payload.eventType === 'DELETE') {
-                        const deletedFileId = (payload.old as { file_id: string }).file_id;
-                        setAllClassFiles(prev => prev.filter(f => f.file_id !== deletedFileId));
-                        setFiles(prev => prev.filter(f => f.file_id !== deletedFileId));
-                    }
-    
-                    // This logic updates the UploadProgressToast
-                    const recordForToast = (payload.new || payload.old) as FileType;
-                    if (recordForToast) {
-                        setUploadingFiles(prev => prev.map(uf => {
-                            if (uf.name === recordForToast.name) {
-                                const newStatus = 
-                                    (recordForToast.status === 'complete' || recordForToast.status === 'processed_text') ? 'complete' :
-                                    recordForToast.status === 'error' ? 'error' :
-                                    'processing';
-                                return { ...uf, status: newStatus };
-                            }
-                            return uf;
-                        }));
-                    }
-                }
-            )
-            .subscribe((status, err) => {
-                if (err) {
-                    console.error(`Realtime subscription error for class ${selectedClass.class_id}:`, err);
-                }
-            });
-    
-        fileSubscription.current = channel;
-    
-        return () => {
-            if (fileSubscription.current) {
-                supabase.removeChannel(fileSubscription.current);
-                fileSubscription.current = null;
-            }
-        };
-    }, [user, selectedClass, currentFolderId]);
-
     const handleUploadFiles = async (filesToUpload: File[]) => {
         if (!user || !selectedClass) {
             toast({ title: "Upload Failed", description: "A user and class must be selected.", variant: "destructive" });
@@ -280,7 +174,6 @@ const ClassesPage = () => {
 
         setIsSubmitting(true);
         setIsUploadOpen(false);
-
         const newUploads: UploadingFile[] = filesToUpload.map((file, index) => ({
             id: `temp-upload-${Date.now()}-${index}`,
             name: file.name,
@@ -288,7 +181,6 @@ const ClassesPage = () => {
         }));
         setUploadingFiles(prev => [...prev, ...newUploads]);
 
-        // Add temporary placeholders to the main file grid
         const tempFileEntries: FileType[] = newUploads.map(upload => {
             const file = filesToUpload.find(f => f.name === upload.name)!;
             return {
@@ -320,12 +212,12 @@ const ClassesPage = () => {
                     class_id: selectedClass.class_id,
                     folder_id: currentFolderId,
                 };
-                
+
                 const { error: functionError } = await supabase.functions.invoke('upload-file', {
                     body: processingPayload,
                 });
                 if (functionError) throw new Error(`Function Error: ${functionError.message}`);
-                
+
                 setUploadingFiles(prev => prev.map(uf => uf.name === file.name ? { ...uf, status: 'processing' } : uf));
             } catch (error) {
                 setUploadingFiles(prev => prev.map(uf => uf.name === file.name ? { ...uf, status: 'error', errorMessage: (error as Error).message } : uf));
@@ -334,6 +226,93 @@ const ClassesPage = () => {
         }
         setIsSubmitting(false);
     };
+
+    useEffect(() => {
+        if (!user || !selectedClass) {
+            if (fileSubscription.current) {
+                supabase.removeChannel(fileSubscription.current);
+                fileSubscription.current = null;
+            }
+            return;
+        }
+
+        const channelId = `files-class-${selectedClass.class_id}`;
+        if (fileSubscription.current?.topic.includes(channelId)) {
+            return;
+        }
+
+        if (fileSubscription.current) {
+            supabase.removeChannel(fileSubscription.current);
+        }
+
+        const channel = supabase
+            .channel(channelId)
+            .on<FileType>(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'files',
+                    filter: `class_id=eq.${selectedClass.class_id}`,
+                },
+                (payload) => {
+                    const newOrUpdatedFile = payload.new as FileType;
+
+                    if (!newOrUpdatedFile || !newOrUpdatedFile.file_id) {
+                        return;
+                    }
+
+                    const updateOrAddFile = (prev: FileType[], file: FileType) => {
+                        const withoutPlaceholder = prev.filter(f =>
+                           !(f.name === file.name && f.file_id.startsWith('temp-upload-'))
+                        );
+                        const fileIndex = withoutPlaceholder.findIndex(f => f.file_id === file.file_id);
+                        let newState: FileType[];
+                        if (fileIndex !== -1) {
+                            newState = [...withoutPlaceholder];
+                            newState[fileIndex] = file;
+                        } else {
+                            newState = [...withoutPlaceholder, file];
+                        }
+                        return newState;
+                    };
+
+                    setAllClassFiles(prev => updateOrAddFile(prev, newOrUpdatedFile));
+
+                    if (newOrUpdatedFile.folder_id === currentFolderId || (currentFolderId === null && newOrUpdatedFile.folder_id === null)) {
+                        setFiles(prev => updateOrAddFile(prev, newOrUpdatedFile));
+                    }
+
+                    const recordForToast = (payload.new || payload.old) as FileType;
+                    if (recordForToast) {
+                        setUploadingFiles(prev => prev.map(uf => {
+                            if (uf.name === recordForToast.name) {
+                                const newStatus =
+                                  (recordForToast.status === 'complete' || recordForToast.status === 'processed_text') ? 'complete' :
+                                    recordForToast.status === 'error' ? 'error' :
+                                    'processing';
+                                return { ...uf, status: newStatus };
+                            }
+                            return uf;
+                        }));
+                    }
+                }
+            )
+            .subscribe((status, err) => {
+                if (err) {
+                    console.error(`Realtime subscription failed for ${channelId}:`, err);
+                }
+            });
+
+        fileSubscription.current = channel;
+
+        return () => {
+            if (fileSubscription.current) {
+                supabase.removeChannel(fileSubscription.current);
+                fileSubscription.current = null;
+            }
+        };
+    }, [user, selectedClass, currentFolderId]);
 
     const handleClassClick = (classData: ClassConfig) => {
         setSelectedClass(classData);
@@ -346,7 +325,7 @@ const ClassesPage = () => {
         setCurrentFolderId(folderData.folder_id);
         setBreadcrumbs([...breadcrumbs, { name: folderData.name, id: folderData.folder_id }]);
     };
-    
+
     const handleBreadcrumbClick = (index: number) => {
         if (index === 0) {
             setSelectedClass(null);
@@ -405,24 +384,47 @@ const ClassesPage = () => {
 
     const confirmDelete = async () => {
         if (filesToDelete.length === 0) return;
+
         setIsDeleting(true);
-        try {
-            await Promise.all(filesToDelete.map(file => fileService.deleteFile(file)));
-            toast({ title: "Files Deleted", description: `${filesToDelete.length} file(s) deleted.` });
 
-            // FIX: Clear deleted files from the recent files list in localStorage
-            const deletedFileIds = new Set(filesToDelete.map(f => f.file_id));
-            setRecentFiles(prev => prev.filter(file => !deletedFileIds.has(file.file_id)));
+        const itemsToProcess: DeletingFile[] = filesToDelete.map(file => ({
+            id: file.file_id,
+            name: file.name,
+            status: 'pending',
+        }));
+        setDeletingFiles(itemsToProcess);
 
-            if (filesToDelete.some(f => f.file_id === previewedFile?.file_id)) { setPreviewedFile(null); }
-            fetchData();
-            if (selectionMode) { toggleSelectionMode(); }
-        } catch (error: unknown) {
-            toast({ title: "Deletion Failed", description: (error instanceof Error) ? error.message : "An unknown error occurred.", variant: "destructive" });
-        } finally {
-            setFilesToDelete([]);
-            setIsDeleting(false);
+        for (const file of filesToDelete) {
+            try {
+                setDeletingFiles(prev => prev.map(f => f.id === file.file_id ? { ...f, status: 'deleting' } : f));
+                await fileService.deleteFile(file);
+                setDeletingFiles(prev => prev.map(f => f.id === file.file_id ? { ...f, status: 'complete' } : f));
+            } catch (error: unknown) {
+                setDeletingFiles(prev => prev.map(f =>
+                    f.id === file.file_id
+                        ? { ...f, status: 'error', errorMessage: (error instanceof Error) ? error.message : "Unknown error" }
+                        : f
+                ));
+                toast({ title: "Deletion Failed", description: (error instanceof Error) ? error.message : "An unknown error occurred.", variant: "destructive" });
+            }
         }
+
+        toast({ title: "Deletion process finished", description: `Please check the status pop-up for details.` });
+
+        const deletedFileIds = new Set(filesToDelete.map(f => f.file_id));
+        setRecentFiles(prev => prev.filter(file => !deletedFileIds.has(file.file_id)));
+
+        if (filesToDelete.some(f => f.file_id === previewedFile?.file_id)) {
+            setPreviewedFile(null);
+        }
+
+        fetchData();
+        if (selectionMode) {
+            toggleSelectionMode();
+        }
+
+        setFilesToDelete([]);
+        setIsDeleting(false);
     };
 
     const toggleSelectionMode = () => { setSelectionMode(!selectionMode); setSelectedFileIds([]); };
@@ -455,8 +457,7 @@ const ClassesPage = () => {
                 title: "Class Deleted",
                 description: `"${classToDelete.class_name}" and all its associated data have been permanently removed.`,
             });
-            
-            // FIX: Clear all files from the deleted class from the recent files list
+
             setRecentFiles(prev => prev.filter(file => file.class_id !== classToDelete.class_id));
 
             fetchData();
@@ -511,7 +512,7 @@ const ClassesPage = () => {
         if (!folders.length) return [];
         const folderMap = new Map<string, FolderType>(allUserFolders.map(f => [f.folder_id, f]));
         const fileMapByFolder = new Map<string, FileType[]>();
-        
+
         allClassFiles.forEach(file => {
             const folderId = file.folder_id || 'root';
             if (!fileMapByFolder.has(folderId)) {
@@ -576,10 +577,10 @@ const ClassesPage = () => {
         const fileType = previewedFile.type || '';
         const fileUrl = previewedFile.url || '';
 
-        if (fileType.startsWith('image/')) { 
+        if (fileType.startsWith('image/')) {
             return <img src={fileUrl} alt={previewedFile.name} className="w-full h-full object-cover" />;
         }
-        if (fileType === 'application/pdf') { 
+        if (fileType === 'application/pdf') {
             return <iframe src={`${fileUrl}#toolbar=0`} className="w-full h-full scale-105" title={previewedFile.name}></iframe>;
         }
         return <pre className="w-full h-full text-sm whitespace-pre-wrap p-4">{`Preview for this file type is not supported.`}</pre>;
@@ -661,7 +662,7 @@ const ClassesPage = () => {
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
                         <h2 className="text-sm uppercase font-semibold text-muted-foreground">{selectedClass ? "Files" : "Recent Files"}</h2>
-                        
+
                         <ToggleGroup type="single" variant="outline" size="sm" value={viewMode} onValueChange={(value) => { if (value) setViewMode(value as 'list' | 'grid'); }} disabled={isLoading}>
                             <ToggleGroupItem value="list" aria-label="List view">
                                 <List className="h-4 w-4" />
@@ -671,9 +672,9 @@ const ClassesPage = () => {
                             </ToggleGroupItem>
                         </ToggleGroup>
                     </div>
-                    
+
                     <Separator className="my-4" />
-                    
+
                     {isLoading ? ( <div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" /></div> ) :
                     filesForTable.length === 0 ? (<div className="text-center p-8 text-muted-foreground">No files to display.</div>) :
                     viewMode === 'list' ? (
@@ -700,10 +701,10 @@ const ClassesPage = () => {
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                             {filesForTable.map((file) => (
-                                <FileGridCard 
-                                    key={file.file_id} 
-                                    file={file} 
-                                    onClick={() => handleFileRowClick(file)} 
+                                <FileGridCard
+                                    key={file.file_id}
+                                    file={file}
+                                    onClick={() => handleFileRowClick(file)}
                                     isSelected={previewedFile?.file_id === file.file_id}
                                 />
                             ))}
@@ -735,7 +736,7 @@ const ClassesPage = () => {
                             <header className="flex items-center justify-between p-4 border-b border-marble-400 flex-shrink-0">
                                 <div className="flex items-center gap-2 overflow-hidden">
                                 {previewedFile ? (
-                                        <a 
+                                        <a
                                             href={`/api/serve-file?id=${previewedFile.file_id}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
@@ -749,7 +750,7 @@ const ClassesPage = () => {
                                             Select a file to preview
                                         </span>
                                     )}
-                                </div>                            
+                                </div>
                                 <div className="flex items-center">
                                 <a href={`/api/serve-file?id=${previewedFile?.file_id}`} target="_blank" rel="noopener noreferrer" className={!previewedFile ? 'pointer-events-none' : ''}title="Open in new tab">
                                     <Button variant="ghost" size="icon" className="text-stone-400 hover:bg-transparent hover:text-stone-900 focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => previewedFile?.url && window.open(previewedFile.url, '_blank')} disabled={!previewedFile?.url}title="Open in new tab"><ExternalLink className="h-4 w-4" /></Button></a>
@@ -766,6 +767,7 @@ const ClassesPage = () => {
                         <div className="w-8/12 flex flex-col rounded-lg border border-marble-400 bg-white overflow-hidden">{renderContent()}</div>
                     </main>
                     <UploadProgressToast files={uploadingFiles} onClear={() => setUploadingFiles([])} />
+                    <DeletionProgressToast files={deletingFiles} onClear={() => setDeletingFiles([])} />
                 </div>
             </MainAppLayout>
             <CreateClassDialog
