@@ -8,7 +8,7 @@ import { Loader2, PlusCircle, PanelLeft, PanelRight, MessageSquarePlus, BookChec
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HistorySidebar } from '@/components/oracle/HistorySidebar';
 import { ChatMessage } from '@/components/chat/ChatMessage';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -19,18 +19,33 @@ import { ClassConfig, classOpenAIConfigService } from '@/services/classOpenAICon
 import { AttachedFile, AttachedFilePill } from '@/components/chat/AttachedFilePill';
 import { usePageLoader } from '@/context/LoaderContext';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
-import { DocumentPreview } from '@/components/oracle/DocumentPreview';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from '@/lib/utils';
+import { Separator } from "@/components/ui/separator";
+import { fileService } from '@/services/fileService';
+import { FileType } from '@/features/files/types';
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface ProfileData {
   full_name: string | null;
   avatar_url: string | null;
 }
 
+// Updated placeholder text with varying lengths
+const sourcesData = [
+    { id: 1, name: "L03_Firewalls.pdf", page: 7, quote: "Lorem ipsum dolor sit amet, consectetur adipiscing elit." },
+    { id: 2, name: "L04_Operating_Systems_P1.pdf", page: 12, quote: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur." },
+    { id: 3, name: "L06_Active_Directory.pdf", page: 4, quote: "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum." },
+    { id: 4, name: "L09_IntrusionDetectionSystems.pdf", page: 21, quote: "Excepteur sint occaecat cupidatat non proident." }
+];
+
 const OraclePage = () => {
-    // All state from before
+    // All original state from the main component
     const { loader } = usePageLoader();
     const [input, setInput] = useState("");
     const [isChatLoading, setIsChatLoading] = useState(false);
@@ -40,8 +55,7 @@ const OraclePage = () => {
     const { toast } = useToast();
     const [user, setUser] = useState<User | null>(null);
     const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
-    const [conversations, setConversations] = useState<AppConversation[]>([]
-    );
+    const [conversations, setConversations] = useState<AppConversation[]>([]);
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessageApp[]>([]);
     const [classes, setClasses] = useState<ClassConfig[]>([]);
@@ -52,16 +66,38 @@ const OraclePage = () => {
     const [conversationToDelete, setConversationToDelete] = useState<AppConversation | null>(null);
     const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
     const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
-    
-    // NEW: State to manage the currently active source tab. The value will be the file_id.
     const [activeSourceTab, setActiveSourceTab] = useState<string | undefined>();
-    // NEW: State to manage open source tabs (to allow closing them)
     const [openSourceTabs, setOpenSourceTabs] = useState<ActiveSource[]>([]);
-    
     const messageRefs = useRef(new Map<string, HTMLDivElement | null>());
     const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
 
-    // All handler functions...
+    // State and refs for the sources panel
+    const [exampleSources, setExampleSources] = useState<FileType[]>([]);
+    const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+    const sourceTextRefs = useRef(new Map());
+    const sourceThumbnailRefs = useRef(new Map());
+    const [numPages, setNumPages] = useState<number | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+
+
+    // Fetch example files for the sources panel UI preview
+    useEffect(() => {
+        const fetchExampleFiles = async () => {
+            if (user) {
+                try {
+                    const allFiles = await fileService.getAllFilesWithClass();
+                    // Take the first 4 files as examples
+                    setExampleSources(allFiles.slice(0, 4) as FileType[]);
+                } catch (error) {
+                    console.error("Failed to fetch example files for sources panel", error);
+                }
+            }
+        };
+        fetchExampleFiles();
+    }, [user]);
+
+
+    // All original handler functions...
     useEffect(() => {
         if (!isPageLoading && loader) {
             loader.complete();
@@ -104,10 +140,9 @@ const OraclePage = () => {
     const handleMessageSelect = useCallback((message: ChatMessageApp) => {
         if (message.role === 'assistant') {
             setSelectedMessageId(message.id);
+            setSelectedSourceId(null); // Deselect source when a new message is selected
             if (message.sources && message.sources.length > 0) {
-                // When a message is selected, open all its sources as tabs
                 setOpenSourceTabs(message.sources);
-                // Set the active tab to the first source's file ID
                 setActiveSourceTab(message.sources[0].file.file_id);
             } else {
                 setOpenSourceTabs([]);
@@ -115,7 +150,7 @@ const OraclePage = () => {
             }
         } else {
             setSelectedMessageId(null);
-            setOpenSourceTabs([]); // Clear sources when user message is selected
+            setOpenSourceTabs([]);
             setActiveSourceTab(undefined);
         }
     }, []);
@@ -126,7 +161,7 @@ const OraclePage = () => {
 
         const targetSource = message.sources.find(s => s.number === sourceNumber);
         if (targetSource) {
-            // Ensure the clicked source is among the open tabs
+            setSelectedSourceId(targetSource.file.file_id);
             if (!openSourceTabs.some(s => s.file.file_id === targetSource.file.file_id)) {
                 setOpenSourceTabs(prev => [...prev, targetSource]);
             }
@@ -134,11 +169,9 @@ const OraclePage = () => {
         }
     };
 
-    // NEW: Function to close a specific source tab
     const handleCloseSourceTab = useCallback((fileIdToClose: string) => {
         setOpenSourceTabs(prevTabs => {
             const newTabs = prevTabs.filter(tab => tab.file.file_id !== fileIdToClose);
-            // If the closed tab was active, switch to the first remaining tab, or clear active tab
             if (activeSourceTab === fileIdToClose) {
                 setActiveSourceTab(newTabs.length > 0 ? newTabs[0].file.file_id : undefined);
             }
@@ -194,11 +227,13 @@ const OraclePage = () => {
 
     useEffect(() => { fetchConversations(); }, [user, fetchConversations]);
 
+    const selectedMessage = messages.find(m => m.id === selectedMessageId);
+
     useEffect(() => {
         if (!selectedConversationId) {
             setMessages([]);
             setSelectedMessageId(null);
-            setOpenSourceTabs([]); // Clear open sources when no conversation is selected
+            setOpenSourceTabs([]);
             setActiveSourceTab(undefined);
             return;
         }
@@ -212,7 +247,7 @@ const OraclePage = () => {
                     handleMessageSelect(lastAssistantMessage);
                 } else {
                     setSelectedMessageId(null);
-                    setOpenSourceTabs([]); // Clear sources if no assistant message
+                    setOpenSourceTabs([]);
                     setActiveSourceTab(undefined);
                 }
              } catch (error: unknown) {
@@ -230,6 +265,43 @@ const OraclePage = () => {
         }
     }, [messages, isChatLoading]);
 
+    // Keyboard navigation for sources panel
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setSelectedSourceId(null);
+                return;
+            }
+            if (selectedSourceId === null || exampleSources.length === 0) return;
+            
+            const currentIndex = exampleSources.findIndex(s => s.file_id === selectedSourceId);
+            if (currentIndex === -1) return;
+
+            if (e.key === 'ArrowRight') {
+                const nextIndex = Math.min(currentIndex + 1, exampleSources.length - 1);
+                setSelectedSourceId(exampleSources[nextIndex].file_id);
+            } else if (e.key === 'ArrowLeft') {
+                const prevIndex = Math.max(currentIndex - 1, 0);
+                setSelectedSourceId(exampleSources[prevIndex].file_id);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedSourceId, exampleSources]);
+
+    // Automatic scrolling for sources panel
+    useEffect(() => {
+        if (selectedSourceId === null) return;
+        const textElement = sourceTextRefs.current.get(selectedSourceId);
+        if (textElement) {
+            textElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        const thumbnailElement = sourceThumbnailRefs.current.get(selectedSourceId);
+        if (thumbnailElement) {
+            thumbnailElement.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+        }
+    }, [selectedSourceId]);
+
     const handleNewChat = async () => {
         if (!user) return;
         try {
@@ -238,7 +310,7 @@ const OraclePage = () => {
             setSelectedConversationId(newConvo.id);
             setMessages([]);
             setSelectedMessageId(null);
-            setOpenSourceTabs([]); // Clear sources for new chat
+            setOpenSourceTabs([]);
             setActiveSourceTab(undefined);
         } catch (error) {
             toast({ title: "Error", description: "Could not create a new chat." });
@@ -278,7 +350,7 @@ const OraclePage = () => {
         setMessages(prev => [...prev, tempUserMessage]);
         
         try {
-            const savedUserMessage = await chatMessageService.saveMessage({
+            await chatMessageService.saveMessage({
                 conversation_id: activeConversationId as string,
                 role: 'user',
                 content: currentInput,
@@ -367,7 +439,7 @@ const OraclePage = () => {
                 setSelectedConversationId(null);
                 setMessages([]);
                 setSelectedMessageId(null);
-                setOpenSourceTabs([]); // Clear open sources when deleting selected conversation
+                setOpenSourceTabs([]);
                 setActiveSourceTab(undefined);
             }
             setConversationToDelete(null);
@@ -382,70 +454,23 @@ const OraclePage = () => {
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } };
     const getUserName = () => userProfile?.full_name || user?.email?.split('@')[0] || "You";
-    const selectedMessage = messages.find(m => m.id === selectedMessageId);
+    
+    // This allows toggling the selection off by clicking the same item again
+    const handleSourceSelect = (id: string) => {
+        setSelectedSourceId(prevId => (prevId === id ? null : id));
+    };
 
-    // Filtered sources for the right panel based on what's active/selected
-    const displayedSources = selectedMessage?.sources ? openSourceTabs.filter(tab => selectedMessage.sources?.some(s => s.file.file_id === tab.file.file_id)) : [];
+    const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+        setNumPages(numPages);
+    };
+
+    const selectedFile = selectedSourceId ? exampleSources.find(s => s.file_id === selectedSourceId) : null;
+
 
     return (
         <>
-            {/* NEW: Custom styles for the sleek tabs */}
             <style>{`
-                .sleek-tabs-container {
-                    display: flex;
-                    align-items: flex-end;
-                    border-bottom: 1px solid hsl(var(--border));
-                    padding-left: 0.5rem;
-                    padding-right: 0.5rem;
-                    gap: 0.25rem; /* Small gap between tabs */
-                    flex-wrap: wrap; /* Allow tabs to wrap if too many */
-                    min-height: 2.5rem; /* Ensure minimum height */
-                    background-color: hsl(var(--background)); /* Match background of panel */
-                }
-                .sleek-tab {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.25rem; /* Gap between text and close icon */
-                    padding: 0.35rem 0.6rem; /* Smaller padding */
-                    border: 1px solid transparent; /* No border by default */
-                    border-bottom: none;
-                    border-top-left-radius: 0.375rem; /* rounded-md */
-                    border-top-right-radius: 0.375rem; /* rounded-md */
-                    background-color: transparent;
-                    color: hsl(var(--muted-foreground));
-                    font-size: 0.75rem; /* text-xs */
-                    cursor: pointer;
-                    transition: all 0.15s ease-in-out;
-                    max-width: 150px; /* Limit tab width */
-                    overflow: hidden;
-                    white-space: nowrap;
-                    text-overflow: ellipsis;
-                }
-                .sleek-tab:hover {
-                    background-color: hsl(var(--muted));
-                    color: hsl(var(--foreground));
-                }
-                .sleek-tab.active {
-                    background-color: hsl(var(--card)); /* White background for active */
-                    border-color: hsl(var(--border));
-                    color: hsl(var(--foreground));
-                    font-weight: 500; /* Medium font-weight */
-                    z-index: 1; /* Bring active tab to front */
-                    transform: translateY(1px); /* Slightly lift the active tab */
-                    box-shadow: 0 -1px 4px rgba(0,0,0,0.05); /* Subtle shadow */
-                }
-                .sleek-tab .close-icon {
-                    width: 0.75rem; /* h-3 */
-                    height: 0.75rem; /* w-3 */
-                    color: hsl(var(--muted-foreground));
-                    transition: color 0.15s ease-in-out;
-                }
-                .sleek-tab:hover .close-icon {
-                    color: hsl(var(--foreground));
-                }
-                .slelex-tab.active .close-icon {
-                    color: hsl(var(--foreground));
-                }
+                /* ... your styles ... */
             `}</style>
             <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/png, image/jpeg, application/pdf" />
             <MainAppLayout pageTitle="Oracle | Eido AI">
@@ -548,52 +573,91 @@ const OraclePage = () => {
                                 </div>
                             </div>
                             
-                            {/* Right Panel (40% width): Sources */}
+                            {/* Right Panel (Sources Panel JSX) */}
                             <div className="w-[40%] flex flex-col h-full rounded-lg border border-marble-400 bg-white overflow-hidden">
                                 <header className="flex items-center justify-between gap-x-2 border-b border-marble-400 px-4 h-14 flex-shrink-0">
+                                    <h2 className="font-semibold text-foreground">Sources</h2>
                                     <ToggleGroup type="single" defaultValue="sources" size="sm" className="h-8">
                                         <ToggleGroupItem value="sources" aria-label="View sources"><BookCheck className="h-4 w-4 mr-2"/>Sources</ToggleGroupItem>
                                         <ToggleGroupItem value="upload" aria-label="View files"><Files className="h-4 w-4 mr-2"/>Upload</ToggleGroupItem>
                                     </ToggleGroup>
                                 </header>
-                                {/* MODIFIED: Custom Tab UI */}
-                                <div className="sleek-tabs-container flex-shrink-0">
-                                    {displayedSources.length > 0 ? (
-                                        displayedSources.map(source => (
-                                            <div
-                                                key={source.file.file_id}
-                                                className={cn("sleek-tab", activeSourceTab === source.file.file_id && "active")}
-                                                onClick={() => setActiveSourceTab(source.file.file_id)}
-                                                title={`Source ${source.number}: ${source.file.name}`}
-                                            >
-                                                <span className="truncate">{`Source ${source.number}: ${source.file.name}`}</span>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation(); // Prevent tab activation
-                                                        handleCloseSourceTab(source.file.file_id);
-                                                    }}
-                                                    className="close-icon flex items-center justify-center rounded-full hover:bg-stone-200"
-                                                >
-                                                    <X size={12} />
-                                                </button>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="sleek-tab text-muted-foreground cursor-default">No sources open</div>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-h-0 bg-background p-3">
-                                  {displayedSources.length > 0 && activeSourceTab ? (
-                                    <ScrollArea className="h-full">
-                                        <DocumentPreview source={displayedSources.find(s => s.file.file_id === activeSourceTab) || displayedSources[0]} />
-                                    </ScrollArea>
-                                  ) : (
-                                    <div className="flex items-center justify-center h-full p-4">
-                                        <p className="text-sm text-muted-foreground text-center">
-                                            Select an AI message to see its sources.
-                                        </p>
+                                <div className="flex-1 flex flex-col min-h-0">
+                                    {/* Top Section: Verbatim Quotes */}
+                                    <div className={cn("transition-all duration-300 ease-in-out", selectedSourceId === null ? 'flex-1 min-h-0' : 'flex-shrink-0')}>
+                                        <div className="h-full p-4">
+                                            <ScrollArea className="h-full pr-4" style={{ scrollPaddingTop: '1rem' }}>
+                                                <div className="space-y-4">
+                                                    {exampleSources.length > 0 ? (
+                                                        exampleSources.filter(source => selectedSourceId === null || selectedSourceId === source.file_id).map((source, index) => (
+                                                            <div
+                                                                key={source.file_id}
+                                                                ref={(el) => sourceTextRefs.current.set(source.file_id, el)}
+                                                                onClick={() => handleSourceSelect(source.file_id)}
+                                                                className={cn(
+                                                                    "p-3 bg-stone-50 rounded-lg border cursor-pointer transition-all relative group",
+                                                                    selectedSourceId === source.file_id ? "border-stone-700" : "border-stone-200 hover:border-stone-300"
+                                                                )}
+                                                            >
+                                                                {selectedSourceId === source.file_id && (
+                                                                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-stone-400 hover:text-stone-700" onClick={(e) => { e.stopPropagation(); setSelectedSourceId(null); }}>
+                                                                        <X className="h-4 w-4" />
+                                                                    </Button>
+                                                                )}
+                                                                <p className="text-xs font-semibold text-stone-700 mb-1 pr-6">Source {index + 1}: {source.name} (Page {source.page_count || 1})</p>
+                                                                <blockquote className="text-sm text-stone-600 border-l-2 pl-3 whitespace-pre-wrap">{sourcesData[index]?.quote}</blockquote>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <div className="text-center text-sm text-muted-foreground pt-10">No files found to display as sources.</div>
+                                                    )}
+                                                </div>
+                                            </ScrollArea>
+                                        </div>
                                     </div>
-                                  )}
+                                    <Separator />
+                                    {/* Bottom Section: PDF Thumbnails */}
+                                    <div className={cn("flex flex-col transition-all duration-300 ease-in-out", selectedSourceId === null ? 'flex-shrink-0' : 'flex-1 min-h-0')}>
+                                        <div className="min-h-0 flex-1 p-4">
+                                            {selectedSourceId === null ? (
+                                                <ScrollArea className="w-full h-full">
+                                                    <div className="flex w-max space-x-4 pb-2 h-full">
+                                                        {exampleSources.map((source) => (
+                                                            <div
+                                                                key={source.file_id}
+                                                                ref={(el) => sourceThumbnailRefs.current.set(source.file_id, el)}
+                                                                onClick={() => handleSourceSelect(source.file_id)}
+                                                                className="flex-shrink-0 w-56 flex flex-col text-center cursor-pointer"
+                                                            >
+                                                                <p className="text-xs font-medium text-stone-700 mb-2 truncate" title={source.name}>{source.name}</p>
+                                                                <div className={cn("h-56 bg-stone-100 rounded-md border flex items-center justify-center overflow-hidden", selectedSourceId === source.file_id ? "border-stone-700" : "border-stone-200")}>
+                                                                    <ScrollArea className="h-full w-full">
+                                                                        <img src={source.thumbnail_url || `https://placehold.co/224x224/e2e8f0/334155?text=PDF`} alt="PDF Thumbnail" className="w-full h-auto"/>
+                                                                    </ScrollArea>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <ScrollBar orientation="horizontal" />
+                                                </ScrollArea>
+                                            ) : (
+                                                <div className="w-full h-full flex flex-col relative">
+                                                    <ScrollArea className="flex-1 w-full h-full rounded-md border border-stone-700">
+                                                        {selectedFile && selectedFile.url && (
+                                                            <Document file={selectedFile.url} onLoadSuccess={onDocumentLoadSuccess} loading={<Loader2 className="h-8 w-8 animate-spin text-stone-400 mx-auto mt-10"/>}>
+                                                                {Array.from(new Array(numPages), (el, index) => (
+                                                                    <Page key={`page_${index + 1}`} pageNumber={index + 1} width={500}/>
+                                                                ))}
+                                                            </Document>
+                                                        )}
+                                                    </ScrollArea>
+                                                     <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                                                        Page {currentPage} of {numPages || '...'}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </main>
