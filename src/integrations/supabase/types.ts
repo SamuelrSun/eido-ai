@@ -1,3 +1,4 @@
+// src/integrations/supabase/types.ts
 export type Json =
   | string
   | number
@@ -9,6 +10,63 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      calendar_events: {
+        Row: {
+          id: string
+          user_id: string
+          class_id: string | null
+          title: string
+          event_start: string
+          event_end: string | null
+          location: string | null
+          notes: string | null
+          event_type: string | null
+          created_at: string
+          repeat_pattern: string | null // Add the new column here
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          class_id?: string | null
+          title: string
+          event_start: string
+          event_end?: string | null
+          location?: string | null
+          notes?: string | null
+          event_type?: string | null
+          created_at?: string
+          repeat_pattern?: string | null // Add the new column here
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          class_id?: string | null
+          title?: string
+          event_start?: string
+          event_end?: string | null
+          location?: string | null
+          notes?: string | null
+          event_type?: string | null
+          created_at?: string
+          repeat_pattern?: string | null // Add the new column here
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "calendar_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       chat_messages: {
         Row: {
           attached_files: Json | null
@@ -945,3 +1003,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

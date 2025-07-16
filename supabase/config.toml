@@ -72,3 +72,6 @@ verify_jwt = true
 
 [functions.delete-weaviate-chunks-by-file]
 verify_jwt = true
+
+[functions.parse-syllabus]
+verify_jwt = true

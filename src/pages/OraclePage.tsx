@@ -1,10 +1,10 @@
 // src/pages/OraclePage.tsx
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, PlusCircle, PanelLeft, PanelRight, MessageSquarePlus, BookCheck, Files, X } from 'lucide-react';
+import { Loader2, PlusCircle, PanelLeft, PanelRight, MessageSquarePlus, BookCheck, Files, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HistorySidebar } from '@/components/oracle/HistorySidebar';
 import { ChatMessage } from '@/components/chat/ChatMessage';
@@ -36,16 +36,14 @@ interface ProfileData {
   avatar_url: string | null;
 }
 
-// Updated placeholder text with varying lengths
-const sourcesData = [
-    { id: 1, name: "L03_Firewalls.pdf", page: 7, quote: "Lorem ipsum dolor sit amet, consectetur adipiscing elit." },
-    { id: 2, name: "L04_Operating_Systems_P1.pdf", page: 12, quote: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur." },
-    { id: 3, name: "L06_Active_Directory.pdf", page: 4, quote: "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum." },
-    { id: 4, name: "L09_IntrusionDetectionSystems.pdf", page: 21, quote: "Excepteur sint occaecat cupidatat non proident." }
+const placeholderQuotes = [
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+    "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
+    "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+    "Excepteur sint occaecat cupidatat non proident."
 ];
 
 const OraclePage = () => {
-    // All original state from the main component
     const { loader } = usePageLoader();
     const [input, setInput] = useState("");
     const [isChatLoading, setIsChatLoading] = useState(false);
@@ -71,22 +69,22 @@ const OraclePage = () => {
     const messageRefs = useRef(new Map<string, HTMLDivElement | null>());
     const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
 
-    // State and refs for the sources panel
     const [exampleSources, setExampleSources] = useState<FileType[]>([]);
     const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
     const sourceTextRefs = useRef(new Map());
     const sourceThumbnailRefs = useRef(new Map());
     const [numPages, setNumPages] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-
-
-    // Fetch example files for the sources panel UI preview
+    const [scale, setScale] = useState(1.0);
+    const [minScale, setMinScale] = useState(1.0);
+    const pdfPreviewRef = useRef<HTMLDivElement>(null);
+    const pageRefs = useRef(new Map<number, HTMLDivElement>());
+    
     useEffect(() => {
         const fetchExampleFiles = async () => {
             if (user) {
                 try {
                     const allFiles = await fileService.getAllFilesWithClass();
-                    // Take the first 4 files as examples
                     setExampleSources(allFiles.slice(0, 4) as FileType[]);
                 } catch (error) {
                     console.error("Failed to fetch example files for sources panel", error);
@@ -96,8 +94,6 @@ const OraclePage = () => {
         fetchExampleFiles();
     }, [user]);
 
-
-    // All original handler functions...
     useEffect(() => {
         if (!isPageLoading && loader) {
             loader.complete();
@@ -140,7 +136,7 @@ const OraclePage = () => {
     const handleMessageSelect = useCallback((message: ChatMessageApp) => {
         if (message.role === 'assistant') {
             setSelectedMessageId(message.id);
-            setSelectedSourceId(null); // Deselect source when a new message is selected
+            setSelectedSourceId(null);
             if (message.sources && message.sources.length > 0) {
                 setOpenSourceTabs(message.sources);
                 setActiveSourceTab(message.sources[0].file.file_id);
@@ -158,7 +154,6 @@ const OraclePage = () => {
     const handleCitationClick = (sourceNumber: number) => {
         const message = messages.find(m => m.id === selectedMessageId);
         if (!message || !message.sources) return;
-
         const targetSource = message.sources.find(s => s.number === sourceNumber);
         if (targetSource) {
             setSelectedSourceId(targetSource.file.file_id);
@@ -265,43 +260,6 @@ const OraclePage = () => {
         }
     }, [messages, isChatLoading]);
 
-    // Keyboard navigation for sources panel
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                setSelectedSourceId(null);
-                return;
-            }
-            if (selectedSourceId === null || exampleSources.length === 0) return;
-            
-            const currentIndex = exampleSources.findIndex(s => s.file_id === selectedSourceId);
-            if (currentIndex === -1) return;
-
-            if (e.key === 'ArrowRight') {
-                const nextIndex = Math.min(currentIndex + 1, exampleSources.length - 1);
-                setSelectedSourceId(exampleSources[nextIndex].file_id);
-            } else if (e.key === 'ArrowLeft') {
-                const prevIndex = Math.max(currentIndex - 1, 0);
-                setSelectedSourceId(exampleSources[prevIndex].file_id);
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedSourceId, exampleSources]);
-
-    // Automatic scrolling for sources panel
-    useEffect(() => {
-        if (selectedSourceId === null) return;
-        const textElement = sourceTextRefs.current.get(selectedSourceId);
-        if (textElement) {
-            textElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        const thumbnailElement = sourceThumbnailRefs.current.get(selectedSourceId);
-        if (thumbnailElement) {
-            thumbnailElement.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
-        }
-    }, [selectedSourceId]);
-
     const handleNewChat = async () => {
         if (!user) return;
         try {
@@ -350,7 +308,7 @@ const OraclePage = () => {
         setMessages(prev => [...prev, tempUserMessage]);
         
         try {
-            await chatMessageService.saveMessage({
+            const savedUserMessage = await chatMessageService.saveMessage({
                 conversation_id: activeConversationId as string,
                 role: 'user',
                 content: currentInput,
@@ -455,31 +413,138 @@ const OraclePage = () => {
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } };
     const getUserName = () => userProfile?.full_name || user?.email?.split('@')[0] || "You";
     
-    // This allows toggling the selection off by clicking the same item again
     const handleSourceSelect = (id: string) => {
         setSelectedSourceId(prevId => (prevId === id ? null : id));
     };
+    
+    const sourcesToDisplay = useMemo(() => {
+        if (openSourceTabs.length > 0) {
+            return openSourceTabs;
+        }
+        return exampleSources.map((file, index) => ({
+            number: index + 1,
+            file: file,
+            pageNumber: file.page_count || 1,
+            content: placeholderQuotes[index % placeholderQuotes.length],
+            file_id: file.file_id,
+        }));
+    }, [openSourceTabs, exampleSources]);
 
-    const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-        setNumPages(numPages);
+    const selectedFile = useMemo(() => {
+        return sourcesToDisplay.find(s => s.file.file_id === selectedSourceId)?.file || null;
+    }, [selectedSourceId, sourcesToDisplay]);
+
+    const onDocumentLoadSuccess = useCallback(async (pdf: any) => {
+        setNumPages(pdf.numPages);
+        const source = sourcesToDisplay.find(s => s.file.file_id === selectedFile?.file_id);
+        setCurrentPage(source?.pageNumber || 1);
+
+        if (pdfPreviewRef.current) {
+            try {
+                const page = await pdf.getPage(1);
+                const containerWidth = pdfPreviewRef.current.clientWidth;
+                const pageWidth = page.view[2];
+                if (containerWidth > 0 && pageWidth > 0) {
+                    const calculatedMinScale = (containerWidth / pageWidth) * 0.98; // 98% to ensure it fits
+                    setMinScale(calculatedMinScale);
+                    setScale(calculatedMinScale);
+                }
+            } catch(e) {
+                console.error("Error calculating initial scale:", e);
+            }
+        }
+    }, [sourcesToDisplay, selectedFile]);
+
+    const goToPage = (pageNumber: number) => {
+        const pageRef = pageRefs.current.get(pageNumber);
+        if (pageRef) {
+            pageRef.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        setCurrentPage(pageNumber);
     };
 
-    const selectedFile = selectedSourceId ? exampleSources.find(s => s.file_id === selectedSourceId) : null;
+    const goToPrevPage = () => {
+        const newPage = Math.max(currentPage - 1, 1);
+        goToPage(newPage);
+    };
 
+    const goToNextPage = () => {
+        const newPage = Math.min(currentPage + 1, numPages || 1);
+        goToPage(newPage);
+    };
+
+    const handleZoomIn = () => setScale(s => Math.min(s * 1.2, 3.0));
+    const handleZoomOut = () => setScale(s => Math.max(s / 1.2, minScale));
+
+    useEffect(() => {
+        if (selectedFile) {
+            const source = sourcesToDisplay.find(s => s.file.file_id === selectedFile.file_id);
+            const targetPage = source?.pageNumber || 1;
+            setCurrentPage(targetPage);
+            setTimeout(() => goToPage(targetPage), 100);
+        }
+    }, [selectedFile, sourcesToDisplay]);
+    
+    // FIX: Re-implement arrow key navigation for sources
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (document.activeElement?.tagName === 'TEXTAREA') return;
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+            if (selectedSourceId === null) return;
+
+            const currentIndex = sourcesToDisplay.findIndex(s => s.file.file_id === selectedSourceId);
+            if (currentIndex === -1) return;
+
+            e.preventDefault();
+
+            let nextIndex;
+            if (e.key === 'ArrowRight') {
+                nextIndex = (currentIndex + 1) % sourcesToDisplay.length;
+            } else { // ArrowLeft
+                nextIndex = (currentIndex - 1 + sourcesToDisplay.length) % sourcesToDisplay.length;
+            }
+            setSelectedSourceId(sourcesToDisplay[nextIndex].file.file_id);
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedSourceId, sourcesToDisplay]);
+    
+    // FIX: Implement robust page tracking on scroll
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const visibleEntries = entries.filter(entry => entry.isIntersecting);
+                if (visibleEntries.length > 0) {
+                    const pageNumbers = visibleEntries.map(entry => parseInt(entry.target.getAttribute('data-page-number') || '0', 10));
+                    setCurrentPage(Math.min(...pageNumbers));
+                }
+            },
+            { root: pdfPreviewRef.current, threshold: 0.1 }
+        );
+
+        const currentRefs = pageRefs.current;
+        currentRefs.forEach(pageEl => {
+            if (pageEl) observer.observe(pageEl);
+        });
+
+        return () => {
+            currentRefs.forEach(pageEl => {
+                if (pageEl) observer.unobserve(pageEl);
+            });
+        };
+    }, [numPages, scale]); // Rerun when pages are re-rendered
 
     return (
         <>
             <style>{`
-                /* ... your styles ... */
             `}</style>
             <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/png, image/jpeg, application/pdf" />
             <MainAppLayout pageTitle="Oracle | Eido AI">
                 <TooltipProvider delayDuration={100}>
                     <div className="flex-1 w-full bg-mushroom-100 flex flex-col relative" onPaste={handlePaste}>
                         <main className="absolute inset-0 flex flex-row gap-3 px-3 pb-3">
-                            {/* Left Panel Wrapper */}
                             <div className="w-[60%] flex flex-row h-full">
-                                {/* History Sidebar */}
                                 <div className={cn(
                                     "h-full bg-stone-50 overflow-hidden transition-all duration-300 ease-in-out rounded-l-lg",
                                     isHistoryCollapsed ? "w-0" : "w-1/4 min-w-[220px] border-r border-stone-200"
@@ -502,7 +567,6 @@ const OraclePage = () => {
                                     </div>
                                 </div>
 
-                                {/* Chat Window */}
                                 <div className={cn(
                                     "flex-1 flex flex-col h-full bg-white overflow-hidden border border-marble-400",
                                     isHistoryCollapsed ? "rounded-lg" : "rounded-r-lg"
@@ -573,7 +637,6 @@ const OraclePage = () => {
                                 </div>
                             </div>
                             
-                            {/* Right Panel (Sources Panel JSX) */}
                             <div className="w-[40%] flex flex-col h-full rounded-lg border border-marble-400 bg-white overflow-hidden">
                                 <header className="flex items-center justify-between gap-x-2 border-b border-marble-400 px-4 h-14 flex-shrink-0">
                                     <h2 className="font-semibold text-foreground">Sources</h2>
@@ -583,56 +646,54 @@ const OraclePage = () => {
                                     </ToggleGroup>
                                 </header>
                                 <div className="flex-1 flex flex-col min-h-0">
-                                    {/* Top Section: Verbatim Quotes */}
                                     <div className={cn("transition-all duration-300 ease-in-out", selectedSourceId === null ? 'flex-1 min-h-0' : 'flex-shrink-0')}>
                                         <div className="h-full p-4">
-                                            <ScrollArea className="h-full pr-4" style={{ scrollPaddingTop: '1rem' }}>
+                                            <ScrollArea className="h-full pr-2" style={{ scrollPaddingTop: '1rem' }}>
                                                 <div className="space-y-4">
-                                                    {exampleSources.length > 0 ? (
-                                                        exampleSources.filter(source => selectedSourceId === null || selectedSourceId === source.file_id).map((source, index) => (
+                                                    {sourcesToDisplay.length > 0 ? (
+                                                        sourcesToDisplay.filter(source => selectedSourceId === null || selectedSourceId === source.file.file_id).map((source) => (
                                                             <div
-                                                                key={source.file_id}
-                                                                ref={(el) => sourceTextRefs.current.set(source.file_id, el)}
-                                                                onClick={() => handleSourceSelect(source.file_id)}
+                                                                key={source.file.file_id}
+                                                                ref={(el) => sourceTextRefs.current.set(source.file.file_id, el)}
+                                                                onClick={() => handleSourceSelect(source.file.file_id)}
                                                                 className={cn(
                                                                     "p-3 bg-stone-50 rounded-lg border cursor-pointer transition-all relative group",
-                                                                    selectedSourceId === source.file_id ? "border-stone-700" : "border-stone-200 hover:border-stone-300"
+                                                                    selectedSourceId === source.file.file_id ? "border-stone-700" : "border-stone-200 hover:border-stone-300"
                                                                 )}
                                                             >
-                                                                {selectedSourceId === source.file_id && (
+                                                                {selectedSourceId === source.file.file_id && (
                                                                     <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-stone-400 hover:text-stone-700" onClick={(e) => { e.stopPropagation(); setSelectedSourceId(null); }}>
                                                                         <X className="h-4 w-4" />
                                                                     </Button>
                                                                 )}
-                                                                <p className="text-xs font-semibold text-stone-700 mb-1 pr-6">Source {index + 1}: {source.name} (Page {source.page_count || 1})</p>
-                                                                <blockquote className="text-sm text-stone-600 border-l-2 pl-3 whitespace-pre-wrap">{sourcesData[index]?.quote}</blockquote>
+                                                                <p className="text-xs font-semibold text-stone-700 mb-1 pr-6">Source {source.number}: {source.file.name} (Page {source.pageNumber || 'N/A'})</p>
+                                                                <blockquote className="text-sm text-stone-600 border-l-2 pl-3 whitespace-pre-wrap">{source.content}</blockquote>
                                                             </div>
                                                         ))
                                                     ) : (
-                                                        <div className="text-center text-sm text-muted-foreground pt-10">No files found to display as sources.</div>
+                                                        <div className="text-center text-sm text-muted-foreground pt-10">Select a message with citations to see sources.</div>
                                                     )}
                                                 </div>
                                             </ScrollArea>
                                         </div>
                                     </div>
                                     <Separator />
-                                    {/* Bottom Section: PDF Thumbnails */}
                                     <div className={cn("flex flex-col transition-all duration-300 ease-in-out", selectedSourceId === null ? 'flex-shrink-0' : 'flex-1 min-h-0')}>
                                         <div className="min-h-0 flex-1 p-4">
                                             {selectedSourceId === null ? (
                                                 <ScrollArea className="w-full h-full">
                                                     <div className="flex w-max space-x-4 pb-2 h-full">
-                                                        {exampleSources.map((source) => (
+                                                        {sourcesToDisplay.map((source) => (
                                                             <div
-                                                                key={source.file_id}
-                                                                ref={(el) => sourceThumbnailRefs.current.set(source.file_id, el)}
-                                                                onClick={() => handleSourceSelect(source.file_id)}
+                                                                key={source.file.file_id}
+                                                                ref={(el) => sourceThumbnailRefs.current.set(source.file.file_id, el)}
+                                                                onClick={() => handleSourceSelect(source.file.file_id)}
                                                                 className="flex-shrink-0 w-56 flex flex-col text-center cursor-pointer"
                                                             >
-                                                                <p className="text-xs font-medium text-stone-700 mb-2 truncate" title={source.name}>{source.name}</p>
-                                                                <div className={cn("h-56 bg-stone-100 rounded-md border flex items-center justify-center overflow-hidden", selectedSourceId === source.file_id ? "border-stone-700" : "border-stone-200")}>
+                                                                <p className="text-xs font-medium text-stone-700 mb-2 truncate" title={source.file.name}>{source.file.name}</p>
+                                                                <div className={cn("h-56 bg-stone-100 rounded-md border flex items-center justify-center overflow-hidden", selectedSourceId === source.file.file_id ? "border-stone-700" : "border-stone-200")}>
                                                                     <ScrollArea className="h-full w-full">
-                                                                        <img src={source.thumbnail_url || `https://placehold.co/224x224/e2e8f0/334155?text=PDF`} alt="PDF Thumbnail" className="w-full h-auto"/>
+                                                                        <img src={source.file.thumbnail_url || `https://placehold.co/224x224/e2e8f0/334155?text=PDF`} alt="PDF Thumbnail" className="w-full h-auto"/>
                                                                     </ScrollArea>
                                                                 </div>
                                                             </div>
@@ -642,18 +703,38 @@ const OraclePage = () => {
                                                 </ScrollArea>
                                             ) : (
                                                 <div className="w-full h-full flex flex-col relative">
-                                                    <ScrollArea className="flex-1 w-full h-full rounded-md border border-stone-700">
-                                                        {selectedFile && selectedFile.url && (
-                                                            <Document file={selectedFile.url} onLoadSuccess={onDocumentLoadSuccess} loading={<Loader2 className="h-8 w-8 animate-spin text-stone-400 mx-auto mt-10"/>}>
-                                                                {Array.from(new Array(numPages), (el, index) => (
-                                                                    <Page key={`page_${index + 1}`} pageNumber={index + 1} width={500}/>
-                                                                ))}
-                                                            </Document>
-                                                        )}
-                                                    </ScrollArea>
-                                                     <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
-                                                        Page {currentPage} of {numPages || '...'}
+                                                    <div ref={pdfPreviewRef} className="flex-1 w-full h-full rounded-md border border-stone-700 overflow-hidden flex justify-center bg-stone-100">
+                                                        <ScrollArea className="h-full w-full">
+                                                            <div className="flex flex-col items-center py-4">
+                                                                {selectedFile && selectedFile.url && (
+                                                                    <Document file={selectedFile.url} onLoadSuccess={onDocumentLoadSuccess} loading={<Loader2 className="h-8 w-8 animate-spin text-stone-400 mx-auto mt-10"/>}>
+                                                                        {Array.from(new Array(numPages || 0), (el, index) => (
+                                                                            <div key={`page_wrapper_${index + 1}`} ref={(el) => { if(el) pageRefs.current.set(index + 1, el); }} data-page-number={index + 1}>
+                                                                                <Page pageNumber={index + 1} scale={scale} renderTextLayer={false} className="mb-4 shadow-md"/>
+                                                                            </div>
+                                                                        ))}
+                                                                    </Document>
+                                                                )}
+                                                            </div>
+                                                        </ScrollArea>
                                                     </div>
+                                                    {numPages && (
+                                                        <>
+                                                            <div className="absolute bottom-14 right-6 flex items-center gap-2">
+                                                                <Button variant="outline" size="icon" onClick={handleZoomOut}><ZoomOut className="h-4 w-4" /></Button>
+                                                                <Button variant="outline" size="icon" onClick={handleZoomIn}><ZoomIn className="h-4 w-4" /></Button>
+                                                            </div>
+                                                            <div className="flex items-center justify-center p-2 flex-shrink-0">
+                                                                <Button variant="ghost" size="icon" onClick={goToPrevPage} disabled={currentPage <= 1}>
+                                                                    <ChevronLeft className="h-4 w-4" />
+                                                                </Button>
+                                                                <span className="text-sm font-medium mx-4">Page {currentPage} of {numPages}</span>
+                                                                <Button variant="ghost" size="icon" onClick={goToNextPage} disabled={currentPage >= numPages}>
+                                                                    <ChevronRight className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

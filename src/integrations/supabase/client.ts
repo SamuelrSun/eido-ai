@@ -21,7 +21,7 @@ export interface CustomDatabase extends Database {
       // Ensure all your existing tables are listed here, referencing Database['public']['Tables']
       profiles: Database['public']['Tables']['profiles'];
       classes: Database['public']['Tables']['classes'];
-      folders: Database['public']['Tables']['folders']; // Changed from file_folders to folders
+      folders: Database['public']['Tables']['folders']; 
       files: Database['public']['Tables']['files']; 
       "flashcard-decks": Database['public']['Tables']['flashcard-decks'];
       flashcards: Database['public']['Tables']['flashcards'];
@@ -29,9 +29,8 @@ export interface CustomDatabase extends Database {
       quizzes: Database['public']['Tables']['quizzes'];
       user_storage: Database['public']['Tables']['user_storage'];
       embeddings: Database['public']['Tables']['embeddings'];
-      // Keep embeddings as optional if it was, or remove if not used.
-      // The 'database' table has been removed.
       chat_messages: Database['public']['Tables']['chat_messages'];
+      calendar_events: Database['public']['Tables']['calendar_events']; // Add the new table here
     };
     // Views and Functions can also be extended here if needed
     Views: Database['public']['Views'];

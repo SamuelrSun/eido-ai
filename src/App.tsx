@@ -7,7 +7,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthGuard } from "./components/auth/AuthGuard";
 import { HelmetProvider } from 'react-helmet-async';
 import { LoaderProvider } from './context/LoaderContext'; 
-// MODIFICATION: Import the new AuthProvider
 import { AuthProvider } from './context/AuthContext';
 
 // Import all active page components
@@ -20,6 +19,7 @@ import DashboardPage from "./pages/DashboardPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
+import CalendarPage from "./pages/CalendarPage"; // Import the new CalendarPage
 
 const queryClient = new QueryClient();
 const App = () => (
@@ -28,7 +28,6 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        {/* MODIFICATION: AuthProvider now wraps the entire application */}
         <AuthProvider>
           <BrowserRouter>
             <LoaderProvider>
@@ -44,9 +43,11 @@ const App = () => (
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/oracle" element={<OraclePage />} />
                   <Route path="/classes" element={<ClassesPage/>} />
+                  {/* MODIFIED: Replaced PlaceholderPage with CalendarPage */}
+                  <Route path="/calendar" element={<CalendarPage />} />
+                  
                   {/* Placeholder routes */}
                   <Route path="/command" element={<PlaceholderPage pageName="Command" />} />
-                  <Route path="/calendar" element={<PlaceholderPage pageName="Calendar" />} />
                   <Route path="/billing" element={<PlaceholderPage pageName="Billing" />} />
                   <Route path="/chrono" element={<PlaceholderPage pageName="Chrono" />} />
                   <Route path="/codex" element={<PlaceholderPage pageName="Codex" />} />
