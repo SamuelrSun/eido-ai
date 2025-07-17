@@ -1,6 +1,7 @@
 // src/hooks/useOracle.ts
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User, RealtimeChannel } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +16,7 @@ import { OracleState, ProfileData } from '@/types/oracle';
 export const useOracle = (): OracleState => {
   const { loader } = usePageLoader();
   const { toast } = useToast();
-
+  const location = useLocation();
   const [input, setInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isPageLoading, setPageLoading] = useState(true);
@@ -34,147 +35,82 @@ export const useOracle = (): OracleState => {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [openSourceTabs, setOpenSourceTabs] = useState<ActiveSource[]>([]);
   const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [selectedSourceNumber, setSelectedSourceNumber] = useState<number | null>(null);
   const [liveFileCache, setLiveFileCache] = useState<Map<string, FileType>>(new Map());
+  const [temporaryChatId, setTemporaryChatId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileSubscription = useRef<RealtimeChannel | null>(null);
 
-  useEffect(() => {
-    if (fileSubscription.current) {
-        supabase.removeChannel(fileSubscription.current);
+  const sourcesToDisplay = useMemo(() => openSourceTabs.map(source => liveFileCache.get(source.file.file_id) ? { ...source, file: liveFileCache.get(source.file.file_id)! } : source), [openSourceTabs, liveFileCache]);
+  const selectedFile = useMemo(() => sourcesToDisplay.find(s => s.number === selectedSourceNumber)?.file || null, [selectedSourceNumber, sourcesToDisplay]);
+
+  const selectConversation = useCallback((id: string | null) => {
+    setSelectedConversationId(id);
+    if (id) {
+      sessionStorage.setItem('oracleActiveChatId', id);
+    } else {
+      sessionStorage.removeItem('oracleActiveChatId');
     }
-    if (user) {
-        fileSubscription.current = supabase
-            .channel(`files-all-updates-for-user-${user.id}`)
-            .on<FileType>(
-                'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'files', filter: `user_id=eq.${user.id}` },
-                (payload) => {
-                    const updatedFile = payload.new as FileType;
-                    setLiveFileCache(prev => new Map(prev).set(updatedFile.file_id, updatedFile));
-                }
-            )
-            .subscribe();
-    }
-    return () => {
-        if (fileSubscription.current) {
-            supabase.removeChannel(fileSubscription.current);
-        }
-    };
-  }, [user]);
-
-  const sourcesToDisplay = useMemo(() => {
-    return openSourceTabs.map(source => {
-      const liveFile = liveFileCache.get(source.file.file_id);
-      return liveFile ? { ...source, file: liveFile } : source;
-    });
-  }, [openSourceTabs, liveFileCache]);
-
-  const selectedFile = useMemo(() => {
-    return sourcesToDisplay.find(s => s.file.file_id === selectedSourceId)?.file || null;
-  }, [selectedSourceId, sourcesToDisplay]);
-
-  useEffect(() => {
-    const fetchUserAndClasses = async () => {
-        setPageLoading(true);
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const currentUser = session?.user;
-            setUser(currentUser || null);
-            if (currentUser) {
-                const { data: profileData } = await supabase.from('profiles').select('full_name, avatar_url').eq('user_id', currentUser.id).single();
-                setUserProfile(profileData);
-                const fetchedClasses = await classOpenAIConfigService.getAllClasses();
-                setClasses(fetchedClasses);
-                const activeClassDataString = sessionStorage.getItem('activeClass');
-                if (activeClassDataString) {
-                    const parsedClass = JSON.parse(activeClassDataString);
-                    if (fetchedClasses.some(c => c.class_id === parsedClass.class_id)) {
-                        setSelectedClassId(parsedClass.class_id);
-                    }
-                }
-            }
-        } catch (error) {
-            toast({ title: "Error", description: "Could not load initial page data.", variant: "destructive" });
-        } finally {
-            setPageLoading(false);
-            if (loader) loader.complete();
-        }
-    };
-    fetchUserAndClasses();
-  }, [toast, loader]);
-  
-  const handleMessageSelect = useCallback((message: ChatMessageApp) => {
-      setSelectedMessageId(message.id);
-      setSelectedSourceId(null);
-      if (message.role === 'assistant' && message.sources && message.sources.length > 0) {
-          setOpenSourceTabs(message.sources);
-      } else {
-          setOpenSourceTabs([]);
-      }
   }, []);
 
-  const fetchConversations = useCallback(async () => {
-      if (!user) return;
-      setIsLoadingConversations(true);
-      try {
-          const convos = await conversationService.fetchConversations(user.id, selectedClassId || undefined);
-          setConversations(convos);
-          if (convos.length > 0 && !convos.some(c => c.id === selectedConversationId)) {
-              setSelectedConversationId(convos[0].id);
-          }
-      } catch (error) { toast({ title: "Error", description: "Could not load chat history.", variant: "destructive" }); } 
-      finally { setIsLoadingConversations(false); }
-  }, [user, toast, selectedClassId, selectedConversationId]);
-
-  useEffect(() => { fetchConversations(); }, [user, fetchConversations]);
+  const handleMessageSelect = useCallback((message: ChatMessageApp | null) => {
+    setSelectedMessageId(message?.id || null);
+    setSelectedSourceNumber(null);
+    if (message?.role === 'assistant' && message.sources?.length) {
+        setOpenSourceTabs(message.sources);
+    } else {
+        setOpenSourceTabs([]);
+    }
+  }, []);
 
   const fetchMessages = useCallback(async () => {
       if (!selectedConversationId) {
-          setMessages([]); setSelectedMessageId(null); setOpenSourceTabs([]);
-          return;
+          setMessages([]); setSelectedMessageId(null); setOpenSourceTabs([]); return;
       }
       setIsLoadingMessages(true);
       try {
           const fetchedMessages = await chatMessageService.fetchMessagesByConversation(selectedConversationId);
           setMessages(fetchedMessages);
-          const lastMessage = fetchedMessages[fetchedMessages.length - 1];
-          if (lastMessage) { handleMessageSelect(lastMessage); } 
-          else { setSelectedMessageId(null); setOpenSourceTabs([]); }
+          handleMessageSelect(fetchedMessages[fetchedMessages.length - 1] || null);
       } catch (error) { toast({ title: "Error", description: "Could not load messages for this chat.", variant: "destructive" }); } 
       finally { setIsLoadingMessages(false); }
   }, [selectedConversationId, toast, handleMessageSelect]);
 
-  useEffect(() => { fetchMessages(); }, [fetchMessages]);
-  
-  useEffect(() => {
-    if (!isChatLoading) { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }
-  }, [messages, isChatLoading]);
-
   const handleCitationClick = useCallback((messageId: string, sourceNumber: number) => {
     setSelectedMessageId(messageId);
-    
-    const message = messages.find(m => m.id === messageId);
-    if (!message?.sources) return;
-
-    const targetSource = message.sources.find(s => s.number === sourceNumber);
-    if (targetSource) {
-        setSelectedSourceId(targetSource.file.file_id);
+    setSelectedSourceNumber(sourceNumber);
+  }, []);
+  
+  const handleClassChange = useCallback((newClassId: string | null) => {
+    setSelectedClassId(newClassId);
+    selectConversation(null);
+    if (newClassId) {
+        const selectedClass = classes.find(c => c.class_id === newClassId);
+        if (selectedClass) sessionStorage.setItem('activeClass', JSON.stringify(selectedClass));
+    } else {
+        sessionStorage.removeItem('activeClass');
     }
-  }, [messages]);
+  }, [classes, selectConversation]);
+
+  const handleRenameConversation = useCallback(async (id: string, newName: string) => {
+    if (!user) return;
+    await conversationService.renameConversation(id, newName, user.id);
+    setConversations(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
+  }, [user]);
 
   const handleSendMessage = useCallback(async () => {
     if ((input.trim() === "" && attachedFiles.length === 0) || isChatLoading || !user) return;
     
-    let activeConversationId = selectedConversationId;
+    const activeConversationId = selectedConversationId;
     if (!activeConversationId) {
-      const newConvo = await conversationService.createConversation({ name: "New Chat", class_id: selectedClassId, chatbot_type: 'oracle' }, user.id);
-      setConversations(prev => [newConvo, ...prev]);
-      activeConversationId = newConvo.id;
-      setSelectedConversationId(newConvo.id);
-      setMessages([]);
+        toast({ title: "Error", description: "No active chat selected.", variant: "destructive" });
+        return;
+    }
+
+    if (activeConversationId === temporaryChatId) {
+        setTemporaryChatId(null);
     }
 
     const currentInput = input;
@@ -192,13 +128,17 @@ export const useOracle = (): OracleState => {
 
     try {
         const savedUserMessage = await chatMessageService.saveMessage({
-            conversation_id: activeConversationId,
-            role: 'user',
-            content: currentInput,
-            chat_mode: 'rag',
-            class_id: selectedClassId,
-            attached_files: currentFiles.map(f => ({ name: f.name, type: f.type }))
+            conversation_id: activeConversationId, role: 'user', content: currentInput, chat_mode: 'rag',
+            class_id: selectedClassId, attached_files: currentFiles.map(f => ({ name: f.name, type: f.type }))
         });
+
+        if (messages.length === 0) { // First message in a chat
+            try {
+                const titleQuery = currentInput || `Chat about ${currentFiles.map(f => f.name).join(', ')}`;
+                const { data } = await supabase.functions.invoke('generate-title', { body: { query: titleQuery } });
+                if (data?.title) await handleRenameConversation(activeConversationId, data.title);
+            } catch (titleError) { console.error("Could not auto-generate title:", titleError); }
+        }
 
         const { data: aiData, error: aiError } = await supabase.functions.invoke('oracle-chat', {
             body: { message: currentInput, class_id: selectedClassId, files: currentFiles }
@@ -206,12 +146,8 @@ export const useOracle = (): OracleState => {
         if (aiError || aiData.error) throw new Error(aiError?.message || aiData.error);
         
         const savedAiMessage = await chatMessageService.saveMessage({
-            conversation_id: activeConversationId,
-            role: 'assistant',
-            content: aiData.response,
-            chat_mode: 'rag',
-            class_id: selectedClassId,
-            sources: aiData.sources
+            conversation_id: activeConversationId, role: 'assistant', content: aiData.response, chat_mode: 'rag',
+            class_id: selectedClassId, sources: aiData.sources
         });
         
         setMessages(prev => [...prev.filter(m => m.id !== tempUserMessage.id), savedUserMessage, savedAiMessage]);
@@ -223,20 +159,15 @@ export const useOracle = (): OracleState => {
     } finally {
         setIsChatLoading(false);
     }
-  }, [input, attachedFiles, isChatLoading, user, selectedConversationId, selectedClassId, messages, toast, handleMessageSelect]);
-
+  }, [input, attachedFiles, isChatLoading, user, selectedConversationId, selectedClassId, messages.length, toast, handleMessageSelect, handleRenameConversation, temporaryChatId]);
+  
   const handleNewChat = useCallback(async () => {
       if (!user) return;
       const newConvo = await conversationService.createConversation({ name: 'New Chat', class_id: selectedClassId, chatbot_type: 'oracle' }, user.id);
       setConversations(prev => [newConvo, ...prev]);
-      setSelectedConversationId(newConvo.id);
-  }, [user, selectedClassId]);
-
-  const handleRenameConversation = useCallback(async (id: string, newName: string) => {
-      if (!user) return;
-      await conversationService.renameConversation(id, newName, user.id);
-      fetchConversations();
-  }, [user, fetchConversations]);
+      selectConversation(newConvo.id);
+      setTemporaryChatId(newConvo.id);
+  }, [user, selectedClassId, selectConversation]);
 
   const handleDeleteConversation = (convo: AppConversation) => setConversationToDelete(convo);
 
@@ -246,12 +177,12 @@ export const useOracle = (): OracleState => {
       await conversationService.deleteConversation(conversationToDelete.id, user.id);
       toast({ title: "Chat Deleted" });
       if (selectedConversationId === conversationToDelete.id) {
-          setSelectedConversationId(null);
+          selectConversation(null);
       }
       setConversationToDelete(null);
-      fetchConversations();
+      setConversations(prev => prev.filter(c => c.id !== conversationToDelete.id));
       setIsDeleting(false);
-  }, [conversationToDelete, user, selectedConversationId, fetchConversations, toast]);
+  }, [conversationToDelete, user, selectedConversationId, selectConversation, toast]);
 
   const processFiles = useCallback((files: FileList | null) => {
       if (!files) return;
@@ -270,22 +201,100 @@ export const useOracle = (): OracleState => {
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => processFiles(e.target.files), [processFiles]);
   const handlePaste = useCallback((e: React.ClipboardEvent) => processFiles(e.clipboardData.files), [processFiles]);
   const handleRemoveFile = (fileId: string) => setAttachedFiles(prev => prev.filter(f => f.id !== fileId));
-  const handleSourceSelect = (id: string) => setSelectedSourceId(prev => (prev === id ? null : id));
+  const handleSourceSelect = (sourceNumber: number) => setSelectedSourceNumber(prev => (prev === sourceNumber ? null : sourceNumber));
+  const handleClearSourceSelection = () => setSelectedSourceNumber(null);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+        setPageLoading(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const currentUser = session?.user;
+            setUser(currentUser || null);
+            if (currentUser) {
+                const { data: profileData } = await supabase.from('profiles').select('full_name, avatar_url').eq('user_id', currentUser.id).single();
+                setUserProfile(profileData);
+                const fetchedClasses = await classOpenAIConfigService.getAllClasses();
+                setClasses(fetchedClasses);
+                const activeClassDataString = sessionStorage.getItem('activeClass');
+                if (activeClassDataString) {
+                  const parsedClass = JSON.parse(activeClassDataString);
+                    if (fetchedClasses.some(c => c.class_id === parsedClass.class_id)) {
+                        setSelectedClassId(parsedClass.class_id);
+                    }
+                }
+            }
+        } catch (error) { toast({ title: "Error", description: "Could not load initial page data.", variant: "destructive" }); }
+        finally { setPageLoading(false); if (loader) loader.complete(); }
+    };
+    fetchInitialData();
+  }, [toast, loader]);
   
-  // MODIFICATION: Add the new handler.
-  const handleClearSourceSelection = () => setSelectedSourceId(null);
+  useEffect(() => {
+    if (!user) return;
+    const fetchAndSelectConversations = async () => {
+        setIsLoadingConversations(true);
+        try {
+            const cameFromNav = location.state?.fromNavigation;
+            const lastOpenChatId = sessionStorage.getItem('oracleActiveChatId');
+            const fetchedConversations = await conversationService.fetchConversations(user.id, selectedClassId || undefined);
+            
+            if (cameFromNav) {
+                await handleNewChat();
+            } else if (lastOpenChatId && fetchedConversations.some(c => c.id === lastOpenChatId)) {
+                setConversations(fetchedConversations);
+                selectConversation(lastOpenChatId);
+            } else if (fetchedConversations.length > 0) {
+                setConversations(fetchedConversations);
+                selectConversation(fetchedConversations[0].id);
+            } else {
+                await handleNewChat();
+            }
+        } catch (error) { toast({ title: "Error", description: "Could not load chat history.", variant: "destructive" }); }
+        finally { 
+            setIsLoadingConversations(false); 
+            if (location.state?.fromNavigation) {
+                window.history.replaceState({}, document.title);
+            }
+        }
+    };
+    fetchAndSelectConversations();
+  }, [user, selectedClassId, location.state]);
+
+  useEffect(() => { fetchMessages(); }, [selectedConversationId]);
+
+  useEffect(() => {
+    if (!isChatLoading) { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }
+  }, [messages, isChatLoading]);
+
+  useEffect(() => {
+    const tempId = temporaryChatId;
+    return () => {
+        if (tempId && user) {
+            const checkAndDelete = async () => {
+                try {
+                    const { count } = await supabase.from('chat_messages').select('*', { count: 'exact', head: true }).eq('conversation_id', tempId);
+                    if (count === 0) {
+                        await conversationService.deleteConversation(tempId, user.id);
+                    }
+                } catch (e) { console.error("Failed to clean up temporary chat:", e); }
+            };
+            checkAndDelete();
+        }
+    };
+  }, [temporaryChatId, user]);
 
   return {
     input, setInput, isChatLoading, isPageLoading, user, userProfile,
-    conversations, selectedConversationId, setSelectedConversationId,
-    messages, classes, selectedClassId, setSelectedClassId,
+    conversations, selectedConversationId, selectConversation,
+    messages, classes, selectedClassId, handleClassChange,
     isLoadingConversations, isLoadingMessages, selectedMessageId,
     attachedFiles, setAttachedFiles, openSourceTabs, isHistoryCollapsed, setIsHistoryCollapsed,
-    selectedSourceId, sourcesToDisplay, selectedFile,
+    selectedSourceNumber, sourcesToDisplay, selectedFile,
     messagesEndRef, fileInputRef,
     handleSendMessage, handleNewChat, handleRenameConversation,
     handleDeleteConversation, handleMessageSelect, handleCitationClick,
-    handleSourceSelect, handleClearSourceSelection, // MODIFICATION: Export the new handler.
+    handleSourceSelect, handleClearSourceSelection,
     handleFileSelect, handlePaste, handleRemoveFile,
     confirmDelete, conversationToDelete, setConversationToDelete, isDeleting
   };

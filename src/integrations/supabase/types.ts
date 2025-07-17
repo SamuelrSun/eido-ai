@@ -132,6 +132,7 @@ export type Database = {
           created_at: string | null
           updated_at: string | null
           user_id: string | null
+          color: string | null
         }
         Insert: {
           class_id?: string
@@ -139,6 +140,7 @@ export type Database = {
           created_at?: string | null
           updated_at?: string | null
           user_id?: string | null
+          color?: string | null
         }
         Update: {
           class_id?: string
@@ -146,6 +148,7 @@ export type Database = {
           created_at?: string | null
           updated_at?: string | null
           user_id?: string | null
+          color?: string | null
         }
         Relationships: [
           {

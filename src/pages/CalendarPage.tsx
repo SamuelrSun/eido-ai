@@ -5,7 +5,6 @@ import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { startOfDay, subDays, subMonths, subWeeks, addMonths, addWeeks, format, addDays as addDaysHelper, addMinutes } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-
 import { useCalendarData } from '@/hooks/useCalendarData';
 import { CalendarHeader } from '@/components/calendar/CalendarHeader';
 import { CalendarSidebar } from '@/components/calendar/CalendarSidebar';
@@ -21,7 +20,7 @@ import { CalendarEvent, NewCalendarEvent } from '@/services/calendarEventService
 const CalendarPage = () => {
     const [view, setView] = useState('week');
     const [currentDate, setCurrentDate] = useState(startOfDay(new Date()));
-    const { classes, isLoadingClasses, events, createEvent, deleteEvent, updateEvent } = useCalendarData();
+    const { classes, isLoadingClasses, events, createEvent, deleteEvent, updateEvent, updateClassColor } = useCalendarData();
     const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
     
     const [creatorPopover, setCreatorPopover] = useState<{ anchor: HTMLElement | null; start: Date; end: Date } | null>(null);
@@ -43,10 +42,13 @@ const CalendarPage = () => {
     const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const filteredEvents = useMemo(() => {
-        if (isLoadingClasses) return [];
-        if (selectedClasses.length === 0 && classes.length > 0) return events;
-        return events.filter(e => e.class_id && selectedClasses.includes(e.class_id));
-    }, [events, selectedClasses, isLoadingClasses, classes]);
+        return events
+            .filter(e => e.class_id && selectedClasses.includes(e.class_id))
+            .map(event => {
+                const eventClass = classes.find(c => c.class_id === event.class_id);
+                return { ...event, color: eventClass?.color };
+            });
+    }, [events, selectedClasses, classes]);
 
     useEffect(() => {
         if (!isLoadingClasses && classes.length > 0) {
@@ -101,10 +103,9 @@ const CalendarPage = () => {
     }, [isCreatingEvent, draftEvent, hasDragged]);
 
     const handleEventClick = (event: CalendarEvent, anchorElement: HTMLElement) => {
-        if (viewerPopover?.event.id === event.id) {
-            closeAllPopovers();
-        } else {
-            closeAllPopovers();
+        const isAlreadyOpen = viewerPopover?.event.id === event.id;
+        closeAllPopovers();
+        if (!isAlreadyOpen) {
             setViewerPopover({ event, anchor: anchorElement });
         }
     };
@@ -124,7 +125,7 @@ const CalendarPage = () => {
         if (event.repeat_pattern && event.repeat_pattern !== 'none') {
             setEventToDelete(event);
         } else {
-            deleteEvent(event, 'this'); // For non-recurring events, just delete 'this' one
+            deleteEvent(event, 'this');
         }
         setViewerPopover(null);
     };
@@ -192,6 +193,19 @@ const CalendarPage = () => {
             setIsProcessingSyllabus(false);
         }
     };
+
+    const handleUpcomingEventSelect = (event: CalendarEvent) => {
+        setCurrentDate(new Date(event.event_start));
+        
+        setTimeout(() => {
+            const eventElement = document.querySelector(`[data-event-id="${event.id}"]`) as HTMLElement;
+            if (eventElement) {
+                handleEventClick(event, eventElement);
+            } else {
+                console.warn(`Could not find event element for id: ${event.id}`);
+            }
+        }, 100);
+    };
     
     return (
         <MainAppLayout pageTitle="Calendar | Eido AI">
@@ -200,16 +214,18 @@ const CalendarPage = () => {
             </Helmet>
              <div className="flex-1 w-full bg-mushroom-100 flex flex-col relative">
                 <main className="absolute inset-0 flex flex-row gap-3 px-3 pb-3">
-                     <CalendarSidebar
+                    <CalendarSidebar
                         currentDate={currentDate}
                         setCurrentDate={setCurrentDate}
                         classes={classes}
                         isLoadingClasses={isLoadingClasses}
                         selectedClasses={selectedClasses}
                         setSelectedClasses={setSelectedClasses}
-                        onColorChange={() => {}}
+                        onColorChange={updateClassColor}
                         upcomingEvents={events.filter(e => new Date(e.event_start) >= new Date()).sort((a,b) => new Date(a.event_start).getTime() - new Date(b.event_start).getTime()).slice(0, 5)}
                         onUploadSyllabusClick={() => setIsSyllabusUploadOpen(true)}
+                        view={view as 'day' | 'week' | 'month'}
+                        onUpcomingEventSelect={handleUpcomingEventSelect}
                     />
                     <div className="flex-1 flex flex-col rounded-lg border border-marble-400 bg-white overflow-hidden">
                         <CalendarHeader
@@ -228,7 +244,7 @@ const CalendarPage = () => {
                         </div>
                     </div>
                 </main>
-         
+        
                 {creatorPopover && (
                     <EventCreatorPopover
                         anchorElement={creatorPopover.anchor}

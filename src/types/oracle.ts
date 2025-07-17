@@ -30,7 +30,7 @@ export interface OracleState {
   attachedFiles: AttachedFile[];
   openSourceTabs: ActiveSource[];
   isHistoryCollapsed: boolean;
-  selectedSourceId: string | null;
+  selectedSourceNumber: number | null;
   
   // Derived State
   sourcesToDisplay: ActiveSource[];
@@ -42,8 +42,9 @@ export interface OracleState {
   
   // Handlers
   setInput: React.Dispatch<React.SetStateAction<string>>;
-  setSelectedConversationId: React.Dispatch<React.SetStateAction<string | null>>;
-  setSelectedClassId: React.Dispatch<React.SetStateAction<string | null>>;
+  // Replaced direct setter with a new function to handle session storage
+  selectConversation: (id: string | null) => void;
+  handleClassChange: (id: string | null) => void;
   setAttachedFiles: React.Dispatch<React.SetStateAction<AttachedFile[]>>;
   setIsHistoryCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   handleSendMessage: () => Promise<void>;
@@ -52,8 +53,7 @@ export interface OracleState {
   handleDeleteConversation: (conversation: AppConversation) => void;
   handleMessageSelect: (message: ChatMessageApp) => void;
   handleCitationClick: (messageId: string, sourceNumber: number) => void;
-  handleSourceSelect: (id: string) => void;
-  // MODIFICATION: Add the new handler for clearing the selection.
+  handleSourceSelect: (sourceNumber: number) => void;
   handleClearSourceSelection: () => void;
   handleFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   handlePaste: (event: React.ClipboardEvent) => void;

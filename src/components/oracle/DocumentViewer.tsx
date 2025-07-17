@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Document, Page } from 'react-pdf';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Loader2, ZoomIn, ZoomOut } from 'lucide-react';
 import { FileType } from '@/features/files/types';
 import { pdfjs } from 'react-pdf';
 
@@ -21,20 +21,17 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
   const [scale, setScale] = useState(1.0);
   const [minScale, setMinScale] = useState(1.0);
   const [isDocLoaded, setIsDocLoaded] = useState(false);
-  // MODIFICATION: Add state to track when we are programmatically scrolling.
   const [isScrolling, setIsScrolling] = useState(false);
   
   const pdfPreviewRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // MODIFICATION: The goToPage function now controls the `isScrolling` state.
   const goToPage = useCallback((pageNumber: number) => {
     const pageRef = pageRefs.current.get(pageNumber);
     if (pageRef) {
-        setIsScrolling(true); // Disable observer
+        setIsScrolling(true);
         pageRef.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setCurrentPage(pageNumber);
-        // Re-enable the observer after the scroll animation completes.
         setTimeout(() => setIsScrolling(false), 1000); 
     }
   }, []);
@@ -71,9 +68,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
   useEffect(() => {
     const observer = new IntersectionObserver(
         (entries) => {
-            // MODIFICATION: Ignore observer updates while we are auto-scrolling.
             if (isScrolling) return;
-
             const visibleEntries = entries.filter(entry => entry.isIntersecting);
             if (visibleEntries.length > 0) {
                 const pageNumbers = visibleEntries.map(entry => parseInt(entry.target.getAttribute('data-page-number') || '0', 10));
@@ -85,7 +80,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
     const currentRefs = pageRefs.current;
     currentRefs.forEach(pageEl => { if (pageEl) observer.observe(pageEl); });
     return () => { currentRefs.forEach(pageEl => { if (pageEl) observer.unobserve(pageEl); }); };
-  }, [numPages, scale, isScrolling]); // MODIFICATION: Added isScrolling to dependency array
+  }, [numPages, scale, isScrolling]);
 
   return (
     <div className="w-full h-full flex flex-col relative">
@@ -93,7 +88,12 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
         <ScrollArea className="h-full w-full">
           <div className="flex flex-col items-center py-4">
             {file && file.url && (
-              <Document file={file.url} onLoadSuccess={onDocumentLoadSuccess} loading={<Loader2 className="h-8 w-8 animate-spin text-stone-400 mx-auto mt-10"/>}>
+              <Document 
+                key={`${file.file_id}-${initialPage}`}
+                file={file.url} 
+                onLoadSuccess={onDocumentLoadSuccess} 
+                loading={<Loader2 className="h-8 w-8 animate-spin text-stone-400 mx-auto mt-10"/>}
+              >
                 {isDocLoaded && Array.from(new Array(numPages || 0), (el, index) => (
                   <div key={`page_wrapper_${index + 1}`} ref={(el) => { if(el) pageRefs.current.set(index + 1, el); }} data-page-number={index + 1}>
                     <Page pageNumber={index + 1} scale={scale} renderTextLayer={false} className="mb-4 shadow-md"/>
@@ -102,24 +102,26 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
               </Document>
             )}
           </div>
+          {/* Added horizontal scrollbar */}
+          <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </div>
+
+      {/* Shrunk the controls */}
       {numPages && (
-        <>
-          <div className="absolute bottom-14 right-6 flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => setScale(s => Math.max(s / 1.2, minScale))}><ZoomOut className="h-4 w-4" /></Button>
-            <Button variant="outline" size="icon" onClick={() => setScale(s => Math.min(s * 1.2, 3.0))}><ZoomIn className="h-4 w-4" /></Button>
-          </div>
-          <div className="flex items-center justify-center p-2 flex-shrink-0">
-            <Button variant="ghost" size="icon" onClick={() => goToPage(Math.max(currentPage - 1, 1))} disabled={currentPage <= 1}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium mx-4">Page {currentPage} of {numPages}</span>
-            <Button variant="ghost" size="icon" onClick={() => goToPage(Math.min(currentPage + 1, numPages))} disabled={currentPage >= numPages}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+            <div className="flex items-center gap-1 rounded-full border bg-white/70 p-1 shadow-md backdrop-blur-sm">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setScale(s => Math.max(s / 1.2, minScale))}>
+                    <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="text-xs font-medium text-stone-700 tabular-nums px-2">
+                    {currentPage} / {numPages}
+                </span>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setScale(s => Math.min(s * 1.2, 3.0))}>
+                    <ZoomIn className="h-4 w-4" />
+                </Button>
+            </div>
+        </div>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-
+// src/components/layout/sidebar/SidebarNavigation.tsx
 import { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
@@ -21,6 +21,8 @@ export function SidebarNavigation({ navItems }: SidebarNavigationProps) {
           <NavLink
             to={item.to}
             end={item.exact}
+            // This state prop signals navigation to the Oracle page.
+            state={item.to === '/oracle' ? { fromNavigation: true } : undefined}
             className={({ isActive }) => 
               `flex items-center px-4 py-2 rounded-md transition-colors ${
                 isActive 

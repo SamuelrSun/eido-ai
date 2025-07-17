@@ -95,23 +95,27 @@ export const DayView: React.FC<DayViewProps> = ({
                     const eventClass = classes.find(c => c.class_id === event.class_id);
                     const isShort = duration < 45;
                     return (
-                        <div key={event.id} style={{ top: `${top}%`, height: `${height}%` }} 
-                             className={cn("absolute w-[calc(100%-8px)] p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
-                             onClick={(e) => onEventClick(event, e.currentTarget)}
-                             onMouseDown={(e) => e.stopPropagation()}
+                        <div
+                            key={event.id}
+                            data-event-id={event.id}
+                            style={{ top: `${top}%`, height: `${height}%` }} 
+                            className={cn("absolute w-[calc(100%-8px)] p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
+                            onClick={(e) => onEventClick(event, e.currentTarget)}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onMouseUp={(e) => e.stopPropagation()}
                         >
                              <p className="font-bold truncate">{event.title}</p>
-                            {isShort ? (
+                             {isShort ? (
                                 <p className="truncate text-white/80">
                                     {format(eventDate, 'p')}
                                     {event.location && `, ${event.location}`}
                                 </p>
-                            ) : (
+                             ) : (
                                 <>
                                     <p className="truncate text-white/80">{format(eventDate, 'p')} - {format(endDate, 'p')}</p>
                                     {event.location && <p className="truncate text-white/80">{event.location}</p>}
                                 </>
-                            )}
+                             )}
                         </div>
                     );
                 })}

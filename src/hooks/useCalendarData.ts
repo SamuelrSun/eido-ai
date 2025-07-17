@@ -26,7 +26,10 @@ export const useCalendarData = () => {
                 classOpenAIConfigService.getAllClasses(),
                 calendarEventService.getEvents()
             ]);
-            const classesWithColors = fetchedClasses.map((cls, index) => ({ ...cls, color: COLOR_SWATCHES[index % COLOR_SWATCHES.length] }));
+            const classesWithColors = fetchedClasses.map((cls, index) => ({
+                ...cls,
+                color: cls.color || COLOR_SWATCHES[index % COLOR_SWATCHES.length]
+            }));
             setClasses(classesWithColors);
             setEvents(fetchedEvents);
         } catch (error) {
@@ -38,6 +41,19 @@ export const useCalendarData = () => {
     }, [toast]);
 
     useEffect(() => { fetchAllData(); }, [fetchAllData]);
+
+    const updateClassColor = async (classId: string, newColor: string) => {
+        try {
+            const updatedClass = await classOpenAIConfigService.updateClassColor(classId, newColor);
+            setClasses(prevClasses =>
+                prevClasses.map(c =>
+                    c.class_id === classId ? { ...c, color: updatedClass.color || c.color } : c
+                )
+            );
+        } catch (error) {
+            toast({ title: "Error", description: "Failed to update class color.", variant: "destructive" });
+        }
+    };
 
     const createEvent = async (eventData: NewCalendarEvent) => {
         try {
@@ -74,5 +90,5 @@ export const useCalendarData = () => {
         }
     };
 
-    return { classes, setClasses, isLoadingClasses, events, isLoadingEvents, createEvent, updateEvent, deleteEvent };
+    return { classes, setClasses, isLoadingClasses, events, isLoadingEvents, createEvent, updateEvent, deleteEvent, updateClassColor };
 };

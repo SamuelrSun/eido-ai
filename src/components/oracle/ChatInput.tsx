@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PlusCircle } from 'lucide-react';
 import { AttachedFilePill } from '@/components/chat/AttachedFilePill';
-import { AttachedFile } from './types'; // Assuming types are moved
+import type { AttachedFile } from '@/components/chat/AttachedFilePill'; // Assuming types are moved
 
 interface ChatInputProps {
   input: string;

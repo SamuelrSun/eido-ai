@@ -1,6 +1,6 @@
 // src/components/oracle/SourcesPanel.tsx
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -13,17 +13,28 @@ import { PagePreview } from './PagePreview';
 
 interface SourcesPanelProps {
   sourcesToDisplay: ActiveSource[];
-  selectedSourceId: string | null;
-  handleSourceSelect: (id: string) => void;
+  selectedSourceNumber: number | null;
+  handleSourceSelect: (sourceNumber: number) => void;
   handleClearSourceSelection: () => void;
   selectedFile: FileType | null;
 }
 
 export const SourcesPanel: React.FC<SourcesPanelProps> = ({
-  sourcesToDisplay, selectedSourceId, handleSourceSelect, handleClearSourceSelection, selectedFile
+  sourcesToDisplay, selectedSourceNumber, handleSourceSelect, handleClearSourceSelection, selectedFile
 }) => {
-  const sourceTextRefs = React.useRef(new Map());
+  const sourceTextRefs = React.useRef(new Map<number, HTMLDivElement | null>());
   const sourceThumbnailRefs = React.useRef(new Map());
+
+  const selectedSource = sourcesToDisplay.find(s => s.number === selectedSourceNumber);
+
+  useEffect(() => {
+    if (selectedSourceNumber !== null) {
+      const sourceElement = sourceTextRefs.current.get(selectedSourceNumber);
+      if (sourceElement) {
+        sourceElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }, [selectedSourceNumber]);
 
   return (
     <div className="w-[40%] flex flex-col h-full rounded-lg border border-marble-400 bg-white overflow-hidden">
@@ -32,21 +43,31 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
       </header>
       <div className="flex-1 flex flex-col min-h-0">
         {/* Source Snippets View */}
-        <div className={cn("transition-all duration-300 ease-in-out", selectedSourceId === null ? 'flex-1 min-h-0' : 'flex-shrink-0')}>
+        <div className={cn("transition-all duration-300 ease-in-out", selectedSourceNumber === null ? 'flex-1 min-h-0' : 'h-40 flex-shrink-0')}>
           <div className="h-full p-4">
             <ScrollArea className="h-full pr-2">
               <div className="space-y-4">
                 {sourcesToDisplay.length > 0 ? (
-                  // MODIFICATION: This filter now ensures no snippets are rendered when a source is selected.
-                  sourcesToDisplay.filter(source => selectedSourceId === null).map((source) => (
+                  sourcesToDisplay.map((source) => (
                     <div
                       key={source.file.file_id + source.number}
-                      ref={(el) => sourceTextRefs.current.set(source.file.file_id, el)}
-                      onClick={() => handleSourceSelect(source.file.file_id)}
-                      className={cn("p-3 bg-stone-50 rounded-lg border cursor-pointer transition-all relative group", "border-stone-200 hover:border-stone-300")}
+                      ref={(el) => sourceTextRefs.current.set(source.number, el)}
+                      onClick={() => handleSourceSelect(source.number)}
+                      className={cn(
+                        "p-3 bg-stone-50 rounded-lg border cursor-pointer transition-all relative group",
+                        selectedSourceNumber === source.number
+                          ? "border-stone-700"
+                          : "border-stone-200 hover:border-stone-300"
+                      )}
                     >
+                      {selectedSourceNumber === source.number && (
+                        <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-stone-400 hover:text-stone-700" onClick={(e) => { e.stopPropagation(); handleClearSourceSelection(); }}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
                       <p className="text-xs font-semibold text-stone-700 mb-1 pr-6">Source {source.number}: {source.file.name} (Page {source.pageNumber || 'N/A'})</p>
-                      <blockquote className="text-sm text-stone-600 border-l-2 pl-3 whitespace-pre-wrap max-h-24 overflow-y-auto">{source.content}</blockquote>
+                      {/* CORRECTED: Changed max-h-24 to max-h-20 to fit ~4 lines */}
+                      <blockquote className="text-sm text-stone-600 border-l-2 pl-3 whitespace-pre-wrap max-h-20 overflow-y-auto">{source.content}</blockquote>
                     </div>
                   ))
                 ) : (
@@ -62,20 +83,20 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
         </div>
         <Separator />
         {/* Thumbnails / Document Viewer */}
-        <div className={cn("flex flex-col transition-all duration-300 ease-in-out", selectedSourceId === null ? 'flex-shrink-0' : 'flex-1 min-h-0')}>
+        <div className={cn("flex flex-col transition-all duration-300 ease-in-out", selectedSourceNumber === null ? 'flex-shrink-0' : 'flex-1 min-h-0')}>
           <div className="min-h-0 flex-1 p-4">
-            {selectedSourceId === null ? (
+            {selectedSourceNumber === null ? (
               <ScrollArea className="w-full h-full">
                 <div className="flex w-max space-x-4 pb-2 h-full">
                   {sourcesToDisplay.map((source) => (
                     <div
-                      key={source.file.file_id}
+                      key={source.file.file_id + '-' + source.number}
                       ref={(el) => sourceThumbnailRefs.current.set(source.file.file_id, el)}
-                      onClick={() => handleSourceSelect(source.file.file_id)}
+                      onClick={() => handleSourceSelect(source.number)}
                       className="flex-shrink-0 w-56 flex flex-col text-center cursor-pointer"
                     >
                       <p className="text-xs font-medium text-stone-700 mb-2 truncate" title={source.file.name}>{source.file.name}</p>
-                      <div className={cn("h-56 bg-stone-100 rounded-md border flex items-center justify-center overflow-hidden", selectedSourceId === source.file.file_id ? "border-stone-700" : "border-stone-200")}>
+                      <div className={cn("h-56 bg-stone-100 rounded-md border flex items-center justify-center overflow-hidden", selectedSourceNumber === source.number ? "border-stone-700" : "border-stone-200")}>
                         {source.file.type === 'application/pdf' && source.file.url && source.pageNumber ? (
                           <PagePreview fileUrl={source.file.url} pageNumber={source.pageNumber} />
                         ) : (
@@ -88,7 +109,7 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
                 <ScrollBar orientation="horizontal" />
               </ScrollArea>
             ) : (
-              selectedFile && <DocumentViewer file={selectedFile} initialPage={sourcesToDisplay.find(s => s.file.file_id === selectedSourceId)?.pageNumber} />
+              selectedFile && <DocumentViewer file={selectedFile} initialPage={selectedSource?.pageNumber} />
             )}
           </div>
         </div>

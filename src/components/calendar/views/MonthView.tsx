@@ -1,3 +1,4 @@
+// src/components/calendar/views/MonthView.tsx
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -14,9 +15,10 @@ interface MonthViewProps {
   events: CalendarEvent[];
   onDelete: (id: string) => void;
   onDayClick: (date: Date) => void;
+  onEventClick: (event: CalendarEvent, anchorElement: HTMLElement) => void;
 }
 
-export const MonthView: React.FC<MonthViewProps> = ({ currentDate, classes, events, onDelete, onDayClick }) => {
+export const MonthView: React.FC<MonthViewProps> = ({ currentDate, classes, events, onDelete, onDayClick, onEventClick }) => {
     const today = new Date();
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
@@ -53,7 +55,15 @@ export const MonthView: React.FC<MonthViewProps> = ({ currentDate, classes, even
                         {events.filter(e => isSameDay(new Date(e.event_start), day)).map(event => {
                             const eventClass = classes.find(c => c.class_id === event.class_id);
                             return (
-                                <div key={event.id} className={cn("group text-xs p-1 rounded-md text-white flex items-center justify-between", eventClass?.color || 'bg-gray-500')}>
+                                 <div 
+                                     key={event.id} 
+                                     data-event-id={event.id}
+                                     className={cn("group text-xs p-1 rounded-md text-white flex items-center justify-between", eventClass?.color || 'bg-gray-500')}
+                                     onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEventClick(event, e.currentTarget);
+                                     }}
+                                >
                                     <span className="font-semibold truncate">{event.title}</span>
                                     <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); onDelete(event.id); }}>
                                         <Trash2 className="h-3 w-3" />

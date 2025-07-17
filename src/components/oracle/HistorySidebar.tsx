@@ -1,16 +1,9 @@
 // src/components/oracle/HistorySidebar.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Edit, Trash2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
-// MODIFIED: Importing AppConversation from its new canonical source
 import { AppConversation } from '@/services/conversationService';
 import { Input } from '../ui/input';
 
@@ -46,33 +39,42 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ conversation, isSelected, onS
     return (
     <div
       onClick={() => !isRenaming && onSelect(conversation.id)}
-      className={cn('flex items-center justify-between p-2 my-0.5 rounded-md cursor-pointer group relative transition-colors duration-150', isSelected ? 'bg-stone-200' : 'hover:bg-stone-100')}
+      className={cn(
+        'group flex items-center justify-between px-2 py-1.5 my-0.5 rounded-md cursor-pointer transition-all duration-150 border', 
+        isSelected 
+            ? 'bg-stone-100 border-stone-400' 
+            : 'border-transparent hover:bg-stone-100'
+      )}
       title={name}
     >
-      <div className="flex items-center overflow-hidden flex-grow">
+      <div className="flex items-center overflow-hidden flex-grow mr-2">
         {isRenaming ? (
             <form onSubmit={handleRenameSubmit} className="w-full">
-                <Input ref={inputRef} value={name} onChange={(e) => setName(e.target.value)} onBlur={handleRenameSubmit} className="h-7 text-sm" onClick={(e) => e.stopPropagation()} />
+                <Input 
+                    ref={inputRef} 
+                    value={name} 
+                    onChange={(e) => setName(e.target.value)} 
+                    onBlur={handleRenameSubmit} 
+                    className="h-7 text-sm" 
+                    onClick={(e) => e.stopPropagation()} 
+                />
             </form>
         ) : (
-             <p className={cn('text-sm truncate pl-1', isSelected ? 'text-stone-800 font-semibold' : 'text-stone-700')}>{name}</p>
+             <p className={cn('text-sm truncate', isSelected ? 'text-stone-800 font-medium' : 'text-stone-700')}>
+                {name}
+            </p>
         )}
       </div>
 
       {!isRenaming && (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}><MoreHorizontal size={18} /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setIsRenaming(true); }}>
-                <Edit className="mr-2 h-4 w-4" /><span>Rename</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(conversation); }}>
-                <Trash2 className="mr-2 h-4 w-4" /><span>Delete</span>
-            </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setIsRenaming(true); }}>
+                <Edit className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/80 hover:text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(conversation); }}>
+                <Trash2 className="h-4 w-4" />
+            </Button>
+        </div>
       )}
     </div>
   );
@@ -97,7 +99,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversations, s
     }
     
     return (
-        <div className="flex flex-col h-full bg-marble-100">
+        <div className="flex flex-col h-full bg-white">
             <ScrollArea className="flex-grow">
                 <div className="space-y-0.5 p-2">
                     {conversations.map((convo) => (
