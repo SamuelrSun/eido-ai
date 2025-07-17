@@ -1,43 +1,33 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { OpenAI } from "https://deno.land/x/openai/mod.ts";
+// supabase/functions/generate-title/index.ts
 
-// Define the CORS headers that our function will use
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*', // Allow any origin
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'npm:@supabase/supabase-js@2'
+import { OpenAI } from "https://deno.land/x/openai/mod.ts";
+import { corsHeaders } from '../_shared/cors.ts'
 
 serve(async (req) => {
-  // This is for the browser's preflight "permission slip" request
   if (req.method === 'OPTIONS') {
-    console.log("--- [INFO] Handled OPTIONS preflight request ---");
-    return new Response('ok', { headers: CORS_HEADERS });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    console.log("--- [1] generate-title function invoked (POST) ---");
+    // Authenticate the user
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    )
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) throw new Error("User not authenticated");
 
-    console.log("--- [2] Checking for API Key ---");
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      console.error("--- [ERROR] Missing OPENAI_API_KEY secret. ---");
-      throw new Error("Missing OPENAI_API_KEY secret.");
-    }
-    console.log("--- [3] API Key found. Parsing request body. ---");
-
+    // Correctly parse the JSON body
     const { query } = await req.json();
     if (!query) {
-      console.error("--- [ERROR] Missing query in request body. ---");
-      return new Response(JSON.stringify({ error: 'Missing query in request body' }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
+      throw new Error("Missing 'query' in request body.");
     }
-    console.log("--- [4] Request body parsed. Initializing OpenAI client. ---");
 
-    const openai = new OpenAI(OPENAI_API_KEY);
+    const openai = new OpenAI(Deno.env.get("OPENAI_API_KEY")!);
 
-    console.log("--- [5] Calling OpenAI API... ---");
     const chatCompletion = await openai.chat.completions.create({
       messages: [
         { 
@@ -53,22 +43,17 @@ serve(async (req) => {
       max_tokens: 20,
       temperature: 0.3,
     });
-    console.log("--- [6] OpenAI API call successful. ---");
 
-    const title = chatCompletion.choices[0].message.content?.trim() || "New Chat";
+    const title = chatCompletion.choices[0].message.content?.trim().replace(/"/g, '') || "New Chat";
 
-    // Return the successful response with CORS headers
     return new Response(JSON.stringify({ title }), {
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error("--- [7] CAUGHT ERROR BLOCK ---");
-    console.error(error.message);
-    // Return the error response with CORS headers
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 })

@@ -48,11 +48,12 @@ async function processSingleQuery(
   const embeddingData = await embeddingResponse.json();
   const queryVector = embeddingData.data[0].embedding;
 
+  // CORRECTED: Switched from 'withHybrid' to 'withNearVector' for pure semantic search
   const weaviateResponse = await weaviateClient.graphql
     .get()
     .withClassName('DocumentChunk')
-    .withHybrid({ query: query, vector: queryVector, alpha: 0.5 })
-    .withLimit(5)
+    .withNearVector({ vector: queryVector })
+    .withLimit(10)
     .withWhere({
         operator: 'And',
         operands: [
@@ -85,24 +86,28 @@ async function processSingleQuery(
         content: chunk.text_chunk,
         file_id: chunk.source_file_id,
       });
-      return `Source [${index + 1}]: From page ${chunk.page_number} of "${chunk.source_file_name}": "${chunk.text_chunk}"`;
+      return `Source [${index + 1}]: From page ${chunk.page_number} of "${chunk.source_file_name}":\n"${chunk.text_chunk}"`;
     }
     return "";
-  }).filter(Boolean).join('\n\n');
+  }).filter(Boolean).join('\n\n---\n\n');
 
-  const systemPrompt = `You are an academic assistant. Answer the user's question based *only* on the provided sources. Cite sources using the format [Source X]. If the sources are not sufficient, say so.`;
+  const systemPrompt = `You are an academic assistant. Your primary goal is to answer the user's question using ONLY the information from the provided sources.
+- Synthesize a detailed answer based on the text in the sources.
+- You MUST cite every piece of information you use with the corresponding source number, like [Source X].
+- If the sources only partially answer the question, provide the information you can find and then you can mention what information is missing.
+- Be resourceful. Connect concepts from the sources to the user's question where possible. Only if the sources contain absolutely no relevant information should you state that you cannot answer.
+- Do not make up information. Your entire answer must be derived from the provided sources.`;
   
   const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY!}` },
       body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-4o-mini",
           messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: `User Question: "${query}"\n\nSources:\n${contextForLLM}` }
           ],
-          max_tokens: 400,
-          temperature: 0.1,
+          temperature: 0.2,
       }),
   });
   if (!openAIResponse.ok) throw new Error(`OpenAI API error: ${await openAIResponse.text()}`);
@@ -133,14 +138,16 @@ serve(async (req: Request) => {
     const { message, class_id } = await req.json();
     if (!message) throw new Error("Missing 'message' in request body.");
 
-    // MODIFICATION: Replaced the complex regex with a simpler, more robust method
-    // that correctly handles bullet points and dashes.
     const instructionalPhrases = ["answer the following questions:", "answer these questions:"];
     const questions = message
         .trim()
-        .split('\n') // 1. Split into lines
-        .map((q: string) => q.trim().replace(/^[•\\*\\-]\s*/, '')) // 2. Trim and remove leading bullets/dashes
-        .filter((q: string) => q.length > 5 && !instructionalPhrases.includes(q.toLowerCase())); // 3. Filter out empty or instructional lines
+        .split('\n')
+        .map((q: string) => q.trim().replace(/^[•\\*\\-]\s*/, ''))
+        .filter((q: string) => q.length > 5 && !instructionalPhrases.includes(q.toLowerCase()));
+
+    if (questions.length === 0) {
+        questions.push(message.trim());
+    }
 
     console.log(`[MAIN] Detected ${questions.length} distinct question(s). Processing in parallel...`);
     
@@ -172,7 +179,7 @@ serve(async (req: Request) => {
                     finalSources.push({ ...originalSource, number: finalNumber });
                     nextSourceNumber++;
                 }
-                renumberedAnswer = renumberedAnswer.replace(match[0], `[Source ${finalNumber}]`);
+                renumberedAnswer = renumberedAnswer.replace(new RegExp(`\\[Source ${localNumber}\\]`, 'g'), `[Source ${finalNumber}]`);
             }
         }
         finalResponseText += `**${result.question}**\n${renumberedAnswer}\n\n`;

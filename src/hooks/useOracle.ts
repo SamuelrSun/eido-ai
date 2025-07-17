@@ -96,9 +96,14 @@ export const useOracle = (): OracleState => {
 
   const handleRenameConversation = useCallback(async (id: string, newName: string) => {
     if (!user) return;
-    await conversationService.renameConversation(id, newName, user.id);
     setConversations(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
-  }, [user]);
+    try {
+        await conversationService.renameConversation(id, newName, user.id);
+    } catch (error) {
+        console.error("Failed to rename conversation in DB:", error);
+        toast({ title: "Error", description: "Could not save new chat title.", variant: "destructive" });
+    }
+  }, [user, toast]);
 
   const handleSendMessage = useCallback(async () => {
     if ((input.trim() === "" && attachedFiles.length === 0) || isChatLoading || !user) return;
@@ -112,6 +117,8 @@ export const useOracle = (): OracleState => {
     if (activeConversationId === temporaryChatId) {
         setTemporaryChatId(null);
     }
+
+    const isFirstMessage = messages.length === 0;
 
     const currentInput = input;
     const currentFiles = [...attachedFiles];
@@ -132,7 +139,7 @@ export const useOracle = (): OracleState => {
             class_id: selectedClassId, attached_files: currentFiles.map(f => ({ name: f.name, type: f.type }))
         });
 
-        if (messages.length === 0) { // First message in a chat
+        if (isFirstMessage) {
             try {
                 const titleQuery = currentInput || `Chat about ${currentFiles.map(f => f.name).join(', ')}`;
                 const { data } = await supabase.functions.invoke('generate-title', { body: { query: titleQuery } });
