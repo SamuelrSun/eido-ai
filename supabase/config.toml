@@ -75,3 +75,9 @@ verify_jwt = true
 
 [functions.parse-syllabus]
 verify_jwt = true
+
+[functions.create-recurring-event]
+verify_jwt = true
+
+[functions.delete-recurring-event]
+verify_jwt = true

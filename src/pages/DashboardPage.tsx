@@ -85,8 +85,8 @@ const DashboardPage = () => {
               <div className="flex flex-col gap-y-1">
                 <span className="text-overline uppercase font-code font-bold text-dark-blue">Tools</span>
                 <span onClick={() => handleProtectedLinkClick('/oracle')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Oracle</span></span>
-                <span onClick={() => handleProtectedLinkClick('/chrono')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Chrono</span></span>
-                <span onClick={() => handleProtectedLinkClick('/codex')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Codex</span></span>
+                <span onClick={() => handleProtectedLinkClick('/assignments')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Assignments</span></span>
+                <span onClick={() => handleProtectedLinkClick('/codepad')} className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900 cursor-pointer"><span>Codepad</span></span>
               </div>
               <div className="flex flex-col gap-y-1">
                 <span className="text-overline uppercase font-code font-bold text-dark-blue">Settings</span>
