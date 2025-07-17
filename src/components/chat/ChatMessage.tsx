@@ -32,9 +32,11 @@ export const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(({
   return (
     <div 
         ref={ref}
-        onClick={onClick}
+        // --- FIX: Conditionally apply the onClick handler only if the message is NOT from the user.
+        onClick={!isUser ? onClick : undefined}
         className={cn(
             "group flex h-fit w-full flex-col gap-2 rounded-md p-2 text-left md:flex-row transition-all duration-200 ease-in-out",
+            // --- FIX: Conditionally apply cursor-pointer class only for AI messages.
             !isUser && "cursor-pointer",
             isSelected 
                 ? "bg-stone-100 border border-stone-400"

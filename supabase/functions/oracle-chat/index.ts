@@ -48,7 +48,6 @@ async function processSingleQuery(
   const embeddingData = await embeddingResponse.json();
   const queryVector = embeddingData.data[0].embedding;
 
-  // CORRECTED: Switched from 'withHybrid' to 'withNearVector' for pure semantic search
   const weaviateResponse = await weaviateClient.graphql
     .get()
     .withClassName('DocumentChunk')
@@ -182,7 +181,8 @@ serve(async (req: Request) => {
                 renumberedAnswer = renumberedAnswer.replace(new RegExp(`\\[Source ${localNumber}\\]`, 'g'), `[Source ${finalNumber}]`);
             }
         }
-        finalResponseText += `**${result.question}**\n${renumberedAnswer}\n\n`;
+        // --- FIX: Removed the prepended bolded question from the final response text.
+        finalResponseText += `${renumberedAnswer}\n\n`;
     }
 
     console.log(`[MAIN] ✅ Finished processing all questions.`);

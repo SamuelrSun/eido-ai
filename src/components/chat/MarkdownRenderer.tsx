@@ -16,11 +16,16 @@ export function MarkdownRenderer({ content, onCitationClick }: MarkdownRendererP
     rendered = rendered.replace(/(?:^\s*\d+\.\s+(.+)$\n?)+/gm, match => `<ol class="list-decimal pl-5 my-2 space-y-0.5">${match.split('\n').filter(Boolean).map(line => `<li>${line.replace(/^\s*\d+\.\s+/, '')}</li>`).join('')}</ol>`);
     rendered = rendered.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 rounded text-sm">$1</code>');
     
-    // MODIFICATION: Added the 'i' flag to make the regex case-insensitive.
+    // --- FIX START ---
+    // The previous regex was replacing all instances with the same number.
+    // By using a replacer function (the second argument to .replace), we can process each match individually.
+    // 'match' is the full string (e.g., "[Source 1]"), and 'numberStr' is the captured digit (e.g., "1").
+    // This ensures each citation is rendered with its correct, unique number.
     rendered = rendered.replace(/\[Source (\d+)]/gi, (match, numberStr) => {
-      // The text inside the link is now hardcoded to ensure consistent casing.
-      return `<sub><span class="source-citation" data-source-number="${numberStr}">[Source ${numberStr}]</span></sub>`;
+      return `<sub><span class="source-citation" data-source-number="${numberStr}">${match}</span></sub>`;
     });
+    // --- FIX END ---
+    
     rendered = rendered.replace(/\n/g, '<br />');
     
     return rendered;

@@ -27,6 +27,19 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ conversation, isSelected, onS
         }
     }, [isRenaming]);
 
+    // --- FIX START ---
+    // This effect synchronizes the component's internal 'name' state with the 'conversation.name' prop.
+    // When the parent component generates a new title and updates the conversation list, this
+    // ensures the change is reflected here.
+    useEffect(() => {
+        // We only update the name from the prop if the user is NOT currently renaming it.
+        // This prevents overwriting the user's input while they are typing.
+        if (!isRenaming) {
+            setName(conversation.name);
+        }
+    }, [conversation.name, isRenaming]);
+    // --- FIX END ---
+
     const handleRenameSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         e.stopPropagation();

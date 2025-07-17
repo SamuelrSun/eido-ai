@@ -1,11 +1,10 @@
 // src/hooks/useOracle.ts
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { User, RealtimeChannel } from '@supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
-import { usePageLoader } from '@/context/LoaderContext';
 import { AppConversation, conversationService } from '@/services/conversationService';
 import { chatMessageService, ChatMessageApp, ActiveSource } from '@/services/chatMessageService';
 import { ClassConfig, classOpenAIConfigService } from '@/services/classOpenAIConfig';
@@ -14,9 +13,9 @@ import { FileType } from '@/features/files/types';
 import { OracleState, ProfileData } from '@/types/oracle';
 
 export const useOracle = (): OracleState => {
-  const { loader } = usePageLoader();
   const { toast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
   const [input, setInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isPageLoading, setPageLoading] = useState(true);
@@ -41,7 +40,6 @@ export const useOracle = (): OracleState => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const fileSubscription = useRef<RealtimeChannel | null>(null);
 
   const sourcesToDisplay = useMemo(() => openSourceTabs.map(source => liveFileCache.get(source.file.file_id) ? { ...source, file: liveFileCache.get(source.file.file_id)! } : source), [openSourceTabs, liveFileCache]);
   const selectedFile = useMemo(() => sourcesToDisplay.find(s => s.number === selectedSourceNumber)?.file || null, [selectedSourceNumber, sourcesToDisplay]);
@@ -108,17 +106,18 @@ export const useOracle = (): OracleState => {
   const handleSendMessage = useCallback(async () => {
     if ((input.trim() === "" && attachedFiles.length === 0) || isChatLoading || !user) return;
     
-    const activeConversationId = selectedConversationId;
+    let activeConversationId = selectedConversationId;
+    let isFirstMessageInNewChat = false;
+
     if (!activeConversationId) {
-        toast({ title: "Error", description: "No active chat selected.", variant: "destructive" });
-        return;
+        const newConvo = await conversationService.createConversation({ name: 'New Chat', class_id: selectedClassId, chatbot_type: 'oracle' }, user.id);
+        setConversations(prev => [newConvo, ...prev]);
+        selectConversation(newConvo.id);
+        activeConversationId = newConvo.id;
+        isFirstMessageInNewChat = true;
+    } else if (messages.length === 0) {
+        isFirstMessageInNewChat = true;
     }
-
-    if (activeConversationId === temporaryChatId) {
-        setTemporaryChatId(null);
-    }
-
-    const isFirstMessage = messages.length === 0;
 
     const currentInput = input;
     const currentFiles = [...attachedFiles];
@@ -135,16 +134,19 @@ export const useOracle = (): OracleState => {
 
     try {
         const savedUserMessage = await chatMessageService.saveMessage({
-            conversation_id: activeConversationId, role: 'user', content: currentInput, chat_mode: 'rag',
+            conversation_id: activeConversationId, role: 'user', content: currentInput,
+            chat_mode: 'rag',
             class_id: selectedClassId, attached_files: currentFiles.map(f => ({ name: f.name, type: f.type }))
         });
 
-        if (isFirstMessage) {
+        if (isFirstMessageInNewChat) {
             try {
                 const titleQuery = currentInput || `Chat about ${currentFiles.map(f => f.name).join(', ')}`;
                 const { data } = await supabase.functions.invoke('generate-title', { body: { query: titleQuery } });
                 if (data?.title) await handleRenameConversation(activeConversationId, data.title);
             } catch (titleError) { console.error("Could not auto-generate title:", titleError); }
+        } else {
+            await conversationService.updateConversationTimestamp(activeConversationId, user.id, new Date());
         }
 
         const { data: aiData, error: aiError } = await supabase.functions.invoke('oracle-chat', {
@@ -153,7 +155,8 @@ export const useOracle = (): OracleState => {
         if (aiError || aiData.error) throw new Error(aiError?.message || aiData.error);
         
         const savedAiMessage = await chatMessageService.saveMessage({
-            conversation_id: activeConversationId, role: 'assistant', content: aiData.response, chat_mode: 'rag',
+            conversation_id: activeConversationId, role: 'assistant', content: aiData.response,
+            chat_mode: 'rag',
             class_id: selectedClassId, sources: aiData.sources
         });
         
@@ -166,7 +169,7 @@ export const useOracle = (): OracleState => {
     } finally {
         setIsChatLoading(false);
     }
-  }, [input, attachedFiles, isChatLoading, user, selectedConversationId, selectedClassId, messages.length, toast, handleMessageSelect, handleRenameConversation, temporaryChatId]);
+  }, [input, attachedFiles, isChatLoading, user, selectedConversationId, selectedClassId, messages.length, toast, handleMessageSelect, handleRenameConversation, selectConversation]);
   
   const handleNewChat = useCallback(async () => {
       if (!user) return;
@@ -232,13 +235,14 @@ export const useOracle = (): OracleState => {
                 }
             }
         } catch (error) { toast({ title: "Error", description: "Could not load initial page data.", variant: "destructive" }); }
-        finally { setPageLoading(false); if (loader) loader.complete(); }
+        finally { setPageLoading(false); }
     };
     fetchInitialData();
-  }, [toast, loader]);
+  }, [toast]);
   
   useEffect(() => {
-    if (!user) return;
+    if (!user || isPageLoading) return;
+
     const fetchAndSelectConversations = async () => {
         setIsLoadingConversations(true);
         try {
@@ -246,13 +250,13 @@ export const useOracle = (): OracleState => {
             const lastOpenChatId = sessionStorage.getItem('oracleActiveChatId');
             const fetchedConversations = await conversationService.fetchConversations(user.id, selectedClassId || undefined);
             
+            setConversations(fetchedConversations);
+
             if (cameFromNav) {
                 await handleNewChat();
             } else if (lastOpenChatId && fetchedConversations.some(c => c.id === lastOpenChatId)) {
-                setConversations(fetchedConversations);
                 selectConversation(lastOpenChatId);
             } else if (fetchedConversations.length > 0) {
-                setConversations(fetchedConversations);
                 selectConversation(fetchedConversations[0].id);
             } else {
                 await handleNewChat();
@@ -261,18 +265,24 @@ export const useOracle = (): OracleState => {
         finally { 
             setIsLoadingConversations(false); 
             if (location.state?.fromNavigation) {
-                window.history.replaceState({}, document.title);
+                navigate(location.pathname, { replace: true });
             }
         }
     };
     fetchAndSelectConversations();
-  }, [user, selectedClassId, location.state]);
+  }, [user, selectedClassId, isPageLoading, location.state, location.pathname, navigate, handleNewChat, selectConversation, toast]);
 
-  useEffect(() => { fetchMessages(); }, [selectedConversationId]);
+  useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
   useEffect(() => {
-    if (!isChatLoading) { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }
-  }, [messages, isChatLoading]);
+    // --- FIX: Using a timeout to ensure the DOM is updated before scrolling.
+    // This pushes the scroll command to the end of the event loop, after the new message has been rendered.
+    const timer = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, [messages]);
 
   useEffect(() => {
     const tempId = temporaryChatId;

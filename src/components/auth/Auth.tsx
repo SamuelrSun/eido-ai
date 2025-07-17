@@ -49,20 +49,20 @@ export function Auth() {
         }
         const generatedName = email.split('@')[0];
         
-        // MODIFIED: This block is updated for automatic sign-in
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            // The emailRedirectTo is no longer necessary if email confirmation is off
-            data: { full_name: generatedName }
+            data: { 
+              full_name: generatedName,
+              // --- FIX: Set a default avatar_url for email signups ---
+              avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${generatedName}`
+            }
           }
         });
 
         if (error) throw error;
 
-        // With email confirmation disabled, the 'data' object contains an active session.
-        // We can now navigate the user directly.
         if (data.session) {
             toast({
                 title: "Account Created!",
@@ -70,13 +70,12 @@ export function Auth() {
             });
             navigate('/');
         } else {
-            // This is a fallback case if email confirmation is somehow still enabled
             toast({
                 title: "Account created successfully",
                 description: "We've sent you a confirmation link to complete your signup.",
             });
         }
-      } else { // 'signin' mode
+      } else { 
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         navigate('/');
@@ -102,7 +101,14 @@ export function Auth() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/` },
+        options: { 
+          redirectTo: `${window.location.origin}/`,
+          // --- FIX: Request user's profile info from Google ---
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
       });
       if (error) throw error;
     } catch (error) {

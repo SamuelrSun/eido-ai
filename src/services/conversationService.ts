@@ -45,7 +45,7 @@ export const conversationService = {
       query = query.eq('chat_mode', chat_mode);
     }
   
-    query = query.order('last_message_at', { ascending: false });
+    query = query.order('last_message_at', { ascending: false, nullsFirst: false });
     
     const { data, error } = await query;
 
@@ -60,12 +60,16 @@ export const conversationService = {
     payload: { name: string; class_id?: string | null; chat_mode?: 'rag' | 'web' | null; chatbot_type?: string; },
     userId: string
   ): Promise<AppConversation> => {
+    const now = new Date().toISOString(); // --- FIX: Get current timestamp
     const insertData: ConversationDBInsert = {
       title: payload.name,
       class_id: payload.class_id || null,
       chat_mode: payload.chat_mode || 'rag',
       chatbot_type: payload.chatbot_type || 'oracle',
       user_id: userId,
+      // --- FIX: Set last_message_at on creation to ensure correct sorting
+      last_message_at: now, 
+      updated_at: now,
     };
     
     const { data, error } = await supabase
@@ -85,25 +89,22 @@ export const conversationService = {
     conversationId: string,
     newName: string,
     userId: string
-  ): Promise<AppConversation> => {
+  ): Promise<void> => { 
     const updatePayload: Partial<ConversationDBUpdate> = {
         title: newName,
         updated_at: new Date().toISOString(),
     };
     
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('conversations')
       .update(updatePayload)
       .eq('id', conversationId)
-      .eq('user_id', userId)
-      .select()
-      .single();
+      .eq('user_id', userId);
       
     if (error) {
       console.error("[conversationService] Error renaming conversation:", error);
       throw error;
     }
-    return mapToAppConversation(data);
   },
 
   deleteConversation: async (

@@ -121,6 +121,7 @@ src/
       checkbox.tsx
       collapsible.tsx
       command.tsx
+      ConfirmationDialog.tsx
       context-menu.tsx
       dialog.tsx
       drawer.tsx
@@ -1138,23 +1139,27 @@ export const DayView: React.FC<DayViewProps> = ({
                     const eventClass = classes.find(c => c.class_id === event.class_id);
                     const isShort = duration < 45;
                     return (
-                        <div key={event.id} style={{ top: `${top}%`, height: `${height}%` }} 
-                             className={cn("absolute w-[calc(100%-8px)] p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
-                             onClick={(e) => onEventClick(event, e.currentTarget)}
-                             onMouseDown={(e) => e.stopPropagation()}
+                        <div
+                            key={event.id}
+                            data-event-id={event.id}
+                            style={{ top: `${top}%`, height: `${height}%` }} 
+                            className={cn("absolute w-[calc(100%-8px)] p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
+                            onClick={(e) => onEventClick(event, e.currentTarget)}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onMouseUp={(e) => e.stopPropagation()}
                         >
                              <p className="font-bold truncate">{event.title}</p>
-                            {isShort ? (
+                             {isShort ? (
                                 <p className="truncate text-white/80">
                                     {format(eventDate, 'p')}
                                     {event.location && `, ${event.location}`}
                                 </p>
-                            ) : (
+                             ) : (
                                 <>
                                     <p className="truncate text-white/80">{format(eventDate, 'p')} - {format(endDate, 'p')}</p>
                                     {event.location && <p className="truncate text-white/80">{event.location}</p>}
                                 </>
-                            )}
+                             )}
                         </div>
                     );
                 })}
@@ -1166,6 +1171,7 @@ export const DayView: React.FC<DayViewProps> = ({
 ================
 File: src/components/calendar/views/MonthView.tsx
 ================
+// src/components/calendar/views/MonthView.tsx
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -1182,9 +1188,10 @@ interface MonthViewProps {
   events: CalendarEvent[];
   onDelete: (id: string) => void;
   onDayClick: (date: Date) => void;
+  onEventClick: (event: CalendarEvent, anchorElement: HTMLElement) => void;
 }
 
-export const MonthView: React.FC<MonthViewProps> = ({ currentDate, classes, events, onDelete, onDayClick }) => {
+export const MonthView: React.FC<MonthViewProps> = ({ currentDate, classes, events, onDelete, onDayClick, onEventClick }) => {
     const today = new Date();
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
@@ -1221,7 +1228,15 @@ export const MonthView: React.FC<MonthViewProps> = ({ currentDate, classes, even
                         {events.filter(e => isSameDay(new Date(e.event_start), day)).map(event => {
                             const eventClass = classes.find(c => c.class_id === event.class_id);
                             return (
-                                <div key={event.id} className={cn("group text-xs p-1 rounded-md text-white flex items-center justify-between", eventClass?.color || 'bg-gray-500')}>
+                                 <div 
+                                     key={event.id} 
+                                     data-event-id={event.id}
+                                     className={cn("group text-xs p-1 rounded-md text-white flex items-center justify-between", eventClass?.color || 'bg-gray-500')}
+                                     onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEventClick(event, e.currentTarget);
+                                     }}
+                                >
                                     <span className="font-semibold truncate">{event.title}</span>
                                     <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); onDelete(event.id); }}>
                                         <Trash2 className="h-3 w-3" />
@@ -1369,10 +1384,14 @@ export const WeekView: React.FC<WeekViewProps> = ({
                                 const eventClass = classes.find(c => c.class_id === event.class_id);
                                 const isShort = duration < 45;
                                 return (
-                                    <div key={event.id} style={{ top: `${top}%`, height: `${height}%` }}
-                                         className={cn("absolute w-[calc(100%-8px)] p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
-                                         onClick={(e) => onEventClick(event, e.currentTarget)}
-                                         onMouseDown={(e) => e.stopPropagation()}
+                                    <div
+                                        key={event.id}
+                                        data-event-id={event.id}
+                                        style={{ top: `${top}%`, height: `${height}%` }}
+                                        className={cn("absolute w-[calc(100%-8px)] p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
+                                        onClick={(e) => onEventClick(event, e.currentTarget)}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onMouseUp={(e) => e.stopPropagation()}
                                     >
                                         <p className="font-bold truncate">{event.title}</p>
                                         {isShort ? (
@@ -1691,6 +1710,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({ view, currentDat
 ================
 File: src/components/calendar/CalendarSidebar.tsx
 ================
+// src/components/calendar/CalendarSidebar.tsx
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1698,7 +1718,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { MiniCalendar } from './MiniCalendar';
-import { Upload, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Upload, MoreHorizontal, Loader2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ClassConfigWithColor } from '@/features/calendar/types';
@@ -1719,9 +1739,15 @@ interface CalendarSidebarProps {
     onColorChange: (classId: string, newColor: string) => void;
     upcomingEvents: CalendarEvent[];
     onUploadSyllabusClick: () => void;
+    view: 'day' | 'week' | 'month';
+    onUpcomingEventSelect: (event: CalendarEvent) => void;
 }
 
-export const CalendarSidebar: React.FC<CalendarSidebarProps> = ({ currentDate, setCurrentDate, classes, isLoadingClasses, selectedClasses, setSelectedClasses, onColorChange, upcomingEvents, onUploadSyllabusClick }) => {
+export const CalendarSidebar: React.FC<CalendarSidebarProps> = ({ 
+    currentDate, setCurrentDate, classes, isLoadingClasses, 
+    selectedClasses, setSelectedClasses, onColorChange, 
+    upcomingEvents, onUploadSyllabusClick, view, onUpcomingEventSelect
+}) => {
     
     const handleClassSelection = (classId: string) => {
         setSelectedClasses(
@@ -1735,27 +1761,31 @@ export const CalendarSidebar: React.FC<CalendarSidebarProps> = ({ currentDate, s
         <div className="w-1/4 max-w-[300px] flex flex-col rounded-lg border border-marble-400 bg-white">
             <ScrollArea className="flex-1">
                 <div className="p-4">
-                    <Button className="w-full bg-stone-700 hover:bg-stone-800 text-white" onClick={onUploadSyllabusClick}>
+                    <Button size="sm" className="w-full bg-stone-700 hover:bg-stone-800 text-white" onClick={onUploadSyllabusClick}>
                         <Upload className="mr-2 h-4 w-4" />
                         Upload Syllabus
                     </Button>
                 </div>
                 <Separator />
                 <div className="p-3">
-                    <MiniCalendar date={currentDate} setDate={setCurrentDate} />
+                    <MiniCalendar date={currentDate} setDate={setCurrentDate} view={view} />
                 </div>
                 <Separator />
                 <div className="p-4">
                     <h3 className="text-sm font-semibold text-volcanic-900 mb-3">Upcoming Events</h3>
-                    <div className="space-y-3 max-h-28 overflow-y-auto pr-2">
+                    <div className="space-y-1 max-h-28 overflow-y-auto pr-2">
                         {upcomingEvents.map(event => {
                             const eventClass = classes.find(c => c.class_id === event.class_id);
                             return (
-                                <div key={event.id} className="flex items-start gap-3">
+                                <div 
+                                    key={event.id} 
+                                    className="flex items-start gap-3 p-2 rounded-md cursor-pointer hover:bg-stone-100 transition-colors"
+                                    onClick={() => onUpcomingEventSelect(event)}
+                                >
                                     <div className={cn("w-2 h-2 rounded-full mt-1.5 flex-shrink-0", eventClass?.color)} />
                                     <div>
                                         <p className="text-sm font-medium text-volcanic-900">{event.title}</p>
-                                        <p className="text-xs text-volcanic-800">{format(new Date(event.event_start), 'EEE, MMM d')}</p>
+                                        <p className="text-xs text-volcanic-800">{`${format(new Date(event.event_start), 'p')} • ${format(new Date(event.event_start), 'EEE, MMM d')}`}</p>
                                     </div>
                                 </div>
                             )
@@ -1792,9 +1822,16 @@ export const CalendarSidebar: React.FC<CalendarSidebarProps> = ({ currentDate, s
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-2">
-                                            <div className="grid grid-cols-6 gap-2">
+                                            <div className="grid grid-cols-6 gap-1">
                                                 {COLOR_SWATCHES.map(color => (
-                                                    <button key={color} onClick={() => onColorChange(cls.class_id, color)} className={cn("w-6 h-6 rounded-full", color)} />
+                                                    <button
+                                                        key={color}
+                                                        onClick={() => onColorChange(cls.class_id, color)}
+                                                        className={cn("w-6 h-6 rounded-full flex items-center justify-center", color)}
+                                                        aria-label={`Set color to ${color}`}
+                                                    >
+                                                        {cls.color === color && <Check className="h-4 w-4 text-white stroke-[3px]" />}
+                                                    </button>
                                                 ))}
                                             </div>
                                         </PopoverContent>
@@ -2137,26 +2174,33 @@ export const EventCreatorPopover: React.FC<EventCreatorPopoverProps> = ({ anchor
 ================
 File: src/components/calendar/MiniCalendar.tsx
 ================
+// src/components/calendar/MiniCalendar.tsx
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { addDays, addMonths, format, startOfMonth, startOfWeek, subMonths, isSameDay, isSameMonth } from 'date-fns';
+import { addDays, addMonths, format, startOfMonth, startOfWeek, subMonths, isSameDay, isSameMonth, endOfWeek, isWithinInterval } from 'date-fns';
 
 const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 interface MiniCalendarProps {
     date: Date;
     setDate: (date: Date) => void;
+    view: 'day' | 'week' | 'month';
 }
 
-export const MiniCalendar: React.FC<MiniCalendarProps> = ({ date, setDate }) => {
+export const MiniCalendar: React.FC<MiniCalendarProps> = ({ date, setDate, view }) => {
     const handlePrevMonth = () => setDate(subMonths(date, 1));
     const handleNextMonth = () => setDate(addMonths(date, 1));
 
     const monthStart = startOfMonth(date);
     const startDate = startOfWeek(monthStart);
     const today = new Date();
+    
+    // Logic for week view highlighting
+    const weekStart = startOfWeek(date);
+    const weekEnd = endOfWeek(date);
+
     const days = [];
     let day = startDate;
     for (let i = 0; i < 35; i++) { // Display 5 weeks for consistency
@@ -2181,18 +2225,29 @@ export const MiniCalendar: React.FC<MiniCalendarProps> = ({ date, setDate }) => 
             </div>
             <div className="grid grid-cols-7 gap-y-1 text-center text-xs text-volcanic-800">
                 {daysOfWeek.map(day => <div key={day}>{day[0]}</div>)}
-                {days.map(d => (
-                    <div key={d.toString()} className="flex items-center justify-center">
-                        <button onClick={() => setDate(d)} className={cn(
-                            "flex items-center justify-center h-7 w-7 rounded-full hover:bg-stone-200 transition-colors",
-                            isSameDay(d, date) && "bg-stone-300 font-bold",
-                            isSameDay(d, today) && "bg-stone-700 text-white hover:bg-stone-600",
-                            !isSameMonth(d, date) && "text-stone-300"
+                {days.map((d, index) => {
+                    const isInWeek = view === 'week' && isWithinInterval(d, { start: weekStart, end: weekEnd });
+                    const isWeekStart = isSameDay(d, weekStart);
+                    const isWeekEnd = isSameDay(d, weekEnd);
+
+                    return (
+                        <div key={d.toString()} className={cn(
+                            "flex items-center justify-center",
+                            isInWeek && "bg-stone-100",
+                            isWeekStart && "rounded-l-full",
+                            isWeekEnd && "rounded-r-full"
                         )}>
-                            {d.getDate()}
-                        </button>
-                    </div>
-                ))}
+                            <button onClick={() => setDate(d)} className={cn(
+                                "flex items-center justify-center h-7 w-7 rounded-full hover:bg-stone-200 transition-colors",
+                                isSameDay(d, date) && "bg-stone-300 font-bold",
+                                isSameDay(d, today) && "bg-stone-700 text-white hover:bg-stone-600",
+                                !isSameMonth(d, date) && !isInWeek && "text-stone-300"
+                            )}>
+                                {d.getDate()}
+                            </button>
+                        </div>
+                    )
+                })}
             </div>
         </div>
     );
@@ -2401,13 +2456,13 @@ export const SyllabusUploadDialog: React.FC<SyllabusUploadDialogProps> = ({ isOp
 File: src/components/calendar/ViewEventPopover.tsx
 ================
 // src/components/calendar/ViewEventPopover.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { CalendarEvent } from '@/services/calendarEventService';
 import { ClassConfigWithColor } from '@/features/calendar/types';
 import { format } from 'date-fns';
-import { MapPin, Edit, Trash2, X } from 'lucide-react';
+import { MapPin, Edit, Trash2, X, Book, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ViewEventPopoverProps {
@@ -2420,6 +2475,23 @@ interface ViewEventPopoverProps {
 }
 
 export const ViewEventPopover: React.FC<ViewEventPopoverProps> = ({ event, eventClass, anchorElement, onClose, onEdit, onDelete }) => {
+  const [popoverSide, setPopoverSide] = useState<'right' | 'left'>('right');
+
+  useEffect(() => {
+    if (anchorElement) {
+        const rect = anchorElement.getBoundingClientRect();
+        const popoverWidth = 320; // from className="w-80"
+        const spaceOnRight = window.innerWidth - rect.right;
+        const spaceOnLeft = rect.left;
+
+        // If not enough space on the right, but enough on the left, switch side
+        if (spaceOnRight < popoverWidth + 10 && spaceOnLeft > popoverWidth + 10) {
+            setPopoverSide('left');
+        } else {
+            setPopoverSide('right');
+        }
+    }
+  }, [anchorElement]);
   
   const startTime = format(new Date(event.event_start), 'p');
   const endTime = event.event_end ? format(new Date(event.event_end), 'p') : '';
@@ -2428,9 +2500,19 @@ export const ViewEventPopover: React.FC<ViewEventPopoverProps> = ({ event, event
   return (
     <Popover open={true} onOpenChange={onClose}>
       <PopoverAnchor asChild>
-        <div style={{ position: 'absolute', top: `${anchorElement.getBoundingClientRect().top}px`, left: `${anchorElement.getBoundingClientRect().left}px` }} />
+        <div style={{
+            position: 'absolute',
+            top: `${anchorElement.getBoundingClientRect().top}px`,
+            left: `${popoverSide === 'right' ? anchorElement.getBoundingClientRect().right : anchorElement.getBoundingClientRect().left}px`
+        }} />
       </PopoverAnchor>
-      <PopoverContent className="w-80 p-0 shadow-xl" side="bottom" align="start">
+      <PopoverContent
+        className="w-80 p-0 shadow-xl"
+        side={popoverSide}
+        align="start"
+        sideOffset={10}
+        collisionPadding={10}
+      >
         <div className="flex justify-end p-2">
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(event)}><Edit className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(event)}><Trash2 className="h-4 w-4" /></Button>
@@ -2448,8 +2530,17 @@ export const ViewEventPopover: React.FC<ViewEventPopoverProps> = ({ event, event
                     <span>{event.location}</span>
                 </div>
             )}
-             {eventClass && (
-                <p className="text-sm text-muted-foreground mt-2">{eventClass.class_name}</p>
+            {eventClass && (
+                <div className="flex items-start gap-4 mt-2 text-sm text-muted-foreground">
+                    <Book className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <span>{eventClass.class_name}</span>
+                </div>
+            )}
+            {event.notes && (
+                <div className="flex items-start gap-4 mt-2 text-sm text-muted-foreground">
+                    <FileText className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <p className="whitespace-pre-wrap">{event.notes}</p>
+                </div>
             )}
         </div>
       </PopoverContent>
@@ -3372,6 +3463,7 @@ export function SidebarHeader({ onClose, activeClassName }: SidebarHeaderProps) 
 ================
 File: src/components/layout/sidebar/SidebarNavigation.tsx
 ================
+// src/components/layout/sidebar/SidebarNavigation.tsx
 import { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
@@ -3394,6 +3486,8 @@ export function SidebarNavigation({ navItems }: SidebarNavigationProps) {
           <NavLink
             to={item.to}
             end={item.exact}
+            // This state prop signals navigation to the Oracle page.
+            state={item.to === '/oracle' ? { fromNavigation: true } : undefined}
             className={({ isActive }) => 
               `flex items-center px-4 py-2 rounded-md transition-colors ${
                 isActive 
@@ -4133,8 +4227,8 @@ File: src/components/oracle/DocumentViewer.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Document, Page } from 'react-pdf';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Loader2, ZoomIn, ZoomOut } from 'lucide-react';
 import { FileType } from '@/features/files/types';
 import { pdfjs } from 'react-pdf';
 
@@ -4151,20 +4245,17 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
   const [scale, setScale] = useState(1.0);
   const [minScale, setMinScale] = useState(1.0);
   const [isDocLoaded, setIsDocLoaded] = useState(false);
-  // MODIFICATION: Add state to track when we are programmatically scrolling.
   const [isScrolling, setIsScrolling] = useState(false);
   
   const pdfPreviewRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // MODIFICATION: The goToPage function now controls the `isScrolling` state.
   const goToPage = useCallback((pageNumber: number) => {
     const pageRef = pageRefs.current.get(pageNumber);
     if (pageRef) {
-        setIsScrolling(true); // Disable observer
+        setIsScrolling(true);
         pageRef.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setCurrentPage(pageNumber);
-        // Re-enable the observer after the scroll animation completes.
         setTimeout(() => setIsScrolling(false), 1000); 
     }
   }, []);
@@ -4201,9 +4292,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
   useEffect(() => {
     const observer = new IntersectionObserver(
         (entries) => {
-            // MODIFICATION: Ignore observer updates while we are auto-scrolling.
             if (isScrolling) return;
-
             const visibleEntries = entries.filter(entry => entry.isIntersecting);
             if (visibleEntries.length > 0) {
                 const pageNumbers = visibleEntries.map(entry => parseInt(entry.target.getAttribute('data-page-number') || '0', 10));
@@ -4215,7 +4304,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
     const currentRefs = pageRefs.current;
     currentRefs.forEach(pageEl => { if (pageEl) observer.observe(pageEl); });
     return () => { currentRefs.forEach(pageEl => { if (pageEl) observer.unobserve(pageEl); }); };
-  }, [numPages, scale, isScrolling]); // MODIFICATION: Added isScrolling to dependency array
+  }, [numPages, scale, isScrolling]);
 
   return (
     <div className="w-full h-full flex flex-col relative">
@@ -4223,7 +4312,12 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
         <ScrollArea className="h-full w-full">
           <div className="flex flex-col items-center py-4">
             {file && file.url && (
-              <Document file={file.url} onLoadSuccess={onDocumentLoadSuccess} loading={<Loader2 className="h-8 w-8 animate-spin text-stone-400 mx-auto mt-10"/>}>
+              <Document 
+                key={`${file.file_id}-${initialPage}`}
+                file={file.url} 
+                onLoadSuccess={onDocumentLoadSuccess} 
+                loading={<Loader2 className="h-8 w-8 animate-spin text-stone-400 mx-auto mt-10"/>}
+              >
                 {isDocLoaded && Array.from(new Array(numPages || 0), (el, index) => (
                   <div key={`page_wrapper_${index + 1}`} ref={(el) => { if(el) pageRefs.current.set(index + 1, el); }} data-page-number={index + 1}>
                     <Page pageNumber={index + 1} scale={scale} renderTextLayer={false} className="mb-4 shadow-md"/>
@@ -4232,24 +4326,26 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
               </Document>
             )}
           </div>
+          {/* Added horizontal scrollbar */}
+          <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </div>
+
+      {/* Shrunk the controls */}
       {numPages && (
-        <>
-          <div className="absolute bottom-14 right-6 flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => setScale(s => Math.max(s / 1.2, minScale))}><ZoomOut className="h-4 w-4" /></Button>
-            <Button variant="outline" size="icon" onClick={() => setScale(s => Math.min(s * 1.2, 3.0))}><ZoomIn className="h-4 w-4" /></Button>
-          </div>
-          <div className="flex items-center justify-center p-2 flex-shrink-0">
-            <Button variant="ghost" size="icon" onClick={() => goToPage(Math.max(currentPage - 1, 1))} disabled={currentPage <= 1}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium mx-4">Page {currentPage} of {numPages}</span>
-            <Button variant="ghost" size="icon" onClick={() => goToPage(Math.min(currentPage + 1, numPages))} disabled={currentPage >= numPages}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+            <div className="flex items-center gap-1 rounded-full border bg-white/70 p-1 shadow-md backdrop-blur-sm">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setScale(s => Math.max(s / 1.2, minScale))}>
+                    <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="text-xs font-medium text-stone-700 tabular-nums px-2">
+                    {currentPage} / {numPages}
+                </span>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setScale(s => Math.min(s * 1.2, 3.0))}>
+                    <ZoomIn className="h-4 w-4" />
+                </Button>
+            </div>
+        </div>
       )}
     </div>
   );
@@ -4261,16 +4357,9 @@ File: src/components/oracle/HistorySidebar.tsx
 // src/components/oracle/HistorySidebar.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Edit, Trash2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
-// MODIFIED: Importing AppConversation from its new canonical source
 import { AppConversation } from '@/services/conversationService';
 import { Input } from '../ui/input';
 
@@ -4306,33 +4395,42 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ conversation, isSelected, onS
     return (
     <div
       onClick={() => !isRenaming && onSelect(conversation.id)}
-      className={cn('flex items-center justify-between p-2 my-0.5 rounded-md cursor-pointer group relative transition-colors duration-150', isSelected ? 'bg-stone-200' : 'hover:bg-stone-100')}
+      className={cn(
+        'group flex items-center justify-between px-2 py-1.5 my-0.5 rounded-md cursor-pointer transition-all duration-150 border', 
+        isSelected 
+            ? 'bg-stone-100 border-stone-400' 
+            : 'border-transparent hover:bg-stone-100'
+      )}
       title={name}
     >
-      <div className="flex items-center overflow-hidden flex-grow">
+      <div className="flex items-center overflow-hidden flex-grow mr-2">
         {isRenaming ? (
             <form onSubmit={handleRenameSubmit} className="w-full">
-                <Input ref={inputRef} value={name} onChange={(e) => setName(e.target.value)} onBlur={handleRenameSubmit} className="h-7 text-sm" onClick={(e) => e.stopPropagation()} />
+                <Input 
+                    ref={inputRef} 
+                    value={name} 
+                    onChange={(e) => setName(e.target.value)} 
+                    onBlur={handleRenameSubmit} 
+                    className="h-7 text-sm" 
+                    onClick={(e) => e.stopPropagation()} 
+                />
             </form>
         ) : (
-             <p className={cn('text-sm truncate pl-1', isSelected ? 'text-stone-800 font-semibold' : 'text-stone-700')}>{name}</p>
+             <p className={cn('text-sm truncate', isSelected ? 'text-stone-800 font-medium' : 'text-stone-700')}>
+                {name}
+            </p>
         )}
       </div>
 
       {!isRenaming && (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}><MoreHorizontal size={18} /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setIsRenaming(true); }}>
-                <Edit className="mr-2 h-4 w-4" /><span>Rename</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(conversation); }}>
-                <Trash2 className="mr-2 h-4 w-4" /><span>Delete</span>
-            </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setIsRenaming(true); }}>
+                <Edit className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/80 hover:text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(conversation); }}>
+                <Trash2 className="h-4 w-4" />
+            </Button>
+        </div>
       )}
     </div>
   );
@@ -4357,7 +4455,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversations, s
     }
     
     return (
-        <div className="flex flex-col h-full bg-marble-100">
+        <div className="flex flex-col h-full bg-white">
             <ScrollArea className="flex-grow">
                 <div className="space-y-0.5 p-2">
                     {conversations.map((convo) => (
@@ -4444,7 +4542,7 @@ File: src/components/oracle/SourcesPanel.tsx
 ================
 // src/components/oracle/SourcesPanel.tsx
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -4457,7 +4555,6 @@ import { PagePreview } from './PagePreview';
 
 interface SourcesPanelProps {
   sourcesToDisplay: ActiveSource[];
-  // MODIFICATION: Prop name changed to selectedSourceNumber
   selectedSourceNumber: number | null;
   handleSourceSelect: (sourceNumber: number) => void;
   handleClearSourceSelection: () => void;
@@ -4467,11 +4564,19 @@ interface SourcesPanelProps {
 export const SourcesPanel: React.FC<SourcesPanelProps> = ({
   sourcesToDisplay, selectedSourceNumber, handleSourceSelect, handleClearSourceSelection, selectedFile
 }) => {
-  const sourceTextRefs = React.useRef(new Map());
+  const sourceTextRefs = React.useRef(new Map<number, HTMLDivElement | null>());
   const sourceThumbnailRefs = React.useRef(new Map());
 
-  // MODIFICATION: Find the currently selected source object using its number
   const selectedSource = sourcesToDisplay.find(s => s.number === selectedSourceNumber);
+
+  useEffect(() => {
+    if (selectedSourceNumber !== null) {
+      const sourceElement = sourceTextRefs.current.get(selectedSourceNumber);
+      if (sourceElement) {
+        sourceElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }, [selectedSourceNumber]);
 
   return (
     <div className="w-[40%] flex flex-col h-full rounded-lg border border-marble-400 bg-white overflow-hidden">
@@ -4480,18 +4585,22 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
       </header>
       <div className="flex-1 flex flex-col min-h-0">
         {/* Source Snippets View */}
-        <div className={cn("transition-all duration-300 ease-in-out", selectedSourceNumber === null ? 'flex-1 min-h-0' : 'flex-shrink-0')}>
+        <div className={cn("transition-all duration-300 ease-in-out", selectedSourceNumber === null ? 'flex-1 min-h-0' : 'h-40 flex-shrink-0')}>
           <div className="h-full p-4">
             <ScrollArea className="h-full pr-2">
               <div className="space-y-4">
                 {sourcesToDisplay.length > 0 ? (
-                  // MODIFICATION: Corrected filter logic
-                  sourcesToDisplay.filter(source => selectedSourceNumber === null || selectedSourceNumber === source.number).map((source) => (
+                  sourcesToDisplay.map((source) => (
                     <div
                       key={source.file.file_id + source.number}
-                      ref={(el) => sourceTextRefs.current.set(source.file.file_id, el)}
+                      ref={(el) => sourceTextRefs.current.set(source.number, el)}
                       onClick={() => handleSourceSelect(source.number)}
-                      className={cn("p-3 bg-stone-50 rounded-lg border cursor-pointer transition-all relative group", selectedSourceNumber === source.number ? "border-stone-700" : "border-stone-200 hover:border-stone-300")}
+                      className={cn(
+                        "p-3 bg-stone-50 rounded-lg border cursor-pointer transition-all relative group",
+                        selectedSourceNumber === source.number
+                          ? "border-stone-700"
+                          : "border-stone-200 hover:border-stone-300"
+                      )}
                     >
                       {selectedSourceNumber === source.number && (
                         <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-stone-400 hover:text-stone-700" onClick={(e) => { e.stopPropagation(); handleClearSourceSelection(); }}>
@@ -4499,7 +4608,8 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
                         </Button>
                       )}
                       <p className="text-xs font-semibold text-stone-700 mb-1 pr-6">Source {source.number}: {source.file.name} (Page {source.pageNumber || 'N/A'})</p>
-                      <blockquote className="text-sm text-stone-600 border-l-2 pl-3 whitespace-pre-wrap max-h-24 overflow-y-auto">{source.content}</blockquote>
+                      {/* CORRECTED: Changed max-h-24 to max-h-20 to fit ~4 lines */}
+                      <blockquote className="text-sm text-stone-600 border-l-2 pl-3 whitespace-pre-wrap max-h-20 overflow-y-auto">{source.content}</blockquote>
                     </div>
                   ))
                 ) : (
@@ -4541,7 +4651,6 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
                 <ScrollBar orientation="horizontal" />
               </ScrollArea>
             ) : (
-              // MODIFICATION: Pass the correct page number from the uniquely selected source
               selectedFile && <DocumentViewer file={selectedFile} initialPage={selectedSource?.pageNumber} />
             )}
           </div>
@@ -6012,6 +6121,76 @@ export {
   CommandShortcut,
   CommandSeparator,
 }
+
+================
+File: src/components/ui/ConfirmationDialog.tsx
+================
+// src/components/ui/ConfirmationDialog.tsx
+import React from 'react';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from 'lucide-react';
+
+interface ConfirmationDialogProps {
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+  onConfirm: () => void;
+  title: string;
+  description: string;
+  confirmText?: string;
+  cancelText?: string;
+  isConfirming: boolean;
+}
+
+export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
+  isOpen,
+  onOpenChange,
+  onConfirm,
+  title,
+  description,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  isConfirming,
+}) => {
+  return (
+    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="bg-white border border-stone-400 rounded-lg">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {description}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => onOpenChange(false)} 
+            disabled={isConfirming}
+          >
+            {cancelText}
+          </Button>
+          <Button
+            size="sm"
+            onClick={onConfirm}
+            disabled={isConfirming}
+            className="bg-stone-700 text-stone-50 hover:bg-stone-800"
+          >
+            {isConfirming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {confirmText}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
 
 ================
 File: src/components/ui/context-menu.tsx
@@ -11802,7 +11981,10 @@ export const useCalendarData = () => {
                 classOpenAIConfigService.getAllClasses(),
                 calendarEventService.getEvents()
             ]);
-            const classesWithColors = fetchedClasses.map((cls, index) => ({ ...cls, color: COLOR_SWATCHES[index % COLOR_SWATCHES.length] }));
+            const classesWithColors = fetchedClasses.map((cls, index) => ({
+                ...cls,
+                color: cls.color || COLOR_SWATCHES[index % COLOR_SWATCHES.length]
+            }));
             setClasses(classesWithColors);
             setEvents(fetchedEvents);
         } catch (error) {
@@ -11814,6 +11996,19 @@ export const useCalendarData = () => {
     }, [toast]);
 
     useEffect(() => { fetchAllData(); }, [fetchAllData]);
+
+    const updateClassColor = async (classId: string, newColor: string) => {
+        try {
+            const updatedClass = await classOpenAIConfigService.updateClassColor(classId, newColor);
+            setClasses(prevClasses =>
+                prevClasses.map(c =>
+                    c.class_id === classId ? { ...c, color: updatedClass.color || c.color } : c
+                )
+            );
+        } catch (error) {
+            toast({ title: "Error", description: "Failed to update class color.", variant: "destructive" });
+        }
+    };
 
     const createEvent = async (eventData: NewCalendarEvent) => {
         try {
@@ -11850,7 +12045,7 @@ export const useCalendarData = () => {
         }
     };
 
-    return { classes, setClasses, isLoadingClasses, events, isLoadingEvents, createEvent, updateEvent, deleteEvent };
+    return { classes, setClasses, isLoadingClasses, events, isLoadingEvents, createEvent, updateEvent, deleteEvent, updateClassColor };
 };
 
 ================
@@ -11859,6 +12054,7 @@ File: src/hooks/useOracle.ts
 // src/hooks/useOracle.ts
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User, RealtimeChannel } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -11871,9 +12067,9 @@ import { FileType } from '@/features/files/types';
 import { OracleState, ProfileData } from '@/types/oracle';
 
 export const useOracle = (): OracleState => {
-  // 1. State and Ref Declarations
   const { loader } = usePageLoader();
   const { toast } = useToast();
+  const location = useLocation();
   const [input, setInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isPageLoading, setPageLoading] = useState(true);
@@ -11894,60 +12090,43 @@ export const useOracle = (): OracleState => {
   const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
   const [selectedSourceNumber, setSelectedSourceNumber] = useState<number | null>(null);
   const [liveFileCache, setLiveFileCache] = useState<Map<string, FileType>>(new Map());
+  const [temporaryChatId, setTemporaryChatId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileSubscription = useRef<RealtimeChannel | null>(null);
 
-  // 2. Memoized Derived State
-  const sourcesToDisplay = useMemo(() => {
-    return openSourceTabs.map(source => {
-      const liveFile = liveFileCache.get(source.file.file_id);
-      return liveFile ? { ...source, file: liveFile } : source;
-    });
-  }, [openSourceTabs, liveFileCache]);
+  const sourcesToDisplay = useMemo(() => openSourceTabs.map(source => liveFileCache.get(source.file.file_id) ? { ...source, file: liveFileCache.get(source.file.file_id)! } : source), [openSourceTabs, liveFileCache]);
+  const selectedFile = useMemo(() => sourcesToDisplay.find(s => s.number === selectedSourceNumber)?.file || null, [selectedSourceNumber, sourcesToDisplay]);
 
-  const selectedFile = useMemo(() => {
-    return sourcesToDisplay.find(s => s.number === selectedSourceNumber)?.file || null;
-  }, [selectedSourceNumber, sourcesToDisplay]);
+  const selectConversation = useCallback((id: string | null) => {
+    setSelectedConversationId(id);
+    if (id) {
+      sessionStorage.setItem('oracleActiveChatId', id);
+    } else {
+      sessionStorage.removeItem('oracleActiveChatId');
+    }
+  }, []);
 
-
-  // 3. Handlers and Callbacks
-  const handleMessageSelect = useCallback((message: ChatMessageApp) => {
-    setSelectedMessageId(message.id);
+  const handleMessageSelect = useCallback((message: ChatMessageApp | null) => {
+    setSelectedMessageId(message?.id || null);
     setSelectedSourceNumber(null);
-    if (message.role === 'assistant' && message.sources && message.sources.length > 0) {
+    if (message?.role === 'assistant' && message.sources?.length) {
         setOpenSourceTabs(message.sources);
     } else {
         setOpenSourceTabs([]);
     }
   }, []);
 
-  const fetchConversations = useCallback(async () => {
-      if (!user) return;
-      setIsLoadingConversations(true);
-      try {
-          const convos = await conversationService.fetchConversations(user.id, selectedClassId || undefined);
-          setConversations(convos);
-          if (convos.length > 0 && !convos.some(c => c.id === selectedConversationId)) {
-              setSelectedConversationId(convos[0].id);
-          }
-      } catch (error) { toast({ title: "Error", description: "Could not load chat history.", variant: "destructive" }); } 
-      finally { setIsLoadingConversations(false); }
-  }, [user, toast, selectedClassId, selectedConversationId]);
-
   const fetchMessages = useCallback(async () => {
       if (!selectedConversationId) {
-          setMessages([]); setSelectedMessageId(null); setOpenSourceTabs([]);
-          return;
+          setMessages([]); setSelectedMessageId(null); setOpenSourceTabs([]); return;
       }
       setIsLoadingMessages(true);
       try {
           const fetchedMessages = await chatMessageService.fetchMessagesByConversation(selectedConversationId);
           setMessages(fetchedMessages);
-          const lastMessage = fetchedMessages[fetchedMessages.length - 1];
-          if (lastMessage) { handleMessageSelect(lastMessage); } 
-          else { setSelectedMessageId(null); setOpenSourceTabs([]); }
+          handleMessageSelect(fetchedMessages[fetchedMessages.length - 1] || null);
       } catch (error) { toast({ title: "Error", description: "Could not load messages for this chat.", variant: "destructive" }); } 
       finally { setIsLoadingMessages(false); }
   }, [selectedConversationId, toast, handleMessageSelect]);
@@ -11956,24 +12135,43 @@ export const useOracle = (): OracleState => {
     setSelectedMessageId(messageId);
     setSelectedSourceNumber(sourceNumber);
   }, []);
+  
+  const handleClassChange = useCallback((newClassId: string | null) => {
+    setSelectedClassId(newClassId);
+    selectConversation(null);
+    if (newClassId) {
+        const selectedClass = classes.find(c => c.class_id === newClassId);
+        if (selectedClass) sessionStorage.setItem('activeClass', JSON.stringify(selectedClass));
+    } else {
+        sessionStorage.removeItem('activeClass');
+    }
+  }, [classes, selectConversation]);
 
   const handleRenameConversation = useCallback(async (id: string, newName: string) => {
     if (!user) return;
-    await conversationService.renameConversation(id, newName, user.id);
-    fetchConversations();
-  }, [user, fetchConversations]);
+    setConversations(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
+    try {
+        await conversationService.renameConversation(id, newName, user.id);
+    } catch (error) {
+        console.error("Failed to rename conversation in DB:", error);
+        toast({ title: "Error", description: "Could not save new chat title.", variant: "destructive" });
+    }
+  }, [user, toast]);
 
   const handleSendMessage = useCallback(async () => {
     if ((input.trim() === "" && attachedFiles.length === 0) || isChatLoading || !user) return;
     
-    let activeConversationId = selectedConversationId;
+    const activeConversationId = selectedConversationId;
     if (!activeConversationId) {
-      const newConvo = await conversationService.createConversation({ name: "New Chat", class_id: selectedClassId, chatbot_type: 'oracle' }, user.id);
-      setConversations(prev => [newConvo, ...prev]);
-      activeConversationId = newConvo.id;
-      setSelectedConversationId(newConvo.id);
-      setMessages([]);
+        toast({ title: "Error", description: "No active chat selected.", variant: "destructive" });
+        return;
     }
+
+    if (activeConversationId === temporaryChatId) {
+        setTemporaryChatId(null);
+    }
+
+    const isFirstMessage = messages.length === 0;
 
     const currentInput = input;
     const currentFiles = [...attachedFiles];
@@ -11994,14 +12192,11 @@ export const useOracle = (): OracleState => {
             class_id: selectedClassId, attached_files: currentFiles.map(f => ({ name: f.name, type: f.type }))
         });
 
-        if (!activeConversationId && savedUserMessage) {
-            activeConversationId = savedUserMessage.conversation_id;
+        if (isFirstMessage) {
             try {
                 const titleQuery = currentInput || `Chat about ${currentFiles.map(f => f.name).join(', ')}`;
                 const { data } = await supabase.functions.invoke('generate-title', { body: { query: titleQuery } });
-                if (data && data.title) {
-                    await handleRenameConversation(activeConversationId, data.title);
-                }
+                if (data?.title) await handleRenameConversation(activeConversationId, data.title);
             } catch (titleError) { console.error("Could not auto-generate title:", titleError); }
         }
 
@@ -12024,14 +12219,15 @@ export const useOracle = (): OracleState => {
     } finally {
         setIsChatLoading(false);
     }
-  }, [input, attachedFiles, isChatLoading, user, selectedConversationId, selectedClassId, messages, toast, handleMessageSelect, handleRenameConversation]);
+  }, [input, attachedFiles, isChatLoading, user, selectedConversationId, selectedClassId, messages.length, toast, handleMessageSelect, handleRenameConversation, temporaryChatId]);
   
   const handleNewChat = useCallback(async () => {
       if (!user) return;
       const newConvo = await conversationService.createConversation({ name: 'New Chat', class_id: selectedClassId, chatbot_type: 'oracle' }, user.id);
       setConversations(prev => [newConvo, ...prev]);
-      setSelectedConversationId(newConvo.id);
-  }, [user, selectedClassId]);
+      selectConversation(newConvo.id);
+      setTemporaryChatId(newConvo.id);
+  }, [user, selectedClassId, selectConversation]);
 
   const handleDeleteConversation = (convo: AppConversation) => setConversationToDelete(convo);
 
@@ -12041,12 +12237,12 @@ export const useOracle = (): OracleState => {
       await conversationService.deleteConversation(conversationToDelete.id, user.id);
       toast({ title: "Chat Deleted" });
       if (selectedConversationId === conversationToDelete.id) {
-          setSelectedConversationId(null);
+          selectConversation(null);
       }
       setConversationToDelete(null);
-      fetchConversations();
+      setConversations(prev => prev.filter(c => c.id !== conversationToDelete.id));
       setIsDeleting(false);
-  }, [conversationToDelete, user, selectedConversationId, fetchConversations, toast]);
+  }, [conversationToDelete, user, selectedConversationId, selectConversation, toast]);
 
   const processFiles = useCallback((files: FileList | null) => {
       if (!files) return;
@@ -12068,9 +12264,8 @@ export const useOracle = (): OracleState => {
   const handleSourceSelect = (sourceNumber: number) => setSelectedSourceNumber(prev => (prev === sourceNumber ? null : sourceNumber));
   const handleClearSourceSelection = () => setSelectedSourceNumber(null);
 
-  // 4. Effects
   useEffect(() => {
-    const fetchUserAndClasses = async () => {
+    const fetchInitialData = async () => {
         setPageLoading(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -12083,32 +12278,76 @@ export const useOracle = (): OracleState => {
                 setClasses(fetchedClasses);
                 const activeClassDataString = sessionStorage.getItem('activeClass');
                 if (activeClassDataString) {
-                    const parsedClass = JSON.parse(activeClassDataString);
+                  const parsedClass = JSON.parse(activeClassDataString);
                     if (fetchedClasses.some(c => c.class_id === parsedClass.class_id)) {
                         setSelectedClassId(parsedClass.class_id);
                     }
                 }
             }
-        } catch (error) {
-            toast({ title: "Error", description: "Could not load initial page data.", variant: "destructive" });
-        } finally {
-            setPageLoading(false);
-            if (loader) loader.complete();
-        }
+        } catch (error) { toast({ title: "Error", description: "Could not load initial page data.", variant: "destructive" }); }
+        finally { setPageLoading(false); if (loader) loader.complete(); }
     };
-    fetchUserAndClasses();
+    fetchInitialData();
   }, [toast, loader]);
   
-  useEffect(() => { fetchConversations(); }, [user, fetchConversations]);
-  useEffect(() => { fetchMessages(); }, [fetchMessages]);
+  useEffect(() => {
+    if (!user) return;
+    const fetchAndSelectConversations = async () => {
+        setIsLoadingConversations(true);
+        try {
+            const cameFromNav = location.state?.fromNavigation;
+            const lastOpenChatId = sessionStorage.getItem('oracleActiveChatId');
+            const fetchedConversations = await conversationService.fetchConversations(user.id, selectedClassId || undefined);
+            
+            if (cameFromNav) {
+                await handleNewChat();
+            } else if (lastOpenChatId && fetchedConversations.some(c => c.id === lastOpenChatId)) {
+                setConversations(fetchedConversations);
+                selectConversation(lastOpenChatId);
+            } else if (fetchedConversations.length > 0) {
+                setConversations(fetchedConversations);
+                selectConversation(fetchedConversations[0].id);
+            } else {
+                await handleNewChat();
+            }
+        } catch (error) { toast({ title: "Error", description: "Could not load chat history.", variant: "destructive" }); }
+        finally { 
+            setIsLoadingConversations(false); 
+            if (location.state?.fromNavigation) {
+                window.history.replaceState({}, document.title);
+            }
+        }
+    };
+    fetchAndSelectConversations();
+  }, [user, selectedClassId, location.state]);
+
+  useEffect(() => { fetchMessages(); }, [selectedConversationId]);
+
   useEffect(() => {
     if (!isChatLoading) { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }
   }, [messages, isChatLoading]);
 
+  useEffect(() => {
+    const tempId = temporaryChatId;
+    return () => {
+        if (tempId && user) {
+            const checkAndDelete = async () => {
+                try {
+                    const { count } = await supabase.from('chat_messages').select('*', { count: 'exact', head: true }).eq('conversation_id', tempId);
+                    if (count === 0) {
+                        await conversationService.deleteConversation(tempId, user.id);
+                    }
+                } catch (e) { console.error("Failed to clean up temporary chat:", e); }
+            };
+            checkAndDelete();
+        }
+    };
+  }, [temporaryChatId, user]);
+
   return {
     input, setInput, isChatLoading, isPageLoading, user, userProfile,
-    conversations, selectedConversationId, setSelectedConversationId,
-    messages, classes, selectedClassId, setSelectedClassId,
+    conversations, selectedConversationId, selectConversation,
+    messages, classes, selectedClassId, handleClassChange,
     isLoadingConversations, isLoadingMessages, selectedMessageId,
     attachedFiles, setAttachedFiles, openSourceTabs, isHistoryCollapsed, setIsHistoryCollapsed,
     selectedSourceNumber, sourcesToDisplay, selectedFile,
@@ -12307,6 +12546,7 @@ export type Database = {
           created_at: string | null
           updated_at: string | null
           user_id: string | null
+          color: string | null
         }
         Insert: {
           class_id?: string
@@ -12314,6 +12554,7 @@ export type Database = {
           created_at?: string | null
           updated_at?: string | null
           user_id?: string | null
+          color?: string | null
         }
         Update: {
           class_id?: string
@@ -12321,6 +12562,7 @@ export type Database = {
           created_at?: string | null
           updated_at?: string | null
           user_id?: string | null
+          color?: string | null
         }
         Relationships: [
           {
@@ -13238,7 +13480,6 @@ import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { startOfDay, subDays, subMonths, subWeeks, addMonths, addWeeks, format, addDays as addDaysHelper, addMinutes } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-
 import { useCalendarData } from '@/hooks/useCalendarData';
 import { CalendarHeader } from '@/components/calendar/CalendarHeader';
 import { CalendarSidebar } from '@/components/calendar/CalendarSidebar';
@@ -13254,7 +13495,7 @@ import { CalendarEvent, NewCalendarEvent } from '@/services/calendarEventService
 const CalendarPage = () => {
     const [view, setView] = useState('week');
     const [currentDate, setCurrentDate] = useState(startOfDay(new Date()));
-    const { classes, isLoadingClasses, events, createEvent, deleteEvent, updateEvent } = useCalendarData();
+    const { classes, isLoadingClasses, events, createEvent, deleteEvent, updateEvent, updateClassColor } = useCalendarData();
     const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
     
     const [creatorPopover, setCreatorPopover] = useState<{ anchor: HTMLElement | null; start: Date; end: Date } | null>(null);
@@ -13276,10 +13517,13 @@ const CalendarPage = () => {
     const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const filteredEvents = useMemo(() => {
-        if (isLoadingClasses) return [];
-        if (selectedClasses.length === 0 && classes.length > 0) return events;
-        return events.filter(e => e.class_id && selectedClasses.includes(e.class_id));
-    }, [events, selectedClasses, isLoadingClasses, classes]);
+        return events
+            .filter(e => e.class_id && selectedClasses.includes(e.class_id))
+            .map(event => {
+                const eventClass = classes.find(c => c.class_id === event.class_id);
+                return { ...event, color: eventClass?.color };
+            });
+    }, [events, selectedClasses, classes]);
 
     useEffect(() => {
         if (!isLoadingClasses && classes.length > 0) {
@@ -13334,10 +13578,9 @@ const CalendarPage = () => {
     }, [isCreatingEvent, draftEvent, hasDragged]);
 
     const handleEventClick = (event: CalendarEvent, anchorElement: HTMLElement) => {
-        if (viewerPopover?.event.id === event.id) {
-            closeAllPopovers();
-        } else {
-            closeAllPopovers();
+        const isAlreadyOpen = viewerPopover?.event.id === event.id;
+        closeAllPopovers();
+        if (!isAlreadyOpen) {
             setViewerPopover({ event, anchor: anchorElement });
         }
     };
@@ -13357,7 +13600,7 @@ const CalendarPage = () => {
         if (event.repeat_pattern && event.repeat_pattern !== 'none') {
             setEventToDelete(event);
         } else {
-            deleteEvent(event, 'this'); // For non-recurring events, just delete 'this' one
+            deleteEvent(event, 'this');
         }
         setViewerPopover(null);
     };
@@ -13425,6 +13668,19 @@ const CalendarPage = () => {
             setIsProcessingSyllabus(false);
         }
     };
+
+    const handleUpcomingEventSelect = (event: CalendarEvent) => {
+        setCurrentDate(new Date(event.event_start));
+        
+        setTimeout(() => {
+            const eventElement = document.querySelector(`[data-event-id="${event.id}"]`) as HTMLElement;
+            if (eventElement) {
+                handleEventClick(event, eventElement);
+            } else {
+                console.warn(`Could not find event element for id: ${event.id}`);
+            }
+        }, 100);
+    };
     
     return (
         <MainAppLayout pageTitle="Calendar | Eido AI">
@@ -13433,16 +13689,18 @@ const CalendarPage = () => {
             </Helmet>
              <div className="flex-1 w-full bg-mushroom-100 flex flex-col relative">
                 <main className="absolute inset-0 flex flex-row gap-3 px-3 pb-3">
-                     <CalendarSidebar
+                    <CalendarSidebar
                         currentDate={currentDate}
                         setCurrentDate={setCurrentDate}
                         classes={classes}
                         isLoadingClasses={isLoadingClasses}
                         selectedClasses={selectedClasses}
                         setSelectedClasses={setSelectedClasses}
-                        onColorChange={() => {}}
+                        onColorChange={updateClassColor}
                         upcomingEvents={events.filter(e => new Date(e.event_start) >= new Date()).sort((a,b) => new Date(a.event_start).getTime() - new Date(b.event_start).getTime()).slice(0, 5)}
                         onUploadSyllabusClick={() => setIsSyllabusUploadOpen(true)}
+                        view={view as 'day' | 'week' | 'month'}
+                        onUpcomingEventSelect={handleUpcomingEventSelect}
                     />
                     <div className="flex-1 flex flex-col rounded-lg border border-marble-400 bg-white overflow-hidden">
                         <CalendarHeader
@@ -13461,7 +13719,7 @@ const CalendarPage = () => {
                         </div>
                     </div>
                 </main>
-         
+        
                 {creatorPopover && (
                     <EventCreatorPopover
                         anchorElement={creatorPopover.anchor}
@@ -14526,25 +14784,25 @@ File: src/pages/OraclePage.tsx
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, PanelLeft, PanelRight, MessageSquarePlus } from 'lucide-react';
+import { Loader2, PanelLeft, PanelRight, Plus } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HistorySidebar } from '@/components/oracle/HistorySidebar';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { cn } from '@/lib/utils';
 import { useOracle } from '@/hooks/useOracle';
 import { ChatInput } from '@/components/oracle/ChatInput';
 import { SourcesPanel } from '@/components/oracle/SourcesPanel';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 const OraclePage = () => {
   const {
     input, setInput, isChatLoading, isPageLoading, userProfile,
-    conversations, selectedConversationId, setSelectedConversationId,
-    messages, classes, selectedClassId, setSelectedClassId,
+    conversations, selectedConversationId, selectConversation,
+    messages, classes, selectedClassId, handleClassChange,
     isLoadingConversations, isLoadingMessages, selectedMessageId,
     attachedFiles, setAttachedFiles, isHistoryCollapsed, setIsHistoryCollapsed,
     selectedSourceNumber, sourcesToDisplay, selectedFile,
@@ -14557,104 +14815,108 @@ const OraclePage = () => {
   } = useOracle();
 
   const getUserName = () => userProfile?.full_name || "You";
-
   return (
     <>
       <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/png, image/jpeg, application/pdf" />
       <MainAppLayout pageTitle="Oracle | Eido AI">
         <TooltipProvider delayDuration={100}>
           <div className="flex-1 w-full bg-mushroom-100 flex flex-col relative" onPaste={handlePaste}>
-            {/* MODIFICATION: The page now renders a consistent structure, with the loading state handled internally. */}
-            {isPageLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-stone-400" />
-              </div>
-            ) : (
-              <main className="absolute inset-0 flex flex-row gap-3 px-3 pb-3">
-                {/* Chat and History Panel */}
-                <div className="w-[60%] flex flex-row h-full">
-                  <div className={cn("h-full bg-stone-50 overflow-hidden transition-all duration-300 ease-in-out rounded-l-lg", isHistoryCollapsed ? "w-0" : "w-1/4 min-w-[220px] border-r border-stone-200")}>
-                    <div className="flex flex-col h-full">
-                      <header className="flex items-center justify-between gap-x-2 px-2 h-14 flex-shrink-0">
-                        <div />
-                        <Tooltip>
-                          <TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={handleNewChat}><MessageSquarePlus className="h-4 w-4" /></Button></TooltipTrigger>
-                          <TooltipContent><p>New Chat</p></TooltipContent>
-                        </Tooltip>
-                      </header>
-                      <div className="flex-1 min-h-0">
-                        <HistorySidebar conversations={conversations} selectedConversationId={selectedConversationId} onSelectConversation={setSelectedConversationId} onRenameConversation={handleRenameConversation} onDeleteConversation={handleDeleteConversation} isLoading={isLoadingConversations} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className={cn("flex-1 flex flex-col h-full bg-white overflow-hidden border border-marble-400", isHistoryCollapsed ? "rounded-lg" : "rounded-r-lg")}>
-                    <header className="flex items-center justify-between gap-x-2 border-b border-marble-400 px-4 h-14 flex-shrink-0">
-                      <div className="flex items-center gap-4">
-                        <Tooltip>
-                          <TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}>{isHistoryCollapsed ? <PanelRight className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}</Button></TooltipTrigger>
-                          <TooltipContent><p>Toggle History</p></TooltipContent>
-                        </Tooltip>
-                        <Select onValueChange={(value) => { setSelectedClassId(value === 'all' ? null : value); setSelectedConversationId(null); }} value={selectedClassId || "all"}>
-                          <SelectTrigger className="w-full sm:w-[220px] h-8 text-xs"><SelectValue placeholder="Select a Class..." /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Documents</SelectItem>
-                            {classes.map(cls => (<SelectItem key={cls.class_id} value={cls.class_id}>{cls.class_name}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+            {/* CORRECTED: Removed the top-level loader to render the layout immediately */}
+            <main className="absolute inset-0 flex flex-row gap-3 px-3 pb-3">
+              
+              <div className="w-[60%] flex flex-row h-full rounded-lg border border-marble-400 overflow-hidden">
+                
+                <div className={cn(
+                  "h-full bg-white overflow-hidden transition-all duration-300 ease-in-out border-r border-marble-400",
+                  isHistoryCollapsed ? "w-0 border-r-0" : "w-1/4 min-w-[220px]"
+                )}>
+                  <div className="flex flex-col h-full">
+                    <header className="flex items-center justify-center p-2 h-14 flex-shrink-0 border-b border-marble-400">
+                      <Button size="sm" className="w-full" onClick={handleNewChat}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          New Chat
+                      </Button>
                     </header>
-                    <div className="flex-1 flex flex-col p-4 gap-4 min-h-0">
-                      <ScrollArea className="flex-1 min-h-0 -mr-4 pr-4">
-                        <div className="space-y-4">
-                          {isLoadingMessages ? (<div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-stone-400" /></div>)
-                            : messages.length > 0 ? messages.map((message) => (
-                              <ChatMessage 
-                                  key={message.id} 
-                                  isUser={message.role === 'user'} 
-                                  senderName={message.role === 'user' ? getUserName() : 'Eido AI'} 
-                                  avatarUrl={message.role === 'user' ? userProfile?.avatar_url : undefined} 
-                                  content={message.content} 
-                                  isSelected={selectedMessageId === message.id} 
-                                  onClick={() => handleMessageSelect(message)} 
-                                  onCitationClick={(sourceNumber) => handleCitationClick(message.id, sourceNumber)} 
-                                  attachedFiles={message.attached_files} />
-                            )) : (
-                              <div className="flex flex-col items-center justify-center h-full text-center text-stone-500 pt-20">
-                                <img src="/eido-icon.png" alt="Eido AI" className="w-16 h-16 mb-4 opacity-50"/>
-                                <h2 className="text-lg font-semibold text-stone-700">Eido AI Oracle</h2>
-                                <p className="text-sm">How can I help you with your coursework today?</p>
-                              </div>
-                            )}
-                          {isChatLoading && !isLoadingMessages && (<div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-stone-400" /></div>)}
-                          <div ref={messagesEndRef} />
-                        </div>
-                      </ScrollArea>
-                      <ChatInput input={input} setInput={setInput} handleSendMessage={handleSendMessage} isChatLoading={isChatLoading} attachedFiles={attachedFiles} handleRemoveFile={handleRemoveFile} fileInputRef={fileInputRef} />
+                    <div className="flex-1 min-h-0">
+                      <HistorySidebar conversations={conversations} selectedConversationId={selectedConversationId} onSelectConversation={selectConversation} onRenameConversation={handleRenameConversation} onDeleteConversation={handleDeleteConversation} isLoading={isLoadingConversations} />
                     </div>
                   </div>
                 </div>
-                {/* Sources Panel */}
-                <SourcesPanel 
-                  sourcesToDisplay={sourcesToDisplay} 
-                  selectedSourceNumber={selectedSourceNumber} 
-                  handleSourceSelect={handleSourceSelect} 
-                  handleClearSourceSelection={handleClearSourceSelection}
-                  selectedFile={selectedFile} 
-                />
-              </main>
-            )}
-            <AlertDialog open={!!conversationToDelete} onOpenChange={(open) => !open && setConversationToDelete(null)}>
-              <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Delete Chat?</AlertDialogTitle><AlertDialogDescription>Are you sure you want to delete "{conversationToDelete?.name}"? This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeleting}>
-                    {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+
+                <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
+                  <header className="flex items-center justify-between gap-x-2 border-b border-marble-400 px-4 h-14 flex-shrink-0">
+                    <div className="flex items-center gap-4">
+                      <Tooltip>
+                        <TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}>{isHistoryCollapsed ? <PanelRight className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}</Button></TooltipTrigger>
+                        <TooltipContent><p>Toggle History</p></TooltipContent>
+                      </Tooltip>
+                      
+                      <Select
+                        onValueChange={(value) => handleClassChange(value === 'all' ? null : value)}
+                        value={selectedClassId || "all"}
+                      >
+                        <SelectTrigger className="w-full sm:w-[220px] h-8 text-xs bg-transparent border-0 hover:bg-stone-100 focus:ring-0">
+                          <SelectValue placeholder="Select a Class..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Classes</SelectItem>
+                          {classes.map(cls => (<SelectItem key={cls.class_id} value={cls.class_id}>{cls.class_name}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+
+                    </div>
+                  </header>
+                  <div className="flex-1 flex flex-col p-4 gap-4 min-h-0">
+                    <ScrollArea className="flex-1 min-h-0 -mr-4 pr-4">
+                      <div className="space-y-4">
+                        {/* CORRECTED: The loader now only shows for the message area */}
+                        {isLoadingMessages ? (<div className="flex items-center justify-center p-4 h-full"><Loader2 className="h-6 w-6 animate-spin text-stone-400" /></div>)
+                          : messages.length > 0 ? messages.map((message) => (
+                            <ChatMessage
+                                key={message.id}
+                                isUser={message.role === 'user'}
+                                senderName={message.role === 'user' ? getUserName() : 'Eido AI'}
+                                avatarUrl={message.role === 'user' ? userProfile?.avatar_url : undefined}
+                                content={message.content}
+                                isSelected={selectedMessageId === message.id}
+                                onClick={() => handleMessageSelect(message)}
+                                onCitationClick={(sourceNumber) => handleCitationClick(message.id, sourceNumber)}
+                                attachedFiles={message.attached_files} />
+                          )) : (
+                            <div className="flex flex-col items-center justify-center h-full text-center text-stone-500 pt-20">
+                              <img src="/eido-icon.png" alt="Eido AI" className="w-16 h-16 mb-4 opacity-50"/>
+                              <h2 className="text-lg font-semibold text-stone-700">Eido AI Oracle</h2>
+                              <p className="text-sm">How can I help you with your coursework today?</p>
+                            </div>
+                          )}
+                        {isChatLoading && !isLoadingMessages && (<div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-stone-400" /></div>)}
+                        <div ref={messagesEndRef} />
+                      </div>
+                    </ScrollArea>
+                    <ChatInput input={input} setInput={setInput} handleSendMessage={handleSendMessage} isChatLoading={isChatLoading} attachedFiles={attachedFiles} handleRemoveFile={handleRemoveFile} fileInputRef={fileInputRef} />
+                  </div>
+                </div>
+              </div>
+
+              <SourcesPanel
+                sourcesToDisplay={sourcesToDisplay}
+                selectedSourceNumber={selectedSourceNumber}
+                handleSourceSelect={handleSourceSelect}
+                handleClearSourceSelection={handleClearSourceSelection}
+                selectedFile={selectedFile}
+              />
+            </main>
+            
+            <ConfirmationDialog
+              isOpen={!!conversationToDelete}
+              onOpenChange={(open) => !open && setConversationToDelete(null)}
+              onConfirm={confirmDelete}
+              title="Delete Chat?"
+              description={`Are you sure you want to delete "${conversationToDelete?.name}"? This action cannot be undone.`}
+              confirmText="Delete"
+              isConfirming={isDeleting}
+            />
+
           </div>
         </TooltipProvider>
       </MainAppLayout>
@@ -15353,63 +15615,38 @@ File: src/services/classOpenAIConfig.ts
 import { supabase } from "@/integrations/supabase/client";
 import type { CustomDatabase } from "@/integrations/supabase/client";
 
-// Interface for OpenAI specific configurations for a class
-// IMPORTANT: vectorStoreId and assistantId are NO LONGER stored on the 'classes' table.
-// If class-specific OpenAI configs are still desired, a new DB table or
-// a different management strategy (e.g., purely in Edge Functions) is needed.
+// This is defined in CalendarSidebar, but we can keep a copy here for default assignment
+const COLOR_SWATCHES = [
+    'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-lime-500', 'bg-green-500', 'bg-teal-500',
+    'bg-cyan-500', 'bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500',
+];
+
 export interface OpenAIConfig {
-  // These fields are removed from the 'classes' table.
-  // Keeping this interface for now as it might be used by other parts of the app
-  // for payload structure, but getConfigForClass will return undefined for them.
   vectorStoreId?: string | null;
   assistantId?: string | null;
 }
 
 export interface ClassConfig {
   class_id: string;
-  class_name: string; // Renamed from 'title'
+  class_name: string;
   user_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
-  // Deleted fields: professor, classTime, classroom, emoji, enabledWidgets, openAIConfig
-  // If openAIConfig is still needed as part of ClassConfig, it will have to be
-  // derived or fetched from a different source. For now, it's removed.
+  color?: string | null;
 }
 
 type ClassesDBInsertPayload = CustomDatabase['public']['Tables']['classes']['Insert'];
 type ClassesDBRow = CustomDatabase['public']['Tables']['classes']['Row'];
 type ClassesDBUpdatePayload = Partial<ClassesDBRow>;
 
-/**
- * Service to manage class configurations.
- * Note: Direct storage of OpenAI resource IDs (vectorStoreId, assistantId)
- * and detailed class metadata (professor, etc.) directly on the 'classes' table
- * is no longer supported by this client-side service as per the new schema.
- * Re-implement if needed via new tables or backend logic.
- */
 export const classOpenAIConfigService = {
-  /**
-   * Get the OpenAI configuration (assistantId, vectorStoreId) for a specific class.
-   * This function will now always return undefined as these columns are removed from 'classes' table.
-   * Re-evaluate if these need to be stored elsewhere.
-   *
-   * @param class_id The ID of the class.
-   * @returns Always undefined as these fields are no longer directly on the class record.
-   */
   getConfigForClass: async (class_id: string): Promise<OpenAIConfig | undefined> => {
     console.warn("getConfigForClass: OpenAI config IDs are no longer stored on the 'classes' table. This function will return undefined.");
-    return undefined; // Or throw an error if this is a critical dependency.
+    return undefined;
   },
 
-  /**
-   * Saves a new class or updates an existing one.
-   *
-   * @param className The name of the class (renamed from classTitle).
-   * @param class_id_to_update Optional ID of the class to update.
-   * @returns The created or updated Class database row object.
-   */
   saveConfigForClass: async (
-    className: string, // Renamed from classTitle
+    className: string,
     class_id_to_update?: string | null
   ): Promise<ClassesDBRow> => {
     if (!className || typeof className !== 'string' || className.trim() === "") {
@@ -15423,12 +15660,9 @@ export const classOpenAIConfigService = {
 
     let savedClassRecord: ClassesDBRow;
     if (class_id_to_update) {
-      // Explicit UPDATE path
-      console.log(`Attempting to update existing class with class_id: ${class_id_to_update}`);
       const updatePayload: ClassesDBUpdatePayload = {
-        class_name: className, // Renamed from class_title
+        class_name: className,
         updated_at: new Date().toISOString(),
-        // Removed: professor, class_time, classroom, emoji, enabled_widgets, vector_store_id, assistant_id
       };
       const { data: updateData, error: updateError } = await supabase
         .from('classes')
@@ -15439,39 +15673,38 @@ export const classOpenAIConfigService = {
         .single();
       if (updateError) {
         console.error('Error updating class in Supabase:', updateError);
-        if (updateError.code === 'PGRST116') { // Not found
+        if (updateError.code === 'PGRST116') {
             throw new Error(`Class with ID ${class_id_to_update} not found for update, or you do not have permission.`);
         }
         throw updateError;
       }
       if (!updateData) throw new Error("Failed to update class, no data returned from Supabase.");
       savedClassRecord = updateData;
-      console.log(`Successfully updated class '${className}' (ID: ${class_id_to_update}) in Supabase.`);
     } else {
-      // INSERT path (for new classes)
-      const { data: existingClassByName, error: fetchError } = await supabase // Renamed var to match new column
+      const { data: existingClassByName, error: fetchError } = await supabase
         .from('classes')
-        .select('class_id, class_name') // Select class_name
-        .eq('class_name', className) // Query by class_name
+        .select('class_id, class_name')
+        .eq('class_name', className)
         .eq('user_id', user.id)
         .maybeSingle();
       if (fetchError) {
-        console.error('Error checking if class exists by name:', fetchError); // Renamed log
+        console.error('Error checking if class exists by name:', fetchError);
         throw fetchError;
       }
 
       if (existingClassByName) {
-        console.warn(`A class with the name '${className}' already exists for this user.`); // Renamed log
-        throw new Error(`A class named '${className}' already exists. Please use a different name.`); // Renamed log
+        throw new Error(`A class named '${className}' already exists. Please use a different name.`);
       }
 
-      console.log('Inserting new class record for name:', className); // Renamed log
+      const { data: userClasses } = await supabase.from('classes').select('class_id').eq('user_id', user.id);
+      const nextColorIndex = (userClasses?.length || 0) % COLOR_SWATCHES.length;
+
       const insertPayload: ClassesDBInsertPayload = {
-        class_name: className, // Renamed from class_title
+        class_name: className,
         user_id: user.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        // Removed: professor, class_time, classroom, emoji, enabled_widgets, vector_store_id, assistant_id
+        color: COLOR_SWATCHES[nextColorIndex],
       };
       const { data: insertData, error: insertError } = await supabase
         .from('classes')
@@ -15484,71 +15717,8 @@ export const classOpenAIConfigService = {
       }
       if (!insertData) throw new Error("Failed to insert new class, no data returned from Supabase.");
       savedClassRecord = insertData;
-      console.log(`Successfully inserted new class '${className}' with class_id: ${savedClassRecord.class_id}.`); // Renamed log
-      // The provision-class-resources function invocation should be handled carefully
-      // If assistant_id/vector_store_id are no longer on 'classes' table, this part
-      // needs to be re-evaluated how those are stored/managed.
-      // For now, removing the client-side attempt to update savedClassRecord with these.
-      try {
-        console.log(`Invoking 'provision-class-resources' for new class_id: ${savedClassRecord.class_id}`);
-        // If 'provision-class-resources' still returns IDs and you want to store them,
-        // you'd need a new table (e.g., 'openai_class_configs') to link them.
-        const { data: provisionData, error: provisionError } = await supabase.functions.invoke(
-          'provision-class-resources',
-          { body: { class_id: savedClassRecord.class_id, class_name: savedClassRecord.class_name } } // Renamed class_title to class_name
-        );
-        if (provisionError) {
-          console.error('Error invoking provision-class-resources Edge Function:', provisionError);
-        } else {
-          console.log('Successfully invoked provision-class-resources. Response:', provisionData);
-          // Removed: savedClassRecord.assistant_id = provisionData.assistantId || null;
-          // Removed: savedClassRecord.vector_store_id = provisionData.vectorStoreId || null;
-        }
-      } catch (invokeError) {
-        console.error('Exception calling provision-class-resources Edge Function:', invokeError);
-      }
     }
     return savedClassRecord;
-  },
-
-  getActiveClassConfig: async (): Promise<OpenAIConfig | undefined> => {
-    console.warn("getActiveClassConfig: OpenAI config IDs are no longer stored on the 'classes' table. This function will return undefined.");
-    return undefined; // Always return undefined now
-    /*
-    // Original logic that fetched config, now obsolete for direct DB access from 'classes'
-    try {
-      const activeClassJSON = sessionStorage.getItem('activeClass');
-      if (!activeClassJSON) {
-        return undefined;
-      }
-      const parsedActiveClass = JSON.parse(activeClassJSON) as Partial<ClassConfig & { class_id: string; class_name: string; openAIConfig?: OpenAIConfig }>; // Updated 'title' to 'class_name'
-      
-      // Removed: If (parsedActiveClass.openAIConfig ...)
-      // Removed: if (parsedActiveClass.class_id) { return await classOpenAIConfigService.getConfigForClass(parsedActiveClass.class_id); }
-      
-      if (parsedActiveClass.class_name) { // Fallback for older session data or for initial load
-         const { data: { user } } = await supabase.auth.getUser();
-         if(user) {
-            const { data: classFromDb, error } = await supabase
-                .from('classes')
-                .select('class_id') // Only select class_id or class_name, as other fields are removed
-                .eq('class_name', parsedActiveClass.class_name) // Query by class_name
-                .eq('user_id', user.id)
-                .maybeSingle();
-            if (error) { console.error("Error fetching class by name for active config:", error); throw error; } // Updated log
-            if(classFromDb) {
-                // If you re-introduce class-specific OpenAI configs in a new table, fetch them here
-                // For now, returning undefined as they are not on 'classes' table.
-                return undefined;
-            }
-         }
-      }
-      return undefined;
-    } catch (error) {
-      console.error('Error retrieving active class OpenAI configuration:', error);
-      return undefined;
-    }
-    */
   },
 
   getAllClasses: async (): Promise<ClassConfig[]> => {
@@ -15559,119 +15729,53 @@ export const classOpenAIConfigService = {
     try {
       const { data, error } = await supabase
         .from('classes')
-        .select('*') // Selects all remaining columns: class_id, class_name, user_id, created_at, updated_at
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) {
         console.error('Error fetching classes from Supabase:', error);
         throw error;
       }
-      if (data) {
-        return data.map((item: ClassesDBRow) => ({
-          class_id: item.class_id,
-          class_name: item.class_name, // Renamed from item.title
-          user_id: item.user_id,
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-          // Removed: professor, classTime, classroom, emoji, enabledWidgets, openAIConfig
-        }));
-      }
-      return [];
+      return data || [];
     } catch (error) {
       console.error('Error retrieving all classes:', error);
       throw error;
     }
   },
 
-  deleteClass: async (class_id: string): Promise<void> => {
-    if (!class_id) {
-      throw new Error('Valid class_id is required for deletion');
-    }
+  updateClassColor: async (class_id: string, color: string): Promise<ClassesDBRow> => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error('Authentication required to delete a class.');
-    }
+    if (!user) throw new Error("Authentication required.");
 
-    console.log(`[deleteClass] Starting deletion process for class_id: ${class_id}`);
-    try {
-      // Step 1: Delete all dependent data in Supabase tables.
-      // The order matters if there are dependencies between these tables.
-      // We delete items that depend on others first.
-
-      console.log(`[deleteClass] Deleting associated chat messages for class ${class_id}...`);
-      const { error: msgError } = await supabase.from('chat_messages').delete().eq('class_id', class_id);
-      if (msgError) console.error("Error deleting chat messages:", msgError);
-
-      console.log(`[deleteClass] Deleting associated conversations for class ${class_id}...`);
-      const { error: convoError } = await supabase.from('conversations').delete().eq('class_id', class_id);
-      if (convoError) console.error("Error deleting conversations:", convoError);
-
-      console.log(`[deleteClass] Deleting associated files for class ${class_id}...`);
-      const { error: filesError } = await supabase.from('files').delete().eq('class_id', class_id);
-      if (filesError) console.error("Error deleting files:", filesError);
-
-      console.log(`[deleteClass] Deleting associated folders for class ${class_id}...`);
-      const { error: foldersError } = await supabase.from('folders').delete().eq('class_id', class_id); // Changed from file_folders
-      if (foldersError) console.error("Error deleting folders:", foldersError); // Changed log
-
-      console.log(`[deleteClass] Deleting associated quiz questions for class ${class_id}...`);
-      const { error: quizQError } = await supabase.from('quiz_questions').delete().eq('class_id', class_id);
-      if (quizQError) console.error("Error deleting quiz questions:", quizQError);
-
-      console.log(`[deleteClass] Deleting associated quizzes for class ${class_id}...`);
-      const { error: quizError } = await supabase.from('quizzes').delete().eq('class_id', class_id);
-      if (quizError) console.error("Error deleting quizzes:", quizError);
-
-      console.log(`[deleteClass] Deleting associated flashcards for class ${class_id}...`);
-      const { error: flashcardsError } = await supabase.from('flashcards').delete().eq('class_id', class_id);
-      if(flashcardsError) console.error("Error deleting flashcards:", flashcardsError);
-
-      console.log(`[deleteClass] Deleting associated flashcard decks for class ${class_id}...`);
-      const { error: decksError } = await supabase.from('flashcard-decks').delete().eq('class_id', class_id);
-      if(decksError) console.error("Error deleting flashcard decks:", decksError);
-      
-      // Step 2: Call the new Edge Function to delete data from Weaviate
-      // This function's implementation might need to change if vector_store_id is no longer stored on classes table
-      console.log(`[deleteClass] Invoking function to delete Weaviate data by class for class ${class_id}...`);
-      const { error: weaviateDeleteError } = await supabase.functions.invoke(
-        'delete-weaviate-data-by-class',
-        { body: { class_id_to_delete: class_id } }
-      );
-      if (weaviateDeleteError) {
-          console.error("Error cleaning up Weaviate data:", weaviateDeleteError);
-          // We can choose to continue or throw an error. For now, we'll log it and proceed.
-      }
-
-      // Step 3: Now it's safe to delete the class record itself.
-      console.log(`[deleteClass] Deleting class record for class_id: ${class_id}`);
-      const { error: deleteClassError } = await supabase
+    const { data, error } = await supabase
         .from('classes')
-        .delete()
-        .eq('class_id', class_id);
-      if (deleteClassError) {
-        console.error("Error deleting the final class record:", deleteClassError);
-        throw deleteClassError; // This is a critical failure
-      }
-
-      console.log(`[deleteClass] Successfully completed deletion for class_id: ${class_id}`);
-    } catch (error) {
-      console.error(`[deleteClass] A critical error occurred during the deletion process for class ${class_id}:`, error);
-      throw error;
+        .update({ color: color, updated_at: new Date().toISOString() })
+        .eq('class_id', class_id)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+    if (error) {
+        console.error("Error updating class color:", error);
+        throw error;
     }
+    return data;
   },
 
-  clearAllData: async (): Promise<void> => {
+  deleteClass: async (class_id: string): Promise<void> => {
+    if (!class_id) throw new Error('Valid class_id is required for deletion');
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      sessionStorage.removeItem('activeClass');
-      return;
-    }
-    try {
-      console.warn(`Attempting to delete ALL classes for user: ${user.id} from DB.`);
-      await supabase.from('classes').delete().eq('user_id', user.id);
-      sessionStorage.removeItem('activeClass');
-      console.log(`Cleared all database class data and session storage for user: ${user.id}.`);
-    } catch (error) { console.error('Error clearing all class data:', error); throw error; }
+    if (!user) throw new Error('Authentication required to delete a class.');
+    
+    await supabase.from('chat_messages').delete().eq('class_id', class_id);
+    await supabase.from('conversations').delete().eq('class_id', class_id);
+    await supabase.from('files').delete().eq('class_id', class_id);
+    await supabase.from('folders').delete().eq('class_id', class_id);
+    await supabase.from('quiz_questions').delete().eq('class_id', class_id);
+    await supabase.from('quizzes').delete().eq('class_id', class_id);
+    await supabase.from('flashcards').delete().eq('class_id', class_id);
+    await supabase.from('flashcard-decks').delete().eq('class_id', class_id);
+    await supabase.functions.invoke('delete-weaviate-data-by-class', { body: { class_id_to_delete: class_id } });
+    await supabase.from('classes').delete().eq('class_id', class_id);
   },
 };
 
@@ -16049,7 +16153,6 @@ export interface OracleState {
   attachedFiles: AttachedFile[];
   openSourceTabs: ActiveSource[];
   isHistoryCollapsed: boolean;
-  // MODIFICATION: Changed from selectedSourceId: string to selectedSourceNumber: number
   selectedSourceNumber: number | null;
   
   // Derived State
@@ -16062,8 +16165,9 @@ export interface OracleState {
   
   // Handlers
   setInput: React.Dispatch<React.SetStateAction<string>>;
-  setSelectedConversationId: React.Dispatch<React.SetStateAction<string | null>>;
-  setSelectedClassId: React.Dispatch<React.SetStateAction<string | null>>;
+  // Replaced direct setter with a new function to handle session storage
+  selectConversation: (id: string | null) => void;
+  handleClassChange: (id: string | null) => void;
   setAttachedFiles: React.Dispatch<React.SetStateAction<AttachedFile[]>>;
   setIsHistoryCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   handleSendMessage: () => Promise<void>;
@@ -16072,7 +16176,6 @@ export interface OracleState {
   handleDeleteConversation: (conversation: AppConversation) => void;
   handleMessageSelect: (message: ChatMessageApp) => void;
   handleCitationClick: (messageId: string, sourceNumber: number) => void;
-  // MODIFICATION: Changed signature to accept a number
   handleSourceSelect: (sourceNumber: number) => void;
   handleClearSourceSelection: () => void;
   handleFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -17629,46 +17732,36 @@ Example: {"questions": [{"question_text": "What is...", "options": ["A", "B", "C
 ================
 File: supabase/functions/generate-title/index.ts
 ================
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { OpenAI } from "https://deno.land/x/openai/mod.ts";
+// supabase/functions/generate-title/index.ts
 
-// Define the CORS headers that our function will use
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*', // Allow any origin
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'npm:@supabase/supabase-js@2'
+import { OpenAI } from "https://deno.land/x/openai/mod.ts";
+import { corsHeaders } from '../_shared/cors.ts'
 
 serve(async (req) => {
-  // This is for the browser's preflight "permission slip" request
   if (req.method === 'OPTIONS') {
-    console.log("--- [INFO] Handled OPTIONS preflight request ---");
-    return new Response('ok', { headers: CORS_HEADERS });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    console.log("--- [1] generate-title function invoked (POST) ---");
+    // Authenticate the user
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    )
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) throw new Error("User not authenticated");
 
-    console.log("--- [2] Checking for API Key ---");
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      console.error("--- [ERROR] Missing OPENAI_API_KEY secret. ---");
-      throw new Error("Missing OPENAI_API_KEY secret.");
-    }
-    console.log("--- [3] API Key found. Parsing request body. ---");
-
+    // Correctly parse the JSON body
     const { query } = await req.json();
     if (!query) {
-      console.error("--- [ERROR] Missing query in request body. ---");
-      return new Response(JSON.stringify({ error: 'Missing query in request body' }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
+      throw new Error("Missing 'query' in request body.");
     }
-    console.log("--- [4] Request body parsed. Initializing OpenAI client. ---");
 
-    const openai = new OpenAI(OPENAI_API_KEY);
+    const openai = new OpenAI(Deno.env.get("OPENAI_API_KEY")!);
 
-    console.log("--- [5] Calling OpenAI API... ---");
     const chatCompletion = await openai.chat.completions.create({
       messages: [
         { 
@@ -17684,22 +17777,17 @@ serve(async (req) => {
       max_tokens: 20,
       temperature: 0.3,
     });
-    console.log("--- [6] OpenAI API call successful. ---");
 
-    const title = chatCompletion.choices[0].message.content?.trim() || "New Chat";
+    const title = chatCompletion.choices[0].message.content?.trim().replace(/"/g, '') || "New Chat";
 
-    // Return the successful response with CORS headers
     return new Response(JSON.stringify({ title }), {
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error("--- [7] CAUGHT ERROR BLOCK ---");
-    console.error(error.message);
-    // Return the error response with CORS headers
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 })
@@ -17867,11 +17955,12 @@ async function processSingleQuery(
   const embeddingData = await embeddingResponse.json();
   const queryVector = embeddingData.data[0].embedding;
 
+  // CORRECTED: Switched from 'withHybrid' to 'withNearVector' for pure semantic search
   const weaviateResponse = await weaviateClient.graphql
     .get()
     .withClassName('DocumentChunk')
-    .withHybrid({ query: query, vector: queryVector, alpha: 0.5 })
-    .withLimit(5)
+    .withNearVector({ vector: queryVector })
+    .withLimit(10)
     .withWhere({
         operator: 'And',
         operands: [
@@ -17904,24 +17993,28 @@ async function processSingleQuery(
         content: chunk.text_chunk,
         file_id: chunk.source_file_id,
       });
-      return `Source [${index + 1}]: From page ${chunk.page_number} of "${chunk.source_file_name}": "${chunk.text_chunk}"`;
+      return `Source [${index + 1}]: From page ${chunk.page_number} of "${chunk.source_file_name}":\n"${chunk.text_chunk}"`;
     }
     return "";
-  }).filter(Boolean).join('\n\n');
+  }).filter(Boolean).join('\n\n---\n\n');
 
-  const systemPrompt = `You are an academic assistant. Answer the user's question based *only* on the provided sources. Cite sources using the format [Source X]. If the sources are not sufficient, say so.`;
+  const systemPrompt = `You are an academic assistant. Your primary goal is to answer the user's question using ONLY the information from the provided sources.
+- Synthesize a detailed answer based on the text in the sources.
+- You MUST cite every piece of information you use with the corresponding source number, like [Source X].
+- If the sources only partially answer the question, provide the information you can find and then you can mention what information is missing.
+- Be resourceful. Connect concepts from the sources to the user's question where possible. Only if the sources contain absolutely no relevant information should you state that you cannot answer.
+- Do not make up information. Your entire answer must be derived from the provided sources.`;
   
   const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY!}` },
       body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-4o-mini",
           messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: `User Question: "${query}"\n\nSources:\n${contextForLLM}` }
           ],
-          max_tokens: 400,
-          temperature: 0.1,
+          temperature: 0.2,
       }),
   });
   if (!openAIResponse.ok) throw new Error(`OpenAI API error: ${await openAIResponse.text()}`);
@@ -17952,14 +18045,16 @@ serve(async (req: Request) => {
     const { message, class_id } = await req.json();
     if (!message) throw new Error("Missing 'message' in request body.");
 
-    // MODIFICATION: Replaced the complex regex with a simpler, more robust method
-    // that correctly handles bullet points and dashes.
     const instructionalPhrases = ["answer the following questions:", "answer these questions:"];
     const questions = message
         .trim()
-        .split('\n') // 1. Split into lines
-        .map((q: string) => q.trim().replace(/^[•\\*\\-]\s*/, '')) // 2. Trim and remove leading bullets/dashes
-        .filter((q: string) => q.length > 5 && !instructionalPhrases.includes(q.toLowerCase())); // 3. Filter out empty or instructional lines
+        .split('\n')
+        .map((q: string) => q.trim().replace(/^[•\\*\\-]\s*/, ''))
+        .filter((q: string) => q.length > 5 && !instructionalPhrases.includes(q.toLowerCase()));
+
+    if (questions.length === 0) {
+        questions.push(message.trim());
+    }
 
     console.log(`[MAIN] Detected ${questions.length} distinct question(s). Processing in parallel...`);
     
@@ -17991,7 +18086,7 @@ serve(async (req: Request) => {
                     finalSources.push({ ...originalSource, number: finalNumber });
                     nextSourceNumber++;
                 }
-                renumberedAnswer = renumberedAnswer.replace(match[0], `[Source ${finalNumber}]`);
+                renumberedAnswer = renumberedAnswer.replace(new RegExp(`\\[Source ${localNumber}\\]`, 'g'), `[Source ${finalNumber}]`);
             }
         }
         finalResponseText += `**${result.question}**\n${renumberedAnswer}\n\n`;
