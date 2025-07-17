@@ -16,6 +16,31 @@ interface QueueRecord {
   size: number;
 }
 
+// NEW: A more robust text extraction function for pdf.js
+async function getTextFromPdfPage(page: any): Promise<string> {
+  const textContent = await page.getTextContent();
+  let lastY = -1;
+  let text = '';
+  // Sort items by their vertical, then horizontal position
+  const items = textContent.items.sort((a: any, b: any) => {
+    if (a.transform[5] < b.transform[5]) return 1;
+    if (a.transform[5] > b.transform[5]) return -1;
+    if (a.transform[4] < b.transform[4]) return -1;
+    if (a.transform[4] > b.transform[4]) return 1;
+    return 0;
+  });
+
+  for (const item of items) {
+    if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) {
+      text += '\n';
+    }
+    text += item.str;
+    lastY = item.transform[5];
+  }
+  return text;
+}
+
+
 function chunkText(text: string, chunkSize = 1000, overlap = 100): string[] {
   const chunks: string[] = [];
   let i = 0;
@@ -40,7 +65,6 @@ async function getEmbedding(text: string): Promise<number[]> {
       model: 'text-embedding-ada-002',
     }),
   });
-
   if (!res.ok) {
     const error = await res.text();
     throw new Error(`OpenAI embedding failed: ${error}`);
@@ -90,11 +114,9 @@ serve(async (req: Request) => {
         })
         .select('file_id')
         .single();
-
       if (insertError) throw insertError;
       fileId = newFileRecord.file_id;
       console.log(`  [DB-INSERT] ✅ Record created with file_id: ${fileId}`);
-
       const { data: fileData, error: downloadError } = await adminSupabaseClient.storage
         .from('file_storage')
         .download(storage_path);
@@ -102,10 +124,8 @@ serve(async (req: Request) => {
 
       const fileBuffer = await fileData.arrayBuffer();
       const { data: { publicUrl } } = adminSupabaseClient.storage.from('file_storage').getPublicUrl(storage_path);
-
       const allTextChunks: { page_number: number; text_chunk: string }[] = [];
       let pageCount = 0;
-
       console.log(`  [PARSE] Parsing content for MIME type: ${mime_type}`);
       if (mime_type === 'application/pdf') {
         const pdfDoc = await pdfjs.getDocument(fileBuffer).promise;
@@ -113,12 +133,18 @@ serve(async (req: Request) => {
 
         for (let i = 1; i <= pageCount; i++) {
           const page = await pdfDoc.getPage(i);
-          const textContentPage = await page.getTextContent();
-          // MODIFIED: Join with a newline to better respect document structure
-          const pageText = textContentPage.items.map(item => (item as { str: string }).str).join('\n');
-          // NEW: Normalize all whitespace (multiple spaces, newlines, tabs) into single spaces
-          const cleanedText = pageText.replace(/\s+/g, ' ').trim();
-          // Use the cleaned text for chunking
+          // MODIFIED: Use the new, more robust text extraction method
+          const pageText = await getTextFromPdfPage(page);
+          
+          // MODIFICATION: Clean the extracted text to remove slide footers and normalize whitespace
+          const cleanedText = pageText
+            .replace(/© 2025 Grant Derderian/g, '')
+            .replace(/This content is protected and may not be shared, uploaded, or distributed\./g, '')
+            .replace(/SLIDE {}/g, '')
+            .replace(/---/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
           chunkText(cleanedText).forEach(chunk => allTextChunks.push({ page_number: i, text_chunk: chunk }));
         }
 
@@ -129,17 +155,21 @@ serve(async (req: Request) => {
         chunkText(textContent).forEach(chunk => allTextChunks.push({ page_number: 1, text_chunk: chunk }));
         console.log(`  [PARSE] ✅ Extracted text from plain text file.`);
       } else {
-        console.log(`  [PARSE] ⚠️ No text extraction logic for this file type: ${mime_type}.`);
-        pageCount = 1;
+        console.log(`  [PARSE] ⚠️ No text extraction logic for this file type: ${mime_type}. File will be tracked, but its content won't be searchable via text.`);
+        pageCount = 1; 
       }
 
       if (allTextChunks.length > 0) {
+        // NEW: Comprehensive logging of all generated chunks before indexing.
+        console.log(`\n--- BEGIN CHUNK VERIFICATION (File: ${original_name}) ---\nTotal Chunks: ${allTextChunks.length}\n`);
+        console.log(JSON.stringify(allTextChunks, null, 2));
+        console.log(`\n--- END CHUNK VERIFICATION ---\n`);
+
         console.log(`  [WEAVIATE-INGEST] Indexing ${allTextChunks.length} total text chunks...`);
         let batcher = weaviateClient.batch.objectsBatcher();
 
         for (let i = 0; i < allTextChunks.length; i++) {
           const chunkData = allTextChunks[i];
-
           try {
             const vector = await getEmbedding(chunkData.text_chunk);
             batcher = batcher.withObject({
@@ -171,16 +201,13 @@ serve(async (req: Request) => {
         .from('files')
         .update({ status: 'processed_text', url: publicUrl, page_count: pageCount })
         .eq('file_id', fileId);
-
       await adminSupabaseClient.from('processing_queue').update({ status: 'completed' }).eq('id', queueId);
       console.log(`  [DB-UPDATE] ✅ Record finalized for file_id: ${fileId}. Text processing is complete.`);
-
-      // --- Trigger visual previews ---
+      
       console.log(`  [JOB-CHAIN] Requesting preview generation for file_id: ${fileId}`);
       const { error: previewRequestError } = await adminSupabaseClient.functions.invoke('request-previews', {
         body: { file_id: fileId },
       });
-
       if (previewRequestError) {
         console.error(`  [JOB-CHAIN] ⚠️ Failed to queue preview generation:`, previewRequestError);
       } else {
@@ -191,7 +218,6 @@ serve(async (req: Request) => {
         JSON.stringify({ success: true, message: `Successfully processed text for job #${queueId}` }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-
     } catch (error) {
       console.error(`[JOB-ERROR] Failed to process job #${queueId}:`, error);
       if (fileId) await adminSupabaseClient.from('files').update({ status: 'error' }).eq('file_id', fileId);
@@ -199,7 +225,6 @@ serve(async (req: Request) => {
         .from('processing_queue')
         .update({ status: 'failed', error_message: error.message })
         .eq('id', queueId);
-
       throw error;
     }
 
