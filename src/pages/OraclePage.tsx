@@ -17,6 +17,42 @@ import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 
+// --- FIX: New loading indicator component ---
+const LoadingIndicator = () => (
+  <>
+    <style>{`
+      @keyframes dot-flashing {
+        0% { opacity: 0.2; }
+        20% { opacity: 1; }
+        100% { opacity: 0.2; }
+      }
+      .dot-flashing span {
+        animation-name: dot-flashing;
+        animation-duration: 1.4s;
+        animation-iteration-count: infinite;
+        animation-fill-mode: both;
+        display: inline-block;
+        width: 4px;
+        height: 4px;
+        margin-left: 2px;
+        background-color: currentColor;
+        border-radius: 50%;
+      }
+      .dot-flashing span:nth-child(2) { animation-delay: 0.2s; }
+      .dot-flashing span:nth-child(3) { animation-delay: 0.4s; }
+    `}</style>
+    <div className="flex items-center justify-center p-4 text-sm text-stone-500">
+      <span>Searching your files</span>
+      <div className="dot-flashing ml-1">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+  </>
+);
+
+
 const OraclePage = () => {
   const {
     input, setInput, isChatLoading, isPageLoading, userProfile,
@@ -40,7 +76,6 @@ const OraclePage = () => {
       <MainAppLayout pageTitle="Oracle | Eido AI">
         <TooltipProvider delayDuration={100}>
           <div className="flex-1 w-full bg-mushroom-100 flex flex-col relative" onPaste={handlePaste}>
-            {/* CORRECTED: Removed the top-level loader to render the layout immediately */}
             <main className="absolute inset-0 flex flex-row gap-3 px-3 pb-3">
               
               <div className="w-[60%] flex flex-row h-full rounded-lg border border-marble-400 overflow-hidden">
@@ -88,7 +123,6 @@ const OraclePage = () => {
                   <div className="flex-1 flex flex-col p-4 gap-4 min-h-0">
                     <ScrollArea className="flex-1 min-h-0 -mr-4 pr-4">
                       <div className="space-y-4">
-                        {/* CORRECTED: The loader now only shows for the message area */}
                         {isLoadingMessages ? (<div className="flex items-center justify-center p-4 h-full"><Loader2 className="h-6 w-6 animate-spin text-stone-400" /></div>)
                           : messages.length > 0 ? messages.map((message) => (
                             <ChatMessage
@@ -108,7 +142,8 @@ const OraclePage = () => {
                               <p className="text-sm">How can I help you with your coursework today?</p>
                             </div>
                           )}
-                        {isChatLoading && !isLoadingMessages && (<div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-stone-400" /></div>)}
+                        {/* --- FIX: Replaced Loader2 icon with the new LoadingIndicator component --- */}
+                        {isChatLoading && !isLoadingMessages && <LoadingIndicator />}
                         <div ref={messagesEndRef} />
                       </div>
                     </ScrollArea>
