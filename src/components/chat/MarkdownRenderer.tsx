@@ -16,7 +16,9 @@ export function MarkdownRenderer({ content, onCitationClick }: MarkdownRendererP
     rendered = rendered.replace(/(?:^\s*\d+\.\s+(.+)$\n?)+/gm, match => `<ol class="list-decimal pl-5 my-2 space-y-0.5">${match.split('\n').filter(Boolean).map(line => `<li>${line.replace(/^\s*\d+\.\s+/, '')}</li>`).join('')}</ol>`);
     rendered = rendered.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 rounded text-sm">$1</code>');
     
-    rendered = rendered.replace(/\[SOURCE (\d+)]/g, (match, numberStr) => {
+    // MODIFICATION: Added the 'i' flag to make the regex case-insensitive.
+    rendered = rendered.replace(/\[Source (\d+)]/gi, (match, numberStr) => {
+      // The text inside the link is now hardcoded to ensure consistent casing.
       return `<sub><span class="source-citation" data-source-number="${numberStr}">[Source ${numberStr}]</span></sub>`;
     });
     rendered = rendered.replace(/\n/g, '<br />');
@@ -35,7 +37,6 @@ export function MarkdownRenderer({ content, onCitationClick }: MarkdownRendererP
           const sourceNumber = target.getAttribute('data-source-number');
           if (sourceNumber) {
             event.preventDefault();
-            // MODIFICATION: Stop the event from bubbling up to the parent message.
             event.stopPropagation(); 
             onCitationClick(parseInt(sourceNumber, 10));
           }
@@ -53,7 +54,7 @@ export function MarkdownRenderer({ content, onCitationClick }: MarkdownRendererP
   const citationStyles = `
     .source-citation {
       font-family: sans-serif;
-      color: rgb(51, 102, 132);
+      color: hsl(210, 80%, 55%);
       font-weight: 600;
       cursor: pointer;
       padding: 0 3px;

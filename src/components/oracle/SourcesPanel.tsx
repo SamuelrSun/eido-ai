@@ -15,7 +15,6 @@ interface SourcesPanelProps {
   sourcesToDisplay: ActiveSource[];
   selectedSourceId: string | null;
   handleSourceSelect: (id: string) => void;
-  // MODIFICATION: Add the new handler prop.
   handleClearSourceSelection: () => void;
   selectedFile: FileType | null;
 }
@@ -38,21 +37,16 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
             <ScrollArea className="h-full pr-2">
               <div className="space-y-4">
                 {sourcesToDisplay.length > 0 ? (
-                  sourcesToDisplay.filter(source => selectedSourceId === null || selectedSourceId === source.file.file_id).map((source) => (
+                  // MODIFICATION: This filter now ensures no snippets are rendered when a source is selected.
+                  sourcesToDisplay.filter(source => selectedSourceId === null).map((source) => (
                     <div
                       key={source.file.file_id + source.number}
                       ref={(el) => sourceTextRefs.current.set(source.file.file_id, el)}
                       onClick={() => handleSourceSelect(source.file.file_id)}
-                      className={cn("p-3 bg-stone-50 rounded-lg border cursor-pointer transition-all relative group", selectedSourceId === source.file.file_id ? "border-stone-700" : "border-stone-200 hover:border-stone-300")}
+                      className={cn("p-3 bg-stone-50 rounded-lg border cursor-pointer transition-all relative group", "border-stone-200 hover:border-stone-300")}
                     >
-                      {selectedSourceId === source.file.file_id && (
-                        // MODIFICATION: Use the new, explicit handler.
-                        <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-stone-400 hover:text-stone-700" onClick={(e) => { e.stopPropagation(); handleClearSourceSelection(); }}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
                       <p className="text-xs font-semibold text-stone-700 mb-1 pr-6">Source {source.number}: {source.file.name} (Page {source.pageNumber || 'N/A'})</p>
-                      <blockquote className="text-sm text-stone-600 border-l-2 pl-3 whitespace-pre-wrap">{source.content}</blockquote>
+                      <blockquote className="text-sm text-stone-600 border-l-2 pl-3 whitespace-pre-wrap max-h-24 overflow-y-auto">{source.content}</blockquote>
                     </div>
                   ))
                 ) : (
