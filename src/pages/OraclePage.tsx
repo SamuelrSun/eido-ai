@@ -55,7 +55,7 @@ const LoadingIndicator = () => (
 
 const OraclePage = () => {
   const {
-    input, setInput, isChatLoading, isPageLoading, userProfile,
+    input, setInput, isChatLoading, isPageLoading, user, userProfile,
     conversations, selectedConversationId, selectConversation,
     messages, classes, selectedClassId, handleClassChange,
     isLoadingConversations, isLoadingMessages, selectedMessageId,
@@ -70,6 +70,8 @@ const OraclePage = () => {
   } = useOracle();
 
   const getUserName = () => userProfile?.full_name || "You";
+  const selectedClassConfig = classes.find(c => c.class_id === selectedClassId) || null;
+
   return (
     <>
       <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/png, image/jpeg, application/pdf" />
@@ -142,7 +144,6 @@ const OraclePage = () => {
                               <p className="text-sm">How can I help you with your coursework today?</p>
                             </div>
                           )}
-                        {/* --- FIX: Replaced Loader2 icon with the new LoadingIndicator component --- */}
                         {isChatLoading && !isLoadingMessages && <LoadingIndicator />}
                         <div ref={messagesEndRef} />
                       </div>
@@ -158,6 +159,8 @@ const OraclePage = () => {
                 handleSourceSelect={handleSourceSelect}
                 handleClearSourceSelection={handleClearSourceSelection}
                 selectedFile={selectedFile}
+                selectedClass={selectedClassConfig}
+                user={user}
               />
             </main>
             

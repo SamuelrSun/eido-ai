@@ -68,7 +68,7 @@ export const DayView: React.FC<DayViewProps> = ({
                 {Array.from({ length: 24 }).map((_, hour) => (
                     <div key={hour} className="h-12 border-b border-marble-400"></div>
                 ))}
-                
+            
                 {draftEvent && draftEvent.event_start && isSameDay(new Date(draftEvent.event_start), currentDate) && (() => {
                     const startDate = new Date(draftEvent.event_start);
                     const endDate = draftEvent.event_end ? new Date(draftEvent.event_end) : new Date(startDate.getTime() + 60 * 60 * 1000);
@@ -79,7 +79,7 @@ export const DayView: React.FC<DayViewProps> = ({
                     const height = (duration / (24 * 60)) * 100;
                     const draftClass = classes.find(c => c.class_id === draftEvent.class_id);
                     return (
-                        <div style={{ top: `${top}%`, height: `${height}%` }} className={cn("absolute w-full p-2 rounded-lg text-white text-xs z-20 pointer-events-none draft-event-bubble", draftClass?.color || 'bg-stone-500')}>
+                        <div style={{ top: `${top}%`, height: `${height}%` }} className={cn("absolute w-[calc(100%-8px)] left-1 p-2 rounded-lg text-white text-xs z-20 pointer-events-none draft-event-bubble", draftClass?.color || 'bg-stone-500')}>
                             <p className="font-bold">{draftEvent.title || '(No title)'}</p>
                             <p>{format(startDate, 'p')} - {format(endDate, 'p')}</p>
                         </div>
@@ -98,8 +98,15 @@ export const DayView: React.FC<DayViewProps> = ({
                         <div
                             key={event.id}
                             data-event-id={event.id}
-                            style={{ top: `${top}%`, height: `${height}%` }} 
-                            className={cn("absolute w-[calc(100%-8px)] p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
+                            // --- MODIFICATION START: Using direct inline styles for max priority ---
+                            style={{ 
+                                top: `${top}%`, 
+                                height: `${height}%`,
+                                width: 'calc(100% - 8px)',
+                                left: '4px',
+                            }} 
+                            // --- MODIFICATION END ---
+                            className={cn("absolute p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
                             onClick={(e) => onEventClick(event, e.currentTarget)}
                             onMouseDown={(e) => e.stopPropagation()}
                             onMouseUp={(e) => e.stopPropagation()}
@@ -115,7 +122,7 @@ export const DayView: React.FC<DayViewProps> = ({
                                     <p className="truncate text-white/80">{format(eventDate, 'p')} - {format(endDate, 'p')}</p>
                                     {event.location && <p className="truncate text-white/80">{event.location}</p>}
                                 </>
-                             )}
+                            )}
                         </div>
                     );
                 })}

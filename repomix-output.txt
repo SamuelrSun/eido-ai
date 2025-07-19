@@ -368,20 +368,20 @@ export function Auth() {
         }
         const generatedName = email.split('@')[0];
         
-        // MODIFIED: This block is updated for automatic sign-in
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            // The emailRedirectTo is no longer necessary if email confirmation is off
-            data: { full_name: generatedName }
+            data: { 
+              full_name: generatedName,
+              // --- FIX: Set a default avatar_url for email signups ---
+              avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${generatedName}`
+            }
           }
         });
 
         if (error) throw error;
 
-        // With email confirmation disabled, the 'data' object contains an active session.
-        // We can now navigate the user directly.
         if (data.session) {
             toast({
                 title: "Account Created!",
@@ -389,13 +389,12 @@ export function Auth() {
             });
             navigate('/');
         } else {
-            // This is a fallback case if email confirmation is somehow still enabled
             toast({
                 title: "Account created successfully",
                 description: "We've sent you a confirmation link to complete your signup.",
             });
         }
-      } else { // 'signin' mode
+      } else { 
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         navigate('/');
@@ -421,7 +420,14 @@ export function Auth() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/` },
+        options: { 
+          redirectTo: `${window.location.origin}/`,
+          // --- FIX: Request user's profile info from Google ---
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
       });
       if (error) throw error;
     } catch (error) {
@@ -1112,7 +1118,7 @@ export const DayView: React.FC<DayViewProps> = ({
                 {Array.from({ length: 24 }).map((_, hour) => (
                     <div key={hour} className="h-12 border-b border-marble-400"></div>
                 ))}
-                
+            
                 {draftEvent && draftEvent.event_start && isSameDay(new Date(draftEvent.event_start), currentDate) && (() => {
                     const startDate = new Date(draftEvent.event_start);
                     const endDate = draftEvent.event_end ? new Date(draftEvent.event_end) : new Date(startDate.getTime() + 60 * 60 * 1000);
@@ -1123,7 +1129,7 @@ export const DayView: React.FC<DayViewProps> = ({
                     const height = (duration / (24 * 60)) * 100;
                     const draftClass = classes.find(c => c.class_id === draftEvent.class_id);
                     return (
-                        <div style={{ top: `${top}%`, height: `${height}%` }} className={cn("absolute w-full p-2 rounded-lg text-white text-xs z-20 pointer-events-none draft-event-bubble", draftClass?.color || 'bg-stone-500')}>
+                        <div style={{ top: `${top}%`, height: `${height}%` }} className={cn("absolute w-[calc(100%-8px)] left-1 p-2 rounded-lg text-white text-xs z-20 pointer-events-none draft-event-bubble", draftClass?.color || 'bg-stone-500')}>
                             <p className="font-bold">{draftEvent.title || '(No title)'}</p>
                             <p>{format(startDate, 'p')} - {format(endDate, 'p')}</p>
                         </div>
@@ -1142,8 +1148,15 @@ export const DayView: React.FC<DayViewProps> = ({
                         <div
                             key={event.id}
                             data-event-id={event.id}
-                            style={{ top: `${top}%`, height: `${height}%` }} 
-                            className={cn("absolute w-[calc(100%-8px)] p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
+                            // --- MODIFICATION START: Using direct inline styles for max priority ---
+                            style={{ 
+                                top: `${top}%`, 
+                                height: `${height}%`,
+                                width: 'calc(100% - 8px)',
+                                left: '4px',
+                            }} 
+                            // --- MODIFICATION END ---
+                            className={cn("absolute p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
                             onClick={(e) => onEventClick(event, e.currentTarget)}
                             onMouseDown={(e) => e.stopPropagation()}
                             onMouseUp={(e) => e.stopPropagation()}
@@ -1159,7 +1172,7 @@ export const DayView: React.FC<DayViewProps> = ({
                                     <p className="truncate text-white/80">{format(eventDate, 'p')} - {format(endDate, 'p')}</p>
                                     {event.location && <p className="truncate text-white/80">{event.location}</p>}
                                 </>
-                             )}
+                            )}
                         </div>
                     );
                 })}
@@ -2635,9 +2648,11 @@ export const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(({
   return (
     <div 
         ref={ref}
-        onClick={onClick}
+        // --- FIX: Conditionally apply the onClick handler only if the message is NOT from the user.
+        onClick={!isUser ? onClick : undefined}
         className={cn(
             "group flex h-fit w-full flex-col gap-2 rounded-md p-2 text-left md:flex-row transition-all duration-200 ease-in-out",
+            // --- FIX: Conditionally apply cursor-pointer class only for AI messages.
             !isUser && "cursor-pointer",
             isSelected 
                 ? "bg-stone-100 border border-stone-400"
@@ -2749,11 +2764,16 @@ export function MarkdownRenderer({ content, onCitationClick }: MarkdownRendererP
     rendered = rendered.replace(/(?:^\s*\d+\.\s+(.+)$\n?)+/gm, match => `<ol class="list-decimal pl-5 my-2 space-y-0.5">${match.split('\n').filter(Boolean).map(line => `<li>${line.replace(/^\s*\d+\.\s+/, '')}</li>`).join('')}</ol>`);
     rendered = rendered.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 rounded text-sm">$1</code>');
     
-    // MODIFICATION: Added the 'i' flag to make the regex case-insensitive.
+    // --- FIX START ---
+    // The previous regex was replacing all instances with the same number.
+    // By using a replacer function (the second argument to .replace), we can process each match individually.
+    // 'match' is the full string (e.g., "[Source 1]"), and 'numberStr' is the captured digit (e.g., "1").
+    // This ensures each citation is rendered with its correct, unique number.
     rendered = rendered.replace(/\[Source (\d+)]/gi, (match, numberStr) => {
-      // The text inside the link is now hardcoded to ensure consistent casing.
-      return `<sub><span class="source-citation" data-source-number="${numberStr}">[Source ${numberStr}]</span></sub>`;
+      return `<sub><span class="source-citation" data-source-number="${numberStr}">${match}</span></sub>`;
     });
+    // --- FIX END ---
+    
     rendered = rendered.replace(/\n/g, '<br />');
     
     return rendered;
@@ -4382,6 +4402,19 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ conversation, isSelected, onS
             inputRef.current?.select();
         }
     }, [isRenaming]);
+
+    // --- FIX START ---
+    // This effect synchronizes the component's internal 'name' state with the 'conversation.name' prop.
+    // When the parent component generates a new title and updates the conversation list, this
+    // ensures the change is reflected here.
+    useEffect(() => {
+        // We only update the name from the prop if the user is NOT currently renaming it.
+        // This prevents overwriting the user's input while they are typing.
+        if (!isRenaming) {
+            setName(conversation.name);
+        }
+    }, [conversation.name, isRenaming]);
+    // --- FIX END ---
 
     const handleRenameSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -12054,11 +12087,10 @@ File: src/hooks/useOracle.ts
 // src/hooks/useOracle.ts
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { User, RealtimeChannel } from '@supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
-import { usePageLoader } from '@/context/LoaderContext';
 import { AppConversation, conversationService } from '@/services/conversationService';
 import { chatMessageService, ChatMessageApp, ActiveSource } from '@/services/chatMessageService';
 import { ClassConfig, classOpenAIConfigService } from '@/services/classOpenAIConfig';
@@ -12067,9 +12099,9 @@ import { FileType } from '@/features/files/types';
 import { OracleState, ProfileData } from '@/types/oracle';
 
 export const useOracle = (): OracleState => {
-  const { loader } = usePageLoader();
   const { toast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
   const [input, setInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isPageLoading, setPageLoading] = useState(true);
@@ -12094,7 +12126,6 @@ export const useOracle = (): OracleState => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const fileSubscription = useRef<RealtimeChannel | null>(null);
 
   const sourcesToDisplay = useMemo(() => openSourceTabs.map(source => liveFileCache.get(source.file.file_id) ? { ...source, file: liveFileCache.get(source.file.file_id)! } : source), [openSourceTabs, liveFileCache]);
   const selectedFile = useMemo(() => sourcesToDisplay.find(s => s.number === selectedSourceNumber)?.file || null, [selectedSourceNumber, sourcesToDisplay]);
@@ -12161,17 +12192,18 @@ export const useOracle = (): OracleState => {
   const handleSendMessage = useCallback(async () => {
     if ((input.trim() === "" && attachedFiles.length === 0) || isChatLoading || !user) return;
     
-    const activeConversationId = selectedConversationId;
+    let activeConversationId = selectedConversationId;
+    let isFirstMessageInNewChat = false;
+
     if (!activeConversationId) {
-        toast({ title: "Error", description: "No active chat selected.", variant: "destructive" });
-        return;
+        const newConvo = await conversationService.createConversation({ name: 'New Chat', class_id: selectedClassId, chatbot_type: 'oracle' }, user.id);
+        setConversations(prev => [newConvo, ...prev]);
+        selectConversation(newConvo.id);
+        activeConversationId = newConvo.id;
+        isFirstMessageInNewChat = true;
+    } else if (messages.length === 0) {
+        isFirstMessageInNewChat = true;
     }
-
-    if (activeConversationId === temporaryChatId) {
-        setTemporaryChatId(null);
-    }
-
-    const isFirstMessage = messages.length === 0;
 
     const currentInput = input;
     const currentFiles = [...attachedFiles];
@@ -12188,16 +12220,19 @@ export const useOracle = (): OracleState => {
 
     try {
         const savedUserMessage = await chatMessageService.saveMessage({
-            conversation_id: activeConversationId, role: 'user', content: currentInput, chat_mode: 'rag',
+            conversation_id: activeConversationId, role: 'user', content: currentInput,
+            chat_mode: 'rag',
             class_id: selectedClassId, attached_files: currentFiles.map(f => ({ name: f.name, type: f.type }))
         });
 
-        if (isFirstMessage) {
+        if (isFirstMessageInNewChat) {
             try {
                 const titleQuery = currentInput || `Chat about ${currentFiles.map(f => f.name).join(', ')}`;
                 const { data } = await supabase.functions.invoke('generate-title', { body: { query: titleQuery } });
                 if (data?.title) await handleRenameConversation(activeConversationId, data.title);
             } catch (titleError) { console.error("Could not auto-generate title:", titleError); }
+        } else {
+            await conversationService.updateConversationTimestamp(activeConversationId, user.id, new Date());
         }
 
         const { data: aiData, error: aiError } = await supabase.functions.invoke('oracle-chat', {
@@ -12206,7 +12241,8 @@ export const useOracle = (): OracleState => {
         if (aiError || aiData.error) throw new Error(aiError?.message || aiData.error);
         
         const savedAiMessage = await chatMessageService.saveMessage({
-            conversation_id: activeConversationId, role: 'assistant', content: aiData.response, chat_mode: 'rag',
+            conversation_id: activeConversationId, role: 'assistant', content: aiData.response,
+            chat_mode: 'rag',
             class_id: selectedClassId, sources: aiData.sources
         });
         
@@ -12219,7 +12255,7 @@ export const useOracle = (): OracleState => {
     } finally {
         setIsChatLoading(false);
     }
-  }, [input, attachedFiles, isChatLoading, user, selectedConversationId, selectedClassId, messages.length, toast, handleMessageSelect, handleRenameConversation, temporaryChatId]);
+  }, [input, attachedFiles, isChatLoading, user, selectedConversationId, selectedClassId, messages.length, toast, handleMessageSelect, handleRenameConversation, selectConversation]);
   
   const handleNewChat = useCallback(async () => {
       if (!user) return;
@@ -12285,13 +12321,14 @@ export const useOracle = (): OracleState => {
                 }
             }
         } catch (error) { toast({ title: "Error", description: "Could not load initial page data.", variant: "destructive" }); }
-        finally { setPageLoading(false); if (loader) loader.complete(); }
+        finally { setPageLoading(false); }
     };
     fetchInitialData();
-  }, [toast, loader]);
+  }, [toast]);
   
   useEffect(() => {
-    if (!user) return;
+    if (!user || isPageLoading) return;
+
     const fetchAndSelectConversations = async () => {
         setIsLoadingConversations(true);
         try {
@@ -12299,13 +12336,13 @@ export const useOracle = (): OracleState => {
             const lastOpenChatId = sessionStorage.getItem('oracleActiveChatId');
             const fetchedConversations = await conversationService.fetchConversations(user.id, selectedClassId || undefined);
             
+            setConversations(fetchedConversations);
+
             if (cameFromNav) {
                 await handleNewChat();
             } else if (lastOpenChatId && fetchedConversations.some(c => c.id === lastOpenChatId)) {
-                setConversations(fetchedConversations);
                 selectConversation(lastOpenChatId);
             } else if (fetchedConversations.length > 0) {
-                setConversations(fetchedConversations);
                 selectConversation(fetchedConversations[0].id);
             } else {
                 await handleNewChat();
@@ -12314,18 +12351,24 @@ export const useOracle = (): OracleState => {
         finally { 
             setIsLoadingConversations(false); 
             if (location.state?.fromNavigation) {
-                window.history.replaceState({}, document.title);
+                navigate(location.pathname, { replace: true });
             }
         }
     };
     fetchAndSelectConversations();
-  }, [user, selectedClassId, location.state]);
+  }, [user, selectedClassId, isPageLoading, location.state, location.pathname, navigate, handleNewChat, selectConversation, toast]);
 
-  useEffect(() => { fetchMessages(); }, [selectedConversationId]);
+  useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
   useEffect(() => {
-    if (!isChatLoading) { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }
-  }, [messages, isChatLoading]);
+    // --- FIX: Using a timeout to ensure the DOM is updated before scrolling.
+    // This pushes the scroll command to the end of the event loop, after the new message has been rendered.
+    const timer = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, [messages]);
 
   useEffect(() => {
     const tempId = temporaryChatId;
@@ -14798,6 +14841,42 @@ import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 
+// --- FIX: New loading indicator component ---
+const LoadingIndicator = () => (
+  <>
+    <style>{`
+      @keyframes dot-flashing {
+        0% { opacity: 0.2; }
+        20% { opacity: 1; }
+        100% { opacity: 0.2; }
+      }
+      .dot-flashing span {
+        animation-name: dot-flashing;
+        animation-duration: 1.4s;
+        animation-iteration-count: infinite;
+        animation-fill-mode: both;
+        display: inline-block;
+        width: 4px;
+        height: 4px;
+        margin-left: 2px;
+        background-color: currentColor;
+        border-radius: 50%;
+      }
+      .dot-flashing span:nth-child(2) { animation-delay: 0.2s; }
+      .dot-flashing span:nth-child(3) { animation-delay: 0.4s; }
+    `}</style>
+    <div className="flex items-center justify-center p-4 text-sm text-stone-500">
+      <span>Searching your files</span>
+      <div className="dot-flashing ml-1">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+  </>
+);
+
+
 const OraclePage = () => {
   const {
     input, setInput, isChatLoading, isPageLoading, userProfile,
@@ -14821,7 +14900,6 @@ const OraclePage = () => {
       <MainAppLayout pageTitle="Oracle | Eido AI">
         <TooltipProvider delayDuration={100}>
           <div className="flex-1 w-full bg-mushroom-100 flex flex-col relative" onPaste={handlePaste}>
-            {/* CORRECTED: Removed the top-level loader to render the layout immediately */}
             <main className="absolute inset-0 flex flex-row gap-3 px-3 pb-3">
               
               <div className="w-[60%] flex flex-row h-full rounded-lg border border-marble-400 overflow-hidden">
@@ -14869,7 +14947,6 @@ const OraclePage = () => {
                   <div className="flex-1 flex flex-col p-4 gap-4 min-h-0">
                     <ScrollArea className="flex-1 min-h-0 -mr-4 pr-4">
                       <div className="space-y-4">
-                        {/* CORRECTED: The loader now only shows for the message area */}
                         {isLoadingMessages ? (<div className="flex items-center justify-center p-4 h-full"><Loader2 className="h-6 w-6 animate-spin text-stone-400" /></div>)
                           : messages.length > 0 ? messages.map((message) => (
                             <ChatMessage
@@ -14889,7 +14966,8 @@ const OraclePage = () => {
                               <p className="text-sm">How can I help you with your coursework today?</p>
                             </div>
                           )}
-                        {isChatLoading && !isLoadingMessages && (<div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-stone-400" /></div>)}
+                        {/* --- FIX: Replaced Loader2 icon with the new LoadingIndicator component --- */}
+                        {isChatLoading && !isLoadingMessages && <LoadingIndicator />}
                         <div ref={messagesEndRef} />
                       </div>
                     </ScrollArea>
@@ -15829,7 +15907,7 @@ export const conversationService = {
       query = query.eq('chat_mode', chat_mode);
     }
   
-    query = query.order('last_message_at', { ascending: false });
+    query = query.order('last_message_at', { ascending: false, nullsFirst: false });
     
     const { data, error } = await query;
 
@@ -15844,12 +15922,16 @@ export const conversationService = {
     payload: { name: string; class_id?: string | null; chat_mode?: 'rag' | 'web' | null; chatbot_type?: string; },
     userId: string
   ): Promise<AppConversation> => {
+    const now = new Date().toISOString(); // --- FIX: Get current timestamp
     const insertData: ConversationDBInsert = {
       title: payload.name,
       class_id: payload.class_id || null,
       chat_mode: payload.chat_mode || 'rag',
       chatbot_type: payload.chatbot_type || 'oracle',
       user_id: userId,
+      // --- FIX: Set last_message_at on creation to ensure correct sorting
+      last_message_at: now, 
+      updated_at: now,
     };
     
     const { data, error } = await supabase
@@ -15869,25 +15951,22 @@ export const conversationService = {
     conversationId: string,
     newName: string,
     userId: string
-  ): Promise<AppConversation> => {
+  ): Promise<void> => { 
     const updatePayload: Partial<ConversationDBUpdate> = {
         title: newName,
         updated_at: new Date().toISOString(),
     };
     
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('conversations')
       .update(updatePayload)
       .eq('id', conversationId)
-      .eq('user_id', userId)
-      .select()
-      .single();
+      .eq('user_id', userId);
       
     if (error) {
       console.error("[conversationService] Error renaming conversation:", error);
       throw error;
     }
-    return mapToAppConversation(data);
   },
 
   deleteConversation: async (
@@ -17955,7 +18034,6 @@ async function processSingleQuery(
   const embeddingData = await embeddingResponse.json();
   const queryVector = embeddingData.data[0].embedding;
 
-  // CORRECTED: Switched from 'withHybrid' to 'withNearVector' for pure semantic search
   const weaviateResponse = await weaviateClient.graphql
     .get()
     .withClassName('DocumentChunk')
@@ -18089,7 +18167,8 @@ serve(async (req: Request) => {
                 renumberedAnswer = renumberedAnswer.replace(new RegExp(`\\[Source ${localNumber}\\]`, 'g'), `[Source ${finalNumber}]`);
             }
         }
-        finalResponseText += `**${result.question}**\n${renumberedAnswer}\n\n`;
+        // --- FIX: Removed the prepended bolded question from the final response text.
+        finalResponseText += `${renumberedAnswer}\n\n`;
     }
 
     console.log(`[MAIN] ✅ Finished processing all questions.`);
