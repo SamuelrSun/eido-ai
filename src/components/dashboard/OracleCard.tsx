@@ -12,14 +12,16 @@ export const OracleCard: React.FC<OracleCardProps> = ({ onClick }) => {
       style={{ flexBasis: '70%' }}
     >
       {/* Left side: Text Content. z-10 ensures it sits above the image element. */}
-      <div className="flex flex-col gap-y-3 w-full xl:w-1/2 z-10">
+      <div className="flex flex-col gap-y-3 w-full xl:w/2 z-10">
         <div className="text-label uppercase font-code">
           <span className="text-blue-700 bg-white border border-blue-200 flex w-fit items-center rounded px-2 py-1">New</span>
         </div>
         <h2 className="text-h5-m lg:text-h5 font-variable font-[420]">Oracle</h2>
-        {/* MODIFICATION: Updated text and added max-width to prevent overlap */}
-        <p className="text-p font-body md:max-w-md">Get instant, cited answers drawn directly from your course materials.</p>
-        <div onClick={onClick} className="w-fit pb-3 pt-7 focus:outline-none disabled:cursor-not-allowed inline-block cursor-pointer">
+        
+        <p className="text-p font-body md:max-w-xs">Get instant, cited answers from your course content. Plus, install the Chrome extension to access Oracle from anywhere.</p>
+
+        {/* MODIFICATION: Reduced top padding from pt-7 to pt-4 */}
+        <div onClick={onClick} className="w-fit pb-3 pt-4 focus:outline-none disabled:cursor-not-allowed inline-block cursor-pointer">
           <div className="relative flex grow">
             <div className="z-10 flex grow gap-x-2.5">
               <div className="h-full min-h-cell-md max-h-cell-md flex grow group/cell transition-all">
@@ -40,7 +42,7 @@ export const OracleCard: React.FC<OracleCardProps> = ({ onClick }) => {
           src="/oracle_screenshot.png"
           alt="Eido AI Oracle Interface Screenshot"
           // This positioning creates the bleed effect.
-          className="absolute top-6 left-6 -right-20 -bottom-6 w-auto h-auto object-contain rounded-lg shadow-xl"
+          className="absolute top-10 left-6 -right-20 -bottom-4 w-auto h-auto object-contain rounded-lg shadow-xl"
         />
       </div>
     </section>
