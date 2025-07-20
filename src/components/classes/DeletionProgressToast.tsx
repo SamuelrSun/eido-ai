@@ -1,9 +1,10 @@
-// src/features/files/components/DeletionProgressToast.tsx
+// src/components/classes/DeletionProgressToast.tsx
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle2, AlertCircle, ChevronUp, ChevronDown, X, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 export interface DeletingFile {
   id: string;

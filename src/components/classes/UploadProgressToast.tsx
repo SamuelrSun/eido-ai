@@ -1,4 +1,4 @@
-// src/features/files/components/UploadProgressToast.tsx
+// src/components/classes/UploadProgressToast.tsx
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
