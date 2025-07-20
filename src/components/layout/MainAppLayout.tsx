@@ -1,4 +1,4 @@
-// src/components/layout/MainAppLayout.tsx
+ // src/components/layout/MainAppLayout.tsx
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { cn } from '@/lib/utils';
@@ -7,23 +7,9 @@ import { Header } from './Header'; // Import the new centralized Header componen
 interface MainAppLayoutProps {
   children: React.ReactNode;
   pageTitle: string;
-  showFooter?: boolean; // New prop to conditionally show the footer
 }
 
-// Define the Footer component
-const Footer = () => (
-  <footer className="w-full mt-auto px-4 py-6 md:px-9 lg:px-10 border-t border-marble-400 bg-marble-100 flex-shrink-0">
-    <div className="flex flex-col md:flex-row justify-between items-center text-sm text-volcanic-800">
-      <span>© 2025 Eido AI. All rights reserved.</span>
-      <div className="flex gap-x-4 mt-4 md:mt-0">
-        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-volcanic-900 hover:underline">Privacy Policy</a>
-        <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-volcanic-900 hover:underline">Terms of Service</a>
-      </div>
-    </div>
-  </footer>
-);
-
-export const MainAppLayout = ({ children, pageTitle, showFooter = false }: MainAppLayoutProps) => {
+export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
   return (
     <>
       <Helmet>
@@ -87,14 +73,13 @@ export const MainAppLayout = ({ children, pageTitle, showFooter = false }: MainA
           .lg\\:w-56 { width: 14rem; } .lg\\:text-h5 { font-size: 1.875rem; line-height: 2.25rem; } }
         `}</style>
       </Helmet>
-      <div className="h-full w-full bg-mushroom-100">
-        <div className="mx-auto flex min-h-screen w-screen max-w-page flex-1 flex-col">
-          {/* Render the centralized Header component */}
+      <div className="h-screen w-full bg-mushroom-100">
+        <div className="mx-auto flex h-full w-screen max-w-page flex-1 flex-col">
           <Header />
-          {/* Children (the page-specific content) will be rendered here */}
-          {children}
-          {/* Conditionally render the Footer based on the prop */}
-          {showFooter && <Footer />}
+          {/* The main content area now has padding and handles overflow */}
+          <div className="flex-1 overflow-hidden p-3 pt-0">
+            {children}
+          </div>
         </div>
       </div>
     </>

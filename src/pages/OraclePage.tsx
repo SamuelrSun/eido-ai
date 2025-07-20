@@ -77,8 +77,7 @@ const OraclePage = () => {
       <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/png, image/jpeg, application/pdf" />
       <MainAppLayout pageTitle="Oracle | Eido AI">
         <TooltipProvider delayDuration={100}>
-          <div className="flex-1 w-full bg-mushroom-100 flex flex-col relative" onPaste={handlePaste}>
-            <main className="absolute inset-0 flex flex-row gap-3 px-3 pb-3">
+          <div className="flex flex-row gap-3 h-full" onPaste={handlePaste}>
               
               <div className="w-[60%] flex flex-row h-full rounded-lg border border-marble-400 overflow-hidden">
                 
@@ -159,10 +158,8 @@ const OraclePage = () => {
                 handleSourceSelect={handleSourceSelect}
                 handleClearSourceSelection={handleClearSourceSelection}
                 selectedFile={selectedFile}
-                selectedClass={selectedClassConfig}
                 user={user}
               />
-            </main>
             
             <ConfirmationDialog
               isOpen={!!conversationToDelete}

@@ -212,38 +212,36 @@ const CalendarPage = () => {
             <Helmet>
                 <style>{`.calendar-grid { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }`}</style>
             </Helmet>
-             <div className="flex-1 w-full bg-mushroom-100 flex flex-col relative">
-                <main className="absolute inset-0 flex flex-row gap-3 px-3 pb-3">
-                    <CalendarSidebar
-                        currentDate={currentDate}
-                        setCurrentDate={setCurrentDate}
-                        classes={classes}
-                        isLoadingClasses={isLoadingClasses}
-                        selectedClasses={selectedClasses}
-                        setSelectedClasses={setSelectedClasses}
-                        onColorChange={updateClassColor}
-                        upcomingEvents={events.filter(e => new Date(e.event_start) >= new Date()).sort((a,b) => new Date(a.event_start).getTime() - new Date(b.event_start).getTime()).slice(0, 5)}
-                        onUploadSyllabusClick={() => setIsSyllabusUploadOpen(true)}
-                        view={view as 'day' | 'week' | 'month'}
-                        onUpcomingEventSelect={handleUpcomingEventSelect}
+             <div className="flex flex-row gap-3 h-full">
+                <CalendarSidebar
+                    currentDate={currentDate}
+                    setCurrentDate={setCurrentDate}
+                    classes={classes}
+                    isLoadingClasses={isLoadingClasses}
+                    selectedClasses={selectedClasses}
+                    setSelectedClasses={setSelectedClasses}
+                    onColorChange={updateClassColor}
+                    upcomingEvents={events.filter(e => new Date(e.event_start) >= new Date()).sort((a,b) => new Date(a.event_start).getTime() - new Date(b.event_start).getTime()).slice(0, 5)}
+                    onUploadSyllabusClick={() => setIsSyllabusUploadOpen(true)}
+                    view={view as 'day' | 'week' | 'month'}
+                    onUpcomingEventSelect={handleUpcomingEventSelect}
+                />
+                <div className="flex-1 flex flex-col rounded-lg border border-marble-400 bg-white overflow-hidden">
+                    <CalendarHeader
+                        view={view} currentDate={currentDate} onViewChange={(v) => { setView(v); closeAllPopovers(); }}
+                        onPrev={handlePrev} onNext={handleNext} onToday={handleToday}
+                        onAddEvent={() => toast({ title: "Action Hint", description: "Click and drag on the calendar grid to create a new event."})}
                     />
-                    <div className="flex-1 flex flex-col rounded-lg border border-marble-400 bg-white overflow-hidden">
-                        <CalendarHeader
-                            view={view} currentDate={currentDate} onViewChange={(v) => { setView(v); closeAllPopovers(); }}
-                            onPrev={handlePrev} onNext={handleNext} onToday={handleToday}
-                            onAddEvent={() => toast({ title: "Action Hint", description: "Click and drag on the calendar grid to create a new event."})}
+                    <div ref={scrollContainerRef} className="flex-1 overflow-auto">
+                        <CalendarViews
+                            view={view} currentDate={currentDate} classes={classes} events={filteredEvents}
+                            draftEvent={draftEvent} isCreatingEvent={isCreatingEvent} onDelete={()=>{}}
+                            onDayClick={(date) => { handleEventCreateStart(date); handleEventCreateEnd({ currentTarget: document.body } as any); }}
+                            onEventCreateStart={handleEventCreateStart} onEventCreateUpdate={handleEventCreateUpdate}
+                            onEventCreateEnd={handleEventCreateEnd} onEventClick={handleEventClick}
                         />
-                        <div ref={scrollContainerRef} className="flex-1 overflow-auto">
-                            <CalendarViews
-                                view={view} currentDate={currentDate} classes={classes} events={filteredEvents}
-                                draftEvent={draftEvent} isCreatingEvent={isCreatingEvent} onDelete={()=>{}}
-                                onDayClick={(date) => { handleEventCreateStart(date); handleEventCreateEnd({ currentTarget: document.body } as any); }}
-                                onEventCreateStart={handleEventCreateStart} onEventCreateUpdate={handleEventCreateUpdate}
-                                onEventCreateEnd={handleEventCreateEnd} onEventClick={handleEventClick}
-                            />
-                        </div>
                     </div>
-                </main>
+                </div>
         
                 {creatorPopover && (
                     <EventCreatorPopover
