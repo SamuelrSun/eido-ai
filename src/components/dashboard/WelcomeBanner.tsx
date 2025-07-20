@@ -19,7 +19,7 @@ export const WelcomeBanner: React.FC<WelcomeBannerProps> = ({ user, profile }) =
           </p>
           <h1 className="text-h5-m lg:text-h4 font-variable font-[420] mb-3 text-volcanic-900">What is Eido AI?</h1>
           <p className="text-p font-body pb-6 text-volcanic-900 md:pb-10">
-            Eido AI is your educational copilot, allowing you to create smart, searchable knowledge bases built on your coursework. Get started with Eido AI by exploring the tools below.
+          Eido AI is your educational copilot, transforming your coursework into a powerful suite of intelligent tools. Get started with Eido AI by taking a tour or exploring the tools below.
           </p>
         </div>
         <div className="hidden items-end md:flex md:w-1/3">
