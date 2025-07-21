@@ -4,7 +4,7 @@ import { MonthView } from './views/MonthView';
 import { WeekView } from './views/WeekView';
 import { DayView } from './views/DayView';
 import { CalendarEvent, NewCalendarEvent } from '@/services/calendarEventService';
-import { ClassConfigWithColor } from '@/features/calendar/types';
+import { ClassConfigWithColor } from '@/components/calendar/types';
 
 interface CalendarViewsProps {
     view: string;
@@ -14,7 +14,8 @@ interface CalendarViewsProps {
     draftEvent: Partial<NewCalendarEvent> | null;
     isCreatingEvent: boolean;
     onDelete: (id: string) => void;
-    onDayClick: (date: Date) => void;
+    // MODIFICATION: Changed prop signature to include the clicked element for MonthView
+    onDayClick: (date: Date, element: HTMLElement) => void;
     onEventCreateStart: (startDate: Date) => void;
     onEventCreateUpdate: (newTime: Date, e: React.MouseEvent) => void;
     onEventCreateEnd: (e: React.MouseEvent | MouseEvent) => void;
@@ -26,7 +27,7 @@ export const CalendarViews: React.FC<CalendarViewsProps> = ({ view, ...props }) 
         case 'day':
             return <DayView {...props} />;
         case 'week':
-            return <WeekView {...props} />;
+             return <WeekView {...props} />;
         case 'month':
         default:
             return <MonthView {...props} />;

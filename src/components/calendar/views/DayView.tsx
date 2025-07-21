@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { format, isSameDay, addMinutes } from 'date-fns';
 import { TimeAxis } from './TimeAxis';
 import { CalendarEvent, NewCalendarEvent } from '@/services/calendarEventService';
-import { ClassConfigWithColor } from '@/features/calendar/types';
+import { ClassConfigWithColor } from '@/components/calendar/types';
 
 interface DayViewProps {
   currentDate: Date;
@@ -64,12 +64,12 @@ export const DayView: React.FC<DayViewProps> = ({
                 onMouseMove={handleMouseMove}
                 onMouseUp={onEventCreateEnd}
                 onMouseLeave={(e) => { if (isCreatingEvent) onEventCreateEnd(e); }}
-            >
+             >
                 {Array.from({ length: 24 }).map((_, hour) => (
                     <div key={hour} className="h-12 border-b border-marble-400"></div>
                 ))}
             
-                {draftEvent && draftEvent.event_start && isSameDay(new Date(draftEvent.event_start), currentDate) && (() => {
+                 {draftEvent && draftEvent.event_start && isSameDay(new Date(draftEvent.event_start), currentDate) && (() => {
                     const startDate = new Date(draftEvent.event_start);
                     const endDate = draftEvent.event_end ? new Date(draftEvent.event_end) : new Date(startDate.getTime() + 60 * 60 * 1000);
                     const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
@@ -81,7 +81,7 @@ export const DayView: React.FC<DayViewProps> = ({
                     return (
                         <div style={{ top: `${top}%`, height: `${height}%` }} className={cn("absolute w-[calc(100%-8px)] left-1 p-2 rounded-lg text-white text-xs z-20 pointer-events-none draft-event-bubble", draftClass?.color || 'bg-stone-500')}>
                             <p className="font-bold">{draftEvent.title || '(No title)'}</p>
-                            <p>{format(startDate, 'p')} - {format(endDate, 'p')}</p>
+                             <p>{format(startDate, 'p')} - {format(endDate, 'p')}</p>
                         </div>
                     );
                 })()}
@@ -96,35 +96,33 @@ export const DayView: React.FC<DayViewProps> = ({
                     const isShort = duration < 45;
                     return (
                         <div
-                            key={event.id}
+                             key={event.id}
                             data-event-id={event.id}
-                            // --- MODIFICATION START: Using direct inline styles for max priority ---
                             style={{ 
                                 top: `${top}%`, 
                                 height: `${height}%`,
                                 width: 'calc(100% - 8px)',
                                 left: '4px',
                             }} 
-                            // --- MODIFICATION END ---
                             className={cn("absolute p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
-                            onClick={(e) => onEventClick(event, e.currentTarget)}
+                            onClick={(e) => { e.stopPropagation(); onEventClick(event, e.currentTarget); }}
                             onMouseDown={(e) => e.stopPropagation()}
                             onMouseUp={(e) => e.stopPropagation()}
                         >
-                             <p className="font-bold truncate">{event.title}</p>
+                              <p className="font-bold truncate">{event.title}</p>
                              {isShort ? (
                                 <p className="truncate text-white/80">
-                                    {format(eventDate, 'p')}
+                                     {format(eventDate, 'p')}
                                     {event.location && `, ${event.location}`}
-                                </p>
+                                 </p>
                              ) : (
                                 <>
-                                    <p className="truncate text-white/80">{format(eventDate, 'p')} - {format(endDate, 'p')}</p>
+                                     <p className="truncate text-white/80">{format(eventDate, 'p')} - {format(endDate, 'p')}</p>
                                     {event.location && <p className="truncate text-white/80">{event.location}</p>}
-                                </>
+                                 </>
                             )}
                         </div>
-                    );
+                     );
                 })}
             </div>
         </div>

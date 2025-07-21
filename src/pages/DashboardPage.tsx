@@ -9,6 +9,7 @@ import { CommandBar } from '@/components/dashboard/CommandBar';
 import { OracleCard } from '@/components/dashboard/OracleCard';
 import { DashboardCalendar } from '@/components/dashboard/DashboardCalendar';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
+import { AssignmentsCard } from '@/components/dashboard/AssignmentsCard';
 
 const Footer = () => (
   <footer className="w-full px-4 py-6 md:px-9 lg:px-10 border-t border-marble-400 bg-marble-100 flex-shrink-0">
@@ -100,10 +101,16 @@ const DashboardPage = () => {
                 handleCommandSubmit={handleCommandSubmit}
               />
 
-              <div className="flex gap-x-6">
-                <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
-                <div className="rounded-lg border border-marble-400 bg-white" style={{ flexBasis: '30%' }}>
-                  {/* Placeholder for future content */}
+              {/* MODIFICATION: Replaced flexbox with a more stable CSS Grid layout */}
+              <div className="grid grid-cols-10 gap-6">
+                {/* Left column for cards */}
+                <div className="col-span-10 md:col-span-7 flex flex-col gap-y-6">
+                  <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
+                  <AssignmentsCard onClick={() => handleProtectedLinkClick('/assignments')} />
+                </div>
+                {/* Right column placeholder */}
+                <div className="hidden md:block col-span-3 rounded-lg border border-marble-400 bg-white">
+                  {/* This is the white rectangle placeholder */}
                 </div>
               </div>
 

@@ -1,4 +1,4 @@
- // src/components/layout/MainAppLayout.tsx
+// src/components/layout/MainAppLayout.tsx
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { cn } from '@/lib/utils';
@@ -44,6 +44,7 @@ export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
           .bg-cover { background-size: cover; } .flex-shrink-0 { flex-shrink: 0; }
           .bg-\\[url\\(\\/images\\/whiteCellBackground\\.svg\\)\\] { background-image: url(/background1.png); }
           .oracle-background-image { background-image: url(/background2.png); background-size: cover; background-repeat: no-repeat; background-position: center; }
+          .assignments-background-image { background-image: url(/assignments_background.png); background-size: cover; background-repeat: no-repeat; background-position: center; }
           .pt-10 { padding-top: 2.5rem; } .px-9 { padding-left: 2.25rem; padding-right: 2.25rem; }
           .px-10 { padding-left: 2.5rem; padding-right: 2.5rem; } .text-h3-m { font-size: 2.25rem; line-height: 2.5rem; }
           .font-\\[420\\] { font-weight: 420; } .mb-6 { margin-bottom: 1.5rem; } .text-h5-m { font-size: 1.5rem; line-height: 2rem; }
@@ -62,6 +63,7 @@ export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
           .-skew-x-\\[21deg\\] { transform: skewX(-21deg); } .w-6 { width: 1.5rem; } .rounded-tr-\\[10px\\] { border-top-right-radius: 10px; }
           .rounded-br-\\[4px\\] { border-bottom-right-radius: 4px; }
           .bg-coral-500 { background-color: #0F2A47; } .bg-quartz-700 { background-color: #6B6960; }
+          /* REMOVED .bg-purple-500 and .border-purple-200 */
           @media (min-width: 768px) { .md\\:hidden { display: none; } .md\\:flex { display: flex; }
           .md\\:max-w-\\[680px\\] { max-width: 680px; } .md\\:gap-x-3 { column-gap: 0.75rem; } .md\\:ml-0 { margin-left: 0; }
           .md\\:rounded-lg { border-radius: 0.5rem; } .md\\:border { border-width: 1px; } .md\\:w-42 { width: 10.5rem; }

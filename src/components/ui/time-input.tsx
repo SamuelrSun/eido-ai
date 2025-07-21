@@ -21,7 +21,7 @@ const generateTimeOptions = () => {
     date.setHours(0, minutes, 0, 0);
     options.push({
       value: format(date, 'HH:mm'),
-      label: format(date, 'hh:mm a'),
+      label: format(date, 'h:mm a').replace(' AM', 'am').replace(' PM', 'pm'),
     });
   }
   return options;
@@ -30,16 +30,12 @@ const generateTimeOptions = () => {
 // Helper to parse various time string formats
 const parseTimeString = (timeStr: string): string | null => {
     if (!timeStr) return null;
-    
-    // Normalize input: remove spaces, dots, and make am/pm lowercase
     const normalizedStr = timeStr.toLowerCase().replace(/[\s.]/g, '');
-
-    // Define parsing patterns and their corresponding date-fns format strings
     const patterns = [
-        { regex: /^(\d{1,2}):(\d{2})([ap]m?)$/, format: "h:mma" }, // 10:30am, 10:30a, 10:30 am
-        { regex: /^(\d{1,2})([ap]m?)$/, format: "ha" },           // 10am, 10a
-        { regex: /^(\d{1,2}):(\d{2})$/, format: "H:mm" },         // 10:30 (24hr), 22:30
-        { regex: /^(\d{3,4})$/, format: "HHmm" },                 // 1030, 2230
+        { regex: /^(\d{1,2}):(\d{2})([ap]m?)$/, format: "h:mma" },
+        { regex: /^(\d{1,2})([ap]m?)$/, format: "ha" },
+        { regex: /^(\d{1,2}):(\d{2})$/, format: "H:mm" },
+        { regex: /^(\d{3,4})$/, format: "HHmm" },
     ];
 
     for (const pattern of patterns) {
@@ -53,7 +49,6 @@ const parseTimeString = (timeStr: string): string | null => {
         }
     }
     
-    // Fallback for simple numbers like "9" -> "09:00" or "17" -> "17:00"
     if (/^\d{1,2}$/.test(normalizedStr)) {
         const hour = parseInt(normalizedStr, 10);
         if (hour >= 0 && hour < 24) {
@@ -63,45 +58,49 @@ const parseTimeString = (timeStr: string): string | null => {
         }
     }
 
-    return null; // Return null if all parsing fails
+    return null;
 };
 
 
 export const TimeInput: React.FC<TimeInputProps> = ({ value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [hasBeenOpened, setHasBeenOpened] = useState(false);
   const timeOptions = useMemo(generateTimeOptions, []);
+  const popoverContentRef = useRef<HTMLDivElement>(null);
   
   const displayValue = useMemo(() => {
     if (!value) return '';
     const [hour, minute] = value.split(':').map(Number);
+    
     if (isNaN(hour) || isNaN(minute)) return '';
     const date = new Date();
     date.setHours(hour, minute);
-    return format(date, 'p').replace(' ', '').toLowerCase(); // e.g., "10:30am"
+    return format(date, 'h:mm a').replace(' AM', 'am').replace(' PM', 'pm');
   }, [value]);
 
   const [inputValue, setInputValue] = useState(displayValue);
 
-  // Scroll to the active time when the popover opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && value) {
         setTimeout(() => {
-            const selectedElement = document.querySelector(`[data-value="${value}"]`);
+            const selectedElement = popoverContentRef.current?.querySelector(`[data-value="${value}"]`);
             if (selectedElement) {
-                selectedElement.scrollIntoView({ block: 'nearest' });
+                selectedElement.scrollIntoView({ block: 'center', behavior: 'instant' });
             }
-        }, 0);
+        }, 100);
     }
   }, [isOpen, value]);
 
-  // Update internal input value when the external value prop changes
   useEffect(() => {
     setInputValue(displayValue);
   }, [displayValue]);
 
   const handleSelect = (newTimeValue: string) => {
+    setIsSelecting(true);
     onChange(newTimeValue);
     setIsOpen(false);
+    setTimeout(() => setIsSelecting(false), 100);
   };
   
   const handleManualInput = () => {
@@ -109,7 +108,7 @@ export const TimeInput: React.FC<TimeInputProps> = ({ value, onChange }) => {
     if (parsedTime) {
       onChange(parsedTime);
     } else {
-      setInputValue(displayValue); // Revert to last valid time on failed parse
+      setInputValue(displayValue);
     }
   };
 
@@ -120,11 +119,27 @@ export const TimeInput: React.FC<TimeInputProps> = ({ value, onChange }) => {
           type="text"
           value={inputValue}
           onFocus={(e) => {
-            setIsOpen(true);
-            e.currentTarget.select();
+            if (!hasBeenOpened) {
+              setHasBeenOpened(true);
+              setTimeout(() => {
+                setIsOpen(true);
+                setTimeout(() => e.currentTarget.select(), 10);
+              }, 10);
+            } else {
+              setIsOpen(true);
+              setTimeout(() => e.currentTarget.select(), 0);
+            }
           }}
           onChange={(e) => setInputValue(e.target.value)}
-          onBlur={handleManualInput}
+          onBlur={() => {
+            if (isSelecting) return;
+            setTimeout(() => {
+                if (isOpen && !popoverContentRef.current?.contains(document.activeElement)) {
+                    handleManualInput();
+                    setIsOpen(false);
+                }
+            }, 50);
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               handleManualInput();
@@ -137,8 +152,10 @@ export const TimeInput: React.FC<TimeInputProps> = ({ value, onChange }) => {
         />
       </PopoverTrigger>
       <PopoverContent 
+        ref={popoverContentRef}
         className="w-[var(--radix-popover-trigger-width)] p-0" 
         align="start"
+        onMouseDown={(e) => e.preventDefault()}
       >
         <Command>
           <CommandList>
@@ -146,13 +163,13 @@ export const TimeInput: React.FC<TimeInputProps> = ({ value, onChange }) => {
               {timeOptions.map((option) => (
                 <CommandItem
                   key={option.value}
-                  data-value={option.value} // Add data-value for scrolling
+                  data-value={option.value}
                   value={option.label}
                   onSelect={() => handleSelect(option.value)}
                   className={cn(
-                    "flex justify-center text-sm",
-                    // Use charcoal color for selection
-                    value === option.value && "bg-stone-700 text-stone-50"
+                    "flex justify-center text-sm whitespace-nowrap",
+                    "data-[selected='true']:bg-stone-700 data-[selected='true']:text-stone-50",
+                    value === option.value && "bg-stone-100 font-medium"
                   )}
                 >
                   {option.label}

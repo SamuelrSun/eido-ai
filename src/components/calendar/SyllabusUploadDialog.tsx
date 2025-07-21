@@ -23,7 +23,7 @@ export const SyllabusUploadDialog: React.FC<SyllabusUploadDialogProps> = ({ isOp
 
   const handleFilesChange = useCallback((newFiles: FileList | null) => {
     if (newFiles) {
-      setFiles(prev => [...prev, ...Array.from(newFiles)]);
+     setFiles(prev => [...prev, ...Array.from(newFiles)]);
     }
   }, []);
 
@@ -72,17 +72,17 @@ export const SyllabusUploadDialog: React.FC<SyllabusUploadDialogProps> = ({ isOp
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="bg-white">
+        <DialogHeader className="text-center sm:text-center">
           <DialogTitle>Upload Syllabus</DialogTitle>
-          <DialogDescription>
-            Select a class, then upload files (PDF, DOCX) or paste screenshots (PNG, JPG) to populate your calendar.
+          <DialogDescription className="pt-2">
+            Upload your syllabus to automatically populate your calendar.
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
             <Select onValueChange={setSelectedClassId}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white">
                     <SelectValue placeholder="Select a class for this syllabus..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -91,7 +91,7 @@ export const SyllabusUploadDialog: React.FC<SyllabusUploadDialogProps> = ({ isOp
             </Select>
 
             <div 
-              onDragOver={handleDragOver}
+               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={cn(
@@ -101,7 +101,7 @@ export const SyllabusUploadDialog: React.FC<SyllabusUploadDialogProps> = ({ isOp
             >
               <input id="file-upload" type="file" className="hidden" multiple onChange={handleFileSelect} accept=".pdf,.docx,.png,.jpg,.jpeg" />
               <label htmlFor="file-upload" className="cursor-pointer">
-                <UploadCloud className="mx-auto h-12 w-12 text-stone-400" />
+                 <UploadCloud className="mx-auto h-12 w-12 text-stone-400" />
                 <p className="mt-2 text-sm text-muted-foreground">
                   Drag & drop files here, or{' '}
                   <span className="text-stone-700 font-semibold hover:underline">
@@ -116,7 +116,7 @@ export const SyllabusUploadDialog: React.FC<SyllabusUploadDialogProps> = ({ isOp
                     <div className="w-full border-t border-stone-300" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                    <span className="bg-white px-2 text-stone-500">OR</span>
+                     <span className="bg-white px-2 text-stone-500">OR</span>
                 </div>
             </div>
 
@@ -124,6 +124,7 @@ export const SyllabusUploadDialog: React.FC<SyllabusUploadDialogProps> = ({ isOp
                 placeholder="Paste screenshots here..." 
                 onPaste={handlePaste}
                 rows={3}
+                className="bg-white"
             />
         </div>
 
@@ -136,10 +137,10 @@ export const SyllabusUploadDialog: React.FC<SyllabusUploadDialogProps> = ({ isOp
                       <div key={i} className="flex items-center justify-between bg-stone-100 p-2 rounded-md">
                         <div className="flex items-center gap-2 overflow-hidden">
                             {file.type.startsWith('image/') ? <ImageIcon className="h-4 w-4 flex-shrink-0 text-stone-500"/> : <File className="h-4 w-4 flex-shrink-0 text-stone-500"/>}
-                            <span className="text-sm truncate" title={file.name}>{file.name}</span>
+                             <span className="text-sm truncate" title={file.name}>{file.name}</span>
                         </div>
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFile(i)}>
-                          <X className="h-4 w-4" />
+                           <X className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
@@ -148,7 +149,7 @@ export const SyllabusUploadDialog: React.FC<SyllabusUploadDialogProps> = ({ isOp
           </div>
         )}
         
-        <DialogFooter>
+        <DialogFooter className="bg-white border-t pt-4 mt-4">
           <Button variant="outline" onClick={handleClose}>Cancel</Button>
           <Button onClick={handleUploadClick} disabled={files.length === 0 || !selectedClassId}>
             Upload {files.length > 0 && `(${files.length})`}

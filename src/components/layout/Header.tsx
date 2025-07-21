@@ -13,7 +13,7 @@ export const Header = () => {
     { to: "/", label: "Dashboard" },
     { to: "/classes", label: "Classes", state: { reset: true } }, // <-- ADD THIS STATE
     { to: "/calendar", label: "Calendar", state: { reset: true } },
-    { to: "/console", label: "Console", state: { reset: true } },
+    { to: "/community", label: "Community", state: { reset: true } },
   ];
 
   return (

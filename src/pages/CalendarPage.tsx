@@ -1,5 +1,5 @@
 // src/pages/CalendarPage.tsx
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { startOfDay, subDays, subMonths, subWeeks, addMonths, addWeeks, format, addDays as addDaysHelper, addMinutes } from 'date-fns';
@@ -16,11 +16,12 @@ import { EventCreatorPopover } from '@/components/calendar/EventCreatorPopover';
 import { ViewEventPopover } from '@/components/calendar/ViewEventPopover';
 import { DeleteRecurringEventDialog, DeletionScope } from '@/components/calendar/DeleteRecurringEventDialog';
 import { CalendarEvent, NewCalendarEvent } from '@/services/calendarEventService';
+import { AddEventDialog } from '@/components/calendar/AddEventDialog';
 
 const CalendarPage = () => {
-    const [view, setView] = useState('week');
+    const [view, setView] = useState(() => localStorage.getItem('calendarView') || 'week');
     const [currentDate, setCurrentDate] = useState(startOfDay(new Date()));
-    const { classes, isLoadingClasses, events, createEvent, deleteEvent, updateEvent, updateClassColor } = useCalendarData();
+    const { classes, isLoadingClasses, events, isLoadingEvents, createEvent, deleteEvent, updateEvent, updateClassColor } = useCalendarData();
     const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
     
     const [creatorPopover, setCreatorPopover] = useState<{ anchor: HTMLElement | null; start: Date; end: Date } | null>(null);
@@ -36,6 +37,7 @@ const CalendarPage = () => {
     const [isProcessingSyllabus, setIsProcessingSyllabus] = useState(false);
     const [parsedEvents, setParsedEvents] = useState<ParsedEvent[]>([]);
     const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+    const [isAddEventDialogOpen, setIsAddEventDialogOpen] = useState(false);
     const { toast } = useToast();
     
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -45,7 +47,7 @@ const CalendarPage = () => {
         return events
             .filter(e => e.class_id && selectedClasses.includes(e.class_id))
             .map(event => {
-                const eventClass = classes.find(c => c.class_id === event.class_id);
+                 const eventClass = classes.find(c => c.class_id === event.class_id);
                 return { ...event, color: eventClass?.color };
             });
     }, [events, selectedClasses, classes]);
@@ -53,8 +55,25 @@ const CalendarPage = () => {
     useEffect(() => {
         if (!isLoadingClasses && classes.length > 0) {
             setSelectedClasses(classes.map(c => c.class_id));
-        }
+         }
     }, [isLoadingClasses, classes]);
+
+    useEffect(() => {
+        localStorage.setItem('calendarView', view);
+    }, [view]);
+
+    useLayoutEffect(() => {
+        if (scrollContainerRef.current) {
+            if ((view === 'day' || view === 'week') && !isLoadingClasses && !isLoadingEvents) {
+                // Scroll to 7 AM for Day and Week views
+                const scrollToPosition = 7 * 48;
+                scrollContainerRef.current.scrollTop = scrollToPosition;
+            } else if (view === 'month') {
+                // Reset scroll to top for Month view
+                scrollContainerRef.current.scrollTop = 0;
+            }
+        }
+    }, [view, isLoadingClasses, isLoadingEvents]);
 
     const closeAllPopovers = () => {
         setCreatorPopover(null);
@@ -102,10 +121,28 @@ const CalendarPage = () => {
         setIsCreatingEvent(false);
     }, [isCreatingEvent, draftEvent, hasDragged]);
 
-    const handleEventClick = (event: CalendarEvent, anchorElement: HTMLElement) => {
-        const isAlreadyOpen = viewerPopover?.event.id === event.id;
+    // MODIFICATION: Created a new, dedicated handler for month view clicks.
+    const handleDayClickInMonthView = (day: Date, anchorElement: HTMLElement) => {
         closeAllPopovers();
-        if (!isAlreadyOpen) {
+
+        // Default the new event's time to 9:00 AM on the selected day
+        const startDate = new Date(day);
+        startDate.setHours(9, 0, 0, 0);
+        const endDate = addMinutes(startDate, 60);
+
+        // Open the creator popover, anchored to the specific day cell that was clicked
+        setCreatorPopover({
+            anchor: anchorElement,
+            start: startDate,
+            end: endDate,
+        });
+    };
+
+    const handleEventClick = (event: CalendarEvent, anchorElement: HTMLElement) => {
+        if (viewerPopover && viewerPopover.event.id === event.id) {
+            setViewerPopover(null);
+        } else {
+            closeAllPopovers();
             setViewerPopover({ event, anchor: anchorElement });
         }
     };
@@ -160,6 +197,19 @@ const CalendarPage = () => {
     };
 
     const handleToday = () => setCurrentDate(startOfDay(new Date()));
+    
+    const handleAddEventClick = (anchorElement: HTMLElement) => {
+        closeAllPopovers();
+        const now = new Date();
+        const defaultStartDate = new Date(currentDate);
+        defaultStartDate.setHours(now.getHours(), Math.ceil(now.getMinutes() / 15) * 15, 0, 0);
+
+        setCreatorPopover({
+            anchor: anchorElement,
+            start: defaultStartDate,
+            end: addMinutes(defaultStartDate, 60),
+        });
+    };
 
     const handleSyllabusUpload = async (uploadedFiles: File[], classId: string) => {
         setIsSyllabusUploadOpen(false);
@@ -188,7 +238,7 @@ const CalendarPage = () => {
                 toast({ title: "No Events Found", description: "The AI could not find any calendar events in the file(s).", variant: "default" });
             }
         } catch (error) {
-            toast({ title: "Syllabus Parsing Failed", description: error instanceof Error ? error.message : "An unknown error occurred.", variant: "destructive" });
+             toast({ title: "Syllabus Parsing Failed", description: error instanceof Error ? error.message : "An unknown error occurred.", variant: "destructive" });
         } finally {
             setIsProcessingSyllabus(false);
         }
@@ -204,7 +254,7 @@ const CalendarPage = () => {
             } else {
                 console.warn(`Could not find event element for id: ${event.id}`);
             }
-        }, 100);
+         }, 100);
     };
     
     return (
@@ -212,7 +262,7 @@ const CalendarPage = () => {
             <Helmet>
                 <style>{`.calendar-grid { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }`}</style>
             </Helmet>
-             <div className="flex flex-row gap-3 h-full">
+              <div className="flex flex-row gap-3 h-full">
                 <CalendarSidebar
                     currentDate={currentDate}
                     setCurrentDate={setCurrentDate}
@@ -230,21 +280,22 @@ const CalendarPage = () => {
                     <CalendarHeader
                         view={view} currentDate={currentDate} onViewChange={(v) => { setView(v); closeAllPopovers(); }}
                         onPrev={handlePrev} onNext={handleNext} onToday={handleToday}
-                        onAddEvent={() => toast({ title: "Action Hint", description: "Click and drag on the calendar grid to create a new event."})}
+                        onAddEvent={handleAddEventClick}
                     />
                     <div ref={scrollContainerRef} className="flex-1 overflow-auto">
-                        <CalendarViews
+                         <CalendarViews
                             view={view} currentDate={currentDate} classes={classes} events={filteredEvents}
                             draftEvent={draftEvent} isCreatingEvent={isCreatingEvent} onDelete={()=>{}}
-                            onDayClick={(date) => { handleEventCreateStart(date); handleEventCreateEnd({ currentTarget: document.body } as any); }}
+                            // MODIFICATION: Pass the new handler to onDayClick
+                            onDayClick={handleDayClickInMonthView}
                             onEventCreateStart={handleEventCreateStart} onEventCreateUpdate={handleEventCreateUpdate}
                             onEventCreateEnd={handleEventCreateEnd} onEventClick={handleEventClick}
-                        />
+                         />
                     </div>
                 </div>
         
                 {creatorPopover && (
-                    <EventCreatorPopover
+                     <EventCreatorPopover
                         anchorElement={creatorPopover.anchor}
                         startDate={creatorPopover.start}
                         endDate={creatorPopover.end}
@@ -256,14 +307,14 @@ const CalendarPage = () => {
                 )}
 
                 {viewerPopover && (
-                    <ViewEventPopover
+                     <ViewEventPopover
                         event={viewerPopover.event}
                         eventClass={classes.find(c => c.class_id === viewerPopover.event.class_id)}
                         anchorElement={viewerPopover.anchor}
                         onClose={closeAllPopovers}
                         onEdit={handleEditRequest}
                         onDelete={handleDeleteRequest}
-                    />
+                     />
                 )}
 
                 {eventToDelete && (
@@ -277,6 +328,16 @@ const CalendarPage = () => {
                 <SyllabusUploadDialog isOpen={isSyllabusUploadOpen} onClose={() => setIsSyllabusUploadOpen(false)} onUpload={handleSyllabusUpload} classes={classes} />
                 <ProcessingLoader isOpen={isProcessingSyllabus} />
                 <EventConfirmationDialog isOpen={isConfirmationOpen} onClose={() => setIsConfirmationOpen(false)} parsedEvents={parsedEvents} onConfirmEvent={(e) => createEvent(e)} />
+                <AddEventDialog
+                    isOpen={isAddEventDialogOpen}
+                    onClose={() => setIsAddEventDialogOpen(false)}
+                    onSubmit={createEvent}
+                    defaults={{
+                        date: format(currentDate, 'yyyy-MM-dd'),
+                        time: format(new Date(), 'HH:mm'),
+                    }}
+                    classes={classes}
+                />
             </div>
         </MainAppLayout>
     );

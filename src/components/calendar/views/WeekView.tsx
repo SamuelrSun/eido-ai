@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { format, addDays, startOfWeek, isSameDay, addMinutes } from 'date-fns';
 import { TimeAxis } from './TimeAxis';
 import { CalendarEvent, NewCalendarEvent } from '@/services/calendarEventService';
-import { ClassConfigWithColor } from '@/features/calendar/types';
+import { ClassConfigWithColor } from '@/components/calendar/types';
 
 interface WeekViewProps {
   currentDate: Date;
@@ -37,7 +37,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
     };
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, day: Date) => {
-        if ((e.target as HTMLElement).closest('.event-bubble')) return;
+         if ((e.target as HTMLElement).closest('.event-bubble')) return;
         e.preventDefault();
         const rect = e.currentTarget.getBoundingClientRect();
         const y = e.clientY - rect.top;
@@ -68,7 +68,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
                             <p className="text-xs text-volcanic-800">{format(day, 'EEE')}</p>
                             <p className={cn("text-lg font-semibold w-8 h-8 flex items-center justify-center mx-auto", isSameDay(day, today) && "bg-stone-700 text-white rounded-full")}>
                                 {format(day, 'd')}
-                            </p>
+                             </p>
                         </div>
                     ))}
                 </div>
@@ -82,9 +82,9 @@ export const WeekView: React.FC<WeekViewProps> = ({
                              onMouseMove={(e) => handleMouseMove(e, day)}
                              onMouseUp={onEventCreateEnd}
                              onMouseLeave={(e) => { if (isCreatingEvent) onEventCreateEnd(e); }}>
-                            {Array.from({ length: 24 }).map((_, hour) => <div key={hour} className="h-12 border-b border-marble-400"></div>)}
+                             {Array.from({ length: 24 }).map((_, hour) => <div key={hour} className="h-12 border-b border-marble-400"></div>)}
                             
-                            {draftEvent && draftEvent.event_start && isSameDay(new Date(draftEvent.event_start), day) && (() => {
+                             {draftEvent && draftEvent.event_start && isSameDay(new Date(draftEvent.event_start), day) && (() => {
                                 const startDate = new Date(draftEvent.event_start);
                                 const endDate = draftEvent.event_end ? new Date(draftEvent.event_end) : new Date(startDate.getTime() + 60 * 60 * 1000);
                                 const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
@@ -94,15 +94,15 @@ export const WeekView: React.FC<WeekViewProps> = ({
                                 const height = (duration / (24 * 60)) * 100;
                                 const draftClass = classes.find(c => c.class_id === draftEvent.class_id);
                                 return (
-                                    <div style={{ top: `${top}%`, height: `${height}%` }} className={cn("absolute w-full p-2 rounded-lg text-white text-xs z-20 pointer-events-none draft-event-bubble", draftClass?.color || 'bg-stone-500')}>
+                                     <div style={{ top: `${top}%`, height: `${height}%` }} className={cn("absolute w-full p-2 rounded-lg text-white text-xs z-20 pointer-events-none draft-event-bubble", draftClass?.color || 'bg-stone-500')}>
                                         <p className="font-bold">{draftEvent.title || '(No title)'}</p>
-                                        <p>{format(startDate, 'p')} - {format(endDate, 'p')}</p>
+                                          <p>{format(startDate, 'p')} - {format(endDate, 'p')}</p>
                                     </div>
-                                );
+                                 );
                             })()}
 
                             {events.filter(e => isSameDay(new Date(e.event_start), day)).map(event => {
-                                const eventDate = new Date(event.event_start);
+                                 const eventDate = new Date(event.event_start);
                                 const endDate = event.event_end ? new Date(event.event_end) : addMinutes(eventDate, 60);
                                 const top = (eventDate.getHours() * 60 + eventDate.getMinutes()) / (24 * 60) * 100;
                                 const duration = (endDate.getTime() - eventDate.getTime()) / (1000 * 60);
@@ -110,28 +110,28 @@ export const WeekView: React.FC<WeekViewProps> = ({
                                 const eventClass = classes.find(c => c.class_id === event.class_id);
                                 const isShort = duration < 45;
                                 return (
-                                    <div
+                                     <div
                                         key={event.id}
                                         data-event-id={event.id}
                                         style={{ top: `${top}%`, height: `${height}%` }}
                                         className={cn("absolute w-[calc(100%-8px)] p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
-                                        onClick={(e) => onEventClick(event, e.currentTarget)}
+                                        onClick={(e) => { e.stopPropagation(); onEventClick(event, e.currentTarget); }}
                                         onMouseDown={(e) => e.stopPropagation()}
                                         onMouseUp={(e) => e.stopPropagation()}
-                                    >
+                                     >
                                         <p className="font-bold truncate">{event.title}</p>
-                                        {isShort ? (
+                                         {isShort ? (
                                             <p className="truncate text-white/80">
-                                                {format(eventDate, 'p')}
+                                                 {format(eventDate, 'p')}
                                                 {event.location && `, ${event.location}`}
-                                            </p>
+                                             </p>
                                         ) : (
                                             <>
-                                                <p className="truncate text-white/80">{format(eventDate, 'p')} - {format(endDate, 'p')}</p>
+                                                 <p className="truncate text-white/80">{format(eventDate, 'p')} - {format(endDate, 'p')}</p>
                                                 {event.location && <p className="truncate text-white/80">{event.location}</p>}
-                                            </>
+                                             </>
                                         )}
-                                    </div>
+                                     </div>
                                 );
                             })}
                         </div>
