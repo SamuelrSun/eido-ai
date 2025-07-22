@@ -19,7 +19,8 @@ import DashboardPage from "./pages/DashboardPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
-import CalendarPage from "./pages/CalendarPage"; // Import the new CalendarPage
+import CalendarPage from "./pages/CalendarPage";
+import AssignmentsPage from "./pages/AssignmentsPage"; // <-- ADD THIS IMPORT
 
 const queryClient = new QueryClient();
 const App = () => (
@@ -43,8 +44,8 @@ const App = () => (
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/oracle" element={<OraclePage />} />
                   <Route path="/classes" element={<ClassesPage/>} />
-                  {/* MODIFIED: Replaced PlaceholderPage with CalendarPage */}
                   <Route path="/calendar" element={<CalendarPage />} />
+                  <Route path="/assignments" element={<AssignmentsPage />} /> {/* <-- ADD THIS ROUTE */}
                   
                   {/* Placeholder routes */}
                   <Route path="/command" element={<PlaceholderPage pageName="Command" />} />

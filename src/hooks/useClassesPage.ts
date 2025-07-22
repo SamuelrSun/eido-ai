@@ -7,8 +7,8 @@ import { User, RealtimeChannel } from '@supabase/supabase-js';
 import { ClassConfig, classOpenAIConfigService } from '@/services/classOpenAIConfig';
 import { fileService } from '@/services/fileService';
 import { FolderType, FileType } from '@/features/files/types';
-import { UploadingFile } from '@/components/classes/UploadProgressToast'; // <-- FIX: Corrected import path
-import { DeletingFile } from '@/components/classes/DeletionProgressToast'; // <-- FIX: Corrected import path
+import { UploadingFile } from '@/components/classes/UploadProgressToast';
+import { DeletingFile } from '@/components/classes/DeletionProgressToast';
 import { formatFileSize } from '@/lib/utils';
 
 export const useClassesPage = () => {
@@ -311,21 +311,46 @@ export const useClassesPage = () => {
 
     const confirmDeleteClass = async () => {
         if (!classToDelete) return;
+    
+        const classIdToDelete = classToDelete.class_id;
+        const classNameToDelete = classToDelete.class_name;
+    
         setIsDeletingClass(true);
+        setIsDeleteClassConfirmationOpen(false);
+    
         try {
-            await classOpenAIConfigService.deleteClass(classToDelete.class_id);
-            toast({ title: "Class Deleted", description: `"${classToDelete.class_name}" and all associated data have been permanently removed.` });
-            setRecentFiles(prev => prev.filter(file => file.class_id !== classToDelete.class_id));
-            fetchData();
-            setSelectedClass(null);
-            setCurrentFolderId(null);
-            setBreadcrumbs([{ name: 'Home', id: null }]);
-            sessionStorage.removeItem('activeClass');
+            await classOpenAIConfigService.deleteClass(classIdToDelete);
+    
+            // Update client-side state immediately after the async operation succeeds
+            setClasses(prev => prev.filter(c => c.class_id !== classIdToDelete));
+            setRecentFiles(prev => prev.filter(file => file.class_id !== classIdToDelete));
+            
+            if (selectedClass?.class_id === classIdToDelete) {
+                setSelectedClass(null);
+                setCurrentFolderId(null);
+                setBreadcrumbs([{ name: 'Home', id: null }]);
+                sessionStorage.removeItem('activeClass');
+            }
+    
+            if (previewedFile?.class_id === classIdToDelete) {
+                setPreviewedFile(null);
+            }
+            
+            toast({
+                title: "Class Deleted",
+                description: `"${classNameToDelete}" and all associated data have been permanently removed.`
+            });
+    
         } catch (error) {
-            toast({ title: "Deletion Failed", description: (error as Error).message, variant: "destructive" });
+            toast({
+                title: "Deletion Failed",
+                description: (error as Error).message,
+                variant: "destructive"
+            });
+            // Re-fetch data on failure to ensure UI is in a consistent state
+            fetchData();
         } finally {
             setIsDeletingClass(false);
-            setIsDeleteClassConfirmationOpen(false);
             setClassToDelete(null);
         }
     };

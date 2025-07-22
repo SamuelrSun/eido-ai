@@ -64,7 +64,11 @@ async function processSingleQuery(
     .do();
   
   const retrievedChunks = weaviateResponse.data.Get.DocumentChunk || [];
-  console.log(`[RAG-STEP] Retrieved ${retrievedChunks.length} chunks for query: "${query}".`);
+  
+  console.log(`\n--- BEGIN RETRIEVAL VERIFICATION (Query: "${query}") ---\nTotal Chunks Retrieved: ${retrievedChunks.length}\n`);
+  console.log(JSON.stringify(retrievedChunks, null, 2));
+  console.log(`\n--- END RETRIEVAL VERIFICATION ---\n`);
+
 
   if (retrievedChunks.length === 0) {
     return { question: query, answer: "I could not find any information on this topic in the provided documents.", sources: [] };
@@ -159,29 +163,39 @@ serve(async (req: Request) => {
     let nextSourceNumber = 1;
 
     for (const result of results) {
-        let renumberedAnswer = result.answer;
-
+        // --- FIX START: This logic now correctly renumbers citations without the cascading replacement bug ---
         const localCitations = [...result.answer.matchAll(/\[Source (\d+)]/g)];
+        const oldToNewSourceNumberMap = new Map<number, number>();
 
+        // Step 1: Discover all unique sources cited in this specific answer and build the renumbering map.
         for (const match of localCitations) {
             const localNumber = parseInt(match[1]);
-            const originalSource = result.sources.find(s => s.number === localNumber);
+            if (oldToNewSourceNumberMap.has(localNumber)) continue; 
 
+            const originalSource = result.sources.find(s => s.number === localNumber);
             if (originalSource) {
                 const sourceKey = `${originalSource.file_id}-${originalSource.pageNumber}-${originalSource.content.slice(0, 50)}`;
                 let finalNumber;
                 if (sourceMap.has(sourceKey)) {
                     finalNumber = sourceMap.get(sourceKey)!;
                 } else {
-                    finalNumber = nextSourceNumber;
+                    finalNumber = nextSourceNumber++;
                     sourceMap.set(sourceKey, finalNumber);
                     finalSources.push({ ...originalSource, number: finalNumber });
-                    nextSourceNumber++;
                 }
-                renumberedAnswer = renumberedAnswer.replace(new RegExp(`\\[Source ${localNumber}\\]`, 'g'), `[Source ${finalNumber}]`);
+                oldToNewSourceNumberMap.set(localNumber, finalNumber);
             }
         }
-        // --- FIX: Removed the prepended bolded question from the final response text.
+
+        // Step 2: Replace all citations in a single pass using the completed map and a replacer function.
+        // This avoids the cascading replacement problem.
+        const renumberedAnswer = result.answer.replace(/\[Source (\d+)]/g, (match, oldNumberStr) => {
+            const oldNum = parseInt(oldNumberStr, 10);
+            const newNum = oldToNewSourceNumberMap.get(oldNum);
+            return newNum !== undefined ? `[Source ${newNum}]` : match;
+        });
+        // --- FIX END ---
+        
         finalResponseText += `${renumberedAnswer}\n\n`;
     }
 

@@ -16,12 +16,10 @@ interface QueueRecord {
   size: number;
 }
 
-// NEW: A more robust text extraction function for pdf.js
 async function getTextFromPdfPage(page: any): Promise<string> {
   const textContent = await page.getTextContent();
   let lastY = -1;
   let text = '';
-  // Sort items by their vertical, then horizontal position
   const items = textContent.items.sort((a: any, b: any) => {
     if (a.transform[5] < b.transform[5]) return 1;
     if (a.transform[5] > b.transform[5]) return -1;
@@ -62,7 +60,8 @@ async function getEmbedding(text: string): Promise<number[]> {
     },
     body: JSON.stringify({
       input: text,
-      model: 'text-embedding-ada-002',
+      // --- FIX: Upgraded the embedding model ---
+      model: 'text-embedding-3-small',
     }),
   });
   if (!res.ok) {
@@ -133,15 +132,9 @@ serve(async (req: Request) => {
 
         for (let i = 1; i <= pageCount; i++) {
           const page = await pdfDoc.getPage(i);
-          // MODIFIED: Use the new, more robust text extraction method
           const pageText = await getTextFromPdfPage(page);
           
-          // MODIFICATION: Clean the extracted text to remove slide footers and normalize whitespace
           const cleanedText = pageText
-            .replace(/© 2025 Grant Derderian/g, '')
-            .replace(/This content is protected and may not be shared, uploaded, or distributed\./g, '')
-            .replace(/SLIDE {}/g, '')
-            .replace(/---/g, '')
             .replace(/\s+/g, ' ')
             .trim();
 
@@ -160,7 +153,6 @@ serve(async (req: Request) => {
       }
 
       if (allTextChunks.length > 0) {
-        // NEW: Comprehensive logging of all generated chunks before indexing.
         console.log(`\n--- BEGIN CHUNK VERIFICATION (File: ${original_name}) ---\nTotal Chunks: ${allTextChunks.length}\n`);
         console.log(JSON.stringify(allTextChunks, null, 2));
         console.log(`\n--- END CHUNK VERIFICATION ---\n`);

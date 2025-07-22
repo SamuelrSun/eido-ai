@@ -1,7 +1,7 @@
 // src/components/classes/ClassesPageToasts.tsx
 import React from 'react';
-import { UploadProgressToast, UploadingFile } from '@/components/classes/UploadProgressToast'; // <-- FIX: Corrected import path
-import { DeletionProgressToast, DeletingFile } from '@/components/classes/DeletionProgressToast'; // <-- FIX: Corrected import path
+import { UploadProgressToast, UploadingFile } from '@/components/classes/UploadProgressToast';
+import { DeletionProgressToast, DeletingFile } from '@/components/classes/DeletionProgressToast';
 
 interface ClassesPageToastsProps {
     uploadingFiles: UploadingFile[];
