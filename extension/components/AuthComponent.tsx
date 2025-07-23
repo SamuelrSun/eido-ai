@@ -14,7 +14,7 @@ const GoogleIcon = () => (
     </svg>
 );
 
-// Inline SVGs for other icons to avoid adding new dependencies
+// Inline SVGs for other icons
 const ArrowRightIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
@@ -48,7 +48,7 @@ export const AuthComponent = ({ onLogin }: { onLogin: (session: Session) => void
     setError('');
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      setError(error.message);
+     setError(error.message);
     } else if (data.session) {
       onLogin(data.session);
     }
@@ -57,15 +57,33 @@ export const AuthComponent = ({ onLogin }: { onLogin: (session: Session) => void
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
-    // *** FIX: Added redirectTo option to prevent full-page navigation ***
-    // This tells Supabase to return to the extension's own page after Google auth,
-    // instead of redirecting to your main website.
-    await supabase.auth.signInWithOAuth({
+    setError('');
+    
+    // --- FIX: Use the new tab authentication flow ---
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.href,
+        // We now get the URL from Supabase instead of letting it redirect automatically.
+        skipBrowserRedirect: true,
       }
     });
+
+    if (error) {
+      setError(error.message);
+      setGoogleLoading(false);
+      return;
+    }
+
+    if (data.url) {
+      // We use the chrome.tabs API to open the auth URL in a new tab.
+      // This avoids the iframe CSP issue.
+      chrome.tabs.create({ url: data.url, active: true }, () => {
+        // The onAuthStateChange listener in popup.tsx will automatically
+        // detect the new session when the auth flow completes.
+        // We can close the popup now for a smoother user experience.
+        window.parent.postMessage({ type: 'closeEidoPopup' }, '*');
+      });
+    }
     setGoogleLoading(false);
   };
 

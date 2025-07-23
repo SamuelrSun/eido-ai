@@ -15,23 +15,25 @@ export default defineConfig({
     outDir: "dist-extension",
     rollupOptions: {
       input: {
-        // Correctly point to popup.html, which is now OUTSIDE the public directory.
         popup: path.resolve(__dirname, "extension/popup.html"),
         background: path.resolve(__dirname, "extension/background.js"),
         content: path.resolve(__dirname, "extension/content.js"),
       },
       output: {
-        entryFileNames: `assets/[name].js`,
+        entryFileNames: (chunkInfo) => {
+          // Place background and content scripts in the root
+          if (chunkInfo.name === 'background' || chunkInfo.name === 'content') {
+            return '[name].js';
+          }
+          // Place other JS assets in the assets folder
+          return 'assets/[name].js';
+        },
         chunkFileNames: `assets/[name].js`,
         assetFileNames: (assetInfo) => {
-          // --- FIX START ---
-          // This logic checks if the asset is the popup.html file.
-          // If it is, it places it in the root of the output directory.
-          // Otherwise, it proceeds with the original logic for images and other assets.
+          // Place popup.html in a subdirectory to avoid naming conflicts
           if (assetInfo.name === 'popup.html') {
-            return '[name].[ext]';
+            return 'extension/popup.html';
           }
-          // --- FIX END ---
           if (assetInfo.name?.endsWith('.png') || assetInfo.name?.endsWith('.ico')) {
             return 'images/[name].[ext]';
           }

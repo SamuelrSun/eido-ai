@@ -207,6 +207,11 @@ const App = () => {
     setSession(newSession);
   };
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null); // The onAuthStateChange listener will also fire, but this provides immediate feedback
+  };
+
   const handleClose = () => {
     window.parent.postMessage({ type: 'closeEidoPopup' }, '*');
   };
@@ -224,7 +229,7 @@ const App = () => {
             {loading ? (
                 <div className="loading-indicator">Loading...</div>
             ) : session ? (
-                <ChatComponent session={session} />
+                <ChatComponent session={session} onSignOut={handleSignOut} />
             ) : (
                 <AuthComponent onLogin={handleLogin} />
             )}

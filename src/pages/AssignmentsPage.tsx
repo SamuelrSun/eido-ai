@@ -1,11 +1,9 @@
 // src/pages/AssignmentsPage.tsx
 import React, { useState } from 'react';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle, ListFilter } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
 import { AssignmentCard, AssignmentStatus } from '@/components/assignments/AssignmentCard';
 import { AssignmentView } from '@/components/assignments/AssignmentView';
 
@@ -105,15 +103,10 @@ const AssignmentsPage = () => {
     // Render the Assignments Dashboard by default
     return (
         <MainAppLayout pageTitle="Assignments | Eido AI">
-            <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between pb-4">
-                    <PageHeader title="Assignments" description="Manage, complete, and get AI assistance on your assignments." />
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" /> New Assignment
-                    </Button>
-                </div>
-                <Separator />
-                <div className="py-4 flex items-center justify-between">
+            {/* Main content container with white background and border */}
+            <div className="flex flex-col h-full rounded-lg border border-marble-400 bg-white overflow-hidden">
+                {/* Header section with controls */}
+                <header className="p-4 md:p-6 flex items-center justify-between border-b border-marble-400 flex-shrink-0">
                     <div className="flex items-center gap-2">
                         <Select defaultValue="all">
                             <SelectTrigger className="w-[200px] h-9">
@@ -124,13 +117,18 @@ const AssignmentsPage = () => {
                                 {hardcodedClasses.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
+                         <Button variant="outline" size="sm" className="h-9">
+                            <ListFilter className="mr-2 h-4 w-4" /> Sort by
+                        </Button>
                     </div>
-                    <Button variant="outline" size="sm" className="h-9">
-                        <ListFilter className="mr-2 h-4 w-4" /> Sort by
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" /> New Assignment
                     </Button>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                </header>
+
+                {/* Scrollable grid for assignment cards */}
+                <div className="flex-1 overflow-y-auto p-4 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {hardcodedAssignments.map(assignment => (
                             <AssignmentCard 
                                 key={assignment.id}
