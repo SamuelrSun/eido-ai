@@ -91,18 +91,22 @@ serve(async (req: Request) => {
         }
     }
 
-    // 4c. Delete from Weaviate
-    console.log(`[WEAVIATE] Queuing deletion of all document chunks for user ${userIdToDelete}.`);
-    deletionPromises.push(
-      weaviateClient.batch.deleter()
-        .withClassName('DocumentChunk')
-        .withWhere({
-          operator: 'Equal',
-          path: ['user_id'],
-          valueText: userIdToDelete,
-        })
-        .do()
-    );
+// 4c. Delete from Weaviate
+console.log(`[WEAVIATE] Queuing deletion of all document chunks for user ${userIdToDelete}.`);
+
+// FIX: Define the where filter as 'any' to bypass the strict type checking
+const whereFilter: any = {
+  operator: 'Equal',
+  path: ['user_id'],
+  valueText: userIdToDelete,
+};
+
+deletionPromises.push(
+  weaviateClient.batch.objectsBatchDeleter({
+    className: 'DocumentChunk',
+    where: whereFilter,
+  })
+);
 
     // --- Execute all parallel deletions and wait for them to complete ---
     const results = await Promise.allSettled(deletionPromises);
