@@ -58,7 +58,12 @@ const ProfilePage = () => {
     try {
       // The 'delete-user-account' Edge Function should be updated to handle the new schema
       // and delete all user data from ALL relevant tables (classes, folders, files, etc.).
-      const { data, error: functionError } = await supabase.functions.invoke('delete-user-account');
+      
+      // --- FIX: Pass an empty body to ensure the auth token is sent with the request ---
+      const { data, error: functionError } = await supabase.functions.invoke(
+        'delete-user-account',
+        { body: {} } 
+      );
       
       const responseData: { error?: string } = data as { error?: string }; // Cast to specific type
 
@@ -118,14 +123,14 @@ const ProfilePage = () => {
                       <Link to="/oracle"><span className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900"><span>Oracle</span></span></Link>
                     </div>
                      <div className="flex flex-col gap-y-1">
-                       <span className="text-overline uppercase font-code font-bold text-dark-blue">Settings</span>
+                      <span className="text-overline uppercase font-code font-bold text-dark-blue">Settings</span>
                       <Link to="/billing"><span className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900"><span>Billing</span></span></Link>
                       <Link to="/profile"><span className="text-p font-body flex items-center py-0.5 text-volcanic-900"><div className="mr-3 h-2 w-2 rounded-full bg-coral-500"></div><span className="font-medium">Profile</span></span></Link>
                      </div>
                   </nav>
                 </div>
               </div>
-               <main className="mx-3 flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-marble-400 bg-marble-100 md:ml-0">
+              <main className="mx-3 flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-marble-400 bg-marble-100 md:ml-0">
                  {/* Main Content Area for Profile */}
                   <div className="flex flex-col gap-y-8 p-4 md:p-9 lg:p-10">
                     <div>
