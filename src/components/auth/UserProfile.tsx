@@ -1,29 +1,28 @@
 // src/components/auth/UserProfile.tsx
-import { useState, useEffect, useCallback } from 'react'; // Added useCallback
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Camera } from "lucide-react";
-// useNavigate is not used in this component's current logic.
-// import { useNavigate } from 'react-router-dom'; 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; 
 import type { User } from "@supabase/supabase-js";
+import { useAuth } from '@/context/AuthContext';
 
 interface ProfileData {
   user_id: string;
   full_name: string | null;
   avatar_url: string | null;
-  updated_at?: string; // Added to match potential DB schema and for optimistic updates
+  updated_at?: string;
 }
 
 export function UserProfile() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useAuth();
+  
   const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(true); // Specific loading state for profile
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const { toast } = useToast();
-  // const navigate = useNavigate(); // Can be removed if not used
 
   const fetchProfileForUser = useCallback(async (authUser: User | null) => {
     if (!authUser?.id) {
@@ -33,11 +32,10 @@ export function UserProfile() {
     }
 
     setLoadingProfile(true);
-    console.log("UserProfile: Fetching profile for user_id:", authUser.id);
     try {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, avatar_url, updated_at') // Ensure to select all needed fields
+        .select('user_id, full_name, avatar_url, updated_at')
         .eq('user_id', authUser.id)
         .single(); 
             
@@ -52,7 +50,6 @@ export function UserProfile() {
         }
       } else {
         setProfile(profileData as ProfileData);
-        console.log("UserProfile: Profile data loaded:", profileData);
       }
     } catch (error) {
       console.error('UserProfile: Exception in fetchProfileForUser:', error);
@@ -61,38 +58,11 @@ export function UserProfile() {
     } finally {
       setLoadingProfile(false);
     }
-  }, [toast]); // toast is a stable dependency from useToast
+  }, [toast]);
 
   useEffect(() => {
-    // Initial fetch of session and profile
-    const initialFetch = async () => {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-            console.error("Error fetching initial session:", sessionError);
-            setLoadingProfile(false); // Ensure loading stops
-            return;
-        }
-        const authUser = session?.user || null;
-        setUser(authUser);
-        await fetchProfileForUser(authUser);
-    };
-    initialFetch();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        console.log("UserProfile: Auth state changed, event:", _event);
-        const authUser = session?.user || null;
-        setUser(authUser);
-        // Re-fetch profile when user state changes (e.g., sign-in, sign-out, token refresh)
-        await fetchProfileForUser(authUser);
-      }
-    );
-
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, [fetchProfileForUser]); // fetchProfileForUser is memoized with useCallback
+    fetchProfileForUser(user);
+  }, [user, fetchProfileForUser]);
 
   const handleProfilePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

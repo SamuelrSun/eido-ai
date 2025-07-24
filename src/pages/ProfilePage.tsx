@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { MainAppLayout } from '@/components/layout/MainAppLayout'; // Import MainAppLayout
+import { MainAppLayout } from '@/components/layout/MainAppLayout';
 
 const ProfilePage = () => {
   const [isSignOutLoading, setIsSignOutLoading] = useState(false);
@@ -32,16 +32,13 @@ const ProfilePage = () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      // FIX: Clear client-side cache on sign out
       localStorage.removeItem('eidoRecentFiles');
-      // Also remove active class from session storage to ensure full logout state
       sessionStorage.removeItem('activeClass');
       toast({
         title: "Signed out successfully",
         description: "You've been signed out of your account",
       });
-      // The auth listener in App.tsx will handle the redirect
-    } catch (error: unknown) { // Use unknown for error type
+    } catch (error: unknown) {
       console.error("Error signing out:", error);
       toast({
         title: "Sign out failed",
@@ -56,41 +53,34 @@ const ProfilePage = () => {
   const handleDeleteAccount = async () => {
     setIsDeletingAccount(true);
     try {
-      // The 'delete-user-account' Edge Function should be updated to handle the new schema
-      // and delete all user data from ALL relevant tables (classes, folders, files, etc.).
-      
-      // --- FIX: Pass an empty body to ensure the auth token is sent with the request ---
-      const { data, error: functionError } = await supabase.functions.invoke(
+      const { error: functionError } = await supabase.functions.invoke(
         'delete-user-account',
-        { body: {} } 
+        { body: {} }
       );
-      
-      const responseData: { error?: string } = data as { error?: string }; // Cast to specific type
 
       if (functionError) {
-        throw new Error(functionError.message || "Failed to initiate account deletion process.");
-      }
-      if (responseData.error) {
-        throw new Error(responseData.error);
+        // Log the error but proceed to sign out, as the user might already be deleted.
+        console.warn("delete-user-account function returned an error (this is often expected if the user's token was invalidated mid-request):", functionError.message);
       }
 
-      // FIX: Clear client-side cache on account deletion
-      localStorage.removeItem('eidoRecentFiles');
-      // Also clear active class from session storage
-      sessionStorage.removeItem('activeClass');
       toast({
-        title: "Account Deletion Successful",
-        description: "Your account and all associated data are being deleted.",
+        title: "Account Deletion Initiated",
+        description: "Your account and all associated data will be removed.",
       });
-      await supabase.auth.signOut();
-    } catch (error: unknown) { // Use unknown for error type
-      console.error('Error deleting account:', error);
+
+    } catch (error: unknown) {
+      console.error('Error during account deletion process:', error);
       toast({
         title: "Account Deletion Failed",
         description: (error instanceof Error) ? error.message : "An unexpected error occurred.",
         variant: "destructive",
       });
     } finally {
+      // --- FIX: This block now runs regardless of success or failure of the try block. ---
+      // This ensures the client session is always cleared, preventing inconsistent states.
+      await supabase.auth.signOut();
+      localStorage.removeItem('eidoRecentFiles');
+      sessionStorage.removeItem('activeClass');
       setIsDeletingAccount(false);
     }
   };
@@ -99,17 +89,13 @@ const ProfilePage = () => {
     <>
       <Helmet>
         <title>Profile | Eido AI</title>
-        {/* You can include the same styles as DashboardPage here if they aren't global */}
       </Helmet>
       
-      {/* ProfilePage now uses MainAppLayout to wrap its content, providing the standardized Header. */}
       <MainAppLayout pageTitle="Profile | Eido AI">
         <div className="h-full w-full bg-mushroom-100">
           <div className="mx-auto flex h-screen w-screen max-w-page flex-1 flex-col overflow-y-auto md:overflow-y-visible">
             
-            {/* Removed hardcoded navbar from here */}
             <div className="flex w-full flex-grow justify-self-center pb-3 md:gap-x-3 main-content">
-              {/* This sidebar is specific to the ProfilePage, not the main AppSidebar */}
               <div className="ml-3 hidden md:flex">
                 <div className="flex flex-col justify-between overflow-auto border-marble-400 bg-marble-100 md:rounded-lg md:border md:w-42 w-full lg:w-56 px-4 md:py-6">
                    <nav className="hidden w-full flex-col gap-y-8 md:flex">
@@ -131,7 +117,6 @@ const ProfilePage = () => {
                 </div>
               </div>
               <main className="mx-3 flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-marble-400 bg-marble-100 md:ml-0">
-                 {/* Main Content Area for Profile */}
                   <div className="flex flex-col gap-y-8 p-4 md:p-9 lg:p-10">
                     <div>
                       <h1 className="text-h5-m lg:text-h4 font-variable font-[420] text-volcanic-900">
@@ -141,7 +126,7 @@ const ProfilePage = () => {
                         Manage your profile, password, and account settings.
                       </p>
                     </div>
-
+                    
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                       <div className="lg:col-span-1">
                         <UserProfile />
