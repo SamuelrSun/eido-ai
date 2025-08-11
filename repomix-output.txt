@@ -1620,7 +1620,7 @@ export function Auth() {
           throw new Error("Password should be at least 10 characters long.");
         }
         const generatedName = email.split('@')[0];
-        
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -1743,7 +1743,7 @@ export function Auth() {
         <form className="space-y-6" onSubmit={handleEmailAuth} noValidate>
           <div className="space-y-4">
             <div className={cn(
-                "relative rounded-md border px-3 py-2 transition-all",
+               "relative rounded-md border px-3 py-2 transition-all",
                 "focus-within:border-gray-800",
                 emailTouched && !email ? "border-red-700/70" : "border-gray-300"
             )}>
@@ -1752,7 +1752,7 @@ export function Auth() {
               )}
               <Label htmlFor="email" className="block text-xs font-medium text-gray-400 uppercase">
                 Email
-               </Label>
+              </Label>
               <input
                 id="email"
                 name="email"

@@ -48,7 +48,7 @@ export function Auth() {
           throw new Error("Password should be at least 10 characters long.");
         }
         const generatedName = email.split('@')[0];
-        
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,

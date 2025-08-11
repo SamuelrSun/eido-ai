@@ -5,11 +5,10 @@ import type { User } from '@supabase/supabase-js';
 import { usePageLoader } from '@/context/LoaderContext';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { WelcomeBanner } from '@/components/dashboard/WelcomeBanner';
-import { CommandBar } from '@/components/dashboard/CommandBar';
 import { OracleCard } from '@/components/dashboard/OracleCard';
 import { DashboardCalendar } from '@/components/dashboard/DashboardCalendar';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
-import { AssignmentsCard } from '@/components/dashboard/AssignmentsCard';
+import { SharedClassesCard } from '@/components/dashboard/SharedClassesCard'; // <-- IMPORT THE NEW CARD
 
 const Footer = () => (
   <footer className="w-full px-4 py-6 md:px-9 lg:px-10 border-t border-marble-400 bg-marble-100 flex-shrink-0">
@@ -27,7 +26,6 @@ const DashboardPage = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
   const { loadPage, loader } = usePageLoader();
-  const [command, setCommand] = useState('');
 
   useEffect(() => {
     if (loader) {
@@ -79,12 +77,6 @@ const DashboardPage = () => {
     }
   };
 
-  const handleCommandSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Command submitted:', command);
-    setCommand('');
-  };
-
   return (
     <MainAppLayout pageTitle="Dashboard | Eido AI">
       <div className="flex h-full w-full justify-self-center md:gap-x-3">
@@ -95,22 +87,16 @@ const DashboardPage = () => {
           
           <div className="flex-grow px-4 pb-10 md:px-9 lg:px-10">
             <div className="flex h-full w-full flex-col gap-y-6">
-              <CommandBar 
-                command={command}
-                setCommand={setCommand}
-                handleCommandSubmit={handleCommandSubmit}
-              />
 
-              {/* MODIFICATION: Replaced flexbox with a more stable CSS Grid layout */}
+              {/* Grid for Oracle Card and Placeholder */}
               <div className="grid grid-cols-10 gap-6">
-                {/* Left column for cards */}
+                {/* MODIFICATION: This column now contains both cards stacked vertically */}
                 <div className="col-span-10 md:col-span-7 flex flex-col gap-y-6">
-                  <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
-                  <AssignmentsCard onClick={() => handleProtectedLinkClick('/assignments')} />
+                   <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
+                   <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
                 </div>
-                {/* Right column placeholder */}
+                {/* MODIFICATION: This is now just a placeholder again */}
                 <div className="hidden md:block col-span-3 rounded-lg border border-marble-400 bg-white">
-                  {/* This is the white rectangle placeholder */}
                 </div>
               </div>
 
