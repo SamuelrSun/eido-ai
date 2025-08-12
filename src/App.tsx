@@ -8,6 +8,7 @@ import { AuthGuard } from "./components/auth/AuthGuard";
 import { HelmetProvider } from 'react-helmet-async';
 import { LoaderProvider } from './context/LoaderContext'; 
 import { AuthProvider } from './context/AuthContext';
+import { Analytics } from "@vercel/analytics/react"; // <-- 1. ADD THIS IMPORT
 
 // Import all active page components
 import AuthPage from "./pages/AuthPage";
@@ -20,7 +21,7 @@ import PlaceholderPage from "./pages/PlaceholderPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import CalendarPage from "./pages/CalendarPage";
-import AssignmentsPage from "./pages/AssignmentsPage"; // <-- ADD THIS IMPORT
+import AssignmentsPage from "./pages/AssignmentsPage";
 
 const queryClient = new QueryClient();
 const App = () => (
@@ -45,7 +46,7 @@ const App = () => (
                   <Route path="/oracle" element={<OraclePage />} />
                   <Route path="/classes" element={<ClassesPage/>} />
                   <Route path="/calendar" element={<CalendarPage />} />
-                  <Route path="/assignments" element={<AssignmentsPage />} /> {/* <-- ADD THIS ROUTE */}
+                  <Route path="/assignments" element={<AssignmentsPage />} />
                   
                   {/* Placeholder routes */}
                   <Route path="/command" element={<PlaceholderPage pageName="Command" />} />
@@ -59,6 +60,7 @@ const App = () => (
               </Routes>
             </LoaderProvider>
           </BrowserRouter>
+          <Analytics /> {/* <-- 2. ADD THIS COMPONENT */}
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
