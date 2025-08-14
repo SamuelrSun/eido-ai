@@ -2,6 +2,14 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Menu } from "lucide-react";
 
 /**
  * Header component for consistent navigation across the application.
@@ -11,7 +19,7 @@ export const Header = () => {
   const location = useLocation();
   const navLinks = [
     { to: "/", label: "Dashboard" },
-    { to: "/classes", label: "Classes", state: { reset: true } }, // <-- ADD THIS STATE
+    { to: "/classes", label: "Classes", state: { reset: true } },
     { to: "/calendar", label: "Calendar", state: { reset: true } },
     { to: "/community", label: "Community", state: { reset: true } },
   ];
@@ -25,21 +33,11 @@ export const Header = () => {
             <span className="text-logo lowercase font-variable ml-1 font-light text-green-700">eido ai</span>
           </div>
         </Link>
-        {/* Navigation Links (visible on medium screens and up) */}
+
+        {/* --- Desktop Navigation Links --- */}
         <div className="hidden md:flex flex-row items-center gap-x-4 gap-y-0 lg:gap-x-6 justify-between">
           {navLinks.map((link) => {
             const isActive = location.pathname === link.to;
-            if (link.isExternal) {
-              return (
-                <a key={link.to} target="_blank" rel="noopener noreferrer" href={link.href}>
-                  <p className="
-                    text-base uppercase tracking-wider font-normal text-volcanic-800 hover:text-volcanic-900
-                  ">
-                    {link.label}
-                  </p>
-                </a>
-              );
-            }
             return (
               <Link key={link.to} to={link.to} state={link.state}> 
                 <p className={cn(
@@ -52,6 +50,34 @@ export const Header = () => {
               </Link>
             );
           })}
+        </div>
+
+        {/* --- Mobile Navigation Dropdown --- */}
+        <div className="md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-6 w-6" />
+                <span className="sr-only">Open navigation menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {navLinks.map((link) => (
+                <DropdownMenuItem key={link.to} asChild>
+                  <Link
+                    to={link.to}
+                    state={link.state}
+                    className={cn(
+                      "w-full",
+                      location.pathname === link.to && "font-bold"
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </nav>
     </div>
