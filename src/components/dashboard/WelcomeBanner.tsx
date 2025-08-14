@@ -5,9 +5,10 @@ import type { User } from '@supabase/supabase-js';
 interface WelcomeBannerProps {
   user: User | null;
   profile: { full_name: string | null } | null;
+  onTutorialClick: () => void;
 }
 
-export const WelcomeBanner: React.FC<WelcomeBannerProps> = ({ user, profile }) => {
+export const WelcomeBanner: React.FC<WelcomeBannerProps> = ({ user, profile, onTutorialClick }) => {
   const welcomeName = user ? profile?.full_name?.split(' ')[0] || user.email?.split('@')[0] || 'User' : '';
 
   return (
@@ -19,7 +20,18 @@ export const WelcomeBanner: React.FC<WelcomeBannerProps> = ({ user, profile }) =
           </p>
           <h1 className="text-h5-m lg:text-h4 font-variable font-[420] mb-3 text-volcanic-900">What is Eido AI?</h1>
           <p className="text-p font-body pb-6 text-volcanic-900 md:pb-10">
-          Eido AI is your educational copilot, transforming your coursework into a powerful suite of intelligent tools. Get started with Eido AI by taking a tour or exploring the tools below.
+            Welcome to Eido AI, the educational copilot transforming your coursework into a powerful suite of intelligent tools. Get started with Eido AI by{" "}
+            <a 
+              href="#" 
+              onClick={(e) => {
+                e.preventDefault();
+                onTutorialClick();
+              }} 
+              className="underline"
+            >
+              visiting the tutorial
+            </a>
+            {" "}or exploring the tools below.
           </p>
         </div>
         <div className="hidden items-end md:flex md:w-1/3">

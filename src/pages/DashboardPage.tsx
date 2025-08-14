@@ -8,7 +8,8 @@ import { WelcomeBanner } from '@/components/dashboard/WelcomeBanner';
 import { OracleCard } from '@/components/dashboard/OracleCard';
 import { DashboardCalendar } from '@/components/dashboard/DashboardCalendar';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
-import { SharedClassesCard } from '@/components/dashboard/SharedClassesCard'; // <-- IMPORT THE NEW CARD
+import { SharedClassesCard } from '@/components/dashboard/SharedClassesCard';
+import { WelcomePopup } from '@/components/dashboard/WelcomePopup';
 
 const Footer = () => (
   <footer className="w-full px-4 py-6 md:px-9 lg:px-10 border-t border-marble-400 bg-marble-100 flex-shrink-0">
@@ -26,6 +27,7 @@ const DashboardPage = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
   const { loadPage, loader } = usePageLoader();
+  const [isWelcomePopupOpen, setIsWelcomePopupOpen] = useState(false);
 
   useEffect(() => {
     if (loader) {
@@ -35,6 +37,13 @@ const DashboardPage = () => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      
+      const popupShown = sessionStorage.getItem('eidoWelcomePopupShown');
+
+      if (!user && !popupShown) {
+        setIsWelcomePopupOpen(true);
+        sessionStorage.setItem('eidoWelcomePopupShown', 'true');
+      }
     };
     fetchUser();
 
@@ -77,13 +86,15 @@ const DashboardPage = () => {
     }
   };
 
+  const handleOpenWelcomePopup = () => setIsWelcomePopupOpen(true);
+
   return (
     <MainAppLayout pageTitle="Dashboard | Eido AI">
       <div className="flex h-full w-full justify-self-center md:gap-x-3">
         <DashboardSidebar onLinkClick={handleProtectedLinkClick} />
         
         <main className="flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-marble-400 bg-marble-100">
-          <WelcomeBanner user={user} profile={profile} />
+          <WelcomeBanner user={user} profile={profile} onTutorialClick={handleOpenWelcomePopup} />
           
           <div className="flex-grow px-4 pb-10 md:px-9 lg:px-10">
             <div className="flex h-full w-full flex-col gap-y-6">
@@ -93,7 +104,7 @@ const DashboardPage = () => {
                 {/* MODIFICATION: This column now contains both cards stacked vertically */}
                 <div className="col-span-10 md:col-span-7 flex flex-col gap-y-6">
                    <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
-                   <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
+                    <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
                 </div>
                 {/* MODIFICATION: This is now just a placeholder again */}
                 <div className="hidden md:block col-span-3 rounded-lg border border-marble-400 bg-white">
@@ -106,6 +117,10 @@ const DashboardPage = () => {
           <Footer />
         </main>
       </div>
+      <WelcomePopup
+        isOpen={isWelcomePopupOpen}
+        onClose={() => setIsWelcomePopupOpen(false)}
+      />
     </MainAppLayout>
   );
 };

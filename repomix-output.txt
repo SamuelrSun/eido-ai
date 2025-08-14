@@ -125,7 +125,9 @@ src/
       DashboardCalendar.tsx
       DashboardSidebar.tsx
       OracleCard.tsx
+      SharedClassesCard.tsx
       WelcomeBanner.tsx
+      WelcomePopup.tsx
     layout/
       sidebar/
         SidebarAccount.tsx
@@ -5550,6 +5552,44 @@ export const OracleCard: React.FC<OracleCardProps> = ({ onClick }) => {
 };
 
 ================
+File: src/components/dashboard/SharedClassesCard.tsx
+================
+// src/components/dashboard/SharedClassesCard.tsx
+import React from 'react';
+
+interface SharedClassesCardProps {
+  onClick: () => void;
+}
+
+export const SharedClassesCard: React.FC<SharedClassesCardProps> = ({ onClick }) => {
+  return (
+    <section 
+      className="relative flex flex-col rounded-lg p-4 md:p-8 xl:flex-row overflow-hidden border assignments-background-image border-blue-200"
+    >
+      <div className="flex flex-col gap-y-3 w-full xl:w/2 z-10">
+        <h2 className="text-h5-m lg:text-h5 font-variable font-[420]">Shared Classes</h2>
+        
+        <p className="text-p font-body md:max-w-xs">Invite classmates to build a knowledge base together. Share notes, slides, and study materials in one central place.</p>
+
+        <div onClick={onClick} className="w-fit pb-3 pt-4 focus:outline-none disabled:cursor-not-allowed inline-block cursor-pointer">
+          <div className="relative flex grow">
+            <div className="z-10 flex grow gap-x-2.5">
+              <div className="h-full min-h-cell-md max-h-cell-md flex grow group/cell transition-all">
+                <span className="bg-blue-500 h-full min-h-cell-md max-h-cell-md transition-all bg-clip-padding origin-top-right -mr-0.5 w-3 rounded-l-[6px] border-transparent"></span>
+                 <div className="bg-blue-500 text-white h-full min-h-cell-md max-h-cell-md truncate flex grow justify-between items-center transition-colors bg-clip-padding">
+                  <div className="z-10 w-full"><span className="px-2 justify-center flex w-full items-center transition-all"><span className="text-p font-body">Create Shared Class</span></span></div>
+                </div>
+                 <span className="bg-blue-500 h-full min-h-cell-md max-h-cell-md transition-all bg-clip-padding origin-top-right w-6 -skew-x-[21deg] rounded-tr-[10px] rounded-br-[4px] border-transparent"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+================
 File: src/components/dashboard/WelcomeBanner.tsx
 ================
 // src/components/dashboard/WelcomeBanner.tsx
@@ -5573,7 +5613,7 @@ export const WelcomeBanner: React.FC<WelcomeBannerProps> = ({ user, profile }) =
           </p>
           <h1 className="text-h5-m lg:text-h4 font-variable font-[420] mb-3 text-volcanic-900">What is Eido AI?</h1>
           <p className="text-p font-body pb-6 text-volcanic-900 md:pb-10">
-          Eido AI is your educational copilot, transforming your coursework into a powerful suite of intelligent tools. Get started with Eido AI by taking a tour or exploring the tools below.
+          Welcome to Eido AI, the educational copilot transforming your coursework into a powerful suite of intelligent tools. Get started with Eido AI by taking a tour or exploring the tools below.
           </p>
         </div>
         <div className="hidden items-end md:flex md:w-1/3">
@@ -5585,6 +5625,62 @@ export const WelcomeBanner: React.FC<WelcomeBannerProps> = ({ user, profile }) =
         </div>
       </div>
     </div>
+  );
+};
+
+================
+File: src/components/dashboard/WelcomePopup.tsx
+================
+// src/components/dashboard/WelcomePopup.tsx
+import React from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+
+interface WelcomePopupProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const WelcomePopup: React.FC<WelcomePopupProps> = ({ isOpen, onClose }) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle className="text-center text-2xl font-bold">Welcome to Eido!</DialogTitle>
+          <DialogDescription className="text-center pt-2">
+            I'm excited to have you here. To get started with <strong>Oracle</strong>:
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 text-sm text-gray-700">
+          <ol className="list-decimal list-inside space-y-2">
+            <li>Go to the <strong>Classes</strong> tab and create a new class.</li>
+            <li>Upload your files to that class.</li>
+            <li>Head back to <strong>Oracle</strong>, where your new class will already be selected. You can now ask questions about your files and see citations pulled directly from them.</li>
+          </ol>
+          <p className="italic text-gray-500">
+            Just a quick note: file processing is still improving, so extremely large or complicated files might not process perfectly yet.
+          </p>
+          <p>
+            I'm actively improving Eido and will keep you updated on major changes, especially as we gear up for the start of the school year. If you run into any issues or have suggestions, please email me at <a href="mailto:srwang@usc.edu" className="text-blue-600 hover:underline">srwang@usc.edu</a> -- I'd love to hear from you. Your feedback will shape Eido into an even better experience.
+          </p>
+          <p className="text-right">
+            - Samuel Wang, <em>Founder</em>
+          </p>
+        </div>
+        <div className="flex justify-center pt-4">
+          <Button onClick={onClose} className="w-full">
+            Let's Go!
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -15729,11 +15825,12 @@ import type { User } from '@supabase/supabase-js';
 import { usePageLoader } from '@/context/LoaderContext';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { WelcomeBanner } from '@/components/dashboard/WelcomeBanner';
-import { CommandBar } from '@/components/dashboard/CommandBar';
 import { OracleCard } from '@/components/dashboard/OracleCard';
 import { DashboardCalendar } from '@/components/dashboard/DashboardCalendar';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
-import { AssignmentsCard } from '@/components/dashboard/AssignmentsCard';
+import { SharedClassesCard } from '@/components/dashboard/SharedClassesCard';
+// ADDED: Import the new WelcomePopup component
+import { WelcomePopup } from '@/components/dashboard/WelcomePopup';
 
 const Footer = () => (
   <footer className="w-full px-4 py-6 md:px-9 lg:px-10 border-t border-marble-400 bg-marble-100 flex-shrink-0">
@@ -15751,7 +15848,8 @@ const DashboardPage = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
   const { loadPage, loader } = usePageLoader();
-  const [command, setCommand] = useState('');
+  // ADDED: State to control the popup visibility
+  const [isWelcomePopupOpen, setIsWelcomePopupOpen] = useState(false);
 
   useEffect(() => {
     if (loader) {
@@ -15761,6 +15859,10 @@ const DashboardPage = () => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      // ADDED: Check if user is null and open the popup
+      if (!user) {
+        setIsWelcomePopupOpen(true);
+      }
     };
     fetchUser();
 
@@ -15803,12 +15905,6 @@ const DashboardPage = () => {
     }
   };
 
-  const handleCommandSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Command submitted:', command);
-    setCommand('');
-  };
-
   return (
     <MainAppLayout pageTitle="Dashboard | Eido AI">
       <div className="flex h-full w-full justify-self-center md:gap-x-3">
@@ -15819,22 +15915,16 @@ const DashboardPage = () => {
           
           <div className="flex-grow px-4 pb-10 md:px-9 lg:px-10">
             <div className="flex h-full w-full flex-col gap-y-6">
-              <CommandBar 
-                command={command}
-                setCommand={setCommand}
-                handleCommandSubmit={handleCommandSubmit}
-              />
 
-              {/* MODIFICATION: Replaced flexbox with a more stable CSS Grid layout */}
+              {/* Grid for Oracle Card and Placeholder */}
               <div className="grid grid-cols-10 gap-6">
-                {/* Left column for cards */}
+                {/* MODIFICATION: This column now contains both cards stacked vertically */}
                 <div className="col-span-10 md:col-span-7 flex flex-col gap-y-6">
-                  <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
-                  <AssignmentsCard onClick={() => handleProtectedLinkClick('/assignments')} />
+                   <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
+                   <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
                 </div>
-                {/* Right column placeholder */}
+                {/* MODIFICATION: This is now just a placeholder again */}
                 <div className="hidden md:block col-span-3 rounded-lg border border-marble-400 bg-white">
-                  {/* This is the white rectangle placeholder */}
                 </div>
               </div>
 
@@ -15844,6 +15934,11 @@ const DashboardPage = () => {
           <Footer />
         </main>
       </div>
+      {/* ADDED: The WelcomePopup component */}
+      <WelcomePopup
+        isOpen={isWelcomePopupOpen}
+        onClose={() => setIsWelcomePopupOpen(false)}
+      />
     </MainAppLayout>
   );
 };
@@ -17379,6 +17474,7 @@ import { AuthGuard } from "./components/auth/AuthGuard";
 import { HelmetProvider } from 'react-helmet-async';
 import { LoaderProvider } from './context/LoaderContext'; 
 import { AuthProvider } from './context/AuthContext';
+import { Analytics } from "@vercel/analytics/react"; // <-- 1. ADD THIS IMPORT
 
 // Import all active page components
 import AuthPage from "./pages/AuthPage";
@@ -17391,7 +17487,7 @@ import PlaceholderPage from "./pages/PlaceholderPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import CalendarPage from "./pages/CalendarPage";
-import AssignmentsPage from "./pages/AssignmentsPage"; // <-- ADD THIS IMPORT
+import AssignmentsPage from "./pages/AssignmentsPage";
 
 const queryClient = new QueryClient();
 const App = () => (
@@ -17416,7 +17512,7 @@ const App = () => (
                   <Route path="/oracle" element={<OraclePage />} />
                   <Route path="/classes" element={<ClassesPage/>} />
                   <Route path="/calendar" element={<CalendarPage />} />
-                  <Route path="/assignments" element={<AssignmentsPage />} /> {/* <-- ADD THIS ROUTE */}
+                  <Route path="/assignments" element={<AssignmentsPage />} />
                   
                   {/* Placeholder routes */}
                   <Route path="/command" element={<PlaceholderPage pageName="Command" />} />
@@ -17430,6 +17526,7 @@ const App = () => (
               </Routes>
             </LoaderProvider>
           </BrowserRouter>
+          <Analytics /> {/* <-- 2. ADD THIS COMPONENT */}
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
@@ -20244,6 +20341,7 @@ File: package.json
     "@radix-ui/react-tooltip": "^1.1.4",
     "@supabase/supabase-js": "^2.49.4",
     "@tanstack/react-query": "^5.56.2",
+    "@vercel/analytics": "^1.5.0",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.7.0",
     "clsx": "^2.1.1",
