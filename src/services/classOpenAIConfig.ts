@@ -63,7 +63,7 @@ export const classOpenAIConfigService = {
       if (updateError) {
         console.error('Error updating class in Supabase:', updateError);
         if (updateError.code === 'PGRST116') {
-            throw new Error(`Class with ID ${class_id_to_update} not found for update, or you do not have permission.`);
+             throw new Error(`Class with ID ${class_id_to_update} not found for update, or you do not have permission.`);
         }
         throw updateError;
       }
@@ -91,7 +91,7 @@ export const classOpenAIConfigService = {
       // --- FIX: This payload now uses 'owner_id' to match our new schema and RLS policy ---
       const insertPayload: ClassesDBInsertPayload = {
         class_name: className,
-        owner_id: user.id, // Changed from user_id to owner_id
+        owner_id: user.id, // This line fixes the bug
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         color: COLOR_SWATCHES[nextColorIndex],
