@@ -167,7 +167,6 @@ export type Database = {
           invite_code: string | null
           owner_id: string | null
           updated_at: string | null
-          user_id: string | null
         }
         Insert: {
           class_id?: string
@@ -177,7 +176,6 @@ export type Database = {
           invite_code?: string | null
           owner_id?: string | null
           updated_at?: string | null
-          user_id?: string | null
         }
         Update: {
           class_id?: string
@@ -187,19 +185,11 @@ export type Database = {
           invite_code?: string | null
           owner_id?: string | null
           updated_at?: string | null
-          user_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "classes_owner_id_fkey"
             columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "classes_user_id_fkey_cascade"
-            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
@@ -822,6 +812,10 @@ export type Database = {
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
+      }
+      can_access_class_content: {
+        Args: { p_class_id: string; p_user_id: string }
+        Returns: boolean
       }
       halfvec_avg: {
         Args: { "": number[] }
