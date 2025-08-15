@@ -7,7 +7,8 @@ import { ClassConfig } from '@/services/classOpenAIConfig';
 
 interface ClassesViewProps {
   isLoading: boolean;
-  classesWithStats: (ClassConfig & { files: number; size: string })[];
+  // --- STAGE 3: UPDATE TYPE TO INCLUDE is_owner ---
+  classesWithStats: (ClassConfig & { files: number; size: string; is_owner: boolean })[];
   onClassClick: (classData: ClassConfig) => void;
   onDeleteClassClick: (classData: ClassConfig) => void;
 }
@@ -16,8 +17,7 @@ const SkeletonGrid = () => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
     {Array.from({ length: 4 }).map((_, i) => (
       <div key={i} className="space-y-2">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-36 w-full" />
       </div>
     ))}
   </div>
@@ -45,13 +45,15 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
               files={classItem.files}
               size={classItem.size}
               isSelected={false}
+              // --- STAGE 3: PASS is_owner PROP ---
+              isOwner={classItem.is_owner}
               onClick={() => onClassClick(classItem)}
               onDelete={() => onDeleteClassClick(classItem)}
             />
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">No classes found. Click "New Class" to get started.</p>
+        <p className="text-sm text-muted-foreground">No classes found. Click "New Class" or "Join Class" to get started.</p>
       )}
     </div>
   );

@@ -10,6 +10,7 @@ import { FolderType, FileType } from '@/features/files/types';
 import { UploadingFile } from '@/components/classes/UploadProgressToast';
 import { DeletingFile } from '@/components/classes/DeletionProgressToast';
 import { formatFileSize } from '@/lib/utils';
+import { ClassMember } from '@/components/classes/ClassMembersView';
 
 export const useClassesPage = () => {
     const { loader } = usePageLoader();
@@ -48,7 +49,11 @@ export const useClassesPage = () => {
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
     const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
     const fileSubscription = useRef<RealtimeChannel | null>(null);
+    const [isJoinClassOpen, setIsJoinClassOpen] = useState(false);
+    const [classMembers, setClassMembers] = useState<ClassMember[]>([]);
+    const [isLoadingMembers, setIsLoadingMembers] = useState(false);
 
+    // --- All useEffects and data fetching logic from previous steps remain here ---
     useEffect(() => {
         if (loader) loader.continuousStart();
         const fetchUserAndInitialData = async () => {
@@ -79,16 +84,20 @@ export const useClassesPage = () => {
     const fetchData = useCallback(async () => {
         if (!user) return;
         setIsLoading(true);
+        if (selectedClass) setIsLoadingMembers(true);
+
         try {
             if (selectedClass) {
-                const [fetchedFolders, fetchedFiles, fetchedAllClassFiles] = await Promise.all([
+                const [fetchedFolders, fetchedFiles, fetchedAllClassFiles, fetchedMembers] = await Promise.all([
                     fileService.getFolders(selectedClass.class_id, currentFolderId),
                     fileService.getFiles(selectedClass.class_id, currentFolderId),
                     fileService.getAllFilesForClass(selectedClass.class_id),
+                    classOpenAIConfigService.getClassMembers(selectedClass.class_id),
                 ]);
                 setFolders(fetchedFolders);
                 setFiles(fetchedFiles);
                 setAllClassFiles(fetchedAllClassFiles);
+                setClassMembers(fetchedMembers);
             } else {
                 const [fetchedClasses, fetchedAllFilesResult] = await Promise.all([
                     classOpenAIConfigService.getAllClasses(),
@@ -98,18 +107,110 @@ export const useClassesPage = () => {
                 setAllFiles(fetchedAllFilesResult as (FileType & { class: string })[]);
                 setFolders([]);
                 setFiles([]);
+                setClassMembers([]);
             }
         } catch (error) {
             toast({ title: 'Error fetching data', description: (error instanceof Error) ? error.message : "An unknown error occurred.", variant: 'destructive' });
         } finally {
             setIsLoading(false);
+            setIsLoadingMembers(false);
             if (loader) loader.complete();
         }
     }, [user, selectedClass, currentFolderId, toast, loader]);
-
+    
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const handleJoinClass = async (inviteCode: string) => {
+        if (!inviteCode.trim()) {
+            toast({ title: "Error", description: "Invite code cannot be empty.", variant: "destructive" });
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const { error, data } = await supabase.functions.invoke('join-class', {
+                body: { invite_code: inviteCode.trim() },
+            });
+            
+            // The function now returns structured JSON, so we check for an error property in the data
+            if (error) throw new Error(error.message);
+            if (data?.error) throw new Error(data.error);
+
+            toast({ title: "Request Sent!", description: data.message });
+            // No need to refetch here, as the owner needs to approve first.
+        } catch (error) {
+            toast({ title: "Error Joining Class", description: (error as Error).message, variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+            setIsJoinClassOpen(false);
+        }
+    };
+    
+    const handleLeaveClass = async (classId: string) => {
+        try {
+            const { error } = await supabase.functions.invoke('leave-class', {
+                body: { class_id: classId }
+            });
+            if (error) throw error;
+            toast({ title: "You have left the class." });
+            handleBreadcrumbClick(0); 
+            await fetchData(); // Use await to ensure data is refetched after leaving
+        } catch(error) {
+            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+        }
+    };
+
+    const handleRemoveMember = async (classId: string, memberId: string) => {
+        try {
+            const { error } = await supabase.functions.invoke('remove-class-member', {
+                body: { class_id: classId, member_id: memberId }
+            });
+            if (error) throw error;
+            toast({ title: "Member removed." });
+            // Refresh member list
+            const members = await classOpenAIConfigService.getClassMembers(classId);
+            setClassMembers(members);
+        } catch(error) {
+            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+        }
+    };
+
+    // --- STAGE 4: NEW HANDLER FOR APPROVING MEMBERS ---
+    const handleApproveMember = async (classId: string, memberId: string) => {
+        try {
+             const { error } = await supabase.functions.invoke('approve-class-member', {
+                body: { class_id: classId, member_id: memberId }
+            });
+            if (error) throw error;
+            toast({ title: "Member Approved" });
+            const members = await classOpenAIConfigService.getClassMembers(classId);
+            setClassMembers(members);
+        } catch(error) {
+             toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+        }
+    };
+
+    const classesWithStats = useMemo(() => {
+        if (!classes || !allFiles || !user) return [];
+        return classes.map(cls => {
+            const filesForClass = allFiles.filter(file => file.class_id === cls.class_id);
+            const totalSize = filesForClass.reduce((acc, file) => acc + (file.size || 0), 0);
+            return { 
+                ...cls, 
+                files: filesForClass.length, 
+                size: formatFileSize(totalSize),
+                is_owner: cls.owner_id === user.id
+            };
+        });
+    }, [classes, allFiles, user]);
+
+    // ... The rest of the file remains the same ...
+    // ... (handleUploadFiles, realtime subscriptions, other handlers, etc.) ...
+    
+    // Omitting the rest of the file for brevity, as it's identical to the previous step's version
+    // Only the new `handleApproveMember` function and updated `handleJoinClass` are relevant.
+    // The full file content should be used when replacing.
 
     const handleUploadFiles = async (filesToUpload: File[]) => {
         if (!user || !selectedClass) {
@@ -321,7 +422,6 @@ export const useClassesPage = () => {
         try {
             await classOpenAIConfigService.deleteClass(classIdToDelete);
     
-            // Update client-side state immediately after the async operation succeeds
             setClasses(prev => prev.filter(c => c.class_id !== classIdToDelete));
             setRecentFiles(prev => prev.filter(file => file.class_id !== classIdToDelete));
             
@@ -347,7 +447,6 @@ export const useClassesPage = () => {
                 description: (error as Error).message,
                 variant: "destructive"
             });
-            // Re-fetch data on failure to ensure UI is in a consistent state
             fetchData();
         } finally {
             setIsDeletingClass(false);
@@ -369,15 +468,6 @@ export const useClassesPage = () => {
             setIsNewFolderOpen(false);
         }
     };
-
-    const classesWithStats = useMemo(() => {
-        if (!classes || !allFiles) return [];
-        return classes.map(cls => {
-            const filesForClass = allFiles.filter(file => file.class_id === cls.class_id);
-            const totalSize = filesForClass.reduce((acc, file) => acc + (file.size || 0), 0);
-            return { ...cls, files: filesForClass.length, size: formatFileSize(totalSize) };
-        });
-    }, [classes, allFiles]);
 
     const foldersWithStats = useMemo(() => {
         if (!folders.length) return [];
@@ -405,6 +495,7 @@ export const useClassesPage = () => {
             return { ...folder, files: stats.count, size: formatFileSize(stats.size), folderName: folder.name };
         });
     }, [folders, allClassFiles, allUserFolders]);
+    
 
     return {
         user, classes, folders, files, allClassFiles, allFiles, recentFiles,
@@ -412,13 +503,13 @@ export const useClassesPage = () => {
         filesToDelete, deletingFiles, isCreateClassOpen, isNewFolderOpen,
         isUploadOpen, isSubmitting, previewedFile, isDeleteClassConfirmationOpen,
         classToDelete, isDeletingClass, viewMode, uploadingFiles,
-        
+        isJoinClassOpen, setIsJoinClassOpen, handleJoinClass,
+        classMembers, isLoadingMembers, handleLeaveClass, handleRemoveMember, handleApproveMember,
         setRecentFiles, setSelectedClass, setCurrentFolderId, setBreadcrumbs,
         setIsLoading, setIsDeleting, setFilesToDelete, setDeletingFiles,
         setIsCreateClassOpen, setIsNewFolderOpen, setIsUploadOpen, setIsSubmitting,
         setPreviewedFile, setIsDeleteClassConfirmationOpen, setClassToDelete,
         setIsDeletingClass, setViewMode, setUploadingFiles,
-        
         fetchData, handleUploadFiles, handleClassClick, handleFolderClick,
         handleBreadcrumbClick, getFolderPath, handleFileRowClick, confirmDelete,
         handleCreateClass, handleDeleteClassClick, confirmDeleteClass, handleCreateFolder,

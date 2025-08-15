@@ -8,6 +8,8 @@ import { ClassesView } from '@/components/classes/ClassesView';
 import { FilesView } from '@/components/classes/FilesView';
 import { ClassesPageDialogs } from '@/components/classes/ClassesPageDialogs';
 import { ClassesPageToasts } from '@/components/classes/ClassesPageToasts';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ClassMembersView } from '@/components/classes/ClassMembersView';
 
 const ClassesPage = () => {
     const hook = useClassesPage();
@@ -28,22 +30,42 @@ const ClassesPage = () => {
                             onBreadcrumbClick={hook.handleBreadcrumbClick}
                             onNewFolderClick={() => hook.setIsNewFolderOpen(true)}
                             onHeaderButtonClick={() => hook.selectedClass ? hook.setIsUploadOpen(true) : hook.setIsCreateClassOpen(true)}
+                            onJoinClassClick={() => hook.setIsJoinClassOpen(true)}
                         />
                         {hook.selectedClass ? (
-                            <FilesView
-                                isLoading={hook.isLoading}
-                                foldersWithStats={hook.foldersWithStats}
-                                filesForTable={hook.files}
-                                viewMode={hook.viewMode}
-                                setViewMode={hook.setViewMode}
-                                onFolderClick={hook.handleFolderClick}
-                                onFileRowClick={hook.handleFileRowClick}
-                                previewedFile={hook.previewedFile}
-                                classes={hook.classes}
-                                getFolderPath={hook.getFolderPath}
-                                selectedClass={hook.selectedClass}
-                                recentFiles={hook.recentFiles}
-                            />
+                            <Tabs defaultValue="files" className="w-full">
+                                <TabsList>
+                                    <TabsTrigger value="files">Files</TabsTrigger>
+                                    <TabsTrigger value="members">Members</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="files" className="mt-6">
+                                    <FilesView
+                                        isLoading={hook.isLoading}
+                                        foldersWithStats={hook.foldersWithStats}
+                                        filesForTable={hook.files}
+                                        viewMode={hook.viewMode}
+                                        setViewMode={hook.setViewMode}
+                                        onFolderClick={hook.handleFolderClick}
+                                        onFileRowClick={hook.handleFileRowClick}
+                                        previewedFile={hook.previewedFile}
+                                        classes={hook.classes}
+                                        getFolderPath={hook.getFolderPath}
+                                        selectedClass={hook.selectedClass}
+                                        recentFiles={hook.recentFiles}
+                                    />
+                                </TabsContent>
+                                <TabsContent value="members" className="mt-6">
+                                    {/* --- STAGE 4: PASS NEW HANDLERS TO MEMBERS VIEW --- */}
+                                    <ClassMembersView
+                                        selectedClass={hook.selectedClass}
+                                        isOwner={hook.classesWithStats.find(c => c.class_id === hook.selectedClass?.class_id)?.is_owner ?? false}
+                                        classMembers={hook.classMembers}
+                                        onRemoveMember={hook.handleRemoveMember}
+                                        onLeaveClass={hook.handleLeaveClass}
+                                        onApproveMember={hook.handleApproveMember}
+                                    />
+                                </TabsContent>
+                            </Tabs>
                         ) : (
                             <>
                                 <ClassesView
@@ -82,6 +104,9 @@ const ClassesPage = () => {
                 setIsCreateClassOpen={hook.setIsCreateClassOpen}
                 handleCreateClass={hook.handleCreateClass}
                 isSubmitting={hook.isSubmitting}
+                isJoinClassOpen={hook.isJoinClassOpen}
+                setIsJoinClassOpen={hook.setIsJoinClassOpen}
+                handleJoinClass={hook.handleJoinClass}
                 isNewFolderOpen={hook.isNewFolderOpen}
                 setIsNewFolderOpen={hook.setIsNewFolderOpen}
                 handleCreateFolder={hook.handleCreateFolder}

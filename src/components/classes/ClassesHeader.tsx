@@ -9,7 +9,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { FolderPlus } from 'lucide-react';
+import { FolderPlus, Users } from 'lucide-react'; // --- STAGE 3: IMPORT Users ICON ---
 import { ClassConfig } from '@/services/classOpenAIConfig';
 
 interface ClassesHeaderProps {
@@ -18,6 +18,8 @@ interface ClassesHeaderProps {
   onBreadcrumbClick: (index: number) => void;
   onNewFolderClick: () => void;
   onHeaderButtonClick: () => void;
+  // --- STAGE 3: ADD NEW PROP FOR JOIN CLASS ---
+  onJoinClassClick: () => void;
 }
 
 export const ClassesHeader: React.FC<ClassesHeaderProps> = ({
@@ -26,6 +28,8 @@ export const ClassesHeader: React.FC<ClassesHeaderProps> = ({
   onBreadcrumbClick,
   onNewFolderClick,
   onHeaderButtonClick,
+  // --- STAGE 3: DESTRUCTURE NEW PROP ---
+  onJoinClassClick,
 }) => {
   return (
     <div className="flex justify-between items-center">
@@ -62,6 +66,13 @@ export const ClassesHeader: React.FC<ClassesHeaderProps> = ({
             <FolderPlus className="mr-2 h-4 w-4" />
             New Folder
           </Button>
+        )}
+        {/* --- STAGE 3: ADD JOIN CLASS BUTTON (only shows in home view) --- */}
+        {!selectedClass && (
+            <Button variant="outline" onClick={onJoinClassClick}>
+                <Users className="mr-2 h-4 w-4" />
+                Join Class
+            </Button>
         )}
         <Button onClick={onHeaderButtonClick}>
           {selectedClass ? "Upload Files" : "New Class"}

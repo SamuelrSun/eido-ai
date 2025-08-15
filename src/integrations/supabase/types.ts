@@ -7,10 +7,10 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "12.2.12 (cd3cf9e)"
   }
   public: {
     Tables: {
@@ -122,12 +122,50 @@ export type Database = {
           },
         ]
       }
+      class_members: {
+        Row: {
+          class_id: string
+          created_at: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string | null
+          role?: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_members_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "class_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           class_id: string
           class_name: string
           color: string | null
           created_at: string | null
+          invite_code: string | null
+          owner_id: string | null
           updated_at: string | null
           user_id: string | null
         }
@@ -136,6 +174,8 @@ export type Database = {
           class_name: string
           color?: string | null
           created_at?: string | null
+          invite_code?: string | null
+          owner_id?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -144,10 +184,19 @@ export type Database = {
           class_name?: string
           color?: string | null
           created_at?: string | null
+          invite_code?: string | null
+          owner_id?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "classes_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "classes_user_id_fkey_cascade"
             columns: ["user_id"]
@@ -806,6 +855,10 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
+      is_class_member: {
+        Args: { p_class_id: string; p_user_id: string }
+        Returns: boolean
+      }
       ivfflat_bit_support: {
         Args: { "": unknown }
         Returns: unknown
@@ -824,7 +877,7 @@ export type Database = {
       }
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: string
+        Returns: unknown
       }
       sparsevec_out: {
         Args: { "": unknown }

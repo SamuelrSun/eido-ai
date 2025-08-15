@@ -1,8 +1,9 @@
 // src/services/classOpenAIConfig.ts
 import { supabase } from "@/integrations/supabase/client";
 import type { CustomDatabase } from "@/integrations/supabase/client";
+// --- STAGE 4: IMPORT ClassMember TYPE ---
+import { ClassMember } from '@/components/classes/ClassMembersView';
 
-// This is defined in CalendarSidebar, but we can keep a copy here for default assignment
 const COLOR_SWATCHES = [
     'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-lime-500', 'bg-green-500', 'bg-teal-500',
     'bg-cyan-500', 'bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500',
@@ -16,7 +17,8 @@ export interface OpenAIConfig {
 export interface ClassConfig {
   class_id: string;
   class_name: string;
-  user_id?: string | null;
+  owner_id: string | null;
+  invite_code?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   color?: string | null;
@@ -27,6 +29,8 @@ type ClassesDBRow = CustomDatabase['public']['Tables']['classes']['Row'];
 type ClassesDBUpdatePayload = Partial<ClassesDBRow>;
 
 export const classOpenAIConfigService = {
+  // ... existing functions (getConfigForClass, saveConfigForClass) remain the same ...
+
   getConfigForClass: async (class_id: string): Promise<OpenAIConfig | undefined> => {
     console.warn("getConfigForClass: OpenAI config IDs are no longer stored on the 'classes' table. This function will return undefined.");
     return undefined;
@@ -55,7 +59,7 @@ export const classOpenAIConfigService = {
         .from('classes')
         .update(updatePayload)
         .eq('class_id', class_id_to_update)
-        .eq('user_id', user.id)
+        .eq('owner_id', user.id)
         .select()
         .single();
       if (updateError) {
@@ -72,7 +76,7 @@ export const classOpenAIConfigService = {
         .from('classes')
         .select('class_id, class_name')
         .eq('class_name', className)
-        .eq('user_id', user.id)
+        .eq('owner_id', user.id)
         .maybeSingle();
       if (fetchError) {
         console.error('Error checking if class exists by name:', fetchError);
@@ -83,12 +87,12 @@ export const classOpenAIConfigService = {
         throw new Error(`A class named '${className}' already exists. Please use a different name.`);
       }
 
-      const { data: userClasses } = await supabase.from('classes').select('class_id').eq('user_id', user.id);
+      const { data: userClasses } = await supabase.from('classes').select('class_id').eq('owner_id', user.id);
       const nextColorIndex = (userClasses?.length || 0) % COLOR_SWATCHES.length;
 
       const insertPayload: ClassesDBInsertPayload = {
         class_name: className,
-        user_id: user.id,
+        owner_id: user.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         color: COLOR_SWATCHES[nextColorIndex],
@@ -107,6 +111,37 @@ export const classOpenAIConfigService = {
     }
     return savedClassRecord;
   },
+  
+  // --- STAGE 4: NEW FUNCTION TO GET CLASS MEMBERS ---
+  getClassMembers: async (class_id: string): Promise<ClassMember[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+      .from('class_members')
+      .select(`
+        user_id,
+        role,
+        profiles (
+          full_name,
+          avatar_url,
+          email
+        )
+      `)
+      .eq('class_id', class_id);
+    
+    if (error) {
+      console.error('Error fetching class members:', error);
+      throw error;
+    }
+    
+    // Sort so owner is always first
+    return (data as ClassMember[]).sort((a, b) => {
+        if (a.role === 'owner') return -1;
+        if (b.role === 'owner') return 1;
+        return 0;
+    });
+  },
 
   getAllClasses: async (): Promise<ClassConfig[]> => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -117,7 +152,6 @@ export const classOpenAIConfigService = {
       const { data, error } = await supabase
         .from('classes')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) {
         console.error('Error fetching classes from Supabase:', error);
@@ -138,7 +172,7 @@ export const classOpenAIConfigService = {
         .from('classes')
         .update({ color: color, updated_at: new Date().toISOString() })
         .eq('class_id', class_id)
-        .eq('user_id', user.id)
+        .eq('owner_id', user.id)
         .select()
         .single();
     if (error) {
@@ -153,15 +187,13 @@ export const classOpenAIConfigService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Authentication required to delete a class.');
     
-    await supabase.from('chat_messages').delete().eq('class_id', class_id);
-    await supabase.from('conversations').delete().eq('class_id', class_id);
-    await supabase.from('files').delete().eq('class_id', class_id);
-    await supabase.from('folders').delete().eq('class_id', class_id);
-    await supabase.from('quiz_questions').delete().eq('class_id', class_id);
-    await supabase.from('quizzes').delete().eq('class_id', class_id);
-    await supabase.from('flashcards').delete().eq('class_id', class_id);
-    await supabase.from('flashcard-decks').delete().eq('class_id', class_id);
+    // RLS will ensure only the owner can delete. DB cascade will handle related data.
+    const { error } = await supabase.from('classes').delete().eq('class_id', class_id);
+    if (error) {
+        console.error("Error deleting class:", error);
+        throw error;
+    }
+    // Cleanup tasks in services without cascade (Weaviate, etc.)
     await supabase.functions.invoke('delete-weaviate-data-by-class', { body: { class_id_to_delete: class_id } });
-    await supabase.from('classes').delete().eq('class_id', class_id);
   },
 };

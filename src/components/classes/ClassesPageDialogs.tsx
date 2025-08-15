@@ -3,6 +3,8 @@ import React from 'react';
 import { CreateClassDialog } from '@/components/classes/CreateClassDialog';
 import { NewFolderDialog } from '@/components/classes/NewFolderDialog';
 import { UploadDialog } from '@/components/classes/UploadDialog';
+// --- STAGE 3: IMPORT THE NEW DIALOG ---
+import { JoinClassDialog } from '@/components/classes/JoinClassDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Loader2 } from 'lucide-react';
 import { ClassConfig } from '@/services/classOpenAIConfig';
@@ -13,6 +15,11 @@ interface ClassesPageDialogsProps {
     setIsCreateClassOpen: (isOpen: boolean) => void;
     handleCreateClass: (className: string) => void;
     isSubmitting: boolean;
+
+    // --- STAGE 3: ADD PROPS FOR JOIN CLASS DIALOG ---
+    isJoinClassOpen: boolean;
+    setIsJoinClassOpen: (isOpen: boolean) => void;
+    handleJoinClass: (inviteCode: string) => void;
 
     isNewFolderOpen: boolean;
     setIsNewFolderOpen: (isOpen: boolean) => void;
@@ -36,6 +43,7 @@ interface ClassesPageDialogsProps {
 
 export const ClassesPageDialogs: React.FC<ClassesPageDialogsProps> = ({
     isCreateClassOpen, setIsCreateClassOpen, handleCreateClass, isSubmitting,
+    isJoinClassOpen, setIsJoinClassOpen, handleJoinClass, // Destructure new props
     isNewFolderOpen, setIsNewFolderOpen, handleCreateFolder,
     isUploadOpen, setIsUploadOpen, handleUploadFiles,
     filesToDelete, setFilesToDelete, isDeleting, confirmDelete,
@@ -49,6 +57,14 @@ export const ClassesPageDialogs: React.FC<ClassesPageDialogsProps> = ({
                 onSubmit={handleCreateClass}
                 isLoading={isSubmitting}
             />
+            {/* --- STAGE 3: RENDER THE NEW DIALOG --- */}
+            <JoinClassDialog
+                isOpen={isJoinClassOpen}
+                onClose={() => setIsJoinClassOpen(false)}
+                onSubmit={handleJoinClass}
+                isLoading={isSubmitting}
+            />
+            
             <NewFolderDialog
                 isOpen={isNewFolderOpen}
                 onClose={() => setIsNewFolderOpen(false)}
