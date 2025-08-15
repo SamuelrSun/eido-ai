@@ -1,9 +1,9 @@
 // src/services/classOpenAIConfig.ts
 import { supabase } from "@/integrations/supabase/client";
 import type { CustomDatabase } from "@/integrations/supabase/client";
-// --- STAGE 4: IMPORT ClassMember TYPE ---
 import { ClassMember } from '@/components/classes/ClassMembersView';
 
+// This is defined in CalendarSidebar, but we can keep a copy here for default assignment
 const COLOR_SWATCHES = [
     'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-lime-500', 'bg-green-500', 'bg-teal-500',
     'bg-cyan-500', 'bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500',
@@ -29,8 +29,6 @@ type ClassesDBRow = CustomDatabase['public']['Tables']['classes']['Row'];
 type ClassesDBUpdatePayload = Partial<ClassesDBRow>;
 
 export const classOpenAIConfigService = {
-  // ... existing functions (getConfigForClass, saveConfigForClass) remain the same ...
-
   getConfigForClass: async (class_id: string): Promise<OpenAIConfig | undefined> => {
     console.warn("getConfigForClass: OpenAI config IDs are no longer stored on the 'classes' table. This function will return undefined.");
     return undefined;
@@ -59,7 +57,7 @@ export const classOpenAIConfigService = {
         .from('classes')
         .update(updatePayload)
         .eq('class_id', class_id_to_update)
-        .eq('owner_id', user.id)
+        .eq('owner_id', user.id) // Security check: ensure user is the owner
         .select()
         .single();
       if (updateError) {
@@ -76,7 +74,7 @@ export const classOpenAIConfigService = {
         .from('classes')
         .select('class_id, class_name')
         .eq('class_name', className)
-        .eq('owner_id', user.id)
+        .eq('owner_id', user.id) // Check for classes owned by this user
         .maybeSingle();
       if (fetchError) {
         console.error('Error checking if class exists by name:', fetchError);
@@ -90,9 +88,10 @@ export const classOpenAIConfigService = {
       const { data: userClasses } = await supabase.from('classes').select('class_id').eq('owner_id', user.id);
       const nextColorIndex = (userClasses?.length || 0) % COLOR_SWATCHES.length;
 
+      // --- FIX: This payload now uses 'owner_id' to match our new schema and RLS policy ---
       const insertPayload: ClassesDBInsertPayload = {
         class_name: className,
-        owner_id: user.id,
+        owner_id: user.id, // Changed from user_id to owner_id
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         color: COLOR_SWATCHES[nextColorIndex],
@@ -112,7 +111,6 @@ export const classOpenAIConfigService = {
     return savedClassRecord;
   },
   
-  // --- STAGE 4: NEW FUNCTION TO GET CLASS MEMBERS ---
   getClassMembers: async (class_id: string): Promise<ClassMember[]> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
@@ -149,6 +147,7 @@ export const classOpenAIConfigService = {
       return [];
     }
     try {
+      // RLS policy "Enable read access for class members" will handle security
       const { data, error } = await supabase
         .from('classes')
         .select('*')
@@ -172,7 +171,7 @@ export const classOpenAIConfigService = {
         .from('classes')
         .update({ color: color, updated_at: new Date().toISOString() })
         .eq('class_id', class_id)
-        .eq('owner_id', user.id)
+        .eq('owner_id', user.id) // Only owner can change color
         .select()
         .single();
     if (error) {
