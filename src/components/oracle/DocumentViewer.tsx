@@ -5,9 +5,6 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Loader2, ZoomIn, ZoomOut } from 'lucide-react';
 import { FileType } from '@/features/files/types';
-import { pdfjs } from 'react-pdf';
-
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface DocumentViewerProps {
   file: FileType;
