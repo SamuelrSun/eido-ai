@@ -1,6 +1,5 @@
 // src/components/oracle/DocumentViewer.tsx
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Document, Page } from 'react-pdf';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -84,7 +83,8 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
 
   return (
     <div className="w-full h-full flex flex-col relative">
-      <div ref={pdfPreviewRef} className="flex-1 w-full h-full rounded-md border border-stone-700 overflow-hidden flex justify-center bg-stone-100">
+      {/* --- MODIFICATION: Removed border classes from this div --- */}
+      <div ref={pdfPreviewRef} className="flex-1 w-full h-full rounded-md overflow-hidden flex justify-center bg-stone-100">
         <ScrollArea className="h-full w-full">
           <div className="flex flex-col items-center py-4">
             {file && file.url && (
@@ -102,24 +102,16 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
               </Document>
             )}
           </div>
-          {/* Added horizontal scrollbar */}
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </div>
 
-      {/* Shrunk the controls */}
       {numPages && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-            <div className="flex items-center gap-1 rounded-full border bg-white/70 p-1 shadow-md backdrop-blur-sm">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setScale(s => Math.max(s / 1.2, minScale))}>
-                    <ZoomOut className="h-4 w-4" />
-                </Button>
-                <span className="text-xs font-medium text-stone-700 tabular-nums px-2">
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
+            <div className="flex items-center rounded-md border bg-white/70 py-0.5 px-1.5 shadow-md backdrop-blur-sm">
+                <span className="text-[11px] font-medium text-stone-700 tabular-nums">
                     {currentPage} / {numPages}
                 </span>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setScale(s => Math.min(s * 1.2, 3.0))}>
-                    <ZoomIn className="h-4 w-4" />
-                </Button>
             </div>
         </div>
       )}

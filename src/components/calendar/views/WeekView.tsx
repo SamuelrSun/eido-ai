@@ -5,6 +5,7 @@ import { format, addDays, startOfWeek, isSameDay, addMinutes } from 'date-fns';
 import { TimeAxis } from './TimeAxis';
 import { CalendarEvent, NewCalendarEvent } from '@/services/calendarEventService';
 import { ClassConfigWithColor } from '@/components/calendar/types';
+import { normalizeColorClasses } from '@/components/calendar/colorUtils'; // IMPORT THE NEW HELPER
 
 interface WeekViewProps {
   currentDate: Date;
@@ -60,13 +61,13 @@ export const WeekView: React.FC<WeekViewProps> = ({
     
     return (
         <div className="flex flex-col flex-1">
-            <div className="flex sticky top-0 bg-white z-20">
+             <div className="flex sticky top-0 bg-neutral-950 z-20">
                 <div className="w-16 shrink-0"></div>
                 <div className="flex-1 grid grid-cols-7">
                     {weekDays.map((day) => (
-                        <div key={day.toISOString()} className="text-center py-2 border-b border-l border-marble-400">
-                            <p className="text-xs text-volcanic-800">{format(day, 'EEE')}</p>
-                            <p className={cn("text-lg font-semibold w-8 h-8 flex items-center justify-center mx-auto", isSameDay(day, today) && "bg-stone-700 text-white rounded-full")}>
+                        <div key={day.toISOString()} className="text-center py-2 border-b border-l border-neutral-800">
+                            <p className="text-xs text-neutral-400">{format(day, 'EEE')}</p>
+                            <p className={cn("text-lg font-semibold w-8 h-8 flex items-center justify-center mx-auto text-neutral-200", isSameDay(day, today) && "bg-blue-600 text-white rounded-full")}>
                                 {format(day, 'd')}
                              </p>
                         </div>
@@ -77,13 +78,13 @@ export const WeekView: React.FC<WeekViewProps> = ({
                 <TimeAxis />
                 <div className="flex-1 grid grid-cols-7">
                     {weekDays.map(day => (
-                        <div key={day.toISOString()} className="relative border-l border-marble-400 calendar-grid"
-                             onMouseDown={(e) => handleMouseDown(e, day)}
+                        <div key={day.toISOString()} className="relative border-l border-neutral-800 calendar-grid"
+                            onMouseDown={(e) => handleMouseDown(e, day)}
                              onMouseMove={(e) => handleMouseMove(e, day)}
                              onMouseUp={onEventCreateEnd}
-                             onMouseLeave={(e) => { if (isCreatingEvent) onEventCreateEnd(e); }}>
-                             {Array.from({ length: 24 }).map((_, hour) => <div key={hour} className="h-12 border-b border-marble-400"></div>)}
-                            
+                            onMouseLeave={(e) => { if (isCreatingEvent) onEventCreateEnd(e); }}>
+                             {Array.from({ length: 24 }).map((_, hour) => <div key={hour} className="h-12 border-b border-neutral-800"></div>)}
+                        
                              {draftEvent && draftEvent.event_start && isSameDay(new Date(draftEvent.event_start), day) && (() => {
                                 const startDate = new Date(draftEvent.event_start);
                                 const endDate = draftEvent.event_end ? new Date(draftEvent.event_end) : new Date(startDate.getTime() + 60 * 60 * 1000);
@@ -93,8 +94,9 @@ export const WeekView: React.FC<WeekViewProps> = ({
                                 const duration = endMinutes - startMinutes;
                                 const height = (duration / (24 * 60)) * 100;
                                 const draftClass = classes.find(c => c.class_id === draftEvent.class_id);
+                                const { borderColor, bgColor } = normalizeColorClasses(draftClass?.color);
                                 return (
-                                     <div style={{ top: `${top}%`, height: `${height}%` }} className={cn("absolute w-full p-2 rounded-lg text-white text-xs z-20 pointer-events-none draft-event-bubble", draftClass?.color || 'bg-stone-500')}>
+                                    <div style={{ top: `${top}%`, height: `${height}%` }} className={cn("absolute w-full p-2 rounded-lg text-white text-xs z-20 pointer-events-none draft-event-bubble border", borderColor, bgColor)}>
                                         <p className="font-bold">{draftEvent.title || '(No title)'}</p>
                                           <p>{format(startDate, 'p')} - {format(endDate, 'p')}</p>
                                     </div>
@@ -102,24 +104,25 @@ export const WeekView: React.FC<WeekViewProps> = ({
                             })()}
 
                             {events.filter(e => isSameDay(new Date(e.event_start), day)).map(event => {
-                                 const eventDate = new Date(event.event_start);
+                                const eventDate = new Date(event.event_start);
                                 const endDate = event.event_end ? new Date(event.event_end) : addMinutes(eventDate, 60);
                                 const top = (eventDate.getHours() * 60 + eventDate.getMinutes()) / (24 * 60) * 100;
                                 const duration = (endDate.getTime() - eventDate.getTime()) / (1000 * 60);
                                 const height = (duration / (24 * 60)) * 100;
                                 const eventClass = classes.find(c => c.class_id === event.class_id);
                                 const isShort = duration < 45;
+                                const { borderColor, bgColor } = normalizeColorClasses(eventClass?.color);
                                 return (
                                      <div
                                         key={event.id}
                                         data-event-id={event.id}
                                         style={{ top: `${top}%`, height: `${height}%` }}
-                                        className={cn("absolute w-[calc(100%-8px)] p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
+                                        className={cn("absolute w-[calc(100%-8px)] left-1 p-1 rounded-lg text-white text-xs z-10 event-bubble cursor-pointer border", borderColor, bgColor)}
                                         onClick={(e) => { e.stopPropagation(); onEventClick(event, e.currentTarget); }}
                                         onMouseDown={(e) => e.stopPropagation()}
                                         onMouseUp={(e) => e.stopPropagation()}
                                      >
-                                        <p className="font-bold truncate">{event.title}</p>
+                                         <p className="font-bold truncate">{event.title}</p>
                                          {isShort ? (
                                             <p className="truncate text-white/80">
                                                  {format(eventDate, 'p')}

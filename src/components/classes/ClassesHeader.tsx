@@ -1,6 +1,5 @@
 // src/components/classes/ClassesHeader.tsx
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -9,8 +8,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { FolderPlus, Users } from 'lucide-react'; // --- STAGE 3: IMPORT Users ICON ---
+import { FolderPlus, Users } from 'lucide-react';
 import { ClassConfig } from '@/services/classOpenAIConfig';
+import ShimmerButton from '../ui/ShimmerButton';
 
 interface ClassesHeaderProps {
   breadcrumbs: { name: string; id: string | null }[];
@@ -18,7 +18,6 @@ interface ClassesHeaderProps {
   onBreadcrumbClick: (index: number) => void;
   onNewFolderClick: () => void;
   onHeaderButtonClick: () => void;
-  // --- STAGE 3: ADD NEW PROP FOR JOIN CLASS ---
   onJoinClassClick: () => void;
 }
 
@@ -28,7 +27,6 @@ export const ClassesHeader: React.FC<ClassesHeaderProps> = ({
   onBreadcrumbClick,
   onNewFolderClick,
   onHeaderButtonClick,
-  // --- STAGE 3: DESTRUCTURE NEW PROP ---
   onJoinClassClick,
 }) => {
   return (
@@ -45,12 +43,12 @@ export const ClassesHeader: React.FC<ClassesHeaderProps> = ({
                       e.preventDefault();
                       onBreadcrumbClick(index);
                     }}
-                    className="text-muted-foreground hover:text-stone-800"
+                    className="text-neutral-300 hover:text-white" // MODIFICATION: Font color
                   >
                     {crumb.name}
                   </BreadcrumbLink>
                 ) : (
-                  <BreadcrumbPage className="font-semibold text-stone-800">
+                  <BreadcrumbPage className="font-semibold text-white"> {/* MODIFICATION: Font color */}
                     {crumb.name}
                   </BreadcrumbPage>
                 )}
@@ -62,21 +60,34 @@ export const ClassesHeader: React.FC<ClassesHeaderProps> = ({
       </Breadcrumb>
       <div className="flex gap-2">
         {selectedClass && (
-          <Button variant="outline" onClick={onNewFolderClick}>
+          <ShimmerButton 
+            size="sm" // MODIFICATION: Standardized size
+            variant="outline" 
+            onClick={onNewFolderClick}
+            className="bg-transparent border-neutral-400 text-neutral-200 hover:bg-blue-950/80 hover:border-blue-500 hover:text-neutral-100"
+          >
             <FolderPlus className="mr-2 h-4 w-4" />
             New Folder
-          </Button>
+          </ShimmerButton>
         )}
-        {/* --- STAGE 3: ADD JOIN CLASS BUTTON (only shows in home view) --- */}
         {!selectedClass && (
-            <Button variant="outline" onClick={onJoinClassClick}>
-                <Users className="mr-2 h-4 w-4" />
+            <ShimmerButton 
+              size="sm" // MODIFICATION: Standardized size
+              variant="outline" 
+              onClick={onJoinClassClick}
+              className="bg-transparent border-neutral-400 text-neutral-200 hover:bg-blue-950/80 hover:border-blue-500 hover:text-neutral-100"
+            >
+                {/* MODIFICATION: Icon removed */}
                 Join Class
-            </Button>
+            </ShimmerButton>
         )}
-        <Button onClick={onHeaderButtonClick}>
+        <ShimmerButton 
+          size="sm" // MODIFICATION: Standardized size
+          onClick={onHeaderButtonClick}
+          className="border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
+        >
           {selectedClass ? "Upload Files" : "New Class"}
-        </Button>
+        </ShimmerButton>
       </div>
     </div>
   );

@@ -47,7 +47,7 @@ const CalendarPage = () => {
         return events
             .filter(e => e.class_id && selectedClasses.includes(e.class_id))
             .map(event => {
-                 const eventClass = classes.find(c => c.class_id === event.class_id);
+                const eventClass = classes.find(c => c.class_id === event.class_id);
                 return { ...event, color: eventClass?.color };
             });
     }, [events, selectedClasses, classes]);
@@ -55,7 +55,7 @@ const CalendarPage = () => {
     useEffect(() => {
         if (!isLoadingClasses && classes.length > 0) {
             setSelectedClasses(classes.map(c => c.class_id));
-         }
+        }
     }, [isLoadingClasses, classes]);
 
     useEffect(() => {
@@ -121,16 +121,11 @@ const CalendarPage = () => {
         setIsCreatingEvent(false);
     }, [isCreatingEvent, draftEvent, hasDragged]);
 
-    // MODIFICATION: Created a new, dedicated handler for month view clicks.
     const handleDayClickInMonthView = (day: Date, anchorElement: HTMLElement) => {
         closeAllPopovers();
-
-        // Default the new event's time to 9:00 AM on the selected day
         const startDate = new Date(day);
         startDate.setHours(9, 0, 0, 0);
         const endDate = addMinutes(startDate, 60);
-
-        // Open the creator popover, anchored to the specific day cell that was clicked
         setCreatorPopover({
             anchor: anchorElement,
             start: startDate,
@@ -262,7 +257,7 @@ const CalendarPage = () => {
             <Helmet>
                 <style>{`.calendar-grid { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }`}</style>
             </Helmet>
-              <div className="flex flex-row gap-3 h-full">
+            <div className="flex flex-row gap-3 h-full bg-neutral-950 p-3 rounded-lg">
                 <CalendarSidebar
                     currentDate={currentDate}
                     setCurrentDate={setCurrentDate}
@@ -276,7 +271,9 @@ const CalendarPage = () => {
                     view={view as 'day' | 'week' | 'month'}
                     onUpcomingEventSelect={handleUpcomingEventSelect}
                 />
-                <div className="flex-1 flex flex-col rounded-lg border border-marble-400 bg-white overflow-hidden">
+                {/* --- MODIFICATION START --- */}
+                <div className="flex-1 flex flex-col rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
+                {/* --- MODIFICATION END --- */}
                     <CalendarHeader
                         view={view} currentDate={currentDate} onViewChange={(v) => { setView(v); closeAllPopovers(); }}
                         onPrev={handlePrev} onNext={handleNext} onToday={handleToday}
@@ -286,16 +283,15 @@ const CalendarPage = () => {
                          <CalendarViews
                             view={view} currentDate={currentDate} classes={classes} events={filteredEvents}
                             draftEvent={draftEvent} isCreatingEvent={isCreatingEvent} onDelete={()=>{}}
-                            // MODIFICATION: Pass the new handler to onDayClick
                             onDayClick={handleDayClickInMonthView}
                             onEventCreateStart={handleEventCreateStart} onEventCreateUpdate={handleEventCreateUpdate}
                             onEventCreateEnd={handleEventCreateEnd} onEventClick={handleEventClick}
-                         />
+                          />
                     </div>
                 </div>
         
                 {creatorPopover && (
-                     <EventCreatorPopover
+                    <EventCreatorPopover
                         anchorElement={creatorPopover.anchor}
                         startDate={creatorPopover.start}
                         endDate={creatorPopover.end}

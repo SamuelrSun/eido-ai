@@ -1,3 +1,4 @@
+// src/components/ui/toggle.tsx
 import * as React from "react"
 import * as TogglePrimitive from "@radix-ui/react-toggle"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -15,7 +16,9 @@ const toggleVariants = cva(
       },
       size: {
         default: "h-8 px-3",
-        sm: "h-9 px-2.5",
+        // --- MODIFICATION START ---
+        sm: "h-8 px-2.5 text-xs", // Changed h-9 to h-8 and added text-xs
+        // --- MODIFICATION END ---
         lg: "h-11 px-5",
       },
     },

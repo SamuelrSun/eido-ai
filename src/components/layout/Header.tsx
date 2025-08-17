@@ -11,10 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 
-/**
- * Header component for consistent navigation across the application.
- * It centralizes the navigation links and applies the desired styling.
- */
 export const Header = () => {
   const location = useLocation();
   const navLinks = [
@@ -25,25 +21,25 @@ export const Header = () => {
   ];
 
   return (
-    <div className="p-3"> {/* This div maintains the margin around the navbar, matching OraclePage */}
-      <nav className="z-navigation flex w-full items-center justify-between rounded-lg border border-marble-400 bg-marble-100 px-4 py-3">
+    <div className="p-3 font-roboto">
+      <nav className="z-navigation flex w-full items-center justify-between rounded-lg border border-foreground/20 bg-background/50 backdrop-blur-xl px-4 py-2 shadow-lg">
         {/* Application Logo */}
-        <Link to="/">
-          <div className="mr-3 flex items-baseline">
-            <span className="text-logo lowercase font-variable ml-1 font-light text-green-700">eido ai</span>
-          </div>
+        <Link to="/" className="flex items-center gap-3">
+            <img src="/eido-icon.png" alt="Eido AI Logo" className="h-8 w-8 rounded-md" />
+            <span className="text-[18px] font-semibold tracking-tight text-foreground">Eido AI</span>
         </Link>
 
         {/* --- Desktop Navigation Links --- */}
-        <div className="hidden md:flex flex-row items-center gap-x-4 gap-y-0 lg:gap-x-6 justify-between">
+        <div className="hidden md:flex flex-row items-center gap-x-4 gap-y-0 lg:gap-x-8 justify-between">
           {navLinks.map((link) => {
             const isActive = location.pathname === link.to;
             return (
-              <Link key={link.to} to={link.to} state={link.state}> 
+              <Link key={link.to} to={link.to} state={link.state}>
                 <p className={cn(
-                  "text-base uppercase tracking-wider hover:text-volcanic-900",
-                  isActive ? "font-bold text-volcanic-900" 
-                  : "font-normal text-volcanic-800"
+                  "text-xs uppercase font-bold tracking-widest transition-colors",
+                  isActive 
+                  ? "text-foreground" 
+                  : "text-muted-foreground hover:text-foreground"
                 )}>
                   {link.label}
                 </p>

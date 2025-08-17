@@ -22,6 +22,7 @@ export interface ClassConfig {
   created_at?: string | null;
   updated_at?: string | null;
   color?: string | null;
+  user_role?: 'owner' | 'member' | 'pending' | null;
 }
 
 type ClassesDBInsertPayload = CustomDatabase['public']['Tables']['classes']['Insert'];
@@ -147,16 +148,26 @@ export const classOpenAIConfigService = {
       return [];
     }
     try {
-      // RLS policy "Enable read access for class members" will handle security
+      // Fetch from class_members and join the full classes data
       const { data, error } = await supabase
-        .from('classes')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from('class_members')
+        .select(`
+          role,
+          classes (*)
+        `)
+        .eq('user_id', user.id);
+
       if (error) {
-        console.error('Error fetching classes from Supabase:', error);
+        console.error('Error fetching classes with roles:', error);
         throw error;
       }
-      return data || [];
+      
+      // Transform the data to include the user's role in the class object
+      return (data || []).map(item => ({
+        ...(item.classes as ClassConfig),
+        user_role: item.role // Add user_role to the class object
+      }));
+
     } catch (error) {
       console.error('Error retrieving all classes:', error);
       throw error;

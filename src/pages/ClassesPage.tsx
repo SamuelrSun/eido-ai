@@ -22,7 +22,9 @@ const ClassesPage = () => {
                     onDeleteClick={hook.setFilesToDelete}
                     onClosePreview={() => hook.setPreviewedFile(null)}
                 />
-                <div className="w-8/12 flex flex-col rounded-lg border border-marble-400 bg-white overflow-hidden">
+                {/* --- MODIFICATION START --- */}
+                <div className="w-8/12 flex flex-col rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
+                {/* --- MODIFICATION END --- */}
                     <div className="p-6 md:p-8 space-y-8 overflow-y-auto">
                         <ClassesHeader
                             breadcrumbs={hook.breadcrumbs}
@@ -32,6 +34,7 @@ const ClassesPage = () => {
                             onHeaderButtonClick={() => hook.selectedClass ? hook.setIsUploadOpen(true) : hook.setIsCreateClassOpen(true)}
                             onJoinClassClick={() => hook.setIsJoinClassOpen(true)}
                         />
+                        
                         {hook.selectedClass ? (
                             <Tabs defaultValue="files" className="w-full">
                                 <TabsList>
@@ -55,7 +58,6 @@ const ClassesPage = () => {
                                     />
                                 </TabsContent>
                                 <TabsContent value="members" className="mt-6">
-                                    {/* --- STAGE 4: PASS NEW HANDLERS TO MEMBERS VIEW --- */}
                                     <ClassMembersView
                                         selectedClass={hook.selectedClass}
                                         isOwner={hook.classesWithStats.find(c => c.class_id === hook.selectedClass?.class_id)?.is_owner ?? false}

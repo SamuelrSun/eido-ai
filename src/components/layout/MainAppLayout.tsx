@@ -2,7 +2,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { cn } from '@/lib/utils';
-import { Header } from './Header'; // Import the new centralized Header component
+import { Header } from './Header'; 
 
 interface MainAppLayoutProps {
   children: React.ReactNode;
@@ -17,9 +17,6 @@ export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
         <link rel="canonical" href="https://www.eido-ai.com/" /> 
         <meta name="viewport" content="initial-scale=1.0, width=device-width, viewport-fit=cover, maximum-scale=1.0" />
         <link rel="icon" href="/favicon.ico" />
-        {/* Re-adding essential inline styles to avoid layout breakage.
-            Ideally, these should be systematically moved to global CSS (src/index.css or tailwind.config.ts)
-            and applied via Tailwind utility classes. */}
         <style type="text/css">{`
           :root { --volcanic: #212121; --marble: #fafafa; --green: #39594d; --coral: #ff7759; }
           html, body { font-family: "Trebuchet MS", sans-serif; }
@@ -33,8 +30,8 @@ export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
           .rounded-lg { border-radius: 0.5rem; } .border { border-width: 1px; } .px-4 { padding-left: 1rem; padding-right: 1rem; }
           .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; } .border-marble-400 { border-color:rgb(176, 197, 206); }
           .bg-marble-100 { background-color: #F8F7F4; } .mr-3 { margin-right: 0.75rem; } .h-full { height: 100%; }
-          .text-logo { font-size: 1.125rem; line-height: 1.75rem; } .lowercase { text-transform: lowercase; }
-          .font-variable { font-family: "Trebuchet MS", sans-serif; } .ml-1 { margin-left: 0.25rem; } .font-light { font-weight: 300; }
+           .text-logo { font-size: 1.125rem; line-height: 1.75rem; } .lowercase { text-transform: lowercase; }
+           .font-variable { font-family: "Trebuchet MS", sans-serif; } .ml-1 { margin-left: 0.25rem; } .font-light { font-weight: 300; }
           .text-green-700 { color: #39594D; } .text-dark-blue { color: #0F2A47; } .gap-x-4 { column-gap: 1rem; }
           .text-overline { font-size: 0.875rem; line-height: 1.25rem; letter-spacing: 0.05em; } .uppercase { text-transform: uppercase; }
           .font-code { font-family: monospace; } .font-medium { font-weight: 500; } .font-bold { font-weight: 700; }
@@ -45,23 +42,23 @@ export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
           .bg-\\[url\\(\\/images\\/whiteCellBackground\\.svg\\)\\] { background-image: url(/background1.png); }
           .oracle-background-image { background-image: url(/background2.png); background-size: cover; background-repeat: no-repeat; background-position: center; }
           .assignments-background-image { background-image: url(/assignments_background.png); background-size: cover; background-repeat: no-repeat; background-position: center; }
-          .pt-10 { padding-top: 2.5rem; } .px-9 { padding-left: 2.25rem; padding-right: 2.25rem; }
-          .px-10 { padding-left: 2.5rem; padding-right: 2.5rem; } .text-h3-m { font-size: 2.25rem; line-height: 2.5rem; }
+           .pt-10 { padding-top: 2.5rem; } .px-9 { padding-left: 2.25rem; padding-right: 2.25rem; }
+           .px-10 { padding-left: 2.5rem; padding-right: 2.5rem; } .text-h3-m { font-size: 2.25rem; line-height: 2.5rem; }
           .font-\\[420\\] { font-weight: 420; } .mb-6 { margin-bottom: 1.5rem; } .text-h5-m { font-size: 1.5rem; line-height: 2rem; }
           .mb-3 { margin-bottom: 0.75rem; } .text-p { font-size: 1rem; line-height: 1.5rem; } .pb-10 { padding-bottom: 2.5rem; }
           .items-end { align-items: flex-end; } .gap-y-6 { row-gap: 1.5rem; } .p-4 { padding: 1rem; }
           .p-8 { padding: 2rem; } .border-blue-200 { border-color:rgb(189, 197, 212); }
           .gap-y-3 { row-gap: 0.75rem; } .text-label { font-size: 0.875rem; line-height: 1.25rem; } .text-blue-700 { color:rgb(167, 175, 192); }
-          .bg-white { background-color: #ffffff; } .w-fit { width: fit-content; } .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
-          .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; } .inline-block { display: inline-block; }
+           .bg-white { background-color: #ffffff; } .w-fit { width: fit-content; } .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+           .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; } .inline-block { display: inline-block; }
           .cursor-pointer { cursor: pointer; } .pt-7 { padding-top: 1.75rem; }
           .min-h-cell-md { min-height: 40px; } .max-h-cell-md { max-height: 40px; }
-          .transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+           .transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
           .bg-blue-500 { background-color: #75909C; } .-mr-0\\.5 { margin-right: -0.125rem; }
           .w-3 { width: 0.75rem; } .rounded-l-\\[6px\\] { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
           .text-white { color: #ffffff; } .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          .-skew-x-\\[21deg\\] { transform: skewX(-21deg); } .w-6 { width: 1.5rem; } .rounded-tr-\\[10px\\] { border-top-right-radius: 10px; }
-          .rounded-br-\\[4px\\] { border-bottom-right-radius: 4px; }
+           .-skew-x-\\[21deg\\] { transform: skewX(-21deg); } .w-6 { width: 1.5rem; } .rounded-tr-\\[10px\\] { border-top-right-radius: 10px; }
+           .rounded-br-\\[4px\\] { border-bottom-right-radius: 4px; }
           .bg-coral-500 { background-color: #0F2A47; } .bg-quartz-700 { background-color: #6B6960; }
           /* REMOVED .bg-purple-500 and .border-purple-200 */
           @media (min-width: 768px) { .md\\:hidden { display: none; } .md\\:flex { display: flex; }
@@ -75,10 +72,9 @@ export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
           .lg\\:w-56 { width: 14rem; } .lg\\:text-h5 { font-size: 1.875rem; line-height: 2.25rem; } }
         `}</style>
       </Helmet>
-      <div className="h-screen w-full bg-mushroom-100">
+      <div className="h-screen w-full">
         <div className="mx-auto flex h-full w-screen max-w-page flex-1 flex-col">
           <Header />
-          {/* The main content area now has padding and handles overflow */}
           <div className="flex-1 overflow-hidden p-3 pt-0">
             {children}
           </div>

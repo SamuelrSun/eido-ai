@@ -3,13 +3,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { classOpenAIConfigService, ClassConfig } from '@/services/classOpenAIConfig';
 import { calendarEventService, CalendarEvent, NewCalendarEvent } from '@/services/calendarEventService';
-import { ClassConfigWithColor } from '@/features/calendar/types';
+import { ClassConfigWithColor } from '@/components/calendar/types';
 import { DeletionScope } from '@/components/calendar/DeleteRecurringEventDialog';
+import { COLOR_PALETTE } from '@/components/calendar/colorUtils'; // IMPORT THE PALETTE
 
-const COLOR_SWATCHES = [
-    'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-lime-500', 'bg-green-500', 'bg-teal-500',
-    'bg-cyan-500', 'bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500',
-];
+const COLOR_SWATCHES = COLOR_PALETTE.map(p => p.border); // USE THE BORDER CLASSES FOR DEFAULTS
 
 export const useCalendarData = () => {
     const [classes, setClasses] = useState<ClassConfigWithColor[]>([]);

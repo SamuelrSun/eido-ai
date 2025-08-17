@@ -3,8 +3,8 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Trash2, Users } from 'lucide-react'; // --- STAGE 3: IMPORT Users ICON ---
-import { Badge } from '@/components/ui/badge'; // --- STAGE 3: IMPORT Badge ---
+import { MoreHorizontal, Trash2, Users } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface ClassCardProps {
   id: string;
@@ -12,7 +12,6 @@ interface ClassCardProps {
   files: number;
   size: string;
   isSelected: boolean;
-  // --- STAGE 3: ADD isOwner PROP ---
   isOwner: boolean;
   onClick: () => void;
   onDelete: (id: string, className: string) => void;
@@ -28,20 +27,18 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
     <div
       onClick={onClick}
       className={cn(
-        "group p-3 rounded-lg cursor-pointer transition-all border relative flex flex-col justify-between h-36", // Added flex classes
+        "group p-3 rounded-lg cursor-pointer transition-all border relative flex flex-col justify-between h-36",
         isSelected
-          ? 'bg-stone-200 border-stone-400'
-          : 'bg-stone-100 border-stone-200 hover:bg-stone-200 hover:border-stone-300'
-    )}>
-      {/* --- STAGE 3: ONLY SHOW OPTIONS FOR OWNER --- */}
+          ? 'bg-neutral-800 border-neutral-600'
+          : 'bg-neutral-900 border-neutral-800 hover:bg-neutral-800 hover:border-neutral-700'
+      )}>
       {isOwner && (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
             <Button
                 variant="ghost"
                 size="icon"
-                className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => e.stopPropagation()}
+                className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-neutral-400 hover:text-white hover:bg-neutral-700"
             >
                 <MoreHorizontal className="h-4 w-4" />
                 <span className="sr-only">Class Options</span>
@@ -60,18 +57,18 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
       )}
 
       <div>
-        <h3 className="font-semibold text-sm text-stone-700 truncate pr-8" title={className}>{className}</h3>
+        <h3 className="font-semibold text-sm text-white truncate pr-8" title={className}>{className}</h3>
       </div>
 
       <div className="mt-auto">
-        <div className="text-xs text-muted-foreground">
+        {/* --- MODIFICATION: Font color updated --- */}
+        <div className="text-xs text-neutral-300">
             <span>{files} Files</span>
             <span className="mx-2">•</span>
             <span>{size}</span>
         </div>
-        {/* --- STAGE 3: SHOW 'SHARED' BADGE IF NOT OWNER --- */}
         {!isOwner && (
-            <Badge variant="secondary" className="mt-2 text-xs flex items-center w-fit">
+            <Badge variant="secondary" className="mt-2 text-xs flex items-center w-fit bg-neutral-700 text-neutral-300 border-neutral-600">
                 <Users className="mr-1.5 h-3 w-3" />
                 Shared
             </Badge>

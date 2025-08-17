@@ -1,5 +1,4 @@
 // src/hooks/useOracle.ts
-
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,10 +61,19 @@ export const useOracle = (): OracleState => {
         setOpenSourceTabs([]);
     }
   }, []);
-
+  
+  // --- MODIFICATION START ---
+  const handleCitationClick = useCallback((message: ChatMessageApp, sourceNumber: number) => {
+    // First, ensure the parent message is selected
+    handleMessageSelect(message);
+    // Then, select the specific source number
+    setSelectedSourceNumber(sourceNumber);
+  }, [handleMessageSelect]);
+  // --- MODIFICATION END ---
+  
   const fetchMessages = useCallback(async () => {
       if (!selectedConversationId) {
-          setMessages([]); setSelectedMessageId(null); setOpenSourceTabs([]); return;
+           setMessages([]); setSelectedMessageId(null); setOpenSourceTabs([]); return;
       }
       setIsLoadingMessages(true);
       try {
@@ -76,11 +84,6 @@ export const useOracle = (): OracleState => {
       finally { setIsLoadingMessages(false); }
   }, [selectedConversationId, toast, handleMessageSelect]);
 
-  const handleCitationClick = useCallback((messageId: string, sourceNumber: number) => {
-    setSelectedMessageId(messageId);
-    setSelectedSourceNumber(sourceNumber);
-  }, []);
-  
   const handleClassChange = useCallback((newClassId: string | null) => {
     setSelectedClassId(newClassId);
     selectConversation(null);
@@ -123,6 +126,7 @@ export const useOracle = (): OracleState => {
     const currentFiles = [...attachedFiles];
     setInput("");
     setAttachedFiles([]);
+    
     setIsChatLoading(true);
 
     const tempUserMessage: ChatMessageApp = {
@@ -228,7 +232,7 @@ export const useOracle = (): OracleState => {
                 setClasses(fetchedClasses);
                 const activeClassDataString = sessionStorage.getItem('activeClass');
                 if (activeClassDataString) {
-                  const parsedClass = JSON.parse(activeClassDataString);
+                    const parsedClass = JSON.parse(activeClassDataString);
                     if (fetchedClasses.some(c => c.class_id === parsedClass.class_id)) {
                         setSelectedClassId(parsedClass.class_id);
                     }
@@ -275,8 +279,6 @@ export const useOracle = (): OracleState => {
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
   useEffect(() => {
-    // --- FIX: Using a timeout to ensure the DOM is updated before scrolling.
-    // This pushes the scroll command to the end of the event loop, after the new message has been rendered.
     const timer = setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 0);

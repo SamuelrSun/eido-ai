@@ -5,6 +5,8 @@ import { format, isSameDay, addMinutes } from 'date-fns';
 import { TimeAxis } from './TimeAxis';
 import { CalendarEvent, NewCalendarEvent } from '@/services/calendarEventService';
 import { ClassConfigWithColor } from '@/components/calendar/types';
+// --- MODIFICATION: Corrected import path ---
+import { normalizeColorClasses } from '@/components/calendar/colorUtils';
 
 interface DayViewProps {
   currentDate: Date;
@@ -59,14 +61,14 @@ export const DayView: React.FC<DayViewProps> = ({
         <div className="flex flex-1">
             <TimeAxis />
             <div 
-                className="flex-1 border-l border-marble-400 relative calendar-grid"
+                className="flex-1 border-l border-neutral-800 relative calendar-grid"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={onEventCreateEnd}
                 onMouseLeave={(e) => { if (isCreatingEvent) onEventCreateEnd(e); }}
              >
                 {Array.from({ length: 24 }).map((_, hour) => (
-                    <div key={hour} className="h-12 border-b border-marble-400"></div>
+                    <div key={hour} className="h-12 border-b border-neutral-800"></div>
                 ))}
             
                  {draftEvent && draftEvent.event_start && isSameDay(new Date(draftEvent.event_start), currentDate) && (() => {
@@ -78,8 +80,10 @@ export const DayView: React.FC<DayViewProps> = ({
                     const duration = endMinutes - startMinutes;
                     const height = (duration / (24 * 60)) * 100;
                     const draftClass = classes.find(c => c.class_id === draftEvent.class_id);
+                    const { borderColor, bgColor } = normalizeColorClasses(draftClass?.color);
+
                     return (
-                        <div style={{ top: `${top}%`, height: `${height}%` }} className={cn("absolute w-[calc(100%-8px)] left-1 p-2 rounded-lg text-white text-xs z-20 pointer-events-none draft-event-bubble", draftClass?.color || 'bg-stone-500')}>
+                        <div style={{ top: `${top}%`, height: `${height}%` }} className={cn("absolute w-[calc(100%-8px)] left-1 p-2 rounded-lg text-white text-xs z-20 pointer-events-none draft-event-bubble border", borderColor, bgColor)}>
                             <p className="font-bold">{draftEvent.title || '(No title)'}</p>
                              <p>{format(startDate, 'p')} - {format(endDate, 'p')}</p>
                         </div>
@@ -94,6 +98,8 @@ export const DayView: React.FC<DayViewProps> = ({
                     const height = (duration / (24 * 60)) * 100;
                     const eventClass = classes.find(c => c.class_id === event.class_id);
                     const isShort = duration < 45;
+                    const { borderColor, bgColor } = normalizeColorClasses(eventClass?.color);
+
                     return (
                         <div
                              key={event.id}
@@ -104,12 +110,12 @@ export const DayView: React.FC<DayViewProps> = ({
                                 width: 'calc(100% - 8px)',
                                 left: '4px',
                             }} 
-                            className={cn("absolute p-1 rounded text-white text-xs z-10 event-bubble cursor-pointer", eventClass?.color || 'bg-gray-500')}
+                            className={cn("absolute p-1 rounded-lg text-white text-xs z-10 event-bubble cursor-pointer border", borderColor, bgColor)}
                             onClick={(e) => { e.stopPropagation(); onEventClick(event, e.currentTarget); }}
                             onMouseDown={(e) => e.stopPropagation()}
                             onMouseUp={(e) => e.stopPropagation()}
                         >
-                              <p className="font-bold truncate">{event.title}</p>
+                            <p className="font-bold truncate">{event.title}</p>
                              {isShort ? (
                                 <p className="truncate text-white/80">
                                      {format(eventDate, 'p')}
@@ -122,7 +128,7 @@ export const DayView: React.FC<DayViewProps> = ({
                                  </>
                             )}
                         </div>
-                     );
+                    );
                 })}
             </div>
         </div>

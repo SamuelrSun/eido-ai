@@ -1,5 +1,7 @@
+// tailwind.config.ts
 import type { Config } from "tailwindcss";
 import animate from "tailwindcss-animate";
+import { fontFamily } from "tailwindcss/defaultTheme"; // Restored this import
 
 export default {
 	darkMode: ["class"],
@@ -19,6 +21,11 @@ export default {
 			}
 		},
 		extend: {
+            // --- MODIFICATION: Restored your original fontFamily config ---
+            fontFamily: { 
+                sans: ["var(--font-sans)", ...fontFamily.sans],
+                roboto: ["Roboto", ...fontFamily.sans],
+            },
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -74,7 +81,23 @@ export default {
 					'grey-light': '#F6F6F7',
 					'grey-dark': '#403E43'
 				},
-                volcanic: '#212121' /* Added dark charcoal color */
+                volcanic: '#212121',
+                 // --- MODIFICATION: Restored original colors AND added new 'neutral' palette ---
+                 neutral: {
+                    '950': '#0f0f10',
+                    '900': '#18181b',
+                    '800': '#27272a',
+                    '700': '#3f3f46',
+                    '600': '#52525b',
+                },
+                marble: {
+                  '100': '#F8F7F4',
+                  '400': '#B0C5CE',
+                },
+                'dark-blue': '#0F2A47',
+                coral: {
+                  '500': '#FF7759',
+                },
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

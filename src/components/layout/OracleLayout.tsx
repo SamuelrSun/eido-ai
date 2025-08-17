@@ -7,13 +7,15 @@ interface OracleLayoutProps {
 
 const OracleLayout = ({ children }: OracleLayoutProps) => {
   return (
-    // This outer div provides the overall light gray background for the entire page
-    <div className="h-full w-full bg-stone-100 p-3">
-      {/* This inner div is the main white container with the border and rounded corners */}
-      <div className="mx-auto flex h-full w-full flex-1 flex-col rounded-lg border bg-white">
+    // --- MODIFICATION START ---
+    // The two nested divs with light backgrounds have been replaced by a single
+    // dark-themed container that fills the available space.
+    <div className="h-full w-full">
+      <div className="mx-auto flex h-full w-full flex-1 flex-col rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
         {children}
       </div>
     </div>
+    // --- MODIFICATION END ---
   );
 };
 

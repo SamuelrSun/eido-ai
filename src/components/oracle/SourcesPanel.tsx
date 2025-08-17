@@ -30,15 +30,14 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
   selectedFile,
   user,
 }) => {
+  
   const [activeView, setActiveView] = useState<'sources' | 'upload'>('sources');
   const sourceTextRefs = useRef(new Map<number, HTMLDivElement | null>());
   const sourceThumbnailRefs = useRef(new Map());
-  // --- FIX: Add a ref to the scroll container ---
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const selectedSource = sourcesToDisplay.find(s => s.number === selectedSourceNumber);
 
-  // Effect to scroll to a specific source when a citation is clicked
   useEffect(() => {
     if (selectedSourceNumber !== null) {
       const timer = setTimeout(() => {
@@ -51,12 +50,8 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
     }
   }, [selectedSourceNumber, sourcesToDisplay]);
 
-  // --- FIX: Add a new effect to scroll to the top when the message changes ---
   useEffect(() => {
-    // When the sources change (i.e., a new message is selected) AND no specific source is selected,
-    // we reset the scroll position of the source snippets panel back to the top.
     if (selectedSourceNumber === null && scrollContainerRef.current) {
-        // Radix UI's ScrollArea creates a viewport div that we need to target.
         const viewport = scrollContainerRef.current.querySelector('[data-radix-scroll-area-viewport]');
         if (viewport) {
             viewport.scrollTop = 0;
@@ -66,9 +61,8 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
 
 
   return (
-    <div className="w-[40%] flex flex-col h-full rounded-lg border border-marble-400 bg-white overflow-hidden">
-      <header className="flex items-center justify-between gap-x-2 border-b border-marble-400 px-4 h-14 flex-shrink-0">
-        <div /> 
+    <div className="w-[40%] flex flex-col h-full rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
+      <header className="flex items-center justify-end border-b border-neutral-800 px-4 h-14 flex-shrink-0">
         <ToggleGroup
            type="single"
           value={activeView}
@@ -76,45 +70,45 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
             if (value) setActiveView(value as 'sources' | 'upload');
           }}
           size="sm"
+          className="border border-neutral-800 rounded-md p-0"
         >
-           <ToggleGroupItem value="sources">Sources</ToggleGroupItem>
-          <ToggleGroupItem value="upload">Upload</ToggleGroupItem>
+           <ToggleGroupItem value="sources" className={cn("text-neutral-400 hover:bg-neutral-800 rounded-none border-none data-[state=on]:bg-neutral-800 data-[state=on]:text-white")}>Sources</ToggleGroupItem>
+          <ToggleGroupItem value="upload" className={cn("text-neutral-400 hover:bg-neutral-800 rounded-none border-l border-neutral-800 data-[state=on]:bg-neutral-800 data-[state=on]:text-white")}>Upload</ToggleGroupItem>
         </ToggleGroup>
       </header>
       
       {activeView === 'sources' ? (
         <div className="flex-1 flex flex-col min-h-0">
           <div className={cn("transition-all duration-300 ease-in-out", selectedSourceNumber === null ? 'flex-1 min-h-0' : 'h-40 flex-shrink-0')}>
-           {/* --- FIX: Attach the ref to the container of the ScrollArea --- */}
            <div className="h-full p-4" ref={scrollContainerRef}>
               <ScrollArea className="h-full pr-2">
                 <div className="space-y-4">
                   {sourcesToDisplay.length > 0 ? (
                     sourcesToDisplay.map((source) => (
-                       <div
+                      <div
                         key={source.file.file_id + source.number}
                         ref={(el) => sourceTextRefs.current.set(source.number, el)}
                          onClick={() => handleSourceSelect(source.number)}
-                        className={cn(
-                          "p-3 bg-stone-50 rounded-lg border cursor-pointer transition-all relative group",
+                         className={cn(
+                          "p-3 bg-neutral-900 rounded-lg border cursor-pointer transition-all relative group",
                            selectedSourceNumber === source.number
-                            ? "border-stone-700"
-                            : "border-stone-200 hover:border-stone-300"
+                               ? "border-blue-800 bg-blue-950/40" // MODIFIED
+                            : "border-neutral-800 hover:border-neutral-700"
                          )}
                       >
                         {selectedSourceNumber === source.number && (
-                           <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-stone-400 hover:text-stone-700" onClick={(e) => { e.stopPropagation(); handleClearSourceSelection(); }}>
+                           <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-neutral-500 hover:text-white" onClick={(e) => { e.stopPropagation(); handleClearSourceSelection(); }}>
                             <X className="h-4 w-4" />
                           </Button>
                          )}
-                        <p className="text-xs font-semibold text-stone-700 mb-1 pr-6">Source {source.number}: {source.file.name} (Page {source.pageNumber || 'N/A'})</p>
-                        <blockquote className="text-sm text-stone-600 border-l-2 pl-3 whitespace-pre-wrap max-h-20 overflow-y-auto">{source.content}</blockquote>
+                        <p className="text-xs font-semibold text-neutral-300 mb-1 pr-6">Source {source.number}: {source.file.name} (Page {source.pageNumber || 'N/A'})</p>
+                        <blockquote className="text-sm text-neutral-400 border-l-2 border-neutral-700 pl-3 whitespace-pre-wrap max-h-20 overflow-y-auto">{source.content}</blockquote>
                        </div>
                     ))
-                  ) : (
-                    <div className="text-center text-sm text-muted-foreground pt-10 px-4">
-                       <BookCheck className="mx-auto h-12 w-12 text-stone-300 mb-4" />
-                      <p className="font-medium text-stone-600">Sources Panel</p>
+                   ) : (
+                    <div className="text-center text-sm text-neutral-500 pt-10 px-4">
+                       <BookCheck className="mx-auto h-12 w-12 text-neutral-700 mb-4" />
+                      <p className="font-medium text-neutral-400">Sources Panel</p>
                       <p>Sources for a selected AI-generated message will appear here.</p>
                      </div>
                   )}
@@ -122,7 +116,7 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
               </ScrollArea>
             </div>
           </div>
-           <Separator />
+           <Separator className="bg-neutral-800" />
           <div className={cn("flex flex-col transition-all duration-300 ease-in-out", selectedSourceNumber === null ? 'flex-shrink-0' : 'flex-1 min-h-0')}>
             <div className="min-h-0 flex-1 p-4">
               {selectedSourceNumber === null ? (
@@ -130,26 +124,28 @@ export const SourcesPanel: React.FC<SourcesPanelProps> = ({
                    <div className="flex w-max space-x-4 pb-2 h-full">
                     {sourcesToDisplay.map((source) => (
                       <div
-                         key={source.file.file_id + '-' + source.number}
+                        key={source.file.file_id + '-' + source.number}
                         ref={(el) => sourceThumbnailRefs.current.set(source.file.file_id, el)}
                         onClick={() => handleSourceSelect(source.number)}
-                         className="flex-shrink-0 w-56 flex flex-col text-center cursor-pointer"
+                        className="flex-shrink-0 w-56 flex flex-col text-center cursor-pointer"
                       >
-                        <p className="text-xs font-medium text-stone-700 mb-2 truncate" title={source.file.name}>{source.file.name}</p>
-                        <div className={cn("h-56 bg-stone-100 rounded-md border flex items-center justify-center overflow-hidden", selectedSourceNumber === source.number ? "border-stone-700" : "border-stone-200")}>
+                        <p className="text-xs font-medium text-neutral-300 mb-2 truncate" title={source.file.name}>{source.file.name}</p>
+                        <div className={cn("h-56 bg-neutral-900 rounded-md border flex items-center justify-center overflow-hidden", selectedSourceNumber === source.number ? "border-blue-800" : "border-neutral-800")}>
                           {source.file.type === 'application/pdf' && source.file.url && source.pageNumber ? (
                             <PagePreview fileUrl={source.file.url} pageNumber={source.pageNumber} />
-                           ) : (
-                            <img src={source.file.thumbnail_url || `https://placehold.co/224x224/e2e8f0/334155?text=IMG`} alt="File Thumbnail" className="w-full h-full object-cover"/>
+                          ) : (
+                            <img src={source.file.thumbnail_url || `https://placehold.co/224x224/18181b/9ca3af?text=IMG`} alt="File Thumbnail" className="w-full h-full object-cover"/>
                           )}
-                         </div>
+                        </div>
                       </div>
                     ))}
                   </div>
-                   <ScrollBar orientation="horizontal" />
+                  <ScrollBar orientation="horizontal" />
                 </ScrollArea>
               ) : (
-                selectedFile && <DocumentViewer file={selectedFile} initialPage={selectedSource?.pageNumber} />
+                <div className={cn("w-full h-full rounded-md border", selectedSource ? "border-blue-800" : "border-transparent")}>
+                  {selectedFile && <DocumentViewer file={selectedFile} initialPage={selectedSource?.pageNumber} />}
+                </div>
               )}
              </div>
           </div>

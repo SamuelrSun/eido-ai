@@ -52,7 +52,7 @@ export interface OracleState {
   handleRenameConversation: (id: string, newName: string) => Promise<void>;
   handleDeleteConversation: (conversation: AppConversation) => void;
   handleMessageSelect: (message: ChatMessageApp) => void;
-  handleCitationClick: (messageId: string, sourceNumber: number) => void;
+  handleCitationClick: (message: ChatMessageApp, sourceNumber: number) => void;
   handleSourceSelect: (sourceNumber: number) => void;
   handleClearSourceSelection: () => void;
   handleFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
