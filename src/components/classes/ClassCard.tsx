@@ -44,7 +44,7 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
       onClick={onClick}
       onMouseMove={handleMouseMove}
       className={cn(
-        "group p-3 rounded-lg cursor-pointer transition-all border relative flex flex-col h-36", // Removed justify-between
+        "group p-3 rounded-lg cursor-pointer transition-all border relative flex flex-col h-36",
         "shimmer-button transition-transform ease-in-out duration-200 hover:-translate-y-1",
         isSelected
           ? 'ring-2 ring-offset-2 ring-offset-neutral-900 ring-blue-500'
@@ -53,11 +53,14 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
         bgColor
       )}
     >
-      {/* --- MODIFICATION: New flex container for the header row --- */}
-      <div className="flex justify-between items-start gap-2">
-        <h3 className="font-semibold text-sm text-white truncate pr-1" title={className}>{className}</h3>
+      {/* --- MODIFICATION: Flex container for the header row --- */}
+      <div className="flex justify-between items-start gap-2 w-full">
+        {/* Title (min-w-0 allows truncation within flex) */}
+        <h3 className="font-semibold text-sm text-white truncate pr-1 min-w-0" title={className}>
+          {className}
+        </h3>
         
-        {/* Container for top-right elements */}
+        {/* Right-aligned container (flex-shrink-0 prevents it from shrinking) */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {isShared && (
             <Badge variant="secondary" className="text-xs flex items-center bg-black/20 text-white/90 border-transparent pointer-events-none">
