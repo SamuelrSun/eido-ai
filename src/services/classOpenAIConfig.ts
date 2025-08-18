@@ -2,12 +2,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { CustomDatabase } from "@/integrations/supabase/client";
 import { ClassMember } from '@/components/classes/ClassMembersView';
+import { COLOR_PALETTE } from "@/components/calendar/colorUtils";
 
-// This is defined in CalendarSidebar, but we can keep a copy here for default assignment
-const COLOR_SWATCHES = [
-    'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-lime-500', 'bg-green-500', 'bg-teal-500',
-    'bg-cyan-500', 'bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500',
-];
+const COLOR_SWATCHES = COLOR_PALETTE.map(p => p.border);
 
 export interface OpenAIConfig {
   vectorStoreId?: string | null;
@@ -23,7 +20,12 @@ export interface ClassConfig {
   updated_at?: string | null;
   color?: string | null;
   user_role?: 'owner' | 'member' | 'pending' | null;
+  // Properties from the new RPC
+  member_count?: number;
+  file_count?: number;
+  total_size?: number;
 }
+
 
 type ClassesDBInsertPayload = CustomDatabase['public']['Tables']['classes']['Insert'];
 type ClassesDBRow = CustomDatabase['public']['Tables']['classes']['Row'];
@@ -89,10 +91,9 @@ export const classOpenAIConfigService = {
       const { data: userClasses } = await supabase.from('classes').select('class_id').eq('owner_id', user.id);
       const nextColorIndex = (userClasses?.length || 0) % COLOR_SWATCHES.length;
 
-      // --- FIX: This payload now uses 'owner_id' to match our new schema and RLS policy ---
       const insertPayload: ClassesDBInsertPayload = {
         class_name: className,
-        owner_id: user.id, // This line fixes the bug
+        owner_id: user.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         color: COLOR_SWATCHES[nextColorIndex],
@@ -134,7 +135,6 @@ export const classOpenAIConfigService = {
       throw error;
     }
     
-    // Sort so owner is always first
     return (data as ClassMember[]).sort((a, b) => {
         if (a.role === 'owner') return -1;
         if (b.role === 'owner') return 1;
@@ -148,31 +148,18 @@ export const classOpenAIConfigService = {
       return [];
     }
     try {
-      // Fetch from class_members and join the full classes data
-      const { data, error } = await supabase
-        .from('class_members')
-        .select(`
-          role,
-          classes (*)
-        `)
-        .eq('user_id', user.id);
-
+      const { data, error } = await supabase.rpc('get_classes_with_stats');
       if (error) {
-        console.error('Error fetching classes with roles:', error);
+        console.error('Error fetching classes with stats:', error);
         throw error;
       }
-      
-      // Transform the data to include the user's role in the class object
-      return (data || []).map(item => ({
-        ...(item.classes as ClassConfig),
-        user_role: item.role // Add user_role to the class object
-      }));
-
+      return (data as ClassConfig[]) || [];
     } catch (error) {
-      console.error('Error retrieving all classes:', error);
+      console.error('Error calling RPC get_classes_with_stats:', error);
       throw error;
     }
   },
+
 
   updateClassColor: async (class_id: string, color: string): Promise<ClassesDBRow> => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -203,7 +190,6 @@ export const classOpenAIConfigService = {
         console.error("Error deleting class:", error);
         throw error;
     }
-    // Cleanup tasks in services without cascade (Weaviate, etc.)
     await supabase.functions.invoke('delete-weaviate-data-by-class', { body: { class_id_to_delete: class_id } });
   },
 };

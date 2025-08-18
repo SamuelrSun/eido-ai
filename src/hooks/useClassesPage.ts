@@ -53,7 +53,6 @@ export const useClassesPage = () => {
     const [classMembers, setClassMembers] = useState<ClassMember[]>([]);
     const [isLoadingMembers, setIsLoadingMembers] = useState(false);
 
-    // --- All useEffects and data fetching logic from previous steps remain here ---
     useEffect(() => {
         if (loader) loader.continuousStart();
         const fetchUserAndInitialData = async () => {
@@ -133,12 +132,10 @@ export const useClassesPage = () => {
                 body: { invite_code: inviteCode.trim() },
             });
             
-            // The function now returns structured JSON, so we check for an error property in the data
             if (error) throw new Error(error.message);
             if (data?.error) throw new Error(data.error);
 
             toast({ title: "Request Sent!", description: data.message });
-            // No need to refetch here, as the owner needs to approve first.
         } catch (error) {
             toast({ title: "Error Joining Class", description: (error as Error).message, variant: "destructive" });
         } finally {
@@ -155,7 +152,7 @@ export const useClassesPage = () => {
             if (error) throw error;
             toast({ title: "You have left the class." });
             handleBreadcrumbClick(0); 
-            await fetchData(); // Use await to ensure data is refetched after leaving
+            await fetchData();
         } catch(error) {
             toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
         }
@@ -168,7 +165,6 @@ export const useClassesPage = () => {
             });
             if (error) throw error;
             toast({ title: "Member removed." });
-            // Refresh member list
             const members = await classOpenAIConfigService.getClassMembers(classId);
             setClassMembers(members);
         } catch(error) {
@@ -176,7 +172,6 @@ export const useClassesPage = () => {
         }
     };
 
-    // --- STAGE 4: NEW HANDLER FOR APPROVING MEMBERS ---
     const handleApproveMember = async (classId: string, memberId: string) => {
         try {
              const { error } = await supabase.functions.invoke('approve-class-member', {
@@ -192,25 +187,17 @@ export const useClassesPage = () => {
     };
 
     const classesWithStats = useMemo(() => {
-        if (!classes || !allFiles || !user) return [];
+        if (!classes || !user) return [];
         return classes.map(cls => {
-            const filesForClass = allFiles.filter(file => file.class_id === cls.class_id);
-            const totalSize = filesForClass.reduce((acc, file) => acc + (file.size || 0), 0);
             return { 
                 ...cls, 
-                files: filesForClass.length, 
-                size: formatFileSize(totalSize),
-                is_owner: cls.owner_id === user.id
+                files: cls.file_count || 0,
+                size: formatFileSize(cls.total_size || 0),
+                is_owner: cls.owner_id === user.id,
+                is_shared: (cls.member_count || 0) > 1
             };
         });
-    }, [classes, allFiles, user]);
-
-    // ... The rest of the file remains the same ...
-    // ... (handleUploadFiles, realtime subscriptions, other handlers, etc.) ...
-    
-    // Omitting the rest of the file for brevity, as it's identical to the previous step's version
-    // Only the new `handleApproveMember` function and updated `handleJoinClass` are relevant.
-    // The full file content should be used when replacing.
+    }, [classes, user]);
 
     const handleUploadFiles = async (filesToUpload: File[]) => {
         if (!user || !selectedClass) {

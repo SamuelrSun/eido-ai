@@ -13,11 +13,12 @@ interface ClassCardProps {
   size: string;
   isSelected: boolean;
   isOwner: boolean;
+  isShared: boolean; // New prop
   onClick: () => void;
   onDelete: (id: string, className: string) => void;
 }
 
-export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size, isSelected, isOwner, onClick, onDelete }) => {
+export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size, isSelected, isOwner, isShared, onClick, onDelete }) => {
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDelete(id, className);
@@ -61,13 +62,13 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
       </div>
 
       <div className="mt-auto">
-        {/* --- MODIFICATION: Font color updated --- */}
         <div className="text-xs text-neutral-300">
             <span>{files} Files</span>
             <span className="mx-2">•</span>
             <span>{size}</span>
         </div>
-        {!isOwner && (
+        {/* MODIFIED: Use isShared for the condition */}
+        {isShared && (
             <Badge variant="secondary" className="mt-2 text-xs flex items-center w-fit bg-neutral-700 text-neutral-300 border-neutral-600">
                 <Users className="mr-1.5 h-3 w-3" />
                 Shared

@@ -817,6 +817,22 @@ export type Database = {
         Args: { p_class_id: string; p_user_id: string }
         Returns: boolean
       }
+      get_classes_with_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          class_id: string
+          class_name: string
+          color: string
+          created_at: string
+          file_count: number
+          invite_code: string
+          member_count: number
+          owner_id: string
+          total_size: number
+          updated_at: string
+          user_role: string
+        }[]
+      }
       halfvec_avg: {
         Args: { "": number[] }
         Returns: unknown
