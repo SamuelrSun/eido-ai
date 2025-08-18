@@ -93,10 +93,10 @@
     position: absolute;
     inset: 0;
     border-radius: inherit;
-
+    /* --- MODIFICATION: Use a CSS variable for the shimmer color --- */
     background: radial-gradient(
-      80px circle at var(--x) var(--y),
-      rgba(96, 165, 250, 0.25),
+      120px circle at var(--x) var(--y),
+      hsl(var(--shimmer-color, 221 83% 53%) / 0.15), /* Default to blue if var not set */
       transparent 70%
     );
     opacity: 0;

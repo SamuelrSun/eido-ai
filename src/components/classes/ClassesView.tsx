@@ -7,7 +7,6 @@ import { ClassConfig } from '@/services/classOpenAIConfig';
 
 interface ClassesViewProps {
   isLoading: boolean;
-  // --- FIX: Add is_shared to the type definition ---
   classesWithStats: (ClassConfig & { files: number; size: string; is_owner: boolean; is_shared: boolean })[];
   onClassClick: (classData: ClassConfig) => void;
   onDeleteClassClick: (classData: ClassConfig) => void;
@@ -46,8 +45,8 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
               size={classItem.size}
               isSelected={false}
               isOwner={classItem.is_owner}
-              // --- FIX: Pass the is_shared prop to the card ---
               isShared={classItem.is_shared}
+              color={classItem.color}
               onClick={() => onClassClick(classItem)}
               onDelete={() => onDeleteClassClick(classItem)}
             />

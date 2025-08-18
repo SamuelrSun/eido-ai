@@ -1,5 +1,5 @@
 // src/pages/ClassesPage.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useClassesPage } from '@/hooks/useClassesPage';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { FilePreview } from '@/components/classes/FilePreview';
@@ -8,11 +8,13 @@ import { ClassesView } from '@/components/classes/ClassesView';
 import { FilesView } from '@/components/classes/FilesView';
 import { ClassesPageDialogs } from '@/components/classes/ClassesPageDialogs';
 import { ClassesPageToasts } from '@/components/classes/ClassesPageToasts';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ClassMembersView } from '@/components/classes/ClassMembersView';
+import { cn } from '@/lib/utils';
 
 const ClassesPage = () => {
     const hook = useClassesPage();
+    const [activeTab, setActiveTab] = useState('files');
 
     return (
         <MainAppLayout pageTitle="Classes | Eido AI">
@@ -22,9 +24,7 @@ const ClassesPage = () => {
                     onDeleteClick={hook.setFilesToDelete}
                     onClosePreview={() => hook.setPreviewedFile(null)}
                 />
-                {/* --- MODIFICATION START --- */}
                 <div className="w-8/12 flex flex-col rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
-                {/* --- MODIFICATION END --- */}
                     <div className="p-6 md:p-8 space-y-8 overflow-y-auto">
                         <ClassesHeader
                             breadcrumbs={hook.breadcrumbs}
@@ -36,38 +36,46 @@ const ClassesPage = () => {
                         />
                         
                         {hook.selectedClass ? (
-                            <Tabs defaultValue="files" className="w-full">
-                                <TabsList>
-                                    <TabsTrigger value="files">Files</TabsTrigger>
-                                    <TabsTrigger value="members">Members</TabsTrigger>
-                                </TabsList>
-                                <TabsContent value="files" className="mt-6">
-                                    <FilesView
-                                        isLoading={hook.isLoading}
-                                        foldersWithStats={hook.foldersWithStats}
-                                        filesForTable={hook.files}
-                                        viewMode={hook.viewMode}
-                                        setViewMode={hook.setViewMode}
-                                        onFolderClick={hook.handleFolderClick}
-                                        onFileRowClick={hook.handleFileRowClick}
-                                        previewedFile={hook.previewedFile}
-                                        classes={hook.classes}
-                                        getFolderPath={hook.getFolderPath}
-                                        selectedClass={hook.selectedClass}
-                                        recentFiles={hook.recentFiles}
-                                    />
-                                </TabsContent>
-                                <TabsContent value="members" className="mt-6">
-                                    <ClassMembersView
-                                        selectedClass={hook.selectedClass}
-                                        isOwner={hook.classesWithStats.find(c => c.class_id === hook.selectedClass?.class_id)?.is_owner ?? false}
-                                        classMembers={hook.classMembers}
-                                        onRemoveMember={hook.handleRemoveMember}
-                                        onLeaveClass={hook.handleLeaveClass}
-                                        onApproveMember={hook.handleApproveMember}
-                                    />
-                                </TabsContent>
-                            </Tabs>
+                            <div>
+                                <ToggleGroup 
+                                    type="single" 
+                                    value={activeTab} 
+                                    onValueChange={(value) => { if (value) setActiveTab(value); }}
+                                    className="border border-neutral-800 rounded-md p-0 w-min"
+                                >
+                                    <ToggleGroupItem value="files" className={cn("text-neutral-400 h-8 px-4 text-sm hover:bg-neutral-800 rounded-none rounded-l-md border-none data-[state=on]:bg-neutral-800 data-[state=on]:text-white")}>Files</ToggleGroupItem>
+                                    <ToggleGroupItem value="members" className={cn("text-neutral-400 h-8 px-4 text-sm hover:bg-neutral-800 rounded-none border-l border-neutral-800 data-[state=on]:bg-neutral-800 data-[state=on]:text-white")}>Members</ToggleGroupItem>
+                                </ToggleGroup>
+                                
+                                <div className="mt-6">
+                                    {activeTab === 'files' && (
+                                        <FilesView
+                                            isLoading={hook.isLoading}
+                                            foldersWithStats={hook.foldersWithStats}
+                                            filesForTable={hook.files}
+                                            viewMode={hook.viewMode}
+                                            setViewMode={hook.setViewMode}
+                                            onFolderClick={hook.handleFolderClick}
+                                            onFileRowClick={hook.handleFileRowClick}
+                                            previewedFile={hook.previewedFile}
+                                            classes={hook.classes}
+                                            getFolderPath={hook.getFolderPath}
+                                            selectedClass={hook.selectedClass}
+                                            recentFiles={hook.recentFiles}
+                                        />
+                                    )}
+                                    {activeTab === 'members' && (
+                                        <ClassMembersView
+                                            selectedClass={hook.selectedClass}
+                                            isOwner={hook.classesWithStats.find(c => c.class_id === hook.selectedClass?.class_id)?.is_owner ?? false}
+                                            classMembers={hook.classMembers}
+                                            onRemoveMember={hook.handleRemoveMember}
+                                            onLeaveClass={hook.handleLeaveClass}
+                                            onApproveMember={hook.handleApproveMember}
+                                        />
+                                    )}
+                                </div>
+                            </div>
                         ) : (
                             <>
                                 <ClassesView
