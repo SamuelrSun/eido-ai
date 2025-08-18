@@ -54,7 +54,10 @@ export const fileService = {
   getFolders: async (classId: string, parentFolderId: string | null): Promise<FolderType[]> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated.");
-    let query = supabase.from('folders').select('*').eq('user_id', user.id).eq('class_id', classId);
+    
+    // FIX: Removed the incorrect .eq('user_id', user.id) filter. RLS handles security now.
+    let query = supabase.from('folders').select('*').eq('class_id', classId);
+    
     if (parentFolderId) {
       query = query.eq('parent_id', parentFolderId);
     } else {
@@ -68,7 +71,10 @@ export const fileService = {
   getFiles: async (classId: string, parentFolderId: string | null): Promise<FileType[]> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated.");
-    let query = supabase.from('files').select('*').eq('user_id', user.id).eq('class_id', classId);
+
+    // FIX: Removed the incorrect .eq('user_id', user.id) filter. RLS handles security now.
+    let query = supabase.from('files').select('*').eq('class_id', classId);
+    
     if (parentFolderId) {
       query = query.eq('folder_id', parentFolderId);
     } else {
@@ -93,10 +99,10 @@ export const fileService = {
   getAllFilesForClass: async (classId: string): Promise<FileType[]> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
+    // This query is also now governed by RLS, so it's safe.
     const { data, error } = await supabase
       .from('files')
       .select('*')
-      .eq('user_id', user.id)
       .eq('class_id', classId);
     if (error) { console.error("Error fetching all files for class:", error); throw error; }
     return data as FileType[];
@@ -120,7 +126,6 @@ export const fileService = {
 
     if (file.thumbnail_url) {
         try {
-            // FIX: Stringify the body for the function invocation
             await supabase.functions.invoke('delete-from-cloudinary', {
                 body: JSON.stringify({ file_id: file.file_id })
             });
@@ -132,7 +137,6 @@ export const fileService = {
     const filePathInStorage = new URL(file.url).pathname.split('/public/file_storage/')[1];
     await supabase.storage.from('file_storage').remove([filePathInStorage]);
     
-    // FIX: Stringify the body for the function invocation
     await supabase.functions.invoke('delete-weaviate-chunks-by-file', {
         body: JSON.stringify({ file_id: file.file_id })
     });
