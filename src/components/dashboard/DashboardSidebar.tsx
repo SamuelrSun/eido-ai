@@ -43,18 +43,14 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onLinkClick 
             <NavItem to="/" label="Dashboard" onLinkClick={onLinkClick} isActive={currentPath === '/'} />
             <NavItem to="/classes" label="Classes" onLinkClick={onLinkClick} isActive={currentPath === '/classes'} />
             <NavItem to="/calendar" label="Calendar" onLinkClick={onLinkClick} isActive={currentPath === '/calendar'} />
-            <NavItem to="/console" label="Console" onLinkClick={onLinkClick} isActive={currentPath === '/console'} />
           </div>
           <div className="flex flex-col gap-y-1">
             <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Tools</span>
             <NavItem to="/oracle" label="Oracle" onLinkClick={onLinkClick} isActive={currentPath === '/oracle'} />
-            <NavItem to="/assignments" label="Assignments" onLinkClick={onLinkClick} isActive={currentPath === '/assignments'} />
-            <NavItem to="/codepad" label="Codepad" onLinkClick={onLinkClick} isActive={currentPath === '/codepad'} />
           </div>
           <div className="flex flex-col gap-y-1">
             <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Settings</span>
             <NavItem to="/profile" label="Profile" onLinkClick={onLinkClick} isActive={currentPath === '/profile'} />
-            <NavItem to="/billing" label="Billing" onLinkClick={onLinkClick} isActive={currentPath === '/billing'} />
           </div>
         </nav>
       </div>

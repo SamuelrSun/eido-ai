@@ -13,11 +13,11 @@ import { Menu } from "lucide-react";
 
 export const Header = () => {
   const location = useLocation();
+  // Removed the "Community" link from this array
   const navLinks = [
     { to: "/", label: "Dashboard" },
     { to: "/classes", label: "Classes", state: { reset: true } },
     { to: "/calendar", label: "Calendar", state: { reset: true } },
-    { to: "/community", label: "Community", state: { reset: true } },
   ];
 
   return (
