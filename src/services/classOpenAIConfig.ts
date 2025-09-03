@@ -180,16 +180,14 @@ export const classOpenAIConfigService = {
   },
 
   deleteClass: async (class_id: string): Promise<void> => {
-    if (!class_id) throw new Error('Valid class_id is required for deletion');
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Authentication required to delete a class.');
-    
-    // RLS will ensure only the owner can delete. DB cascade will handle related data.
-    const { error } = await supabase.from('classes').delete().eq('class_id', class_id);
+    // MODIFICATION: This now calls our new, safe Edge Function.
+    const { error } = await supabase.functions.invoke('delete-class', {
+      body: { class_id },
+    });
+
     if (error) {
-        console.error("Error deleting class:", error);
-        throw error;
+      console.error("Error invoking delete-class function:", error);
+      throw new Error(`Failed to delete class: ${error.message}`);
     }
-    await supabase.functions.invoke('delete-weaviate-data-by-class', { body: { class_id_to_delete: class_id } });
   },
 };
