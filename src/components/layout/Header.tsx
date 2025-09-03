@@ -36,7 +36,8 @@ export const Header = () => {
             return (
               <Link key={link.to} to={link.to} state={link.state}>
                 <p className={cn(
-                  "text-xs uppercase font-bold tracking-widest transition-colors",
+                  // MODIFICATION: Changed 'text-xs' to 'text-sm'
+                  "text-sm uppercase font-bold tracking-widest transition-colors",
                   isActive 
                   ? "text-foreground" 
                   : "text-muted-foreground hover:text-foreground"

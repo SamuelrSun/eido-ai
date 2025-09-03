@@ -23,7 +23,8 @@ export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
           
           .bg-mushroom-100 { background-color: #75909C; } .mx-auto { margin-left: auto; margin-right: auto; }
           .flex { display: flex; } .h-screen { height: 100vh; } .w-screen { width: 100vw; }
-          .max-w-page { max-width: 1440px; } .flex-1 { flex: 1 1 0%; } .flex-col { flex-direction: column; }
+          /* REMOVED .max-w-page { max-width: 1440px; } */
+          .flex-1 { flex: 1 1 0%; } .flex-col { flex-direction: column; }
           .overflow-y-auto { overflow-y: auto; } .m-3 { margin: 0.75rem; } .z-navigation { z-index: 50; }
           .w-full { width: 100%; } 
           .items-center { align-items: center; } .justify-between { justify-content: space-between; }
@@ -73,7 +74,8 @@ export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
         `}</style>
       </Helmet>
       <div className="h-screen w-full">
-        <div className="mx-auto flex h-full w-screen max-w-page flex-1 flex-col">
+        {/* REMOVED max-w-page from this div */}
+        <div className="mx-auto flex h-full w-full flex-1 flex-col">
           <Header />
           <div className="flex-1 overflow-hidden p-3 pt-0">
             {children}

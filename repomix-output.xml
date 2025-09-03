@@ -12674,72 +12674,6 @@ export const FolderCard: React.FC<FolderCardProps> = ({ folderName, files, size,
 };
 </file>
 
-<file path="src/components/dashboard/DashboardSidebar.tsx">
-// src/components/dashboard/DashboardSidebar.tsx
-import React from 'react';
-import { useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-
-interface DashboardSidebarProps {
-  onLinkClick: (path: string) => void;
-}
-
-interface NavLinkProps {
-  to: string;
-  label: string;
-  onLinkClick: (path: string) => void;
-  isActive: boolean;
-}
-
-// NavLink-like component for styling consistency
-const NavItem: React.FC<NavLinkProps> = ({ to, label, onLinkClick, isActive }) => (
-  <span
-    onClick={() => onLinkClick(to)}
-    className={cn(
-      "flex items-center py-1.5 px-3 rounded-md cursor-pointer transition-colors text-sm",
-      isActive
-        ? "bg-neutral-700 text-white font-medium"
-        : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
-    )}
-  >
-    {isActive && <div className="mr-3 h-1.5 w-1.5 rounded-full bg-blue-500"></div>}
-    <span>{label}</span>
-  </span>
-);
-
-export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onLinkClick }) => {
-  const location = useLocation();
-  const currentPath = location.pathname;
-
-  return (
-    <div className="hidden h-full md:flex">
-      <div className="flex h-full flex-col justify-between overflow-y-auto border-neutral-800 bg-neutral-900 md:rounded-lg md:border md:w-42 w-full lg:w-56 px-2 md:py-4">
-        <nav className="flex w-full flex-col gap-y-6">
-          <div className="flex flex-col gap-y-1">
-            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Platform</span>
-            <NavItem to="/" label="Dashboard" onLinkClick={onLinkClick} isActive={currentPath === '/'} />
-            <NavItem to="/classes" label="Classes" onLinkClick={onLinkClick} isActive={currentPath === '/classes'} />
-            <NavItem to="/calendar" label="Calendar" onLinkClick={onLinkClick} isActive={currentPath === '/calendar'} />
-            <NavItem to="/console" label="Console" onLinkClick={onLinkClick} isActive={currentPath === '/console'} />
-          </div>
-          <div className="flex flex-col gap-y-1">
-            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Tools</span>
-            <NavItem to="/oracle" label="Oracle" onLinkClick={onLinkClick} isActive={currentPath === '/oracle'} />
-            <NavItem to="/assignments" label="Assignments" onLinkClick={onLinkClick} isActive={currentPath === '/assignments'} />
-            <NavItem to="/codepad" label="Codepad" onLinkClick={onLinkClick} isActive={currentPath === '/codepad'} />
-          </div>
-          <div className="flex flex-col gap-y-1">
-            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Settings</span>
-            <NavItem to="/profile" label="Profile" onLinkClick={onLinkClick} isActive={currentPath === '/profile'} />
-            <NavItem to="/billing" label="Billing" onLinkClick={onLinkClick} isActive={currentPath === '/billing'} />
-          </div>
-        </nav>
-      </div>
-    </div>
-  );
-};
-</file>
-
 <file path="src/components/dashboard/SharedClassesCard.tsx">
 // src/components/dashboard/SharedClassesCard.tsx
 import React from 'react';
@@ -14578,6 +14512,68 @@ export const ClassesHeader: React.FC<ClassesHeaderProps> = ({
 };
 </file>
 
+<file path="src/components/dashboard/DashboardSidebar.tsx">
+// src/components/dashboard/DashboardSidebar.tsx
+import React from 'react';
+import { useLocation } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+
+interface DashboardSidebarProps {
+  onLinkClick: (path: string) => void;
+}
+
+interface NavLinkProps {
+  to: string;
+  label: string;
+  onLinkClick: (path: string) => void;
+  isActive: boolean;
+}
+
+// NavLink-like component for styling consistency
+const NavItem: React.FC<NavLinkProps> = ({ to, label, onLinkClick, isActive }) => (
+  <span
+    onClick={() => onLinkClick(to)}
+    className={cn(
+      "flex items-center py-1.5 px-3 rounded-md cursor-pointer transition-colors text-sm",
+      isActive
+        ? "bg-neutral-700 text-white font-medium"
+        : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+    )}
+  >
+    {isActive && <div className="mr-3 h-1.5 w-1.5 rounded-full bg-blue-500"></div>}
+    <span>{label}</span>
+  </span>
+);
+
+export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onLinkClick }) => {
+  const location = useLocation();
+  const currentPath = location.pathname;
+
+  return (
+    <div className="hidden h-full md:flex">
+      <div className="flex h-full flex-col justify-between overflow-y-auto border-neutral-800 bg-neutral-900 md:rounded-lg md:border md:w-42 w-full lg:w-56 px-2 md:py-4">
+        <nav className="flex w-full flex-col gap-y-6">
+          <div className="flex flex-col gap-y-1">
+            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Platform</span>
+            <NavItem to="/" label="Dashboard" onLinkClick={onLinkClick} isActive={currentPath === '/'} />
+            <NavItem to="/classes" label="Classes" onLinkClick={onLinkClick} isActive={currentPath === '/classes'} />
+            <NavItem to="/calendar" label="Calendar" onLinkClick={onLinkClick} isActive={currentPath === '/calendar'} />
+          </div>
+          <div className="flex flex-col gap-y-1">
+            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Tools</span>
+            <NavItem to="/oracle" label="Oracle" onLinkClick={onLinkClick} isActive={currentPath === '/oracle'} />
+          </div>
+          <div className="flex flex-col gap-y-1">
+            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Settings</span>
+            <NavItem to="/profile" label="Profile" onLinkClick={onLinkClick} isActive={currentPath === '/profile'} />
+          </div>
+        </nav>
+      </div>
+    </div>
+  );
+};
+</file>
+
 <file path="src/components/oracle/ChatInput.tsx">
 // src/components/oracle/ChatInput.tsx
 import React from 'react';
@@ -14813,36 +14809,6 @@ export const useCalendarData = () => {
 
     return { classes, setClasses, isLoadingClasses, events, isLoadingEvents, createEvent, updateEvent, deleteEvent, updateClassColor };
 };
-</file>
-
-<file path="src/pages/AuthPage.tsx">
-// src/pages/AuthPage.tsx
-import { Auth } from "@/components/auth/Auth";
-
-const AuthPage = () => {
-  return (
-    // This root div creates the full-screen container
-    <div 
-      className="min-h-screen w-full bg-gray-50 flex items-center justify-center p-4" 
-      style={{ 
-        backgroundImage: "url('/auth-background.png')",
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
-    >
-      {/* This is the white card that contains the authentication form.
-        It's centered by the flex properties on the parent div.
-        It has a max-width, rounded corners, a shadow, and padding.
-      */}
-      <div className="w-full max-w-xl bg-white rounded-2xl shadow-xl p-8 sm:p-12">
-        <Auth />
-      </div>
-    </div>
-  );
-};
-
-export default AuthPage;
 </file>
 
 <file path="src/types/oracle.ts">
@@ -16274,6 +16240,25 @@ export const supabase: SupabaseClient<CustomDatabase> = createClient<CustomDatab
   SUPABASE_PUBLISHABLE_KEY,
   { auth: { persistSession: true, autoRefreshToken: true } }
 );
+</file>
+
+<file path="src/pages/AuthPage.tsx">
+// src/pages/AuthPage.tsx
+import { Auth } from "@/components/auth/Auth";
+
+const AuthPage = () => {
+  return (
+    // MODIFICATION: Changed background to dark theme and removed background image style.
+    <div className="min-h-screen w-full bg-neutral-950 flex items-center justify-center p-4">
+      {/* MODIFICATION: Updated card to use dark theme colors and border. */}
+      <div className="w-full max-w-xl bg-neutral-900 rounded-2xl border border-neutral-800 p-8 sm:p-12">
+        <Auth />
+      </div>
+    </div>
+  );
+};
+
+export default AuthPage;
 </file>
 
 <file path="src/pages/PrivacyPolicyPage.tsx">
@@ -17906,90 +17891,6 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
 };
 </file>
 
-<file path="src/components/layout/Header.tsx">
-// src/components/layout/Header.tsx
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
-
-export const Header = () => {
-  const location = useLocation();
-  const navLinks = [
-    { to: "/", label: "Dashboard" },
-    { to: "/classes", label: "Classes", state: { reset: true } },
-    { to: "/calendar", label: "Calendar", state: { reset: true } },
-    { to: "/community", label: "Community", state: { reset: true } },
-  ];
-
-  return (
-    <div className="p-3 font-roboto">
-      <nav className="z-navigation flex w-full items-center justify-between rounded-lg border border-foreground/20 bg-background/50 backdrop-blur-xl px-4 py-2 shadow-lg">
-        {/* Application Logo */}
-        <Link to="/" className="flex items-center gap-3">
-            <img src="/eido-icon.png" alt="Eido AI Logo" className="h-8 w-8 rounded-md" />
-            <span className="text-[18px] font-semibold tracking-tight text-foreground">Eido AI</span>
-        </Link>
-
-        {/* --- Desktop Navigation Links --- */}
-        <div className="hidden md:flex flex-row items-center gap-x-4 gap-y-0 lg:gap-x-8 justify-between">
-          {navLinks.map((link) => {
-            const isActive = location.pathname === link.to;
-            return (
-              <Link key={link.to} to={link.to} state={link.state}>
-                <p className={cn(
-                  "text-xs uppercase font-bold tracking-widest transition-colors",
-                  isActive 
-                  ? "text-foreground" 
-                  : "text-muted-foreground hover:text-foreground"
-                )}>
-                  {link.label}
-                </p>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* --- Mobile Navigation Dropdown --- */}
-        <div className="md:hidden">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="h-6 w-6" />
-                <span className="sr-only">Open navigation menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {navLinks.map((link) => (
-                <DropdownMenuItem key={link.to} asChild>
-                  <Link
-                    to={link.to}
-                    state={link.state}
-                    className={cn(
-                      "w-full",
-                      location.pathname === link.to && "font-bold"
-                    )}
-                  >
-                    {link.label}
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </nav>
-    </div>
-  );
-};
-</file>
-
 <file path="src/components/layout/MainAppLayout.tsx">
 // src/components/layout/MainAppLayout.tsx
 import React from 'react';
@@ -19285,6 +19186,90 @@ serve(async (req: Request) => {
 });
 </file>
 
+<file path="src/components/layout/Header.tsx">
+// src/components/layout/Header.tsx
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Menu } from "lucide-react";
+
+export const Header = () => {
+  const location = useLocation();
+  // Removed the "Community" link from this array
+  const navLinks = [
+    { to: "/", label: "Dashboard" },
+    { to: "/classes", label: "Classes", state: { reset: true } },
+    { to: "/calendar", label: "Calendar", state: { reset: true } },
+  ];
+
+  return (
+    <div className="p-3 font-roboto">
+      <nav className="z-navigation flex w-full items-center justify-between rounded-lg border border-foreground/20 bg-background/50 backdrop-blur-xl px-4 py-2 shadow-lg">
+        {/* Application Logo */}
+        <Link to="/" className="flex items-center gap-3">
+            <img src="/eido-icon.png" alt="Eido AI Logo" className="h-8 w-8 rounded-md" />
+            <span className="text-[18px] font-semibold tracking-tight text-foreground">Eido AI</span>
+        </Link>
+
+        {/* --- Desktop Navigation Links --- */}
+        <div className="hidden md:flex flex-row items-center gap-x-4 gap-y-0 lg:gap-x-8 justify-between">
+          {navLinks.map((link) => {
+            const isActive = location.pathname === link.to;
+            return (
+              <Link key={link.to} to={link.to} state={link.state}>
+                <p className={cn(
+                  "text-xs uppercase font-bold tracking-widest transition-colors",
+                  isActive 
+                  ? "text-foreground" 
+                  : "text-muted-foreground hover:text-foreground"
+                )}>
+                  {link.label}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* --- Mobile Navigation Dropdown --- */}
+        <div className="md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-6 w-6" />
+                <span className="sr-only">Open navigation menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {navLinks.map((link) => (
+                <DropdownMenuItem key={link.to} asChild>
+                  <Link
+                    to={link.to}
+                    state={link.state}
+                    className={cn(
+                      "w-full",
+                      location.pathname === link.to && "font-bold"
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </nav>
+    </div>
+  );
+};
+</file>
+
 <file path="supabase/.temp/cli-latest">
 v2.34.3
 </file>
@@ -19522,290 +19507,6 @@ serve(async (req: Request) => {
 });
 </file>
 
-<file path="src/components/auth/Auth.tsx">
-// src/components/auth/Auth.tsx
-import { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
-import { useNavigate, Link } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-
-const GoogleIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="mr-2">
-    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-    <path d="M1 1h22v22H1z" fill="none" />
-  </svg>
-);
-
-export function Auth() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
-  const [showPassword, setShowPassword] = useState(false);
-  
-  const [emailTouched, setEmailTouched] = useState(false);
-  const [passwordTouched, setPasswordTouched] = useState(false);
-
-  const { toast } = useToast();
-  const navigate = useNavigate();
-
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setEmailTouched(true);
-    setPasswordTouched(true);
-
-    if (!email || !password) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      if (authMode === 'signup') {
-        if (password.length < 10) {
-          throw new Error("Password should be at least 10 characters long.");
-        }
-        const generatedName = email.split('@')[0];
-
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { 
-              full_name: generatedName,
-              // --- FIX: Set a default avatar_url for email signups ---
-              avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${generatedName}`
-            }
-          }
-        });
-
-        if (error) throw error;
-
-        if (data.session) {
-            toast({
-                title: "Account Created!",
-                description: "Welcome to Eido AI.",
-            });
-            navigate('/');
-        } else {
-            toast({
-                title: "Account created successfully",
-                description: "We've sent you a confirmation link to complete your signup.",
-            });
-        }
-      } else { 
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        navigate('/');
-      }
-    } catch (error) {
-      console.error('Email auth error:', error);
-      let errorMessage = "An error occurred during authentication";
-      if (error instanceof Error) {
-        if (error.message.includes("Email not confirmed")) errorMessage = "Please check your email and confirm your address.";
-        else if (error.message.includes("Invalid login credentials")) errorMessage = "Invalid email or password.";
-        else if (error.message.includes("User already registered")) errorMessage = "An account with this email already exists. Please sign in or use a different email.";
-        else if (error.message.includes("Password should be")) errorMessage = "Password must be at least 10 characters long.";
-        else errorMessage = error.message;
-      }
-      toast({ title: "Authentication Error", description: errorMessage, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { 
-          redirectTo: `${window.location.origin}/`,
-          // --- FIX: Request user's profile info from Google ---
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
-      });
-      if (error) throw error;
-    } catch (error) {
-      console.error('Google Sign-In error:', error);
-      toast({
-        title: "Google Sign-In Error",
-        description: error instanceof Error ? error.message : "Could not sign in with Google. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  const toggleAuthMode = () => {
-    setAuthMode(prevMode => (prevMode === 'signin' ? 'signup' : 'signin'));
-    setEmailTouched(false);
-    setPasswordTouched(false);
-  };
-
-  const toggleShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
-
-  return (
-    <div className="w-full">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 font-serif">
-          {authMode === 'signin' ? 'Log in' : 'Sign Up'}
-        </h1>
-        <p className="text-sm text-gray-600 mt-2">
-          {authMode === 'signin' 
-            ? 'Welcome back to Eido! What will you study today?' 
-            : 'Get started with your personal, educational copilot.'}
-        </p>
-      </div>
-
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-3">
-          <Button
-            variant="outline"
-            onClick={handleGoogleSignIn}
-            disabled={loading || googleLoading}
-            className="w-full justify-center py-3 text-xs h-11 text-gray-700 hover:text-gray-700 hover:bg-gray-100 hover:ring-1 hover:ring-gray-800"
-          >
-            {googleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
-            Continue with Google
-          </Button>
-        </div>
-
-        <div className="relative">
-           <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-                <span className="bg-white px-2 text-gray-500">OR</span>
-            </div>
-        </div>
-
-        <form className="space-y-6" onSubmit={handleEmailAuth} noValidate>
-          <div className="space-y-4">
-            <div className={cn(
-               "relative rounded-md border px-3 py-2 transition-all",
-                "focus-within:border-gray-800",
-                emailTouched && !email ? "border-red-700/70" : "border-gray-300"
-            )}>
-              {emailTouched && !email && (
-                  <span className="absolute top-1 right-2 text-xs text-red-700">*required</span>
-              )}
-              <Label htmlFor="email" className="block text-xs font-medium text-gray-400 uppercase">
-                Email
-              </Label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onBlur={() => setEmailTouched(true)}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full p-0 border-none bg-transparent focus:outline-none focus:ring-0 text-sm placeholder:text-muted-foreground h-auto"
-                placeholder="yourname@email.com"
-              />
-            </div>
-
-            <div>
-              <div className={cn(
-                  "relative rounded-md border px-3 py-2 transition-all",
-                  "focus-within:border-gray-800",
-                  passwordTouched && !password ? "border-red-700/70" : "border-gray-300"
-              )}>
-                {passwordTouched && !password && (
-                    <span className="absolute top-1 right-2 text-xs text-red-700">*required</span>
-                )}
-                <Label htmlFor="password" className="block text-xs font-medium text-gray-400 uppercase">
-                  Password
-                </Label>
-                <div className="flex items-center">
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    value={password}
-                    onBlur={() => setPasswordTouched(true)}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={authMode === 'signup' ? 10 : undefined}
-                    className="w-full p-0 border-none bg-transparent focus:outline-none focus:ring-0 text-sm placeholder:text-muted-foreground h-auto"
-                    placeholder="••••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={toggleShowPassword}
-                    className="flex items-center text-gray-400 hover:text-gray-600 pl-2"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-              {authMode === 'signin' && (
-                  <div className="flex justify-end mt-2">
-                    <a href="#" className="text-xs font-medium text-gray-800 hover:underline">
-                      Forgot Password?
-                    </a>
-                  </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <Button
-              type="submit"
-              className="w-full flex justify-center items-center py-3 px-4 text-xs font-semibold rounded-md text-white bg-gray-800 hover:bg-gray-900 h-11"
-              disabled={loading || googleLoading}
-            >
-              {loading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <>
-                  {authMode === 'signin' ? 'Log in' : 'Create Account'}
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
-      </div>
-
-      <div className="mt-8 space-y-2 text-center text-xs">
-        <p className="text-gray-500">
-          By signing up, you agree to the{' '}
-          <Link to="/terms" className="font-medium text-gray-900 hover:underline" target="_blank">Terms of Service</Link> and{' '}
-          <Link to="/privacy" className="font-medium text-gray-900 hover:underline" target="_blank">Privacy Policy</Link>.
-        </p>
-        <p className="text-gray-500">
-          {authMode === 'signin' ? 'New user? ' : 'Already have an account? '}
-          <button
-            onClick={toggleAuthMode}
-            className="font-medium text-gray-700 hover:text-black"
-            disabled={loading || googleLoading}
-          >
-            {authMode === 'signin' ? 'Sign up' : 'Log in'}
-          </button>
-        </p>
-      </div>
-    </div>
-  );
-}
-</file>
-
 <file path="src/components/chat/MarkdownRenderer.tsx">
 // src/components/chat/MarkdownRenderer.tsx
 import React from 'react';
@@ -19961,7 +19662,7 @@ export interface FileType {
     "@tailwindcss/typography": "^0.5.15",
     "@types/chrome": "^0.0.268",
     "@types/node": "^22.5.5",
-    "@types/react": "^18.3.21",
+    "@types/react": "^18.3.24",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.5.0",
     "autoprefixer": "^10.4.20",
@@ -19977,6 +19678,289 @@ export interface FileType {
     "typescript-eslint": "^8.0.1",
     "vite": "^5.4.1"
   }
+}
+</file>
+
+<file path="src/components/auth/Auth.tsx">
+// src/components/auth/Auth.tsx
+import { useState } from 'react';
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { useNavigate, Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import ShimmerButton from '@/components/ui/ShimmerButton';
+
+const GoogleIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="mr-2">
+    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+    <path d="M1 1h22v22H1z" fill="none" />
+  </svg>
+);
+
+export function Auth() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  // MODIFICATION: Default auth mode is now 'signup'
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
+  const [showPassword, setShowPassword] = useState(false);
+  
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailTouched(true);
+    setPasswordTouched(true);
+
+    if (!email || !password) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (authMode === 'signup') {
+        if (password.length < 10) {
+          throw new Error("Password should be at least 10 characters long.");
+        }
+        const generatedName = email.split('@')[0];
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { 
+              full_name: generatedName,
+              avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${generatedName}`
+            }
+          }
+        });
+
+        if (error) throw error;
+
+        if (data.session) {
+            toast({
+                title: "Account Created!",
+                description: "Welcome to Eido AI.",
+            });
+            navigate('/');
+        } else {
+            toast({
+                title: "Account created successfully",
+                description: "We've sent you a confirmation link to complete your signup.",
+            });
+        }
+      } else { 
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Email auth error:', error);
+      let errorMessage = "An error occurred during authentication";
+      if (error instanceof Error) {
+        if (error.message.includes("Email not confirmed")) errorMessage = "Please check your email and confirm your address.";
+        else if (error.message.includes("Invalid login credentials")) errorMessage = "Invalid email or password.";
+        else if (error.message.includes("User already registered")) errorMessage = "An account with this email already exists. Please sign in or use a different email.";
+        else if (error.message.includes("Password should be")) errorMessage = "Password must be at least 10 characters long.";
+        else errorMessage = error.message;
+      }
+      toast({ title: "Authentication Error", description: errorMessage, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { 
+          redirectTo: `${window.location.origin}/`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Google Sign-In error:', error);
+      toast({
+        title: "Google Sign-In Error",
+        description: error instanceof Error ? error.message : "Could not sign in with Google. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const toggleAuthMode = () => {
+    setAuthMode(prevMode => (prevMode === 'signin' ? 'signup' : 'signin'));
+    setEmailTouched(false);
+    setPasswordTouched(false);
+  };
+
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
+
+  return (
+    <div className="w-full">
+      <div className="text-center mb-8">
+        {/* MODIFICATION: Changed font from font-serif to font-sans */}
+        <h1 className="text-3xl font-bold text-neutral-100 font-sans">
+          {authMode === 'signin' ? 'Log in' : 'Sign Up'}
+        </h1>
+        <p className="text-sm text-neutral-400 mt-2">
+          {authMode === 'signin' 
+            ? 'Welcome back to Eido! What will you study today?' 
+            : 'Get started with your personal, educational copilot.'}
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-3">
+          <ShimmerButton
+            onClick={handleGoogleSignIn}
+            disabled={loading || googleLoading}
+            className="w-full justify-center py-3 text-xs h-11 bg-transparent border border-neutral-700 text-neutral-300 hover:bg-neutral-800/80 hover:border-neutral-600 hover:text-neutral-100"
+          >
+            {googleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
+            Continue with Google
+          </ShimmerButton>
+        </div>
+
+        <div className="relative">
+           <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-neutral-700" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+                <span className="bg-neutral-900 px-2 text-neutral-500">OR</span>
+            </div>
+        </div>
+
+        <form className="space-y-6" onSubmit={handleEmailAuth} noValidate>
+          <div className="space-y-4">
+            {/* MODIFICATION: Removed the conditional red border for untouched fields */}
+            <div className={cn(
+               "relative rounded-md border px-3 py-2 transition-all bg-neutral-900 border-neutral-700",
+                "focus-within:border-blue-500"
+            )}>
+              {emailTouched && !email && (
+                  <span className="absolute top-1 right-2 text-xs text-red-500">*required</span>
+              )}
+              <Label htmlFor="email" className="block text-xs font-medium text-neutral-400 uppercase">
+                Email
+              </Label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onBlur={() => setEmailTouched(true)}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full p-0 border-none bg-transparent focus:outline-none focus:ring-0 text-sm text-neutral-100 placeholder:text-neutral-500 h-auto"
+                placeholder="yourname@email.com"
+              />
+            </div>
+
+            <div>
+              {/* MODIFICATION: Removed the conditional red border for untouched fields */}
+              <div className={cn(
+                  "relative rounded-md border px-3 py-2 transition-all bg-neutral-900 border-neutral-700",
+                  "focus-within:border-blue-500"
+              )}>
+                {passwordTouched && !password && (
+                    <span className="absolute top-1 right-2 text-xs text-red-500">*required</span>
+                )}
+                <Label htmlFor="password" className="block text-xs font-medium text-neutral-400 uppercase">
+                  Password
+                </Label>
+                <div className="flex items-center">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={password}
+                    onBlur={() => setPasswordTouched(true)}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={authMode === 'signup' ? 10 : undefined}
+                    className="w-full p-0 border-none bg-transparent focus:outline-none focus:ring-0 text-sm text-neutral-100 placeholder:text-neutral-500 h-auto"
+                    placeholder="••••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleShowPassword}
+                    className="flex items-center text-neutral-500 hover:text-neutral-300 pl-2"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+              {authMode === 'signin' && (
+                  <div className="flex justify-end mt-2">
+                    <a href="#" className="text-xs font-medium text-blue-400 hover:underline">
+                      Forgot Password?
+                    </a>
+                  </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <ShimmerButton
+              type="submit"
+              className="w-full flex justify-center items-center py-3 px-4 text-xs font-semibold rounded-md h-11 border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
+              disabled={loading || googleLoading}
+            >
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  {authMode === 'signin' ? 'Log in' : 'Create Account'}
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </>
+              )}
+            </ShimmerButton>
+          </div>
+        </form>
+      </div>
+
+      <div className="mt-8 space-y-2 text-center text-xs">
+        <p className="text-neutral-500">
+          By signing up, you agree to the{' '}
+          <Link to="/terms" className="font-medium text-blue-400 hover:underline" target="_blank">Terms of Service</Link> and{' '}
+          <Link to="/privacy" className="font-medium text-blue-400 hover:underline" target="_blank">Privacy Policy</Link>.
+        </p>
+        <p className="text-neutral-500">
+          {authMode === 'signin' ? 'New user? ' : 'Already have an account? '}
+          <button
+            onClick={toggleAuthMode}
+            className="font-medium text-neutral-300 hover:text-white"
+            disabled={loading || googleLoading}
+          >
+            {authMode === 'signin' ? 'Sign up' : 'Log in'}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
 }
 </file>
 
@@ -20182,6 +20166,204 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
+</file>
+
+<file path="src/services/classOpenAIConfig.ts">
+// src/services/classOpenAIConfig.ts
+import { supabase } from "@/integrations/supabase/client";
+import type { CustomDatabase } from "@/integrations/supabase/client";
+import { ClassMember } from '@/components/classes/ClassMembersView';
+import { COLOR_PALETTE } from "@/components/calendar/colorUtils";
+
+const COLOR_SWATCHES = COLOR_PALETTE.map(p => p.border);
+
+export interface OpenAIConfig {
+  vectorStoreId?: string | null;
+  assistantId?: string | null;
+}
+
+export interface ClassConfig {
+  class_id: string;
+  class_name: string;
+  owner_id: string | null;
+  invite_code?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  color?: string | null;
+  user_role?: 'owner' | 'member' | 'pending' | null;
+  // Properties from the new RPC
+  member_count?: number;
+  file_count?: number;
+  total_size?: number;
+}
+
+
+type ClassesDBInsertPayload = CustomDatabase['public']['Tables']['classes']['Insert'];
+type ClassesDBRow = CustomDatabase['public']['Tables']['classes']['Row'];
+type ClassesDBUpdatePayload = Partial<ClassesDBRow>;
+
+export const classOpenAIConfigService = {
+  getConfigForClass: async (class_id: string): Promise<OpenAIConfig | undefined> => {
+    console.warn("getConfigForClass: OpenAI config IDs are no longer stored on the 'classes' table. This function will return undefined.");
+    return undefined;
+  },
+
+  saveConfigForClass: async (
+    className: string,
+    class_id_to_update?: string | null
+  ): Promise<ClassesDBRow> => {
+    if (!className || typeof className !== 'string' || className.trim() === "") {
+        throw new Error("Class name is required and cannot be empty.");
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        throw new Error('Authentication required to save class configuration.');
+    }
+
+    let savedClassRecord: ClassesDBRow;
+    if (class_id_to_update) {
+      const updatePayload: ClassesDBUpdatePayload = {
+        class_name: className,
+        updated_at: new Date().toISOString(),
+      };
+      const { data: updateData, error: updateError } = await supabase
+        .from('classes')
+        .update(updatePayload)
+        .eq('class_id', class_id_to_update)
+        .eq('owner_id', user.id) // Security check: ensure user is the owner
+        .select()
+        .single();
+      if (updateError) {
+        console.error('Error updating class in Supabase:', updateError);
+        if (updateError.code === 'PGRST116') {
+             throw new Error(`Class with ID ${class_id_to_update} not found for update, or you do not have permission.`);
+        }
+        throw updateError;
+      }
+      if (!updateData) throw new Error("Failed to update class, no data returned from Supabase.");
+      savedClassRecord = updateData;
+    } else {
+      const { data: existingClassByName, error: fetchError } = await supabase
+        .from('classes')
+        .select('class_id, class_name')
+        .eq('class_name', className)
+        .eq('owner_id', user.id) // Check for classes owned by this user
+        .maybeSingle();
+      if (fetchError) {
+        console.error('Error checking if class exists by name:', fetchError);
+        throw fetchError;
+      }
+
+      if (existingClassByName) {
+        throw new Error(`A class named '${className}' already exists. Please use a different name.`);
+      }
+
+      const { data: userClasses } = await supabase.from('classes').select('class_id').eq('owner_id', user.id);
+      const nextColorIndex = (userClasses?.length || 0) % COLOR_SWATCHES.length;
+
+      const insertPayload: ClassesDBInsertPayload = {
+        class_name: className,
+        owner_id: user.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        color: COLOR_SWATCHES[nextColorIndex],
+      };
+      const { data: insertData, error: insertError } = await supabase
+        .from('classes')
+        .insert(insertPayload)
+        .select()
+        .single();
+      if (insertError) {
+        console.error('Error inserting new class into Supabase:', insertError);
+        throw insertError;
+      }
+      if (!insertData) throw new Error("Failed to insert new class, no data returned from Supabase.");
+      savedClassRecord = insertData;
+    }
+    return savedClassRecord;
+  },
+  
+  getClassMembers: async (class_id: string): Promise<ClassMember[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+      .from('class_members')
+      .select(`
+        user_id,
+        role,
+        profiles (
+          full_name,
+          avatar_url,
+          email
+        )
+      `)
+      .eq('class_id', class_id);
+    
+    if (error) {
+      console.error('Error fetching class members:', error);
+      throw error;
+    }
+    
+    return (data as ClassMember[]).sort((a, b) => {
+        if (a.role === 'owner') return -1;
+        if (b.role === 'owner') return 1;
+        return 0;
+    });
+  },
+
+  getAllClasses: async (): Promise<ClassConfig[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return [];
+    }
+    try {
+      const { data, error } = await supabase.rpc('get_classes_with_stats');
+      if (error) {
+        console.error('Error fetching classes with stats:', error);
+        throw error;
+      }
+      return (data as ClassConfig[]) || [];
+    } catch (error) {
+      console.error('Error calling RPC get_classes_with_stats:', error);
+      throw error;
+    }
+  },
+
+
+  updateClassColor: async (class_id: string, color: string): Promise<ClassesDBRow> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Authentication required.");
+
+    const { data, error } = await supabase
+        .from('classes')
+        .update({ color: color, updated_at: new Date().toISOString() })
+        .eq('class_id', class_id)
+        .eq('owner_id', user.id) // Only owner can change color
+        .select()
+        .single();
+    if (error) {
+        console.error("Error updating class color:", error);
+        throw error;
+    }
+    return data;
+  },
+
+  deleteClass: async (class_id: string): Promise<void> => {
+    if (!class_id) throw new Error('Valid class_id is required for deletion');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Authentication required to delete a class.');
+    
+    // RLS will ensure only the owner can delete. DB cascade will handle related data.
+    const { error } = await supabase.from('classes').delete().eq('class_id', class_id);
+    if (error) {
+        console.error("Error deleting class:", error);
+        throw error;
+    }
+    await supabase.functions.invoke('delete-weaviate-data-by-class', { body: { class_id_to_delete: class_id } });
+  },
+};
 </file>
 
 <file path="src/App.tsx">
@@ -21498,204 +21680,6 @@ const OraclePage = () => {
 };
 
 export default OraclePage;
-</file>
-
-<file path="src/services/classOpenAIConfig.ts">
-// src/services/classOpenAIConfig.ts
-import { supabase } from "@/integrations/supabase/client";
-import type { CustomDatabase } from "@/integrations/supabase/client";
-import { ClassMember } from '@/components/classes/ClassMembersView';
-import { COLOR_PALETTE } from "@/components/calendar/colorUtils";
-
-const COLOR_SWATCHES = COLOR_PALETTE.map(p => p.border);
-
-export interface OpenAIConfig {
-  vectorStoreId?: string | null;
-  assistantId?: string | null;
-}
-
-export interface ClassConfig {
-  class_id: string;
-  class_name: string;
-  owner_id: string | null;
-  invite_code?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  color?: string | null;
-  user_role?: 'owner' | 'member' | 'pending' | null;
-  // Properties from the new RPC
-  member_count?: number;
-  file_count?: number;
-  total_size?: number;
-}
-
-
-type ClassesDBInsertPayload = CustomDatabase['public']['Tables']['classes']['Insert'];
-type ClassesDBRow = CustomDatabase['public']['Tables']['classes']['Row'];
-type ClassesDBUpdatePayload = Partial<ClassesDBRow>;
-
-export const classOpenAIConfigService = {
-  getConfigForClass: async (class_id: string): Promise<OpenAIConfig | undefined> => {
-    console.warn("getConfigForClass: OpenAI config IDs are no longer stored on the 'classes' table. This function will return undefined.");
-    return undefined;
-  },
-
-  saveConfigForClass: async (
-    className: string,
-    class_id_to_update?: string | null
-  ): Promise<ClassesDBRow> => {
-    if (!className || typeof className !== 'string' || className.trim() === "") {
-        throw new Error("Class name is required and cannot be empty.");
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        throw new Error('Authentication required to save class configuration.');
-    }
-
-    let savedClassRecord: ClassesDBRow;
-    if (class_id_to_update) {
-      const updatePayload: ClassesDBUpdatePayload = {
-        class_name: className,
-        updated_at: new Date().toISOString(),
-      };
-      const { data: updateData, error: updateError } = await supabase
-        .from('classes')
-        .update(updatePayload)
-        .eq('class_id', class_id_to_update)
-        .eq('owner_id', user.id) // Security check: ensure user is the owner
-        .select()
-        .single();
-      if (updateError) {
-        console.error('Error updating class in Supabase:', updateError);
-        if (updateError.code === 'PGRST116') {
-             throw new Error(`Class with ID ${class_id_to_update} not found for update, or you do not have permission.`);
-        }
-        throw updateError;
-      }
-      if (!updateData) throw new Error("Failed to update class, no data returned from Supabase.");
-      savedClassRecord = updateData;
-    } else {
-      const { data: existingClassByName, error: fetchError } = await supabase
-        .from('classes')
-        .select('class_id, class_name')
-        .eq('class_name', className)
-        .eq('owner_id', user.id) // Check for classes owned by this user
-        .maybeSingle();
-      if (fetchError) {
-        console.error('Error checking if class exists by name:', fetchError);
-        throw fetchError;
-      }
-
-      if (existingClassByName) {
-        throw new Error(`A class named '${className}' already exists. Please use a different name.`);
-      }
-
-      const { data: userClasses } = await supabase.from('classes').select('class_id').eq('owner_id', user.id);
-      const nextColorIndex = (userClasses?.length || 0) % COLOR_SWATCHES.length;
-
-      const insertPayload: ClassesDBInsertPayload = {
-        class_name: className,
-        owner_id: user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        color: COLOR_SWATCHES[nextColorIndex],
-      };
-      const { data: insertData, error: insertError } = await supabase
-        .from('classes')
-        .insert(insertPayload)
-        .select()
-        .single();
-      if (insertError) {
-        console.error('Error inserting new class into Supabase:', insertError);
-        throw insertError;
-      }
-      if (!insertData) throw new Error("Failed to insert new class, no data returned from Supabase.");
-      savedClassRecord = insertData;
-    }
-    return savedClassRecord;
-  },
-  
-  getClassMembers: async (class_id: string): Promise<ClassMember[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-    
-    const { data, error } = await supabase
-      .from('class_members')
-      .select(`
-        user_id,
-        role,
-        profiles (
-          full_name,
-          avatar_url,
-          email
-        )
-      `)
-      .eq('class_id', class_id);
-    
-    if (error) {
-      console.error('Error fetching class members:', error);
-      throw error;
-    }
-    
-    return (data as ClassMember[]).sort((a, b) => {
-        if (a.role === 'owner') return -1;
-        if (b.role === 'owner') return 1;
-        return 0;
-    });
-  },
-
-  getAllClasses: async (): Promise<ClassConfig[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return [];
-    }
-    try {
-      const { data, error } = await supabase.rpc('get_classes_with_stats');
-      if (error) {
-        console.error('Error fetching classes with stats:', error);
-        throw error;
-      }
-      return (data as ClassConfig[]) || [];
-    } catch (error) {
-      console.error('Error calling RPC get_classes_with_stats:', error);
-      throw error;
-    }
-  },
-
-
-  updateClassColor: async (class_id: string, color: string): Promise<ClassesDBRow> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Authentication required.");
-
-    const { data, error } = await supabase
-        .from('classes')
-        .update({ color: color, updated_at: new Date().toISOString() })
-        .eq('class_id', class_id)
-        .eq('owner_id', user.id) // Only owner can change color
-        .select()
-        .single();
-    if (error) {
-        console.error("Error updating class color:", error);
-        throw error;
-    }
-    return data;
-  },
-
-  deleteClass: async (class_id: string): Promise<void> => {
-    if (!class_id) throw new Error('Valid class_id is required for deletion');
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Authentication required to delete a class.');
-    
-    // RLS will ensure only the owner can delete. DB cascade will handle related data.
-    const { error } = await supabase.from('classes').delete().eq('class_id', class_id);
-    if (error) {
-        console.error("Error deleting class:", error);
-        throw error;
-    }
-    await supabase.functions.invoke('delete-weaviate-data-by-class', { body: { class_id_to_delete: class_id } });
-  },
-};
 </file>
 
 </files>

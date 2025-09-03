@@ -19,7 +19,8 @@ const NavItem: React.FC<NavLinkProps> = ({ to, label, onLinkClick, isActive }) =
   <span
     onClick={() => onLinkClick(to)}
     className={cn(
-      "flex items-center py-1.5 px-3 rounded-md cursor-pointer transition-colors text-sm",
+      // MODIFICATION: Removed 'text-sm' to allow font size to default to 'text-base' (16px).
+      "flex items-center py-1.5 px-3 rounded-md cursor-pointer transition-colors",
       isActive
         ? "bg-neutral-700 text-white font-medium"
         : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
