@@ -13,7 +13,6 @@ import { Menu } from "lucide-react";
 
 export const Header = () => {
   const location = useLocation();
-  // Removed the "Community" link from this array
   const navLinks = [
     { to: "/", label: "Dashboard" },
     { to: "/classes", label: "Classes", state: { reset: true } },
@@ -22,7 +21,8 @@ export const Header = () => {
 
   return (
     <div className="p-3 font-roboto">
-      <nav className="z-navigation flex w-full items-center justify-between rounded-lg border border-foreground/20 bg-background/50 backdrop-blur-xl px-4 py-2 shadow-lg">
+      {/* --- MODIFICATION: Replaced background classes to match the sidebar --- */}
+      <nav className="z-navigation flex w-full items-center justify-between rounded-lg border border-foreground/20 bg-neutral-900 px-4 py-2">
         {/* Application Logo */}
         <Link to="/" className="flex items-center gap-3">
             <img src="/eido-icon.png" alt="Eido AI Logo" className="h-8 w-8 rounded-md" />
@@ -36,7 +36,6 @@ export const Header = () => {
             return (
               <Link key={link.to} to={link.to} state={link.state}>
                 <p className={cn(
-                  // MODIFICATION: Changed 'text-xs' to 'text-sm'
                   "text-sm uppercase font-bold tracking-widest transition-colors",
                   isActive 
                   ? "text-foreground" 

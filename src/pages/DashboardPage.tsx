@@ -4,14 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { usePageLoader } from '@/context/LoaderContext';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
-import { WelcomeBanner } from '@/components/dashboard/WelcomeBanner';
 import { OracleCard } from '@/components/dashboard/OracleCard';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { SharedClassesCard } from '@/components/dashboard/SharedClassesCard';
 import { WelcomePopup } from '@/components/dashboard/WelcomePopup';
+import FloatingShapes from '@/components/dashboard/FloatingShapes'; // Import the new component
 
 const Footer = () => (
-  <footer className="w-full px-4 py-6 md:px-9 lg:px-10 border-t border-neutral-800 bg-neutral-950 flex-shrink-0">
+  <footer className="w-full px-4 py-6 md:px-9 lg:px-10 border-t border-neutral-800 bg-neutral-900 flex-shrink-0">
     <div className="flex flex-col md:flex-row justify-between items-center text-sm text-neutral-400">
       <span>© 2025 Eido AI. All rights reserved.</span>
       <div className="flex gap-x-4 mt-4 md:mt-0">
@@ -89,20 +89,38 @@ const DashboardPage = () => {
 
   return (
     <MainAppLayout pageTitle="Dashboard | Eido AI">
-      <div className="flex h-full w-full justify-self-center md:gap-x-3">
+      <div className="flex h-full w-full gap-3">
         <DashboardSidebar onLinkClick={handleProtectedLinkClick} />
         
-        <main className="flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-950">
-          <WelcomeBanner user={user} profile={profile} onTutorialClick={handleOpenWelcomePopup} />
+        {/* --- MODIFICATION START --- */}
+        <main className="relative flex h-full w-full flex-grow flex-col overflow-hidden rounded-lg border border-foreground/20 bg-neutral-900">
+          <FloatingShapes />
           
-          <div className="flex-grow p-4 md:p-8 space-y-8">
-            <div className="flex flex-col gap-y-6">
-                <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
-                <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
+          <div className="relative z-10 flex flex-col h-full overflow-y-auto">
+            {/* Combined Welcome Banner and Cards Section */}
+            <div className="p-4 md:p-8">
+                <div className="max-w-4xl">
+                    <h1 className="text-4xl font-bold text-neutral-100">Welcome{profile?.full_name ? `, ${profile.full_name}` : '!'}</h1>
+                    <p className="mt-2 text-neutral-400">
+                        Eido is the educational copilot that transforms your coursework into a powerful suite of intelligent tools. Get started by{' '}
+                        <span onClick={handleOpenWelcomePopup} className="text-blue-400 underline cursor-pointer hover:text-blue-300">
+                            visiting the tutorial
+                        </span>{' '}
+                        or exploring the tools below.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                    <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
+                    <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
+                </div>
             </div>
+
+            <div className="flex-grow" />
+            <Footer />
           </div>
-          <Footer />
         </main>
+        {/* --- MODIFICATION END --- */}
       </div>
       <WelcomePopup
         isOpen={isWelcomePopupOpen}

@@ -8,8 +8,9 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        // --- MODIFICATION: Updated the default button style ---
         default:
-          "bg-stone-700 text-stone-50 shadow hover:bg-stone-800",
+          "border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
         outline:
