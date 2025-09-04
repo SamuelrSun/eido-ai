@@ -1,6 +1,6 @@
 // supabase/functions/delete-class/index.ts
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 serve(async (req: Request) => {
@@ -26,10 +26,10 @@ serve(async (req: Request) => {
 
     const { class_id } = await req.json();
     if (!class_id) {
-      throw new Error('Class ID is required.');
+      throw new Error("'class_id' is required in the request body.");
     }
-    
-    // 1. Verify ownership
+
+    // --- Step 1: Verify Ownership ---
     const { data: classData, error: ownerError } = await adminSupabase
       .from('classes')
       .select('owner_id')
@@ -41,57 +41,58 @@ serve(async (req: Request) => {
     }
     if (classData.owner_id !== user.id) {
       return new Response(JSON.stringify({ error: "Only the class owner can delete the class." }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    // 2. Delete all associated data
-    // The database schema should have ON DELETE CASCADE for these, but we'll be explicit.
-    // The order matters to respect foreign key constraints if cascade is not set.
     
-    // Message Sources -> Chat Messages
-    const { data: messages } = await adminSupabase.from('chat_messages').select('id').eq('class_id', class_id);
-    if (messages && messages.length > 0) {
-      const messageIds = messages.map(m => m.id);
-      await adminSupabase.from('message_sources').delete().in('message_id', messageIds);
+    // --- Step 2: Fetch Files for External Cleanup ---
+    const { data: filesToDelete, error: filesError } = await adminSupabase
+        .from('files')
+        .select('file_id, url, thumbnail_url')
+        .eq('class_id', class_id);
+
+    if (filesError) {
+        throw new Error(`Failed to fetch files for cleanup: ${filesError.message}`);
     }
-    await adminSupabase.from('chat_messages').delete().eq('class_id', class_id);
 
-    // Conversations
-    await adminSupabase.from('conversations').delete().eq('class_id', class_id);
+    // --- Step 3: Perform Cleanup on External Services (in parallel) ---
+    const cleanupPromises: Promise<any>[] = [];
+
+    // Storage, Cloudinary, and Weaviate Cleanup
+    if (filesToDelete && filesToDelete.length > 0) {
+        const storagePaths = filesToDelete
+            .map(file => file.url ? new URL(file.url).pathname.split('/public/file_storage/')[1] : null)
+            .filter((path): path is string => path !== null);
+
+        if (storagePaths.length > 0) {
+            cleanupPromises.push(adminSupabase.storage.from('file_storage').remove(storagePaths));
+        }
+
+        for (const file of filesToDelete) {
+            if (file.thumbnail_url) {
+                cleanupPromises.push(adminSupabase.functions.invoke('delete-from-cloudinary', { body: { file_id: file.file_id } }));
+            }
+        }
+    }
+    cleanupPromises.push(adminSupabase.functions.invoke('delete-weaviate-chunks-by-class', { body: { class_id_to_delete: class_id } }));
     
-    // Files (this is complex because it involves storage, we assume files are handled by cascade or are deleted separately)
-    // Note: A more robust solution would also delete from Storage and Weaviate here.
-    // The user's current flow has this logic in the frontend hook, which is okay for now.
-    await adminSupabase.from('files').delete().eq('class_id', class_id);
+    await Promise.allSettled(cleanupPromises);
 
-    // Folders
-    await adminSupabase.from('folders').delete().eq('class_id', class_id);
-
-    // Members
-    await adminSupabase.from('class_members').delete().eq('class_id', class_id);
-    
-    // 3. Finally, delete the class itself
+    // --- Step 4: Delete the single class record ---
+    // The ON DELETE CASCADE rules in your database will now handle deleting all related records.
     const { error: deleteError } = await adminSupabase
       .from('classes')
       .delete()
       .eq('class_id', class_id);
 
-    if (deleteError) {
-      throw deleteError;
-    }
-
-    // 4. (Optional but recommended) Trigger Weaviate cleanup
-    await adminSupabase.functions.invoke('delete-weaviate-chunks-by-class', {
-        body: { class_id_to_delete: class_id }
-    });
-
-    return new Response(JSON.stringify({ success: true, message: "Class and all associated data deleted." }), {
+    if (deleteError) throw deleteError;
+    
+    return new Response(JSON.stringify({ success: true, message: "Class and all associated data have been deleted." }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
+    console.error(`[delete-class function error]: ${error.message}`);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

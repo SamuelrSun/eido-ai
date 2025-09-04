@@ -28,17 +28,14 @@ export const LoaderProvider = ({ children }: LoaderProviderProps) => {
 
   const loadPage = (path: string) => {
     if (loaderRef.current) {
-      // Start the loading bar animation immediately
       loaderRef.current.continuousStart();
     }
-    // MODIFICATION: The setTimeout wrapper is removed to navigate instantly.
     navigate(path);
   };
 
   return (
     <LoaderContext.Provider value={{ loader: loaderRef.current, loadPage }}>
-      {/* The loading bar component remains */}
-      <LoadingBar color='#F6F2E9' ref={loaderRef} shadow={true} height={3} />
+      {/* This line has been removed */}
       {children}
     </LoaderContext.Provider>
   );

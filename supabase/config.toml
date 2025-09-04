@@ -81,3 +81,6 @@ verify_jwt = true
 
 [functions.delete-recurring-event]
 verify_jwt = true
+
+[functions.delete-class]
+verify_jwt = true
