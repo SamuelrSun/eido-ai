@@ -1,6 +1,5 @@
 // src/components/auth/UserProfile.tsx
 import { useState, useEffect, useCallback } from 'react';
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -124,9 +123,11 @@ export function UserProfile() {
 
   if (loadingProfile) {
     return (
-      <div className="flex justify-center items-center p-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <Card className="bg-neutral-900 border-neutral-800">
+          <CardContent className="flex justify-center items-center p-4 h-48">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </CardContent>
+      </Card>
     );
   }
 
@@ -139,22 +140,22 @@ export function UserProfile() {
     : user.email?.charAt(0).toUpperCase() || "?";
 
   return (
-    <Card>
+    <Card className="bg-neutral-900 border-neutral-800">
       <CardHeader>
         <CardTitle>User Profile</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-col items-center gap-2">
           <div className="relative group">
-            <Avatar className="h-24 w-24 border-2 border-white shadow-md">
+            <Avatar className="h-24 w-24 border-2 border-neutral-700 shadow-md">
               {profile?.avatar_url && (
                 <AvatarImage src={`${profile.avatar_url}?t=${profile.updated_at || Date.now()}`} alt={profile?.full_name || user.email || "User Avatar"} />
               )}
-              <AvatarFallback className="text-xl">{userInitials}</AvatarFallback>
+              <AvatarFallback className="text-xl bg-neutral-800 text-neutral-300">{userInitials}</AvatarFallback>
             </Avatar>
             <label 
               htmlFor="avatar-upload"
-              className="absolute bottom-0 right-0 p-1 bg-primary text-primary-foreground rounded-full cursor-pointer shadow-md hover:bg-primary/90 transition-colors"
+              className="absolute bottom-0 right-0 p-1.5 bg-blue-600 text-white rounded-full cursor-pointer shadow-md hover:bg-blue-500 transition-colors opacity-0 group-hover:opacity-100"
             >
               <Camera className="h-4 w-4" />
               <span className="sr-only">Upload profile photo</span>
@@ -179,13 +180,13 @@ export function UserProfile() {
         {profile?.full_name && (
           <div>
             <p className="text-sm font-medium text-muted-foreground">Name</p>
-            <p>{profile.full_name}</p>
+            <p className="text-neutral-200">{profile.full_name}</p>
           </div>
         )}
         
         <div>
           <p className="text-sm font-medium text-muted-foreground">Email</p>
-          <p>{user.email}</p>
+          <p className="text-neutral-200">{user.email}</p>
         </div>
       </CardContent>
     </Card>

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,7 +87,7 @@ export function PasswordChangeForm() {
   };
 
   return (
-    <Card>
+    <Card className="bg-neutral-900 border-neutral-800">
       <CardHeader>
         <CardTitle>Change Password</CardTitle>
         <CardDescription>
@@ -106,7 +105,7 @@ export function PasswordChangeForm() {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 required
-                className="pr-10"
+                className="pr-10 bg-neutral-800 border-neutral-700"
                 placeholder="Enter current password"
               />
               <Button 
@@ -131,7 +130,7 @@ export function PasswordChangeForm() {
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
                 minLength={10}
-                className="pr-10"
+                className="pr-10 bg-neutral-800 border-neutral-700"
                 placeholder="Enter new password"
               />
               <Button 
@@ -157,6 +156,7 @@ export function PasswordChangeForm() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              className="bg-neutral-800 border-neutral-700"
               placeholder="Confirm new password"
             />
           </div>
