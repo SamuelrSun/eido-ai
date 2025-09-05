@@ -1,56 +1,94 @@
 // src/components/dashboard/OracleChatDemo.tsx
-import React, { useState, useEffect } from 'react';
-import { useOracleChat } from '@/hooks/useOracleChat';
-import { ChatConversation } from '@/components/oracle/ChatConversation';
-import { supabase } from '@/integrations/supabase/client';
-import { Skeleton } from '../ui/skeleton';
+import React, { useEffect, useRef } from 'react';
+import { useOracle } from '@/hooks/useOracle';
+import { ChatMessage } from '@/components/chat/ChatMessage';
+import { ChatInput } from '@/components/oracle/ChatInput';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2 } from 'lucide-react';
+
+// A small, local loading component for the demo
+const LoadingIndicator = () => (
+  <>
+    <style>{`
+      @keyframes dot-flashing {
+        0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; }
+      }
+      .dot-flashing span {
+        animation: dot-flashing 1.4s infinite both;
+        display: inline-block; width: 4px; height: 4px; margin-left: 2px;
+        background-color: currentColor; border-radius: 50%;
+      }
+      .dot-flashing span:nth-child(2) { animation-delay: 0.2s; }
+      .dot-flashing span:nth-child(3) { animation-delay: 0.4s; }
+    `}</style>
+    <div className="flex items-center justify-center p-4 text-sm text-neutral-400">
+      <span>Thinking</span>
+      <div className="dot-flashing ml-1">
+        <span /> <span /> <span />
+      </div>
+    </div>
+  </>
+);
 
 export const OracleChatDemo = () => {
-    // We need a classId to initialize or create a conversation.
-    // For this demo, let's fetch the user's most recently used class.
-    const [recentClassId, setRecentClassId] = useState<string | undefined>(undefined);
-    const { messages, isLoading, sendMessage } = useOracleChat(recentClassId);
+  const {
+    input, setInput, isChatLoading, isPageLoading, userProfile, messages,
+    messagesEndRef, fileInputRef, handleSendMessage, handleFileSelect,
+    handlePaste, handleRemoveFile, attachedFiles,
+  } = useOracle();
 
-    useEffect(() => {
-        const fetchRecentClass = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-            // Find the most recently updated class the user is a member of.
-            const { data, error } = await supabase
-                .from('classes')
-                .select('class_id')
-                .order('updated_at', { ascending: false })
-                .limit(1)
-                .single();
-            
-            if (error) {
-                console.error("Could not fetch a recent class to display chat demo.", error);
-            } else if (data) {
-                setRecentClassId(data.class_id);
-            }
-        };
-        fetchRecentClass();
-    }, []);
-
-    const handleSendMessage = (text: string) => {
-        if (!recentClassId) {
-            alert("Please go to a class to start a conversation.");
-            return;
-        }
-        sendMessage(text, recentClassId);
-    };
-
-    // Show a loading skeleton while we find the most recent class
-    if (recentClassId === undefined) {
-        return <Skeleton className="h-full w-full" />;
+  // This effect ensures the view scrolls to the latest message.
+  useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
     }
+  }, [messages]);
 
-    return (
-        <ChatConversation 
-            messages={messages}
-            isLoading={isLoading}
-            onSendMessage={handleSendMessage}
+  if (isPageLoading) {
+    return <div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-neutral-500" /></div>;
+  }
+
+  return (
+    // The root element now has no padding and fills its container.
+    <div className="flex flex-col h-full">
+      {/* The ScrollArea takes up all available space and has the fade effect. */}
+      <ScrollArea 
+        className="flex-1 min-h-0 [mask-image:linear-gradient(to_bottom,transparent_0%,black_10%,black_90%,transparent_100%)]" 
+        ref={scrollAreaRef}
+      >
+        {/* Padding is applied *inside* the scroll area so messages don't touch the edges. */}
+        <div className="space-y-4 p-4">
+          {messages.map((message) => (
+            <ChatMessage
+              key={message.id}
+              isUser={message.role === 'user'}
+              senderName={message.role === 'user' ? (userProfile?.full_name || 'You') : 'Eido AI'}
+              avatarUrl={message.role === 'user' ? userProfile?.avatar_url : undefined}
+              content={message.content}
+              attachedFiles={message.attached_files}
+              isSelected={false}
+            />
+          ))}
+          {isChatLoading && <LoadingIndicator />}
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
+      
+      {/* The ChatInput is placed at the bottom, wrapped in a div to give it horizontal padding. */}
+      <div className="px-4 pb-4">
+        <ChatInput
+            input={input}
+            setInput={setInput}
+            handleSendMessage={handleSendMessage}
+            isChatLoading={isChatLoading}
+            attachedFiles={attachedFiles}
+            handleRemoveFile={handleRemoveFile}
+            fileInputRef={fileInputRef}
         />
-    );
+      </div>
+    </div>
+  );
 };
