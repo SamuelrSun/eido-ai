@@ -123,11 +123,12 @@ src/
       CommandBar.tsx
       DashboardCalendar.tsx
       DashboardSidebar.tsx
+      FloatingShapes.tsx
       OracleCard.tsx
+      OracleChatDemo.tsx
       OracleDemo.tsx
       SharedClassesCard.tsx
       SharedClassesDemo.tsx
-      WelcomeBanner.tsx
       WelcomePopup.tsx
     layout/
       sidebar/
@@ -148,6 +149,7 @@ src/
         MiniClassCard.tsx
         MiniFileCard.tsx
         MiniFolderCard.tsx
+      ChatConversation.tsx
       ChatInput.tsx
       DocumentPreview.tsx
       DocumentViewer.tsx
@@ -221,6 +223,7 @@ src/
     useCalendarData.ts
     useClassesPage.ts
     useOracle.ts
+    useOracleChat.ts
   integrations/
     supabase/
       client.ts
@@ -247,6 +250,7 @@ src/
     fileService.ts
   types/
     oracle.ts
+    supabase.ts
   App.css
   App.tsx
   index.css
@@ -519,6 +523,65 @@ export function PasswordChangeForm() {
 }
 </file>
 
+<file path="src/components/dashboard/OracleChatDemo.tsx">
+// src/components/dashboard/OracleChatDemo.tsx
+import React, { useState, useEffect } from 'react';
+import { useOracleChat } from '@/hooks/useOracleChat';
+import { ChatConversation } from '@/components/oracle/ChatConversation';
+import { supabase } from '@/integrations/supabase/client';
+import { Skeleton } from '../ui/skeleton';
+
+export const OracleChatDemo = () => {
+    // We need a classId to initialize or create a conversation.
+    // For this demo, let's fetch the user's most recently used class.
+    const [recentClassId, setRecentClassId] = useState<string | undefined>(undefined);
+    const { messages, isLoading, sendMessage } = useOracleChat(recentClassId);
+
+    useEffect(() => {
+        const fetchRecentClass = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // Find the most recently updated class the user is a member of.
+            const { data, error } = await supabase
+                .from('classes')
+                .select('class_id')
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .single();
+            
+            if (error) {
+                console.error("Could not fetch a recent class to display chat demo.", error);
+            } else if (data) {
+                setRecentClassId(data.class_id);
+            }
+        };
+        fetchRecentClass();
+    }, []);
+
+    const handleSendMessage = (text: string) => {
+        if (!recentClassId) {
+            alert("Please go to a class to start a conversation.");
+            return;
+        }
+        sendMessage(text, recentClassId);
+    };
+
+    // Show a loading skeleton while we find the most recent class
+    if (recentClassId === undefined) {
+        return <Skeleton className="h-full w-full" />;
+    }
+
+    return (
+        <ChatConversation 
+            messages={messages}
+            isLoading={isLoading}
+            onSendMessage={handleSendMessage}
+        />
+    );
+};
+</file>
+
 <file path="src/components/layout/sidebar/SidebarWidgets.tsx">
 import { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
@@ -620,6 +683,160 @@ export function PageHeader({ title, description }: PageHeaderProps) {
     </div>
   )
 }
+</file>
+
+<file path="src/components/oracle/ChatConversation.tsx">
+// src/components/oracle/ChatConversation.tsx
+import React, { useRef, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { SendHorizonal, Check, Bot, User, Loader2 } from 'lucide-react';
+import { ChatMessage, MessageSource } from '@/hooks/useOracleChat';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+const chatFormSchema = z.object({
+  message: z.string().min(1, 'Message cannot be empty.'),
+});
+
+interface ChatConversationProps {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  onSendMessage: (text: string) => void;
+  className?: string;
+}
+
+const AIMessage = ({ text, sources }: { text: string | null, sources?: MessageSource[] }) => (
+    <div className="flex items-start gap-3">
+        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-neutral-700 flex items-center justify-center">
+            <Bot className="h-5 w-5 text-neutral-300" />
+        </div>
+        <div className="flex-grow rounded-lg p-3 bg-neutral-800 border border-neutral-700">
+            <p className="text-sm text-neutral-200 whitespace-pre-wrap">{text || '...'}</p>
+            {sources && sources.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                    {sources.map((source, index) => (
+                        <TooltipProvider key={index} delayDuration={100}>
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <Badge variant="secondary" className="bg-neutral-700/80 text-neutral-300 hover:bg-neutral-600 border border-neutral-600/50">
+                                        <Check className="h-3 w-3 mr-1.5" />
+                                        {source.file_name?.substring(0, 20) || 'Source'}...
+                                    </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{source.file_name}</p>
+                                    {source.page_number && <p className="text-xs text-muted-foreground">Page: {source.page_number}</p>}
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    ))}
+                </div>
+            )}
+        </div>
+    </div>
+);
+
+const UserMessage = ({ text }: { text: string | null }) => (
+    <div className="flex items-start gap-3 justify-end">
+        <div className="flex-grow rounded-lg p-3 bg-blue-950/70 border border-blue-500/30 text-right">
+            <p className="text-sm text-neutral-200 whitespace-pre-wrap">{text}</p>
+        </div>
+        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-neutral-700 flex items-center justify-center">
+            <User className="h-5 w-5 text-neutral-300" />
+        </div>
+    </div>
+);
+
+export const ChatConversation: React.FC<ChatConversationProps> = ({ messages, isLoading, onSendMessage, className }) => {
+  const form = useForm<z.infer<typeof chatFormSchema>>({
+    resolver: zodResolver(chatFormSchema),
+    defaultValues: { message: '' },
+  });
+
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
+  
+  const handleSubmit = (values: z.infer<typeof chatFormSchema>) => {
+    onSendMessage(values.message);
+    form.reset();
+  };
+
+  return (
+    <div className={cn("flex flex-col h-full", className)}>
+        {/* Chat Messages Area */}
+        <div
+            ref={scrollAreaRef}
+            className="flex-grow overflow-y-auto p-4 space-y-6 [mask-image:linear-gradient(to_bottom,transparent_0%,black_10%,black_90%,transparent_100%)]"
+        >
+            {messages.map((msg, index) => (
+                msg.sender === 'ai'
+                    ? <AIMessage key={msg.id || index} text={msg.message_text} sources={msg.sources} />
+                    : <UserMessage key={msg.id || index} text={msg.message_text} />
+            ))}
+            {isLoading && messages.length > 0 && messages[messages.length - 1].sender === 'user' && (
+                 <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-neutral-700 flex items-center justify-center">
+                        <Loader2 className="h-5 w-5 text-neutral-300 animate-spin" />
+                    </div>
+                    <div className="flex-grow rounded-lg p-3 bg-neutral-800 border border-neutral-700">
+                        <p className="text-sm text-neutral-400">Thinking...</p>
+                    </div>
+                </div>
+            )}
+        </div>
+
+        {/* Chat Input Area */}
+        <div className="p-4 border-t border-neutral-700/50">
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleSubmit)} className="relative">
+                    <FormField
+                        control={form.control}
+                        name="message"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormControl>
+                                    <Textarea
+                                        {...field}
+                                        placeholder="Ask a question..."
+                                        className="bg-neutral-900 border-neutral-700 min-h-0 pr-12"
+                                        rows={1}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                form.handleSubmit(handleSubmit)();
+                                            }
+                                        }}
+                                        disabled={isLoading}
+                                    />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
+                    <Button type="submit" size="icon" className="absolute top-1.5 right-1.5 h-7 w-7" disabled={isLoading}>
+                        <SendHorizonal className="h-4 w-4" />
+                    </Button>
+                </form>
+            </Form>
+        </div>
+    </div>
+  );
+};
 </file>
 
 <file path="src/components/ui/accordion.tsx">
@@ -4956,6 +5173,156 @@ function useToast() {
 export { useToast, toast }
 </file>
 
+<file path="src/hooks/useOracleChat.ts">
+// src/hooks/useOracleChat.ts
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/types/supabase';
+
+// --- MODIFICATION: Define a type for the data returned by our new RPC function ---
+type LatestConversationResponse = Database['public']['Functions']['get_latest_conversation']['Returns'];
+
+export interface MessageSource {
+  file_id: string;
+  file_name: string | null;
+  page_number?: number | null;
+}
+
+export interface ChatMessage {
+  id: string;
+  created_at: string;
+  message_text: string | null;
+  sender: 'user' | 'ai';
+  sources?: MessageSource[];
+}
+
+export const useOracleChat = (classId?: string) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchInitialConversation = async () => {
+      setIsLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
+      // --- MODIFICATION: Explicitly type the response from the RPC call ---
+      const { data, error } = await supabase.rpc('get_latest_conversation', {
+          p_user_id: user.id,
+          p_class_id: classId,
+      });
+
+      const typedData = data as LatestConversationResponse;
+
+      if (error) {
+        console.error('Error fetching latest conversation:', error);
+        setMessages([]);
+        setConversationId(null);
+      } else if (typedData && typedData.length > 0) {
+        setConversationId(typedData[0].conversation_id);
+        
+        const formattedMessages = typedData.map(msg => ({
+            id: msg.message_id,
+            created_at: msg.created_at,
+            message_text: msg.message_text,
+            sender: msg.sender as 'user' | 'ai',
+            sources: msg.sources || [],
+        }));
+        setMessages(formattedMessages);
+      } else {
+        setMessages([]);
+        setConversationId(null);
+      }
+      setIsLoading(false);
+    };
+
+    fetchInitialConversation();
+  }, [classId]);
+
+  const sendMessage = useCallback(async (text: string, currentClassId: string) => {
+    if (!text.trim()) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error("User not authenticated.");
+      return;
+    }
+
+    let currentConvId = conversationId;
+
+    if (!currentConvId) {
+      const { data: newConvo, error: newConvoError } = await supabase
+        .from('conversations')
+        .insert({
+          user_id: user.id,
+          class_id: currentClassId,
+          chatbot_type: 'oracle',
+          title: `Chat on ${new Date().toLocaleString()}`,
+        })
+        .select('id')
+        .single();
+      
+      if (newConvoError || !newConvo) {
+        console.error("Error creating new conversation:", newConvoError);
+        return;
+      }
+      currentConvId = (newConvo as { id: string }).id;
+      setConversationId(currentConvId);
+      setMessages([]);
+    }
+    
+    const userMessage: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      message_text: text,
+      sender: 'user',
+    };
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+
+    try {
+      const { data: responseData, error } = await supabase.functions.invoke('oracle-chat', {
+        body: {
+          conversationId: currentConvId,
+          messageText: text,
+          classId: currentClassId,
+        },
+      });
+
+      if (error) throw error;
+      
+      const aiMessage: ChatMessage = {
+        id: responseData.message_id,
+        created_at: responseData.created_at,
+        message_text: responseData.message_text,
+        sender: 'ai',
+        sources: responseData.sources,
+      };
+      setMessages(prev => [...prev, aiMessage]);
+
+    } catch (error) {
+      console.error("Error calling oracle-chat function:", error);
+      const errorMessage: ChatMessage = {
+        id: `error-${Date.now()}`,
+        created_at: new Date().toISOString(),
+        message_text: "Sorry, I encountered an error. Please try again.",
+        sender: 'ai',
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+
+  }, [conversationId, classId]);
+
+  return { messages, isLoading, sendMessage, conversationId };
+};
+</file>
+
 <file path="src/lib/utils.ts">
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
@@ -5003,6 +5370,1195 @@ const NotFound = () => {
 export default NotFound;
 </file>
 
+<file path="src/types/supabase.ts">
+[?25l[?2004h
+                                                                                              
+  >  1. qlyqxnqzswpsbvuebhpq [name: Progenic AI, org: imitrnjwicudvdyovzcg, region: us-west-1]
+    2. osqgijalpmpciwfkvouw [name: MinistryLM, org: imitrnjwicudvdyovzcg, region: us-west-1]  
+    3. uzdtqomtbrccinrkhzme [name: SuperStu, org: imitrnjwicudvdyovzcg, region: us-west-1]    
+                                                                                              
+                                                                                              
+                                                                                              
+                                                                                              
+                                                                                              
+                                                                                              
+                                                                                              
+    â†‘/k up â€¢ â†“/j down â€¢ / filter â€¢ q quit â€¢ ? more                                            
+                                                                                              [D[13A
+                                                                                             
+    1. qlyqxnqzswpsbvuebhpq [name: Progenic AI, org: imitrnjwicudvdyovzcg, region: us-west-1]
+  >  2. osqgijalpmpciwfkvouw [name: MinistryLM, org: imitrnjwicudvdyovzcg, region: us-west-1]
+    3. uzdtqomtbrccinrkhzme [name: SuperStu, org: imitrnjwicudvdyovzcg, region: us-west-1]   
+                                                                                             
+                                                                                             
+                                                                                             
+                                                                                             
+                                                                                             
+                                                                                             
+                                                                                             
+    â†‘/k up â€¢ â†“/j down â€¢ / filter â€¢ q quit â€¢ ? more                                           
+                                                                                             [D[13A
+
+
+    2. osqgijalpmpciwfkvouw [name: MinistryLM, org: imitrnjwicudvdyovzcg, region: us-west-1] 
+  >  3. uzdtqomtbrccinrkhzme [name: SuperStu, org: imitrnjwicudvdyovzcg, region: us-west-1]  
+
+
+
+
+
+
+
+
+[D[13A [J[D[2K[?2004l[?25h[?1002l[?1003l[?1006lexport type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.12 (cd3cf9e)"
+  }
+  public: {
+    Tables: {
+      calendar_events: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          event_end: string | null
+          event_start: string
+          event_type: string | null
+          id: string
+          location: string | null
+          notes: string | null
+          repeat_pattern: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          event_end?: string | null
+          event_start: string
+          event_type?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          repeat_pattern?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          event_end?: string | null
+          event_start?: string
+          event_type?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          repeat_pattern?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          attached_files: Json | null
+          chat_mode: string
+          class_id: string | null
+          content: string
+          conversation_id: string | null
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          attached_files?: Json | null
+          chat_mode: string
+          class_id?: string | null
+          content: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          attached_files?: Json | null
+          chat_mode?: string
+          class_id?: string | null
+          content?: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_user_id_fkey_cascade"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      class_activity: {
+        Row: {
+          activity_type: Database["public"]["Enums"]["class_activity_type"]
+          class_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          activity_type: Database["public"]["Enums"]["class_activity_type"]
+          class_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          activity_type?: Database["public"]["Enums"]["class_activity_type"]
+          class_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_activity_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "class_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      class_members: {
+        Row: {
+          class_id: string
+          created_at: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string | null
+          role?: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_members_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "class_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      classes: {
+        Row: {
+          class_id: string
+          class_name: string
+          color: string | null
+          created_at: string | null
+          invite_code: string | null
+          owner_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          class_id?: string
+          class_name: string
+          color?: string | null
+          created_at?: string | null
+          invite_code?: string | null
+          owner_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          class_id?: string
+          class_name?: string
+          color?: string | null
+          created_at?: string | null
+          invite_code?: string | null
+          owner_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classes_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          chat_mode: string | null
+          chatbot_type: string
+          class_id: string | null
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          chat_mode?: string | null
+          chatbot_type: string
+          class_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          chat_mode?: string | null
+          chatbot_type?: string
+          class_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      files: {
+        Row: {
+          category: string | null
+          class_id: string | null
+          created_at: string
+          document_title: string | null
+          file_id: string
+          folder_id: string | null
+          image_summaries: Json | null
+          last_modified: string
+          name: string
+          page_count: number | null
+          page_previews: Json | null
+          size: number
+          status: string | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          type: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          class_id?: string | null
+          created_at?: string
+          document_title?: string | null
+          file_id?: string
+          folder_id?: string | null
+          image_summaries?: Json | null
+          last_modified?: string
+          name: string
+          page_count?: number | null
+          page_previews?: Json | null
+          size: number
+          status?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          type: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          class_id?: string | null
+          created_at?: string
+          document_title?: string | null
+          file_id?: string
+          folder_id?: string | null
+          image_summaries?: Json | null
+          last_modified?: string
+          name?: string
+          page_count?: number | null
+          page_previews?: Json | null
+          size?: number
+          status?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          type?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "files_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "files_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["folder_id"]
+          },
+          {
+            foreignKeyName: "files_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      "flashcard-decks": {
+        Row: {
+          card_count: number
+          class_id: string | null
+          class_title: string | null
+          color: string
+          created_at: string
+          description: string
+          due_cards: number
+          flashcard_deck_id: string
+          new_cards: number
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          card_count?: number
+          class_id?: string | null
+          class_title?: string | null
+          color: string
+          created_at?: string
+          description: string
+          due_cards?: number
+          flashcard_deck_id?: string
+          new_cards?: number
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          card_count?: number
+          class_id?: string | null
+          class_title?: string | null
+          color?: string
+          created_at?: string
+          description?: string
+          due_cards?: number
+          flashcard_deck_id?: string
+          new_cards?: number
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flashcard-decks_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "flashcard-decks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      flashcards: {
+        Row: {
+          back: string
+          class_id: string | null
+          created_at: string
+          difficulty: string
+          flashcard_deck_id: string
+          flashcard_id: string
+          front: string
+          last_reviewed: string | null
+          next_review: string
+          review_count: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          back: string
+          class_id?: string | null
+          created_at?: string
+          difficulty?: string
+          flashcard_deck_id: string
+          flashcard_id?: string
+          front: string
+          last_reviewed?: string | null
+          next_review?: string
+          review_count?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          back?: string
+          class_id?: string | null
+          created_at?: string
+          difficulty?: string
+          flashcard_deck_id?: string
+          flashcard_id?: string
+          front?: string
+          last_reviewed?: string | null
+          next_review?: string
+          review_count?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flashcards_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "flashcards_flashcard_deck_id_fkey"
+            columns: ["flashcard_deck_id"]
+            isOneToOne: false
+            referencedRelation: "flashcard-decks"
+            referencedColumns: ["flashcard_deck_id"]
+          },
+          {
+            foreignKeyName: "flashcards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      folders: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          folder_id: string
+          name: string | null
+          parent_id: string | null
+          user_id: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          folder_id?: string
+          name?: string | null
+          parent_id?: string | null
+          user_id: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          folder_id?: string
+          name?: string | null
+          parent_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "folders_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["folder_id"]
+          },
+        ]
+      }
+      message_sources: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          file_id: string | null
+          highlight: string | null
+          id: string
+          message_id: string
+          name: string | null
+          page_number: number | null
+          source_number: number
+          url: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          file_id?: string | null
+          highlight?: string | null
+          id?: string
+          message_id: string
+          name?: string | null
+          page_number?: number | null
+          source_number: number
+          url?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          file_id?: string | null
+          highlight?: string | null
+          id?: string
+          message_id?: string
+          name?: string | null
+          page_number?: number | null
+          source_number?: number
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_sources_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "message_sources_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preview_queue: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          file_id: string
+          id: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          file_id: string
+          id?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          file_id?: string
+          id?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_queue_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["file_id"]
+          },
+        ]
+      }
+      processing_queue: {
+        Row: {
+          class_id: string
+          created_at: string
+          error_message: string | null
+          folder_id: string | null
+          id: number
+          mime_type: string
+          original_name: string
+          size: number
+          status: string
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          error_message?: string | null
+          folder_id?: string | null
+          id?: number
+          mime_type: string
+          original_name: string
+          size: number
+          status?: string
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          error_message?: string | null
+          folder_id?: string | null
+          id?: number
+          mime_type?: string
+          original_name?: string
+          size?: number
+          status?: string
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_queue_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "processing_queue_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["folder_id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quiz_questions: {
+        Row: {
+          class_id: string | null
+          correct_answer_index: number
+          created_at: string
+          explanation: string
+          options: string[]
+          question_text: string
+          quiz_id: string
+          quiz_questions_id: string
+          user_id: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          correct_answer_index: number
+          created_at?: string
+          explanation: string
+          options: string[]
+          question_text: string
+          quiz_id: string
+          quiz_questions_id?: string
+          user_id?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          correct_answer_index?: number
+          created_at?: string
+          explanation?: string
+          options?: string[]
+          question_text?: string
+          quiz_id?: string
+          quiz_questions_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["quiz_id"]
+          },
+          {
+            foreignKeyName: "quiz_questions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          class_id: string | null
+          coverage: string
+          created_at: string
+          description: string
+          difficulty: string
+          question_count: number
+          quiz_id: string
+          time_estimate: number
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          coverage: string
+          created_at?: string
+          description: string
+          difficulty?: string
+          question_count?: number
+          quiz_id?: string
+          time_estimate?: number
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          coverage?: string
+          created_at?: string
+          description?: string
+          difficulty?: string
+          question_count?: number
+          quiz_id?: string
+          time_estimate?: number
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quizzes_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+        ]
+      }
+      user_storage: {
+        Row: {
+          storage_limit: number
+          storage_used: number
+          user_id: string
+        }
+        Insert: {
+          storage_limit?: number
+          storage_used?: number
+          user_id: string
+        }
+        Update: {
+          storage_limit?: number
+          storage_used?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
+      can_access_class_content: {
+        Args: { p_class_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      get_class_activity: {
+        Args: { p_class_id: string }
+        Returns: {
+          activity_type: Database["public"]["Enums"]["class_activity_type"]
+          actor_avatar_url: string
+          actor_full_name: string
+          class_id: string
+          created_at: string
+          details: Json
+          id: string
+          user_id: string
+        }[]
+      }
+      get_classes_with_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          class_id: string
+          class_name: string
+          color: string
+          created_at: string
+          file_count: number
+          invite_code: string
+          member_count: number
+          owner_id: string
+          total_size: number
+          updated_at: string
+          user_role: string
+        }[]
+      }
+      get_latest_conversation: {
+        Args: { p_class_id?: string; p_user_id: string }
+        Returns: {
+          conversation_id: string
+          created_at: string
+          message_id: string
+          message_text: string
+          sender: string
+          sources: Json
+        }[]
+      }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      is_class_member: {
+        Args: { p_class_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: unknown
+      }
+      log_class_activity: {
+        Args: {
+          p_activity_type: Database["public"]["Enums"]["class_activity_type"]
+          p_class_id: string
+          p_details: Json
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+    }
+    Enums: {
+      class_activity_type:
+        | "file_uploaded"
+        | "file_deleted"
+        | "member_joined"
+        | "member_left"
+        | "member_pending"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      class_activity_type: [
+        "file_uploaded",
+        "file_deleted",
+        "member_joined",
+        "member_left",
+        "member_pending",
+      ],
+    },
+  },
+} as const
+</file>
+
 <file path="src/vite-env.d.ts">
 /// <reference types="vite/client" />
 
@@ -5021,6 +6577,34 @@ export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+</file>
+
+<file path=".gitignore">
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+.env
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 </file>
 
 <file path="components.json">
@@ -7220,6 +8804,233 @@ export const DashboardCalendar: React.FC<DashboardCalendarProps> = ({ onAddEvent
 };
 </file>
 
+<file path="src/components/dashboard/FloatingShapes.tsx">
+// src/components/dashboard/FloatingShapes.jsx
+import React, { useRef, useEffect } from 'react';
+
+const FloatingShapes = () => {
+  const canvasRef = useRef(null);
+  
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    let animationFrameId;
+    let shapes = [];
+
+    const handleResize = () => {
+      const parent = canvas.parentElement;
+      if (!parent) return;
+
+      canvas.width = parent.offsetWidth;
+      canvas.height = parent.offsetHeight;
+
+      const shapeSize = 220;
+      const numShapes = 10;
+      const shapeTypes = ['square', 'triangle', 'circle'];
+      
+      const newShapes = [];
+      const minDistance = shapeSize;
+      const maxAttempts = 100;
+      for (let i = 0; i < numShapes; i++) {
+        let newShape;
+        let positionFound = false;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          const potentialX = shapeSize / 2 + Math.random() * (canvas.width - shapeSize);
+          const potentialY = shapeSize / 2 + Math.random() * (canvas.height - shapeSize);
+          let isOverlapping = false;
+          for (const existingShape of newShapes) {
+            const dx = existingShape.x - potentialX;
+            const dy = existingShape.y - potentialY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < minDistance) {
+              isOverlapping = true;
+              break;
+            }
+          }
+
+          if (!isOverlapping) {
+            newShape = {
+              type: shapeTypes[i % shapeTypes.length],
+              size: shapeSize,
+              rotation: Math.random() * Math.PI * 2,
+              vRotation: (Math.random() - 0.5) * 0.002,
+              x: potentialX,
+              y: potentialY,
+              vx: (Math.random() - 0.5) * 0.6,
+              vy: (Math.random() - 0.5) * 0.6,
+              mass: 1,
+              intensity: Math.random() * 0.4,
+              maxIntensity: 0.3 + Math.random() * 0.4,
+              vIntensity: (Math.random() - 0.5) * 0.005,
+            };
+            positionFound = true;
+            break;
+          }
+        }
+
+        if (!positionFound) {
+          newShape = {
+            type: shapeTypes[i % shapeTypes.length],
+            size: shapeSize,
+            rotation: Math.random() * Math.PI * 2,
+            vRotation: (Math.random() - 0.5) * 0.002,
+            x: shapeSize / 2 + Math.random() * (canvas.width - shapeSize),
+            y: shapeSize / 2 + Math.random() * (canvas.height - shapeSize),
+            vx: (Math.random() - 0.5) * 0.6,
+            vy: (Math.random() - 0.5) * 0.6,
+            mass: 1,
+            intensity: Math.random() * 0.4,
+            maxIntensity: 0.3 + Math.random() * 0.4,
+            vIntensity: (Math.random() - 0.5) * 0.005,
+          };
+        }
+        newShapes.push(newShape);
+      }
+      shapes = newShapes;
+    };
+    const resizeObserver = new ResizeObserver(handleResize);
+    if (canvas.parentElement) {
+      resizeObserver.observe(canvas.parentElement);
+    }
+    handleResize();
+
+    const update = () => {
+      if (canvas.width > 0 && shapes.length > 0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        shapes.forEach((shape, i) => {
+          shape.x += shape.vx;
+          shape.y += shape.vy;
+          shape.rotation += shape.vRotation;
+
+          const radius = shape.size / 2;
+          if (shape.x + radius > canvas.width || shape.x - radius < 0) {
+            shape.vx *= -1;
+          }
+          if (shape.y + radius > canvas.height || shape.y - radius < 0) {
+            shape.vy *= -1;
+          }
+
+          for (let j = i + 1; j < shapes.length; j++) {
+              const otherShape = shapes[j];
+              const dx = otherShape.x - shape.x;
+              const dy = otherShape.y - shape.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const minDistance = (shape.size / 2) + (otherShape.size / 2);
+
+              if (distance < minDistance) {
+                  const angle = Math.atan2(dy, dx);
+                  const sin = Math.sin(angle);
+                  const cos = Math.cos(angle);
+                  const pos0 = { x: 0, y: 0 };
+                  const pos1 = { x: (otherShape.x - shape.x) * cos + (otherShape.y - shape.y) * sin, y: (otherShape.y - shape.y) * cos - (otherShape.x - shape.x) * sin };
+                  const vel0 = { x: shape.vx * cos + shape.vy * sin, y: shape.vy * cos - shape.vx * sin };
+                  const vel1 = { x: otherShape.vx * cos + otherShape.vy * sin, y: otherShape.vy * cos - otherShape.vx * sin };
+                  const vxTotal = vel0.x - vel1.x;
+                  vel0.x = ((shape.mass - otherShape.mass) * vel0.x + 2 * otherShape.mass * vel1.x) / (shape.mass + otherShape.mass);
+                  vel1.x = vxTotal + vel0.x;
+                  const absV = Math.abs(vel0.x) + Math.abs(vel1.x);
+                  const overlap = minDistance - Math.abs(pos0.x - pos1.x);
+                  pos0.x += vel0.x / absV * overlap;
+                  pos1.x += vel1.x / absV * overlap;
+                  const pos0F = { x: pos0.x * cos - pos0.y * sin, y: pos0.y * cos + pos0.x * sin };
+                  const pos1F = { x: pos1.x * cos - pos1.y * sin, y: pos1.y * cos + pos1.x * sin };
+                  otherShape.x = shape.x + pos1F.x;
+                  otherShape.y = shape.y + pos1F.y;
+                  shape.x = shape.x + pos0F.x;
+                  shape.y = shape.y + pos0F.y;
+                  shape.vx = vel0.x * cos - vel0.y * sin;
+                  shape.vy = vel0.y * cos + vel0.x * sin;
+                  otherShape.vx = vel1.x * cos - vel1.y * sin;
+                  otherShape.vy = vel1.y * cos + vel1.x * sin;
+              }
+          }
+
+          ctx.save();
+          ctx.translate(shape.x, shape.y);
+          ctx.rotate(shape.rotation);
+
+          shape.intensity += shape.vIntensity;
+          if (shape.intensity > shape.maxIntensity || shape.intensity <= 0) {
+            shape.vIntensity *= -1;
+          }
+          const intensity = Math.max(0, shape.intensity);
+          const lightNormal = { x: Math.cos(shape.rotation), y: Math.sin(shape.rotation) };
+
+          ctx.shadowColor = `rgba(0, 0, 0, ${0.4 * intensity})`;
+          ctx.shadowBlur = 25 * intensity;
+          ctx.shadowOffsetX = -lightNormal.x * 10 * intensity;
+          ctx.shadowOffsetY = -lightNormal.y * 10 * intensity;
+          
+          const size = shape.size / 2;
+          const outerBorderWidth = 26;
+          const innerBorderWidth = 22;
+          
+          const createShapePath = () => {
+            ctx.beginPath();
+            if (shape.type === 'square') {
+              ctx.rect(-size, -size, shape.size, shape.size);
+            } else if (shape.type === 'circle') {
+              ctx.arc(0, 0, size, 0, Math.PI * 2);
+            } else if (shape.type === 'triangle') {
+              ctx.moveTo(0, -size);
+              ctx.lineTo(size, size);
+              ctx.lineTo(-size, size);
+              ctx.closePath();
+            }
+          };
+
+          ctx.strokeStyle = 'rgba(0, 0, 0, 1)';
+          ctx.lineWidth = outerBorderWidth;
+          createShapePath();
+          ctx.stroke();
+
+          ctx.globalCompositeOperation = 'source-atop';
+          
+          const outerGradient = ctx.createLinearGradient(-size * lightNormal.x, -size * lightNormal.y, size * lightNormal.x, size * lightNormal.y);
+          outerGradient.addColorStop(0, `rgba(120, 120, 120, ${0.7 * intensity})`);
+          outerGradient.addColorStop(1, `rgba(40, 40, 40, ${0.7 * intensity})`);
+          
+          ctx.strokeStyle = outerGradient;
+          ctx.lineWidth = outerBorderWidth;
+          createShapePath();
+          ctx.stroke();
+
+          const innerGradient = ctx.createLinearGradient(-size * lightNormal.x, -size * lightNormal.y, size * lightNormal.x, size * lightNormal.y);
+          innerGradient.addColorStop(0, `rgba(255, 255, 255, ${0.5 * intensity})`);
+          innerGradient.addColorStop(1, `rgba(180, 180, 180, ${0.5 * intensity})`);
+
+          ctx.strokeStyle = innerGradient;
+          ctx.lineWidth = innerBorderWidth;
+          createShapePath();
+          ctx.stroke();
+          
+          ctx.restore();
+        });
+      }
+
+      animationFrameId = window.requestAnimationFrame(update);
+    };
+
+    update();
+    
+    return () => {
+      if (canvas.parentElement) {
+        resizeObserver.unobserve(canvas.parentElement);
+      }
+      window.cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />;
+};
+
+export default FloatingShapes;
+</file>
+
 <file path="src/components/dashboard/OracleDemo.tsx">
 // src/components/dashboard/OracleDemo.tsx
 import React from 'react';
@@ -9022,28 +10833,12 @@ export default PlaceholderPage;
 main
 </file>
 
-<file path="supabase/.temp/gotrue-version">
-v2.179.0
-</file>
-
 <file path="supabase/.temp/pooler-url">
 postgresql://postgres.uzdtqomtbrccinrkhzme:[YOUR-PASSWORD]@aws-0-us-west-1.pooler.supabase.com:6543/postgres
 </file>
 
-<file path="supabase/.temp/postgres-version">
-15.8.1.121
-</file>
-
 <file path="supabase/.temp/project-ref">
 uzdtqomtbrccinrkhzme
-</file>
-
-<file path="supabase/.temp/rest-version">
-v12.2.12
-</file>
-
-<file path="supabase/.temp/storage-version">
-iceberg-catalog-flag-on-buckets
 </file>
 
 <file path="supabase/functions/approve-class-member/index.ts">
@@ -9362,109 +11157,6 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
-    });
-  }
-});
-</file>
-
-<file path="supabase/functions/delete-class/index.ts">
-// supabase/functions/delete-class/index.ts
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
-
-serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-
-  try {
-    const adminSupabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-
-    const { data: { user } } = await createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    ).auth.getUser();
-
-    if (!user) {
-      throw new Error('User not authenticated.');
-    }
-
-    const { class_id } = await req.json();
-    if (!class_id) {
-      throw new Error('Class ID is required.');
-    }
-    
-    // 1. Verify ownership
-    const { data: classData, error: ownerError } = await adminSupabase
-      .from('classes')
-      .select('owner_id')
-      .eq('class_id', class_id)
-      .single();
-
-    if (ownerError || !classData) {
-      throw new Error('Class not found or you do not have permission to delete it.');
-    }
-    if (classData.owner_id !== user.id) {
-      return new Response(JSON.stringify({ error: "Only the class owner can delete the class." }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // 2. Delete all associated data
-    // The database schema should have ON DELETE CASCADE for these, but we'll be explicit.
-    // The order matters to respect foreign key constraints if cascade is not set.
-    
-    // Message Sources -> Chat Messages
-    const { data: messages } = await adminSupabase.from('chat_messages').select('id').eq('class_id', class_id);
-    if (messages && messages.length > 0) {
-      const messageIds = messages.map(m => m.id);
-      await adminSupabase.from('message_sources').delete().in('message_id', messageIds);
-    }
-    await adminSupabase.from('chat_messages').delete().eq('class_id', class_id);
-
-    // Conversations
-    await adminSupabase.from('conversations').delete().eq('class_id', class_id);
-    
-    // Files (this is complex because it involves storage, we assume files are handled by cascade or are deleted separately)
-    // Note: A more robust solution would also delete from Storage and Weaviate here.
-    // The user's current flow has this logic in the frontend hook, which is okay for now.
-    await adminSupabase.from('files').delete().eq('class_id', class_id);
-
-    // Folders
-    await adminSupabase.from('folders').delete().eq('class_id', class_id);
-
-    // Members
-    await adminSupabase.from('class_members').delete().eq('class_id', class_id);
-    
-    // 3. Finally, delete the class itself
-    const { error: deleteError } = await adminSupabase
-      .from('classes')
-      .delete()
-      .eq('class_id', class_id);
-
-    if (deleteError) {
-      throw deleteError;
-    }
-
-    // 4. (Optional but recommended) Trigger Weaviate cleanup
-    await adminSupabase.functions.invoke('delete-weaviate-chunks-by-class', {
-        body: { class_id_to_delete: class_id }
-    });
-
-    return new Response(JSON.stringify({ success: true, message: "Class and all associated data deleted." }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
@@ -11062,34 +12754,6 @@ serve(async (req: Request) => {
     "npm:pdfjs-dist@4.4.168": "https://esm.sh/pdfjs-dist@4.4.168"
   }
 }
-</file>
-
-<file path=".gitignore">
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-.env
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
 </file>
 
 <file path="tsconfig.app.json">
@@ -12782,48 +14446,6 @@ export const FolderCard: React.FC<FolderCardProps> = ({ folderName, files, size,
 };
 </file>
 
-<file path="src/components/dashboard/SharedClassesCard.tsx">
-// src/components/dashboard/SharedClassesCard.tsx
-import React from 'react';
-import ShimmerButton from '@/components/ui/ShimmerButton';
-import { SharedClassesDemo } from './SharedClassesDemo';
-
-interface SharedClassesCardProps {
-  onClick: () => void;
-}
-
-export const SharedClassesCard: React.FC<SharedClassesCardProps> = ({ onClick }) => {
-  return (
-    <section 
-      className="relative grid md:grid-cols-2 gap-8 items-center rounded-lg p-6 md:p-8 overflow-hidden border border-neutral-800 bg-neutral-900"
-    >
-      {/* Left side: Text Content */}
-      <div className="flex flex-col gap-y-4">
-        <h2 className="text-3xl font-bold text-neutral-100">
-          Shared Classes
-        </h2>
-        
-        <p className="text-sm text-neutral-400 max-w-md">
-          Invite classmates to build a knowledge base together. Share notes, slides, and study materials in one central place.
-        </p>
-
-        <ShimmerButton 
-          onClick={onClick} 
-          className="w-fit mt-2 bg-transparent border border-neutral-500 text-neutral-300 hover:bg-neutral-800/80 hover:border-neutral-600 hover:text-neutral-100"
-        >
-          Create Shared Class
-        </ShimmerButton>
-      </div>
-
-      {/* Right side: Coded Demo */}
-      <div className="hidden md:block h-full min-h-[180px]">
-        <SharedClassesDemo />
-      </div>
-    </section>
-  );
-};
-</file>
-
 <file path="src/components/layout/AppLayout.tsx">
 // src/components/layout/AppLayout.tsx
 
@@ -12951,65 +14573,6 @@ const OracleLayout = ({ children }: OracleLayoutProps) => {
 };
 
 export default OracleLayout;
-</file>
-
-<file path="src/components/ui/button.tsx">
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "@/lib/utils"
-
-const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:border-volcanic disabled:pointer-events-none disabled:opacity-50",
-  {
-    variants: {
-      variant: {
-        default:
-          "bg-stone-700 text-stone-50 shadow hover:bg-stone-800",
-        destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-        outline:
-           "border border-input bg-[#e6e6e6] shadow-sm hover:bg-stone-300 text-stone-900",
-        secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        ghost: "hover:text-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-      },
-      size: {
-        default: "h-8 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-8",
-        icon: "h-8 w-8",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
-  }
-)
-
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean
-}
-
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
-    return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
-    )
-  }
-)
-Button.displayName = "Button"
-
-export { Button, buttonVariants }
 </file>
 
 <file path="src/components/ui/dialog.tsx">
@@ -13490,54 +15053,6 @@ export const TimeInput: React.FC<TimeInputProps> = ({ value, onChange }) => {
 };
 </file>
 
-<file path="src/context/LoaderContext.tsx">
-// src/context/LoaderContext.tsx
-import React, { createContext, useContext, useRef, ReactNode } from 'react';
-import LoadingBar, { LoadingBarRef } from 'react-top-loading-bar';
-import { useNavigate } from 'react-router-dom';
-
-interface LoaderContextType {
-  loader: LoadingBarRef | null;
-  loadPage: (path: string) => void;
-}
-
-const LoaderContext = createContext<LoaderContextType | null>(null);
-
-export const usePageLoader = () => {
-  const context = useContext(LoaderContext);
-  if (!context) {
-    throw new Error('usePageLoader must be used within a LoaderProvider');
-  }
-  return context;
-};
-
-interface LoaderProviderProps {
-  children: ReactNode;
-}
-
-export const LoaderProvider = ({ children }: LoaderProviderProps) => {
-  const loaderRef = useRef<LoadingBarRef>(null);
-  const navigate = useNavigate();
-
-  const loadPage = (path: string) => {
-    if (loaderRef.current) {
-      // Start the loading bar animation immediately
-      loaderRef.current.continuousStart();
-    }
-    // MODIFICATION: The setTimeout wrapper is removed to navigate instantly.
-    navigate(path);
-  };
-
-  return (
-    <LoaderContext.Provider value={{ loader: loaderRef.current, loadPage }}>
-      {/* The loading bar component remains */}
-      <LoadingBar color='#F6F2E9' ref={loaderRef} shadow={true} height={3} />
-      {children}
-    </LoaderContext.Provider>
-  );
-};
-</file>
-
 <file path="src/pages/AssignmentsPage.tsx">
 // src/pages/AssignmentsPage.tsx
 import React, { useState } from 'react';
@@ -13743,6 +15258,126 @@ export const calendarEventService = {
         if (error) throw error;
     },
 };
+</file>
+
+<file path="supabase/.temp/gotrue-version">
+v2.179.0
+</file>
+
+<file path="supabase/.temp/postgres-version">
+15.8.1.121
+</file>
+
+<file path="supabase/.temp/rest-version">
+v12.2.12
+</file>
+
+<file path="supabase/.temp/storage-version">
+iceberg-catalog-flag-on-buckets
+</file>
+
+<file path="supabase/functions/delete-class/index.ts">
+// supabase/functions/delete-class/index.ts
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
+
+serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const adminSupabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    const { data: { user } } = await createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    ).auth.getUser();
+
+    if (!user) {
+      throw new Error('User not authenticated.');
+    }
+
+    const { class_id } = await req.json();
+    if (!class_id) {
+      throw new Error("'class_id' is required in the request body.");
+    }
+
+    // --- Step 1: Verify Ownership ---
+    const { data: classData, error: ownerError } = await adminSupabase
+      .from('classes')
+      .select('owner_id')
+      .eq('class_id', class_id)
+      .single();
+
+    if (ownerError || !classData) {
+      throw new Error('Class not found or you do not have permission to delete it.');
+    }
+    if (classData.owner_id !== user.id) {
+      return new Response(JSON.stringify({ error: "Only the class owner can delete the class." }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // --- Step 2: Fetch Files for External Cleanup ---
+    const { data: filesToDelete, error: filesError } = await adminSupabase
+        .from('files')
+        .select('file_id, url, thumbnail_url')
+        .eq('class_id', class_id);
+
+    if (filesError) {
+        throw new Error(`Failed to fetch files for cleanup: ${filesError.message}`);
+    }
+
+    // --- Step 3: Perform Cleanup on External Services (in parallel) ---
+    const cleanupPromises: Promise<any>[] = [];
+
+    // Storage, Cloudinary, and Weaviate Cleanup
+    if (filesToDelete && filesToDelete.length > 0) {
+        const storagePaths = filesToDelete
+            .map(file => file.url ? new URL(file.url).pathname.split('/public/file_storage/')[1] : null)
+            .filter((path): path is string => path !== null);
+
+        if (storagePaths.length > 0) {
+            cleanupPromises.push(adminSupabase.storage.from('file_storage').remove(storagePaths));
+        }
+
+        for (const file of filesToDelete) {
+            if (file.thumbnail_url) {
+                cleanupPromises.push(adminSupabase.functions.invoke('delete-from-cloudinary', { body: { file_id: file.file_id } }));
+            }
+        }
+    }
+    cleanupPromises.push(adminSupabase.functions.invoke('delete-weaviate-chunks-by-class', { body: { class_id_to_delete: class_id } }));
+    
+    await Promise.allSettled(cleanupPromises);
+
+    // --- Step 4: Delete the single class record ---
+    // The ON DELETE CASCADE rules in your database will now handle deleting all related records.
+    const { error: deleteError } = await adminSupabase
+      .from('classes')
+      .delete()
+      .eq('class_id', class_id);
+
+    if (deleteError) throw deleteError;
+    
+    return new Response(JSON.stringify({ success: true, message: "Class and all associated data have been deleted." }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error(`[delete-class function error]: ${error.message}`);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
 </file>
 
 <file path="supabase/functions/generate-title/index.ts">
@@ -14620,6 +16255,51 @@ export const ClassesHeader: React.FC<ClassesHeaderProps> = ({
 };
 </file>
 
+<file path="src/components/dashboard/SharedClassesCard.tsx">
+// src/components/dashboard/SharedClassesCard.tsx
+import React from 'react';
+import ShimmerButton from '@/components/ui/ShimmerButton';
+import { SharedClassesDemo } from './SharedClassesDemo';
+import { ArrowRight } from 'lucide-react';
+
+interface SharedClassesCardProps {
+  onClick: () => void;
+}
+
+export const SharedClassesCard: React.FC<SharedClassesCardProps> = ({ onClick }) => {
+  return (
+    // --- MODIFICATION: Removed flex-grow ---
+    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
+      <div className="flex flex-col gap-y-3">
+        <h2 className="text-2xl font-bold text-neutral-100">
+          Shared Classes
+        </h2>
+        
+        <p className="text-sm text-neutral-400 max-w-md">
+          Invite classmates to build a knowledge base together. Share notes, slides, and study materials in one central place.
+        </p>
+      </div>
+
+      <div className="flex-grow" />
+
+      <div className="mt-6 flex flex-col gap-4">
+        <ShimmerButton 
+          onClick={onClick} 
+          className="w-fit border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
+        >
+          Create or Join Class
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </ShimmerButton>
+
+        <div className="h-56 w-full">
+          <SharedClassesDemo />
+        </div>
+      </div>
+    </section>
+  );
+};
+</file>
+
 <file path="src/components/oracle/ChatInput.tsx">
 // src/components/oracle/ChatInput.tsx
 import React from 'react';
@@ -14708,6 +16388,66 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 };
 </file>
 
+<file path="src/components/ui/button.tsx">
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
+import { cn } from "@/lib/utils"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:border-volcanic disabled:pointer-events-none disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        // --- MODIFICATION: Updated the default button style ---
+        default:
+          "border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400",
+        destructive:
+          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+        outline:
+           "border border-input bg-[#e6e6e6] shadow-sm hover:bg-stone-300 text-stone-900",
+        secondary:
+          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
+        ghost: "hover:text-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-8 px-4 py-2",
+        sm: "h-8 rounded-md px-3 text-xs",
+        lg: "h-10 rounded-md px-8",
+        icon: "h-8 w-8",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+)
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean
+}
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button"
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+      />
+    )
+  }
+)
+Button.displayName = "Button"
+
+export { Button, buttonVariants }
+</file>
+
 <file path="src/components/ui/toggle.tsx">
 // src/components/ui/toggle.tsx
 import * as React from "react"
@@ -14760,6 +16500,51 @@ const Toggle = React.forwardRef<
 Toggle.displayName = TogglePrimitive.Root.displayName
 
 export { Toggle, toggleVariants }
+</file>
+
+<file path="src/context/LoaderContext.tsx">
+// src/context/LoaderContext.tsx
+import React, { createContext, useContext, useRef, ReactNode } from 'react';
+import LoadingBar, { LoadingBarRef } from 'react-top-loading-bar';
+import { useNavigate } from 'react-router-dom';
+
+interface LoaderContextType {
+  loader: LoadingBarRef | null;
+  loadPage: (path: string) => void;
+}
+
+const LoaderContext = createContext<LoaderContextType | null>(null);
+
+export const usePageLoader = () => {
+  const context = useContext(LoaderContext);
+  if (!context) {
+    throw new Error('usePageLoader must be used within a LoaderProvider');
+  }
+  return context;
+};
+
+interface LoaderProviderProps {
+  children: ReactNode;
+}
+
+export const LoaderProvider = ({ children }: LoaderProviderProps) => {
+  const loaderRef = useRef<LoadingBarRef>(null);
+  const navigate = useNavigate();
+
+  const loadPage = (path: string) => {
+    if (loaderRef.current) {
+      loaderRef.current.continuousStart();
+    }
+    navigate(path);
+  };
+
+  return (
+    <LoaderContext.Provider value={{ loader: loaderRef.current, loadPage }}>
+      {/* This line has been removed */}
+      {children}
+    </LoaderContext.Provider>
+  );
+};
 </file>
 
 <file path="src/hooks/useCalendarData.ts">
@@ -15492,112 +17277,6 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
       ) : (
         <p className="text-sm text-muted-foreground">No classes found. Click "New Class" or "Join Class" to get started.</p>
       )}
-    </div>
-  );
-};
-</file>
-
-<file path="src/components/dashboard/DashboardSidebar.tsx">
-// src/components/dashboard/DashboardSidebar.tsx
-import React from 'react';
-import { useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-
-interface DashboardSidebarProps {
-  onLinkClick: (path: string) => void;
-}
-
-interface NavLinkProps {
-  to: string;
-  label: string;
-  onLinkClick: (path: string) => void;
-  isActive: boolean;
-}
-
-// NavLink-like component for styling consistency
-const NavItem: React.FC<NavLinkProps> = ({ to, label, onLinkClick, isActive }) => (
-  <span
-    onClick={() => onLinkClick(to)}
-    className={cn(
-      // MODIFICATION: Removed 'text-sm' to allow font size to default to 'text-base' (16px).
-      "flex items-center py-1.5 px-3 rounded-md cursor-pointer transition-colors",
-      isActive
-        ? "bg-neutral-700 text-white font-medium"
-        : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
-    )}
-  >
-    {isActive && <div className="mr-3 h-1.5 w-1.5 rounded-full bg-blue-500"></div>}
-    <span>{label}</span>
-  </span>
-);
-
-export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onLinkClick }) => {
-  const location = useLocation();
-  const currentPath = location.pathname;
-
-  return (
-    <div className="hidden h-full md:flex">
-      <div className="flex h-full flex-col justify-between overflow-y-auto border-neutral-800 bg-neutral-900 md:rounded-lg md:border md:w-42 w-full lg:w-56 px-2 md:py-4">
-        <nav className="flex w-full flex-col gap-y-6">
-          <div className="flex flex-col gap-y-1">
-            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Platform</span>
-            <NavItem to="/" label="Dashboard" onLinkClick={onLinkClick} isActive={currentPath === '/'} />
-            <NavItem to="/classes" label="Classes" onLinkClick={onLinkClick} isActive={currentPath === '/classes'} />
-            <NavItem to="/calendar" label="Calendar" onLinkClick={onLinkClick} isActive={currentPath === '/calendar'} />
-          </div>
-          <div className="flex flex-col gap-y-1">
-            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Tools</span>
-            <NavItem to="/oracle" label="Oracle" onLinkClick={onLinkClick} isActive={currentPath === '/oracle'} />
-          </div>
-          <div className="flex flex-col gap-y-1">
-            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Settings</span>
-            <NavItem to="/profile" label="Profile" onLinkClick={onLinkClick} isActive={currentPath === '/profile'} />
-          </div>
-        </nav>
-      </div>
-    </div>
-  );
-};
-</file>
-
-<file path="src/components/dashboard/WelcomeBanner.tsx">
-// src/components/dashboard/WelcomeBanner.tsx
-import React from 'react';
-import type { User } from '@supabase/supabase-js';
-
-interface WelcomeBannerProps {
-  user: User | null;
-  profile: { full_name: string | null } | null;
-  onTutorialClick: () => void;
-}
-
-export const WelcomeBanner: React.FC<WelcomeBannerProps> = ({ user, profile, onTutorialClick }) => {
-  const welcomeName = user ? profile?.full_name?.split(' ')[0] || user.email?.split('@')[0] || 'User' : '';
-
-  return (
-    <div className="flex-shrink-0 p-6 md:p-8 border-b border-neutral-800">
-      <div className="flex w-full flex-col">
-        <p className="text-4xl md:text-5xl font-bold mb-3 text-neutral-100">
-          Welcome{user ? `, ${welcomeName}` : ''}!
-        </p>
-        <h1 className="text-xl md:text-2xl font-medium mb-4 text-neutral-200">
-          What is Eido AI?
-        </h1>
-        <p className="text-sm text-neutral-400 max-w-3xl">
-          Eido is the educational copilot that transforms your coursework into a powerful suite of intelligent tools. Get started by{" "}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              onTutorialClick();
-            }}
-            className="underline text-blue-400 hover:text-blue-300"
-          >
-            visiting the tutorial
-          </a>
-          {" "}or exploring the tools below.
-        </p>
-      </div>
     </div>
   );
 };
@@ -17026,47 +18705,64 @@ export const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(({
 });
 </file>
 
-<file path="src/components/dashboard/OracleCard.tsx">
-// src/components/dashboard/OracleCard.tsx
+<file path="src/components/dashboard/DashboardSidebar.tsx">
+// src/components/dashboard/DashboardSidebar.tsx
 import React from 'react';
-import ShimmerButton from '@/components/ui/ShimmerButton';
-import { OracleDemo } from './OracleDemo';
+import { useLocation } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
-interface OracleCardProps {
-  onClick: () => void;
+interface DashboardSidebarProps {
+  onLinkClick: (path: string) => void;
 }
 
-export const OracleCard: React.FC<OracleCardProps> = ({ onClick }) => {
+interface NavLinkProps {
+  to: string;
+  label: string;
+  onLinkClick: (path: string) => void;
+  isActive: boolean;
+}
+
+const NavItem: React.FC<NavLinkProps> = ({ to, label, onLinkClick, isActive }) => (
+  <span
+    onClick={() => onLinkClick(to)}
+    className={cn(
+      "flex items-center py-1.5 px-3 rounded-md cursor-pointer transition-colors",
+      isActive
+        ? "bg-neutral-700 text-white font-medium"
+        : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+    )}
+  >
+    {isActive && <div className="mr-3 h-1.5 w-1.5 rounded-full bg-blue-500"></div>}
+    <span>{label}</span>
+  </span>
+);
+
+export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onLinkClick }) => {
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   return (
-    <section 
-      className="relative grid md:grid-cols-2 gap-8 items-center rounded-lg p-6 md:p-8 overflow-hidden border border-neutral-800 bg-neutral-900"
-    >
-      {/* Left side: Text Content */}
-      <div className="flex flex-col gap-y-4">
-        <span className="text-blue-400 bg-blue-950/60 border border-blue-500/30 flex w-fit items-center rounded px-3 py-1 text-xs font-medium">
-            New
-        </span>
-        <h2 className="text-3xl font-bold text-neutral-100">
-          Oracle
-        </h2>
-        
-        <p className="text-sm text-neutral-400 max-w-md">
-          Get instant, cited answers from your course content. Plus, install the Chrome extension to access Oracle from anywhere.
-        </p>
-
-        <ShimmerButton 
-          onClick={onClick} 
-          className="w-fit mt-2 bg-transparent border border-neutral-500 text-neutral-300 hover:bg-neutral-800/80 hover:border-neutral-600 hover:text-neutral-100"
-        >
-          Go to Oracle
-        </ShimmerButton>
+    <div className="hidden h-full md:flex">
+      {/* --- MODIFICATION: Changed border-neutral-800 to border-foreground/20 --- */}
+      <div className="flex h-full flex-col justify-between overflow-y-auto bg-neutral-900 md:rounded-lg md:border border-foreground/20 md:w-42 w-full lg:w-56 px-2 md:py-4">
+        <nav className="flex w-full flex-col gap-y-6">
+          <div className="flex flex-col gap-y-1">
+            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Platform</span>
+            <NavItem to="/" label="Dashboard" onLinkClick={onLinkClick} isActive={currentPath === '/'} />
+            <NavItem to="/classes" label="Classes" onLinkClick={onLinkClick} isActive={currentPath === '/classes'} />
+            <NavItem to="/calendar" label="Calendar" onLinkClick={onLinkClick} isActive={currentPath === '/calendar'} />
+          </div>
+          <div className="flex flex-col gap-y-1">
+            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Tools</span>
+            <NavItem to="/oracle" label="Oracle" onLinkClick={onLinkClick} isActive={currentPath === '/oracle'} />
+          </div>
+          <div className="flex flex-col gap-y-1">
+            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Settings</span>
+            <NavItem to="/profile" label="Profile" onLinkClick={onLinkClick} isActive={currentPath === '/profile'} />
+          </div>
+        </nav>
       </div>
-
-      {/* Right side: Coded Demo with bleed effect */}
-      <div className="hidden md:block h-56 -mr-8 -mb-8 lg:-mr-12 lg:-mb-12">
-        <OracleDemo />
-      </div>
-    </section>
+    </div>
   );
 };
 </file>
@@ -17996,6 +19692,51 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
         </div>
       </div>
     </div>
+  );
+};
+</file>
+
+<file path="src/components/dashboard/OracleCard.tsx">
+// src/components/dashboard/OracleCard.tsx
+import React from 'react';
+import ShimmerButton from '@/components/ui/ShimmerButton';
+import { ArrowRight } from 'lucide-react';
+import { OracleChatDemo } from './OracleChatDemo'; // Import the new demo component
+
+interface OracleCardProps {
+  onClick: () => void;
+}
+
+export const OracleCard: React.FC<OracleCardProps> = ({ onClick }) => {
+  return (
+    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
+      <div className="flex flex-col gap-y-3">
+        <h2 className="text-2xl font-bold text-neutral-100">
+          Oracle
+        </h2>
+        
+        <p className="text-sm text-neutral-400 max-w-md">
+          Get instant, cited answers from your course content. Plus, install the Chrome extension to access Oracle from anywhere.
+        </p>
+      </div>
+
+      <div className="flex-grow" />
+
+      <div className="mt-6 flex flex-col gap-4">
+        <ShimmerButton 
+          onClick={onClick} 
+          className="w-fit border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
+        >
+          Go to Oracle
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </ShimmerButton>
+
+        {/* --- MODIFICATION: Replaced the static image with the live chat demo --- */}
+        <div className="h-56 w-full rounded-md overflow-hidden border border-neutral-700/50 bg-neutral-900/50">
+          <OracleChatDemo />
+        </div>
+      </div>
+    </section>
   );
 };
 </file>
@@ -19297,10 +21038,6 @@ export const MainAppLayout = ({ children, pageTitle }: MainAppLayoutProps) => {
 };
 </file>
 
-<file path="supabase/.temp/cli-latest">
-v2.39.2
-</file>
-
 <file path="supabase/functions/upload-to-vector-store/index.ts">
 // supabase/functions/upload-to-vector-store/index.ts
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
@@ -19575,91 +21312,6 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
 }
 </file>
 
-<file path="src/components/layout/Header.tsx">
-// src/components/layout/Header.tsx
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
-
-export const Header = () => {
-  const location = useLocation();
-  // Removed the "Community" link from this array
-  const navLinks = [
-    { to: "/", label: "Dashboard" },
-    { to: "/classes", label: "Classes", state: { reset: true } },
-    { to: "/calendar", label: "Calendar", state: { reset: true } },
-  ];
-
-  return (
-    <div className="p-3 font-roboto">
-      <nav className="z-navigation flex w-full items-center justify-between rounded-lg border border-foreground/20 bg-background/50 backdrop-blur-xl px-4 py-2 shadow-lg">
-        {/* Application Logo */}
-        <Link to="/" className="flex items-center gap-3">
-            <img src="/eido-icon.png" alt="Eido AI Logo" className="h-8 w-8 rounded-md" />
-            <span className="text-[18px] font-semibold tracking-tight text-foreground">Eido AI</span>
-        </Link>
-
-        {/* --- Desktop Navigation Links --- */}
-        <div className="hidden md:flex flex-row items-center gap-x-4 gap-y-0 lg:gap-x-8 justify-between">
-          {navLinks.map((link) => {
-            const isActive = location.pathname === link.to;
-            return (
-              <Link key={link.to} to={link.to} state={link.state}>
-                <p className={cn(
-                  // MODIFICATION: Changed 'text-xs' to 'text-sm'
-                  "text-sm uppercase font-bold tracking-widest transition-colors",
-                  isActive 
-                  ? "text-foreground" 
-                  : "text-muted-foreground hover:text-foreground"
-                )}>
-                  {link.label}
-                </p>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* --- Mobile Navigation Dropdown --- */}
-        <div className="md:hidden">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="h-6 w-6" />
-                <span className="sr-only">Open navigation menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {navLinks.map((link) => (
-                <DropdownMenuItem key={link.to} asChild>
-                  <Link
-                    to={link.to}
-                    state={link.state}
-                    className={cn(
-                      "w-full",
-                      location.pathname === link.to && "font-bold"
-                    )}
-                  >
-                    {link.label}
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </nav>
-    </div>
-  );
-};
-</file>
-
 <file path="src/features/files/types.ts">
 // src/features/files/types.ts
 
@@ -19688,6 +21340,10 @@ export interface FileType {
   category: string | null;
   tags: string[] | null;
 }
+</file>
+
+<file path="supabase/.temp/cli-latest">
+v2.39.2
 </file>
 
 <file path="src/components/auth/Auth.tsx">
@@ -19973,93 +21629,88 @@ export function Auth() {
 }
 </file>
 
-<file path="supabase/config.toml">
-# supabase/config.toml
-project_id = "uzdtqomtbrccinrkhzme"
+<file path="src/components/layout/Header.tsx">
+// src/components/layout/Header.tsx
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Menu } from "lucide-react";
 
-[api]
-enabled = true
-port = 54321
-schemas = ["public", "storage", "graphql_public"]
+export const Header = () => {
+  const location = useLocation();
+  const navLinks = [
+    { to: "/", label: "Dashboard" },
+    { to: "/classes", label: "Classes", state: { reset: true } },
+    { to: "/calendar", label: "Calendar", state: { reset: true } },
+  ];
 
-[db]
-port = 54322
+  return (
+    <div className="p-3 font-roboto">
+      {/* --- MODIFICATION: Replaced background classes to match the sidebar --- */}
+      <nav className="z-navigation flex w-full items-center justify-between rounded-lg border border-foreground/20 bg-neutral-900 px-4 py-2">
+        {/* Application Logo */}
+        <Link to="/" className="flex items-center gap-3">
+            <img src="/eido-icon.png" alt="Eido AI Logo" className="h-8 w-8 rounded-md" />
+            <span className="text-[18px] font-semibold tracking-tight text-foreground">Eido AI</span>
+        </Link>
 
-[studio]
-enabled = true
-port = 54323
-api_url = "http://localhost" # This is for local dev, ensure it's correct for your setup
+        {/* --- Desktop Navigation Links --- */}
+        <div className="hidden md:flex flex-row items-center gap-x-4 gap-y-0 lg:gap-x-8 justify-between">
+          {navLinks.map((link) => {
+            const isActive = location.pathname === link.to;
+            return (
+              <Link key={link.to} to={link.to} state={link.state}>
+                <p className={cn(
+                  "text-sm uppercase font-bold tracking-widest transition-colors",
+                  isActive 
+                  ? "text-foreground" 
+                  : "text-muted-foreground hover:text-foreground"
+                )}>
+                  {link.label}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
 
-[inbucket]
-enabled = true
-port = 54324
-
-[auth]
-enabled = true
-site_url = "http://localhost:8080"
-
-[storage]
-enabled = true
-
-[analytics]
-enabled = true
-port = 54327
-
-# Functions configuration
-
-# Removed: [functions.generate-flashcards]
-# Removed: verify_jwt = true
-
-# Removed: [functions.generate-quiz]
-# Removed: verify_jwt = true
-
-[functions.upload-to-vector-store]
-verify_jwt = true 
-
-[functions.check-env-vars]
-verify_jwt = true
-
-[functions.generate-title]
-verify_jwt = true
-
-[functions.generate-previews]
-verify_jwt = true
-
-[functions.request-previews]
-verify_jwt = true
-
-[functions.oracle-chat]
-verify_jwt = true
-
-[functions.debug-weaviate-chunks]
-verify_jwt = true
-
-[functions.serve-file]
-verify_jwt = true
-
-[functions.semantic-search]
-verify_jwt = true
-
-[functions.delete-from-cloudinary]
-verify_jwt = true
-
-[functions.delete-user-account]
-verify_jwt = true
-
-[functions.delete-weaviate-chunks-by-file]
-verify_jwt = true
-
-[functions.parse-syllabus]
-verify_jwt = true
-
-[functions.create-recurring-event]
-verify_jwt = true
-
-[functions.delete-recurring-event]
-verify_jwt = true
-
-[functions.delete-class]
-verify_jwt = true
+        {/* --- Mobile Navigation Dropdown --- */}
+        <div className="md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-6 w-6" />
+                <span className="sr-only">Open navigation menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {navLinks.map((link) => (
+                <DropdownMenuItem key={link.to} asChild>
+                  <Link
+                    to={link.to}
+                    state={link.state}
+                    className={cn(
+                      "w-full",
+                      location.pathname === link.to && "font-bold"
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </nav>
+    </div>
+  );
+};
 </file>
 
 <file path="package.json">
@@ -20165,122 +21816,93 @@ verify_jwt = true
 }
 </file>
 
-<file path="src/pages/DashboardPage.tsx">
-// src/pages/DashboardPage.tsx
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { User } from '@supabase/supabase-js';
-import { usePageLoader } from '@/context/LoaderContext';
-import { MainAppLayout } from '@/components/layout/MainAppLayout';
-import { WelcomeBanner } from '@/components/dashboard/WelcomeBanner';
-import { OracleCard } from '@/components/dashboard/OracleCard';
-import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
-import { SharedClassesCard } from '@/components/dashboard/SharedClassesCard';
-import { WelcomePopup } from '@/components/dashboard/WelcomePopup';
+<file path="supabase/config.toml">
+# supabase/config.toml
+project_id = "uzdtqomtbrccinrkhzme"
 
-const Footer = () => (
-  <footer className="w-full px-4 py-6 md:px-9 lg:px-10 border-t border-neutral-800 bg-neutral-950 flex-shrink-0">
-    <div className="flex flex-col md:flex-row justify-between items-center text-sm text-neutral-400">
-      <span>© 2025 Eido AI. All rights reserved.</span>
-      <div className="flex gap-x-4 mt-4 md:mt-0">
-        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-200 hover:underline">Privacy Policy</a>
-        <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-200 hover:underline">Terms of Service</a>
-      </div>
-    </div>
-  </footer>
-);
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
 
-const DashboardPage = () => {
-    const [user, setUser] = useState<User | null>(null);
-    const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
-    const { loadPage, loader } = usePageLoader();
-    const [isWelcomePopupOpen, setIsWelcomePopupOpen] = useState(false);
+[db]
+port = 54322
 
-    useEffect(() => {
-        if (loader) {
-        loader.complete();
-        }
-        
-        const fetchUser = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-        
-        const popupShown = sessionStorage.getItem('eidoWelcomePopupShown');
+[studio]
+enabled = true
+port = 54323
+api_url = "http://localhost" # This is for local dev, ensure it's correct for your setup
 
-        if (!user && !popupShown) {
-            setIsWelcomePopupOpen(true);
-            sessionStorage.setItem('eidoWelcomePopupShown', 'true');
-        }
-        };
-        fetchUser();
+[inbucket]
+enabled = true
+port = 54324
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user ?? null);
-        if (!session?.user) {
-            setProfile(null);
-        }
-        });
+[auth]
+enabled = true
+site_url = "http://localhost:8080"
 
-        return () => {
-        subscription.unsubscribe();
-        };
-    }, [loader]);
+[storage]
+enabled = true
 
-    useEffect(() => {
-        const fetchProfile = async () => {
-        if (user) {
-            const { data, error } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('user_id', user.id)
-            .single();
+[analytics]
+enabled = true
+port = 54327
 
-            if (error) {
-            console.error("Error fetching user profile:", error);
-            } else if (data) {
-            setProfile(data);
-            }
-        }
-        };
-        fetchProfile();
-    }, [user]);
+# Functions configuration
 
-    const handleProtectedLinkClick = (path: string) => {
-        if (user) {
-        loadPage(path);
-        } else {
-        loadPage('/auth');
-        }
-    };
+# Removed: [functions.generate-flashcards]
+# Removed: verify_jwt = true
 
-    const handleOpenWelcomePopup = () => setIsWelcomePopupOpen(true);
+# Removed: [functions.generate-quiz]
+# Removed: verify_jwt = true
 
-  return (
-    <MainAppLayout pageTitle="Dashboard | Eido AI">
-      <div className="flex h-full w-full justify-self-center md:gap-x-3">
-        <DashboardSidebar onLinkClick={handleProtectedLinkClick} />
-        
-        <main className="flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-950">
-          <WelcomeBanner user={user} profile={profile} onTutorialClick={handleOpenWelcomePopup} />
-          
-          <div className="flex-grow p-4 md:p-8 space-y-8">
-            <div className="flex flex-col gap-y-6">
-                <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
-                <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
-            </div>
-          </div>
-          <Footer />
-        </main>
-      </div>
-      <WelcomePopup
-        isOpen={isWelcomePopupOpen}
-        onClose={() => setIsWelcomePopupOpen(false)}
-      />
-    </MainAppLayout>
-  );
-};
+[functions.upload-to-vector-store]
+verify_jwt = true 
 
-export default DashboardPage;
+[functions.check-env-vars]
+verify_jwt = true
+
+[functions.generate-title]
+verify_jwt = true
+
+[functions.generate-previews]
+verify_jwt = true
+
+[functions.request-previews]
+verify_jwt = true
+
+[functions.oracle-chat]
+verify_jwt = true
+
+[functions.debug-weaviate-chunks]
+verify_jwt = true
+
+[functions.serve-file]
+verify_jwt = true
+
+[functions.semantic-search]
+verify_jwt = true
+
+[functions.delete-from-cloudinary]
+verify_jwt = true
+
+[functions.delete-user-account]
+verify_jwt = true
+
+[functions.delete-weaviate-chunks-by-file]
+verify_jwt = true
+
+[functions.parse-syllabus]
+verify_jwt = true
+
+[functions.create-recurring-event]
+verify_jwt = true
+
+[functions.delete-recurring-event]
+verify_jwt = true
+
+[functions.delete-class]
+verify_jwt = true
 </file>
 
 <file path="src/App.tsx">
@@ -21415,6 +23037,134 @@ export const Constants = {
     Enums: {},
   },
 } as const
+</file>
+
+<file path="src/pages/DashboardPage.tsx">
+// src/pages/DashboardPage.tsx
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import type { User } from '@supabase/supabase-js';
+import { usePageLoader } from '@/context/LoaderContext';
+import { MainAppLayout } from '@/components/layout/MainAppLayout';
+import { OracleCard } from '@/components/dashboard/OracleCard';
+import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
+import { SharedClassesCard } from '@/components/dashboard/SharedClassesCard';
+import { WelcomePopup } from '@/components/dashboard/WelcomePopup';
+import FloatingShapes from '@/components/dashboard/FloatingShapes';
+
+const Footer = () => (
+  <footer className="relative z-10 w-full px-4 py-6 md:px-9 lg:px-10 border-t border-neutral-800 bg-neutral-900 flex-shrink-0">
+    <div className="flex flex-col md:flex-row justify-between items-center text-sm text-neutral-400">
+      <span>© 2025 Eido AI. All rights reserved.</span>
+      <div className="flex gap-x-4 mt-4 md:mt-0">
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-200 hover:underline">Privacy Policy</a>
+        <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-200 hover:underline">Terms of Service</a>
+      </div>
+    </div>
+  </footer>
+);
+
+const DashboardPage = () => {
+    const [user, setUser] = useState<User | null>(null);
+    const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
+    const { loadPage, loader } = usePageLoader();
+    const [isWelcomePopupOpen, setIsWelcomePopupOpen] = useState(false);
+
+    useEffect(() => {
+        if (loader) {
+        loader.complete();
+        }
+        
+        const fetchUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+        
+        const popupShown = sessionStorage.getItem('eidoWelcomePopupShown');
+
+        if (!user && !popupShown) {
+            setIsWelcomePopupOpen(true);
+            sessionStorage.setItem('eidoWelcomePopupShown', 'true');
+        }
+        };
+        fetchUser();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user ?? null);
+        if (!session?.user) {
+            setProfile(null);
+        }
+        });
+
+        return () => {
+        subscription.unsubscribe();
+        };
+    }, [loader]);
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+        if (user) {
+            const { data, error } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('user_id', user.id)
+            .single();
+
+            if (error) {
+            console.error("Error fetching user profile:", error);
+            } else if (data) {
+            setProfile(data);
+            }
+        }
+        };
+        fetchProfile();
+    }, [user]);
+
+    const handleProtectedLinkClick = (path: string) => {
+        if (user) {
+        loadPage(path);
+        } else {
+        loadPage('/auth');
+        }
+    };
+
+    const handleOpenWelcomePopup = () => setIsWelcomePopupOpen(true);
+
+  return (
+    <MainAppLayout pageTitle="Dashboard | Eido AI">
+      <div className="flex h-full w-full gap-3">
+        <DashboardSidebar onLinkClick={handleProtectedLinkClick} />
+        
+        <main className="relative flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-foreground/20 bg-neutral-900">
+          <FloatingShapes />
+          
+          {/* --- MODIFICATION: The layout logic is simplified and made more explicit --- */}
+          <div className="relative z-10 flex flex-col flex-grow">
+            <div className="flex-grow p-4 md:p-8 flex flex-col">
+                <div className="max-w-4xl mx-auto text-center flex-shrink-0">
+                    <h1 className="text-4xl font-bold text-neutral-100">Welcome{profile?.full_name ? `, ${profile.full_name}` : '!'}</h1>
+                    <p className="mt-2 text-neutral-400">
+                        Eido AI translates your coursework for intelligent tools. Start by going to classes or by exploring the tools below.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 flex-grow">
+                    <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
+                    <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
+                </div>
+            </div>
+            <Footer />
+          </div>
+        </main>
+      </div>
+      <WelcomePopup
+        isOpen={isWelcomePopupOpen}
+        onClose={() => setIsWelcomePopupOpen(false)}
+      />
+    </MainAppLayout>
+  );
+};
+
+export default DashboardPage;
 </file>
 
 <file path="src/pages/OraclePage.tsx">

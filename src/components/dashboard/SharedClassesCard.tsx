@@ -10,8 +10,8 @@ interface SharedClassesCardProps {
 
 export const SharedClassesCard: React.FC<SharedClassesCardProps> = ({ onClick }) => {
   return (
-    // --- MODIFICATION: Updated background to be semi-transparent and blurred ---
-    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden h-full">
+    // --- MODIFICATION: Removed flex-grow ---
+    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
       <div className="flex flex-col gap-y-3">
         <h2 className="text-2xl font-bold text-neutral-100">
           Shared Classes
@@ -33,7 +33,7 @@ export const SharedClassesCard: React.FC<SharedClassesCardProps> = ({ onClick })
           <ArrowRight className="ml-2 h-4 w-4" />
         </ShimmerButton>
 
-        <div className="h-48 w-full">
+        <div className="h-56 w-full">
           <SharedClassesDemo />
         </div>
       </div>
