@@ -1,14 +1,17 @@
 // src/pages/DashboardPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { usePageLoader } from '@/context/LoaderContext';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { OracleCard } from '@/components/dashboard/OracleCard';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
-import { SharedClassesCard } from '@/components/dashboard/SharedClassesCard';
+import { ClassesCard } from '@/components/dashboard/ClassesCard';
 import { WelcomePopup } from '@/components/dashboard/WelcomePopup';
 import FloatingShapes from '@/components/dashboard/FloatingShapes';
+import { classOpenAIConfigService, ClassConfig } from '@/services/classOpenAIConfig';
+import { formatFileSize } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom'; // --- MODIFICATION: Import useNavigate
 
 const Footer = () => (
   <footer className="relative z-10 w-full px-4 py-6 md:px-9 lg:px-10 border-t border-neutral-800 bg-neutral-900 flex-shrink-0">
@@ -26,7 +29,11 @@ const DashboardPage = () => {
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
     const { loadPage, loader } = usePageLoader();
+    const navigate = useNavigate(); // --- MODIFICATION: Initialize navigate
     const [isWelcomePopupOpen, setIsWelcomePopupOpen] = useState(false);
+    
+    const [classes, setClasses] = useState<ClassConfig[]>([]);
+    const [isLoadingClasses, setIsLoadingClasses] = useState(true);
 
     useEffect(() => {
         if (loader) {
@@ -59,8 +66,9 @@ const DashboardPage = () => {
     }, [loader]);
 
     useEffect(() => {
-        const fetchProfile = async () => {
+        const fetchProfileAndClasses = async () => {
         if (user) {
+            setIsLoadingClasses(true);
             const { data, error } = await supabase
             .from('profiles')
             .select('full_name')
@@ -72,10 +80,43 @@ const DashboardPage = () => {
             } else if (data) {
             setProfile(data);
             }
+            
+            try {
+                const fetchedClasses = await classOpenAIConfigService.getAllClasses();
+                setClasses(fetchedClasses);
+            } catch (classError) {
+                console.error("Error fetching classes:", classError);
+            } finally {
+                setIsLoadingClasses(false);
+            }
+
+        } else {
+            setClasses([]);
+            setIsLoadingClasses(false);
         }
         };
-        fetchProfile();
+        fetchProfileAndClasses();
     }, [user]);
+
+    const classesWithStats = useMemo(() => {
+        if (!classes || !user) return [];
+        return classes.map(cls => ({ 
+            ...cls, 
+            files: cls.file_count || 0,
+            size: formatFileSize(cls.total_size || 0),
+            is_owner: cls.owner_id === user.id,
+            is_shared: (cls.member_count || 0) > 1
+        }));
+    }, [classes, user]);
+
+    // --- MODIFICATION: New handler for class card clicks ---
+    const handleClassCardClick = (classData: ClassConfig) => {
+        if (user) {
+            navigate('/classes', { state: { selectedClass: classData } });
+        } else {
+            navigate('/auth');
+        }
+    };
 
     const handleProtectedLinkClick = (path: string) => {
         if (user) {
@@ -95,7 +136,6 @@ const DashboardPage = () => {
         <main className="relative flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-foreground/20 bg-neutral-900">
           <FloatingShapes />
           
-          {/* --- MODIFICATION: The layout logic is simplified and made more explicit --- */}
           <div className="relative z-10 flex flex-col flex-grow">
             <div className="flex-grow p-4 md:p-8 flex flex-col">
                 <div className="max-w-4xl mx-auto text-center flex-shrink-0">
@@ -107,7 +147,13 @@ const DashboardPage = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 flex-grow">
                     <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
-                    <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
+                    <ClassesCard 
+                        onClick={() => handleProtectedLinkClick('/classes')} 
+                        classes={classesWithStats}
+                        isLoading={isLoadingClasses}
+                        // --- MODIFICATION: Pass the new handler ---
+                        onClassClick={handleClassCardClick}
+                    />
                 </div>
             </div>
             <Footer />

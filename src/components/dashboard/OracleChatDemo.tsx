@@ -52,15 +52,13 @@ export const OracleChatDemo = () => {
   }
 
   return (
-    // The root element now has no padding and fills its container.
-    <div className="flex flex-col h-full">
-      {/* The ScrollArea takes up all available space and has the fade effect. */}
+    <div className="flex flex-col h-full border-b border-l border-r border-neutral-700/50 rounded-b-md">
       <ScrollArea 
         className="flex-1 min-h-0 [mask-image:linear-gradient(to_bottom,transparent_0%,black_10%,black_90%,transparent_100%)]" 
         ref={scrollAreaRef}
       >
-        {/* Padding is applied *inside* the scroll area so messages don't touch the edges. */}
-        <div className="space-y-4 p-4">
+        {/* --- MODIFICATION: Reduced padding for a tighter layout --- */}
+        <div className="space-y-3 p-3">
           {messages.map((message) => (
             <ChatMessage
               key={message.id}
@@ -77,8 +75,8 @@ export const OracleChatDemo = () => {
         </div>
       </ScrollArea>
       
-      {/* The ChatInput is placed at the bottom, wrapped in a div to give it horizontal padding. */}
-      <div className="px-4 pb-4">
+      {/* --- MODIFICATION: Reduced padding and passed isDemo prop --- */}
+      <div className="px-3 pb-3 pt-2">
         <ChatInput
             input={input}
             setInput={setInput}
@@ -87,6 +85,7 @@ export const OracleChatDemo = () => {
             attachedFiles={attachedFiles}
             handleRemoveFile={handleRemoveFile}
             fileInputRef={fileInputRef}
+            isDemo={true}
         />
       </div>
     </div>

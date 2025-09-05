@@ -32,8 +32,8 @@ export const OracleCard: React.FC<OracleCardProps> = ({ onClick }) => {
           <ArrowRight className="ml-2 h-4 w-4" />
         </ShimmerButton>
 
-        {/* --- MODIFICATION: Replaced the static image with the live chat demo --- */}
-        <div className="h-56 w-full rounded-md overflow-hidden border border-neutral-700/50 bg-neutral-900/50">
+        {/* --- MODIFICATION: Removed the hard border from this container --- */}
+        <div className="h-56 w-full overflow-hidden bg-neutral-900/50 rounded-md">
           <OracleChatDemo />
         </div>
       </div>

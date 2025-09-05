@@ -8,6 +8,7 @@ import { AttachedFilePill } from '@/components/chat/AttachedFilePill';
 import type { AttachedFile } from '@/components/chat/AttachedFilePill';
 import ShimmerButton from '../ui/ShimmerButton';
 import { Button } from '../ui/button';
+import { cn } from '@/lib/utils';
 
 interface ChatInputProps {
   input: string;
@@ -17,10 +18,11 @@ interface ChatInputProps {
   attachedFiles: AttachedFile[];
   handleRemoveFile: (fileId: string) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
+  isDemo?: boolean;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
-  input, setInput, handleSendMessage, isChatLoading, attachedFiles, handleRemoveFile, fileInputRef
+  input, setInput, handleSendMessage, isChatLoading, attachedFiles, handleRemoveFile, fileInputRef, isDemo
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -30,7 +32,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <div className="pt-4 border-t border-neutral-800 flex-shrink-0">
+    <div className={cn(
+      "flex-shrink-0",
+      !isDemo && "pt-4 border-t border-neutral-800"
+    )}>
       {attachedFiles.length > 0 && (
         <div className="px-1 pb-2">
           <ScrollArea className="w-full whitespace-nowrap">
@@ -42,27 +47,33 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </ScrollArea>
         </div>
       )}
-      {/* --- MODIFICATION START: Using a robust flex layout for alignment --- */}
       <div className="flex items-center gap-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 flex-shrink-0 text-neutral-400 hover:text-white hover:bg-neutral-800"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <PlusCircle className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent><p>Attach PDF or Image</p></TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {/* --- MODIFICATION: Conditionally render the '+' button --- */}
+        {!isDemo && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 flex-shrink-0 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <PlusCircle className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Attach PDF or Image</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
 
         <Textarea
           placeholder="Ask about your documents, or attach a file..."
-          className="h-10 min-h-10 bg-neutral-900 border-neutral-700 text-neutral-200 resize-none flex-1 text-sm py-2 px-3"
+          // --- MODIFICATION: Conditionally adjust height ---
+          className={cn(
+            "bg-neutral-900 border-neutral-700 text-neutral-200 resize-none flex-1 text-sm py-2 px-3",
+            isDemo ? "h-9 min-h-9" : "h-10 min-h-10"
+          )}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -71,15 +82,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         />
         
         <ShimmerButton
-          size="lg" // Using lg size for h-10
-          className="h-10 border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400 flex-shrink-0"
+          // --- MODIFICATION: Conditionally adjust size and height ---
+          size={isDemo ? "default" : "lg"}
+          className={cn(
+            "border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400 flex-shrink-0",
+            isDemo ? "h-9" : "h-10"
+          )}
           onClick={handleSendMessage}
           disabled={isChatLoading || (input.trim() === "" && attachedFiles.length === 0)}
         >
           Send
         </ShimmerButton>
       </div>
-      {/* --- MODIFICATION END --- */}
     </div>
   );
 };

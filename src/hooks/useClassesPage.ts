@@ -11,10 +11,13 @@ import { UploadingFile } from '@/components/classes/UploadProgressToast';
 import { DeletingFile } from '@/components/classes/DeletionProgressToast';
 import { formatFileSize } from '@/lib/utils';
 import { ClassMember } from '@/components/classes/ClassMembersView';
+import { useLocation, useNavigate } from 'react-router-dom'; // --- MODIFICATION: Import hooks
 
 export const useClassesPage = () => {
     const { loader } = usePageLoader();
     const { toast } = useToast();
+    const location = useLocation(); // --- MODIFICATION: Add location
+    const navigate = useNavigate(); // --- MODIFICATION: Add navigate
     const [user, setUser] = useState<User | null>(null);
     const [classes, setClasses] = useState<ClassConfig[]>([]);
     const [folders, setFolders] = useState<FolderType[]>([]);
@@ -52,6 +55,14 @@ export const useClassesPage = () => {
     const [isJoinClassOpen, setIsJoinClassOpen] = useState(false);
     const [classMembers, setClassMembers] = useState<ClassMember[]>([]);
     const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+    const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
+    const handleClassClick = useCallback((classData: ClassConfig) => {
+        setSelectedClass(classData);
+        setViewMode('grid');
+        setBreadcrumbs([{ name: 'Home', id: null }, { name: classData.class_name, id: classData.class_id }]);
+        sessionStorage.setItem('activeClass', JSON.stringify({ class_id: classData.class_id, class_name: classData.class_name }));
+    }, []);
 
     useEffect(() => {
         if (loader) loader.continuousStart();
@@ -63,6 +74,7 @@ export const useClassesPage = () => {
                 const allFolders = await fileService.getAllFoldersForUser();
                 setAllUserFolders(allFolders);
             }
+            setInitialLoadComplete(true);
         };
         fetchUserAndInitialData();
         return () => {
@@ -71,6 +83,21 @@ export const useClassesPage = () => {
             }
         };
     }, [loader]);
+    
+    // --- MODIFICATION: This new effect handles navigation from the dashboard ---
+    useEffect(() => {
+        if (initialLoadComplete && classes.length > 0) {
+            const classFromState = location.state?.selectedClass as ClassConfig | undefined;
+            if (classFromState) {
+                const fullClassData = classes.find(c => c.class_id === classFromState.class_id);
+                if (fullClassData) {
+                    handleClassClick(fullClassData);
+                    // Clear state from location history to prevent re-triggering on refresh
+                    navigate(location.pathname, { replace: true, state: {} });
+                }
+            }
+        }
+    }, [initialLoadComplete, classes, location.state, handleClassClick, navigate]);
 
     useEffect(() => {
         try {
@@ -250,6 +277,11 @@ export const useClassesPage = () => {
         setIsSubmitting(false);
     };
 
+    const handleFolderClick = (folderData: FolderType) => {
+        setCurrentFolderId(folderData.folder_id);
+        setBreadcrumbs([...breadcrumbs, { name: folderData.name, id: folderData.folder_id }]);
+    };
+
     useEffect(() => {
         if (!user || !selectedClass) {
             if (fileSubscription.current) {
@@ -306,18 +338,6 @@ export const useClassesPage = () => {
             }
         };
     }, [user, selectedClass, currentFolderId]);
-
-    const handleClassClick = (classData: ClassConfig) => {
-        setSelectedClass(classData);
-        setViewMode('grid');
-        setBreadcrumbs([{ name: 'Home', id: null }, { name: classData.class_name, id: classData.class_id }]);
-        sessionStorage.setItem('activeClass', JSON.stringify({ class_id: classData.class_id, class_name: classData.class_name }));
-    };
-
-    const handleFolderClick = (folderData: FolderType) => {
-        setCurrentFolderId(folderData.folder_id);
-        setBreadcrumbs([...breadcrumbs, { name: folderData.name, id: folderData.folder_id }]);
-    };
 
     const handleBreadcrumbClick = (index: number) => {
         const newBreadcrumbs = breadcrumbs.slice(0, index + 1);

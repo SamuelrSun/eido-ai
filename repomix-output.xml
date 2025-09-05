@@ -223,7 +223,6 @@ src/
     useCalendarData.ts
     useClassesPage.ts
     useOracle.ts
-    useOracleChat.ts
   integrations/
     supabase/
       client.ts
@@ -523,65 +522,6 @@ export function PasswordChangeForm() {
 }
 </file>
 
-<file path="src/components/dashboard/OracleChatDemo.tsx">
-// src/components/dashboard/OracleChatDemo.tsx
-import React, { useState, useEffect } from 'react';
-import { useOracleChat } from '@/hooks/useOracleChat';
-import { ChatConversation } from '@/components/oracle/ChatConversation';
-import { supabase } from '@/integrations/supabase/client';
-import { Skeleton } from '../ui/skeleton';
-
-export const OracleChatDemo = () => {
-    // We need a classId to initialize or create a conversation.
-    // For this demo, let's fetch the user's most recently used class.
-    const [recentClassId, setRecentClassId] = useState<string | undefined>(undefined);
-    const { messages, isLoading, sendMessage } = useOracleChat(recentClassId);
-
-    useEffect(() => {
-        const fetchRecentClass = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            // Find the most recently updated class the user is a member of.
-            const { data, error } = await supabase
-                .from('classes')
-                .select('class_id')
-                .order('updated_at', { ascending: false })
-                .limit(1)
-                .single();
-            
-            if (error) {
-                console.error("Could not fetch a recent class to display chat demo.", error);
-            } else if (data) {
-                setRecentClassId(data.class_id);
-            }
-        };
-        fetchRecentClass();
-    }, []);
-
-    const handleSendMessage = (text: string) => {
-        if (!recentClassId) {
-            alert("Please go to a class to start a conversation.");
-            return;
-        }
-        sendMessage(text, recentClassId);
-    };
-
-    // Show a loading skeleton while we find the most recent class
-    if (recentClassId === undefined) {
-        return <Skeleton className="h-full w-full" />;
-    }
-
-    return (
-        <ChatConversation 
-            messages={messages}
-            isLoading={isLoading}
-            onSendMessage={handleSendMessage}
-        />
-    );
-};
-</file>
-
 <file path="src/components/layout/sidebar/SidebarWidgets.tsx">
 import { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
@@ -683,160 +623,6 @@ export function PageHeader({ title, description }: PageHeaderProps) {
     </div>
   )
 }
-</file>
-
-<file path="src/components/oracle/ChatConversation.tsx">
-// src/components/oracle/ChatConversation.tsx
-import React, { useRef, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { SendHorizonal, Check, Bot, User, Loader2 } from 'lucide-react';
-import { ChatMessage, MessageSource } from '@/hooks/useOracleChat';
-import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
-const chatFormSchema = z.object({
-  message: z.string().min(1, 'Message cannot be empty.'),
-});
-
-interface ChatConversationProps {
-  messages: ChatMessage[];
-  isLoading: boolean;
-  onSendMessage: (text: string) => void;
-  className?: string;
-}
-
-const AIMessage = ({ text, sources }: { text: string | null, sources?: MessageSource[] }) => (
-    <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-neutral-700 flex items-center justify-center">
-            <Bot className="h-5 w-5 text-neutral-300" />
-        </div>
-        <div className="flex-grow rounded-lg p-3 bg-neutral-800 border border-neutral-700">
-            <p className="text-sm text-neutral-200 whitespace-pre-wrap">{text || '...'}</p>
-            {sources && sources.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                    {sources.map((source, index) => (
-                        <TooltipProvider key={index} delayDuration={100}>
-                            <Tooltip>
-                                <TooltipTrigger>
-                                    <Badge variant="secondary" className="bg-neutral-700/80 text-neutral-300 hover:bg-neutral-600 border border-neutral-600/50">
-                                        <Check className="h-3 w-3 mr-1.5" />
-                                        {source.file_name?.substring(0, 20) || 'Source'}...
-                                    </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{source.file_name}</p>
-                                    {source.page_number && <p className="text-xs text-muted-foreground">Page: {source.page_number}</p>}
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    ))}
-                </div>
-            )}
-        </div>
-    </div>
-);
-
-const UserMessage = ({ text }: { text: string | null }) => (
-    <div className="flex items-start gap-3 justify-end">
-        <div className="flex-grow rounded-lg p-3 bg-blue-950/70 border border-blue-500/30 text-right">
-            <p className="text-sm text-neutral-200 whitespace-pre-wrap">{text}</p>
-        </div>
-        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-neutral-700 flex items-center justify-center">
-            <User className="h-5 w-5 text-neutral-300" />
-        </div>
-    </div>
-);
-
-export const ChatConversation: React.FC<ChatConversationProps> = ({ messages, isLoading, onSendMessage, className }) => {
-  const form = useForm<z.infer<typeof chatFormSchema>>({
-    resolver: zodResolver(chatFormSchema),
-    defaultValues: { message: '' },
-  });
-
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
-  }, [messages]);
-  
-  const handleSubmit = (values: z.infer<typeof chatFormSchema>) => {
-    onSendMessage(values.message);
-    form.reset();
-  };
-
-  return (
-    <div className={cn("flex flex-col h-full", className)}>
-        {/* Chat Messages Area */}
-        <div
-            ref={scrollAreaRef}
-            className="flex-grow overflow-y-auto p-4 space-y-6 [mask-image:linear-gradient(to_bottom,transparent_0%,black_10%,black_90%,transparent_100%)]"
-        >
-            {messages.map((msg, index) => (
-                msg.sender === 'ai'
-                    ? <AIMessage key={msg.id || index} text={msg.message_text} sources={msg.sources} />
-                    : <UserMessage key={msg.id || index} text={msg.message_text} />
-            ))}
-            {isLoading && messages.length > 0 && messages[messages.length - 1].sender === 'user' && (
-                 <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-neutral-700 flex items-center justify-center">
-                        <Loader2 className="h-5 w-5 text-neutral-300 animate-spin" />
-                    </div>
-                    <div className="flex-grow rounded-lg p-3 bg-neutral-800 border border-neutral-700">
-                        <p className="text-sm text-neutral-400">Thinking...</p>
-                    </div>
-                </div>
-            )}
-        </div>
-
-        {/* Chat Input Area */}
-        <div className="p-4 border-t border-neutral-700/50">
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="relative">
-                    <FormField
-                        control={form.control}
-                        name="message"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormControl>
-                                    <Textarea
-                                        {...field}
-                                        placeholder="Ask a question..."
-                                        className="bg-neutral-900 border-neutral-700 min-h-0 pr-12"
-                                        rows={1}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                form.handleSubmit(handleSubmit)();
-                                            }
-                                        }}
-                                        disabled={isLoading}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                    <Button type="submit" size="icon" className="absolute top-1.5 right-1.5 h-7 w-7" disabled={isLoading}>
-                        <SendHorizonal className="h-4 w-4" />
-                    </Button>
-                </form>
-            </Form>
-        </div>
-    </div>
-  );
-};
 </file>
 
 <file path="src/components/ui/accordion.tsx">
@@ -5173,156 +4959,6 @@ function useToast() {
 export { useToast, toast }
 </file>
 
-<file path="src/hooks/useOracleChat.ts">
-// src/hooks/useOracleChat.ts
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/types/supabase';
-
-// --- MODIFICATION: Define a type for the data returned by our new RPC function ---
-type LatestConversationResponse = Database['public']['Functions']['get_latest_conversation']['Returns'];
-
-export interface MessageSource {
-  file_id: string;
-  file_name: string | null;
-  page_number?: number | null;
-}
-
-export interface ChatMessage {
-  id: string;
-  created_at: string;
-  message_text: string | null;
-  sender: 'user' | 'ai';
-  sources?: MessageSource[];
-}
-
-export const useOracleChat = (classId?: string) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchInitialConversation = async () => {
-      setIsLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      // --- MODIFICATION: Explicitly type the response from the RPC call ---
-      const { data, error } = await supabase.rpc('get_latest_conversation', {
-          p_user_id: user.id,
-          p_class_id: classId,
-      });
-
-      const typedData = data as LatestConversationResponse;
-
-      if (error) {
-        console.error('Error fetching latest conversation:', error);
-        setMessages([]);
-        setConversationId(null);
-      } else if (typedData && typedData.length > 0) {
-        setConversationId(typedData[0].conversation_id);
-        
-        const formattedMessages = typedData.map(msg => ({
-            id: msg.message_id,
-            created_at: msg.created_at,
-            message_text: msg.message_text,
-            sender: msg.sender as 'user' | 'ai',
-            sources: msg.sources || [],
-        }));
-        setMessages(formattedMessages);
-      } else {
-        setMessages([]);
-        setConversationId(null);
-      }
-      setIsLoading(false);
-    };
-
-    fetchInitialConversation();
-  }, [classId]);
-
-  const sendMessage = useCallback(async (text: string, currentClassId: string) => {
-    if (!text.trim()) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.error("User not authenticated.");
-      return;
-    }
-
-    let currentConvId = conversationId;
-
-    if (!currentConvId) {
-      const { data: newConvo, error: newConvoError } = await supabase
-        .from('conversations')
-        .insert({
-          user_id: user.id,
-          class_id: currentClassId,
-          chatbot_type: 'oracle',
-          title: `Chat on ${new Date().toLocaleString()}`,
-        })
-        .select('id')
-        .single();
-      
-      if (newConvoError || !newConvo) {
-        console.error("Error creating new conversation:", newConvoError);
-        return;
-      }
-      currentConvId = (newConvo as { id: string }).id;
-      setConversationId(currentConvId);
-      setMessages([]);
-    }
-    
-    const userMessage: ChatMessage = {
-      id: `temp-${Date.now()}`,
-      created_at: new Date().toISOString(),
-      message_text: text,
-      sender: 'user',
-    };
-    setMessages(prev => [...prev, userMessage]);
-    setIsLoading(true);
-
-    try {
-      const { data: responseData, error } = await supabase.functions.invoke('oracle-chat', {
-        body: {
-          conversationId: currentConvId,
-          messageText: text,
-          classId: currentClassId,
-        },
-      });
-
-      if (error) throw error;
-      
-      const aiMessage: ChatMessage = {
-        id: responseData.message_id,
-        created_at: responseData.created_at,
-        message_text: responseData.message_text,
-        sender: 'ai',
-        sources: responseData.sources,
-      };
-      setMessages(prev => [...prev, aiMessage]);
-
-    } catch (error) {
-      console.error("Error calling oracle-chat function:", error);
-      const errorMessage: ChatMessage = {
-        id: `error-${Date.now()}`,
-        created_at: new Date().toISOString(),
-        message_text: "Sorry, I encountered an error. Please try again.",
-        sender: 'ai',
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-
-  }, [conversationId, classId]);
-
-  return { messages, isLoading, sendMessage, conversationId };
-};
-</file>
-
 <file path="src/lib/utils.ts">
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
@@ -5368,1195 +5004,6 @@ const NotFound = () => {
 };
 
 export default NotFound;
-</file>
-
-<file path="src/types/supabase.ts">
-[?25l[?2004h
-                                                                                              
-  >  1. qlyqxnqzswpsbvuebhpq [name: Progenic AI, org: imitrnjwicudvdyovzcg, region: us-west-1]
-    2. osqgijalpmpciwfkvouw [name: MinistryLM, org: imitrnjwicudvdyovzcg, region: us-west-1]  
-    3. uzdtqomtbrccinrkhzme [name: SuperStu, org: imitrnjwicudvdyovzcg, region: us-west-1]    
-                                                                                              
-                                                                                              
-                                                                                              
-                                                                                              
-                                                                                              
-                                                                                              
-                                                                                              
-    â†‘/k up â€¢ â†“/j down â€¢ / filter â€¢ q quit â€¢ ? more                                            
-                                                                                              [D[13A
-                                                                                             
-    1. qlyqxnqzswpsbvuebhpq [name: Progenic AI, org: imitrnjwicudvdyovzcg, region: us-west-1]
-  >  2. osqgijalpmpciwfkvouw [name: MinistryLM, org: imitrnjwicudvdyovzcg, region: us-west-1]
-    3. uzdtqomtbrccinrkhzme [name: SuperStu, org: imitrnjwicudvdyovzcg, region: us-west-1]   
-                                                                                             
-                                                                                             
-                                                                                             
-                                                                                             
-                                                                                             
-                                                                                             
-                                                                                             
-    â†‘/k up â€¢ â†“/j down â€¢ / filter â€¢ q quit â€¢ ? more                                           
-                                                                                             [D[13A
-
-
-    2. osqgijalpmpciwfkvouw [name: MinistryLM, org: imitrnjwicudvdyovzcg, region: us-west-1] 
-  >  3. uzdtqomtbrccinrkhzme [name: SuperStu, org: imitrnjwicudvdyovzcg, region: us-west-1]  
-
-
-
-
-
-
-
-
-[D[13A [J[D[2K[?2004l[?25h[?1002l[?1003l[?1006lexport type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
-
-export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "12.2.12 (cd3cf9e)"
-  }
-  public: {
-    Tables: {
-      calendar_events: {
-        Row: {
-          class_id: string | null
-          created_at: string
-          event_end: string | null
-          event_start: string
-          event_type: string | null
-          id: string
-          location: string | null
-          notes: string | null
-          repeat_pattern: string | null
-          title: string
-          user_id: string
-        }
-        Insert: {
-          class_id?: string | null
-          created_at?: string
-          event_end?: string | null
-          event_start: string
-          event_type?: string | null
-          id?: string
-          location?: string | null
-          notes?: string | null
-          repeat_pattern?: string | null
-          title: string
-          user_id: string
-        }
-        Update: {
-          class_id?: string | null
-          created_at?: string
-          event_end?: string | null
-          event_start?: string
-          event_type?: string | null
-          id?: string
-          location?: string | null
-          notes?: string | null
-          repeat_pattern?: string | null
-          title?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "calendar_events_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-        ]
-      }
-      chat_messages: {
-        Row: {
-          attached_files: Json | null
-          chat_mode: string
-          class_id: string | null
-          content: string
-          conversation_id: string | null
-          created_at: string
-          id: string
-          role: string
-          user_id: string
-        }
-        Insert: {
-          attached_files?: Json | null
-          chat_mode: string
-          class_id?: string | null
-          content: string
-          conversation_id?: string | null
-          created_at?: string
-          id?: string
-          role: string
-          user_id: string
-        }
-        Update: {
-          attached_files?: Json | null
-          chat_mode?: string
-          class_id?: string | null
-          content?: string
-          conversation_id?: string | null
-          created_at?: string
-          id?: string
-          role?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "chat_messages_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "chat_messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chat_messages_user_id_fkey_cascade"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      class_activity: {
-        Row: {
-          activity_type: Database["public"]["Enums"]["class_activity_type"]
-          class_id: string
-          created_at: string
-          details: Json | null
-          id: string
-          user_id: string
-        }
-        Insert: {
-          activity_type: Database["public"]["Enums"]["class_activity_type"]
-          class_id: string
-          created_at?: string
-          details?: Json | null
-          id?: string
-          user_id: string
-        }
-        Update: {
-          activity_type?: Database["public"]["Enums"]["class_activity_type"]
-          class_id?: string
-          created_at?: string
-          details?: Json | null
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "class_activity_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "class_activity_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      class_members: {
-        Row: {
-          class_id: string
-          created_at: string | null
-          role: string
-          user_id: string
-        }
-        Insert: {
-          class_id: string
-          created_at?: string | null
-          role?: string
-          user_id: string
-        }
-        Update: {
-          class_id?: string
-          created_at?: string | null
-          role?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "class_members_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "class_members_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      classes: {
-        Row: {
-          class_id: string
-          class_name: string
-          color: string | null
-          created_at: string | null
-          invite_code: string | null
-          owner_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          class_id?: string
-          class_name: string
-          color?: string | null
-          created_at?: string | null
-          invite_code?: string | null
-          owner_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          class_id?: string
-          class_name?: string
-          color?: string | null
-          created_at?: string | null
-          invite_code?: string | null
-          owner_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "classes_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      conversations: {
-        Row: {
-          chat_mode: string | null
-          chatbot_type: string
-          class_id: string | null
-          created_at: string | null
-          id: string
-          last_message_at: string | null
-          title: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          chat_mode?: string | null
-          chatbot_type: string
-          class_id?: string | null
-          created_at?: string | null
-          id?: string
-          last_message_at?: string | null
-          title?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          chat_mode?: string | null
-          chatbot_type?: string
-          class_id?: string | null
-          created_at?: string | null
-          id?: string
-          last_message_at?: string | null
-          title?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "conversations_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "conversations_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      files: {
-        Row: {
-          category: string | null
-          class_id: string | null
-          created_at: string
-          document_title: string | null
-          file_id: string
-          folder_id: string | null
-          image_summaries: Json | null
-          last_modified: string
-          name: string
-          page_count: number | null
-          page_previews: Json | null
-          size: number
-          status: string | null
-          tags: string[] | null
-          thumbnail_url: string | null
-          type: string
-          url: string | null
-          user_id: string
-        }
-        Insert: {
-          category?: string | null
-          class_id?: string | null
-          created_at?: string
-          document_title?: string | null
-          file_id?: string
-          folder_id?: string | null
-          image_summaries?: Json | null
-          last_modified?: string
-          name: string
-          page_count?: number | null
-          page_previews?: Json | null
-          size: number
-          status?: string | null
-          tags?: string[] | null
-          thumbnail_url?: string | null
-          type: string
-          url?: string | null
-          user_id: string
-        }
-        Update: {
-          category?: string | null
-          class_id?: string | null
-          created_at?: string
-          document_title?: string | null
-          file_id?: string
-          folder_id?: string | null
-          image_summaries?: Json | null
-          last_modified?: string
-          name?: string
-          page_count?: number | null
-          page_previews?: Json | null
-          size?: number
-          status?: string | null
-          tags?: string[] | null
-          thumbnail_url?: string | null
-          type?: string
-          url?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "files_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "files_folder_id_fkey"
-            columns: ["folder_id"]
-            isOneToOne: false
-            referencedRelation: "folders"
-            referencedColumns: ["folder_id"]
-          },
-          {
-            foreignKeyName: "files_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      "flashcard-decks": {
-        Row: {
-          card_count: number
-          class_id: string | null
-          class_title: string | null
-          color: string
-          created_at: string
-          description: string
-          due_cards: number
-          flashcard_deck_id: string
-          new_cards: number
-          title: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          card_count?: number
-          class_id?: string | null
-          class_title?: string | null
-          color: string
-          created_at?: string
-          description: string
-          due_cards?: number
-          flashcard_deck_id?: string
-          new_cards?: number
-          title: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          card_count?: number
-          class_id?: string | null
-          class_title?: string | null
-          color?: string
-          created_at?: string
-          description?: string
-          due_cards?: number
-          flashcard_deck_id?: string
-          new_cards?: number
-          title?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "flashcard-decks_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "flashcard-decks_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      flashcards: {
-        Row: {
-          back: string
-          class_id: string | null
-          created_at: string
-          difficulty: string
-          flashcard_deck_id: string
-          flashcard_id: string
-          front: string
-          last_reviewed: string | null
-          next_review: string
-          review_count: number | null
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          back: string
-          class_id?: string | null
-          created_at?: string
-          difficulty?: string
-          flashcard_deck_id: string
-          flashcard_id?: string
-          front: string
-          last_reviewed?: string | null
-          next_review?: string
-          review_count?: number | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          back?: string
-          class_id?: string | null
-          created_at?: string
-          difficulty?: string
-          flashcard_deck_id?: string
-          flashcard_id?: string
-          front?: string
-          last_reviewed?: string | null
-          next_review?: string
-          review_count?: number | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "flashcards_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "flashcards_flashcard_deck_id_fkey"
-            columns: ["flashcard_deck_id"]
-            isOneToOne: false
-            referencedRelation: "flashcard-decks"
-            referencedColumns: ["flashcard_deck_id"]
-          },
-          {
-            foreignKeyName: "flashcards_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      folders: {
-        Row: {
-          class_id: string | null
-          created_at: string
-          folder_id: string
-          name: string | null
-          parent_id: string | null
-          user_id: string
-        }
-        Insert: {
-          class_id?: string | null
-          created_at?: string
-          folder_id?: string
-          name?: string | null
-          parent_id?: string | null
-          user_id: string
-        }
-        Update: {
-          class_id?: string | null
-          created_at?: string
-          folder_id?: string
-          name?: string | null
-          parent_id?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "file_folders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "folders_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "folders_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "folders"
-            referencedColumns: ["folder_id"]
-          },
-        ]
-      }
-      message_sources: {
-        Row: {
-          content: string | null
-          created_at: string | null
-          file_id: string | null
-          highlight: string | null
-          id: string
-          message_id: string
-          name: string | null
-          page_number: number | null
-          source_number: number
-          url: string | null
-        }
-        Insert: {
-          content?: string | null
-          created_at?: string | null
-          file_id?: string | null
-          highlight?: string | null
-          id?: string
-          message_id: string
-          name?: string | null
-          page_number?: number | null
-          source_number: number
-          url?: string | null
-        }
-        Update: {
-          content?: string | null
-          created_at?: string | null
-          file_id?: string | null
-          highlight?: string | null
-          id?: string
-          message_id?: string
-          name?: string | null
-          page_number?: number | null
-          source_number?: number
-          url?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "message_sources_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "files"
-            referencedColumns: ["file_id"]
-          },
-          {
-            foreignKeyName: "message_sources_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "chat_messages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      preview_queue: {
-        Row: {
-          created_at: string
-          error_message: string | null
-          file_id: string
-          id: number
-          status: string
-        }
-        Insert: {
-          created_at?: string
-          error_message?: string | null
-          file_id: string
-          id?: number
-          status?: string
-        }
-        Update: {
-          created_at?: string
-          error_message?: string | null
-          file_id?: string
-          id?: number
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "preview_queue_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "files"
-            referencedColumns: ["file_id"]
-          },
-        ]
-      }
-      processing_queue: {
-        Row: {
-          class_id: string
-          created_at: string
-          error_message: string | null
-          folder_id: string | null
-          id: number
-          mime_type: string
-          original_name: string
-          size: number
-          status: string
-          storage_path: string
-          user_id: string
-        }
-        Insert: {
-          class_id: string
-          created_at?: string
-          error_message?: string | null
-          folder_id?: string | null
-          id?: number
-          mime_type: string
-          original_name: string
-          size: number
-          status?: string
-          storage_path: string
-          user_id: string
-        }
-        Update: {
-          class_id?: string
-          created_at?: string
-          error_message?: string | null
-          folder_id?: string | null
-          id?: number
-          mime_type?: string
-          original_name?: string
-          size?: number
-          status?: string
-          storage_path?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "processing_queue_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "processing_queue_folder_id_fkey"
-            columns: ["folder_id"]
-            isOneToOne: false
-            referencedRelation: "folders"
-            referencedColumns: ["folder_id"]
-          },
-        ]
-      }
-      profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          email: string | null
-          full_name: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      quiz_questions: {
-        Row: {
-          class_id: string | null
-          correct_answer_index: number
-          created_at: string
-          explanation: string
-          options: string[]
-          question_text: string
-          quiz_id: string
-          quiz_questions_id: string
-          user_id: string | null
-        }
-        Insert: {
-          class_id?: string | null
-          correct_answer_index: number
-          created_at?: string
-          explanation: string
-          options: string[]
-          question_text: string
-          quiz_id: string
-          quiz_questions_id?: string
-          user_id?: string | null
-        }
-        Update: {
-          class_id?: string | null
-          correct_answer_index?: number
-          created_at?: string
-          explanation?: string
-          options?: string[]
-          question_text?: string
-          quiz_id?: string
-          quiz_questions_id?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quiz_questions_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-          {
-            foreignKeyName: "quiz_questions_quiz_id_fkey"
-            columns: ["quiz_id"]
-            isOneToOne: false
-            referencedRelation: "quizzes"
-            referencedColumns: ["quiz_id"]
-          },
-          {
-            foreignKeyName: "quiz_questions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      quizzes: {
-        Row: {
-          class_id: string | null
-          coverage: string
-          created_at: string
-          description: string
-          difficulty: string
-          question_count: number
-          quiz_id: string
-          time_estimate: number
-          title: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          class_id?: string | null
-          coverage: string
-          created_at?: string
-          description: string
-          difficulty?: string
-          question_count?: number
-          quiz_id?: string
-          time_estimate?: number
-          title: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          class_id?: string | null
-          coverage?: string
-          created_at?: string
-          description?: string
-          difficulty?: string
-          question_count?: number
-          quiz_id?: string
-          time_estimate?: number
-          title?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quizzes_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["class_id"]
-          },
-        ]
-      }
-      user_storage: {
-        Row: {
-          storage_limit: number
-          storage_used: number
-          user_id: string
-        }
-        Insert: {
-          storage_limit?: number
-          storage_used?: number
-          user_id: string
-        }
-        Update: {
-          storage_limit?: number
-          storage_used?: number
-          user_id?: string
-        }
-        Relationships: []
-      }
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      binary_quantize: {
-        Args: { "": string } | { "": unknown }
-        Returns: unknown
-      }
-      can_access_class_content: {
-        Args: { p_class_id: string; p_user_id: string }
-        Returns: boolean
-      }
-      get_class_activity: {
-        Args: { p_class_id: string }
-        Returns: {
-          activity_type: Database["public"]["Enums"]["class_activity_type"]
-          actor_avatar_url: string
-          actor_full_name: string
-          class_id: string
-          created_at: string
-          details: Json
-          id: string
-          user_id: string
-        }[]
-      }
-      get_classes_with_stats: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          class_id: string
-          class_name: string
-          color: string
-          created_at: string
-          file_count: number
-          invite_code: string
-          member_count: number
-          owner_id: string
-          total_size: number
-          updated_at: string
-          user_role: string
-        }[]
-      }
-      get_latest_conversation: {
-        Args: { p_class_id?: string; p_user_id: string }
-        Returns: {
-          conversation_id: string
-          created_at: string
-          message_id: string
-          message_text: string
-          sender: string
-          sources: Json
-        }[]
-      }
-      halfvec_avg: {
-        Args: { "": number[] }
-        Returns: unknown
-      }
-      halfvec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      halfvec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      halfvec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
-      hnsw_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_sparsevec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnswhandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      is_class_member: {
-        Args: { p_class_id: string; p_user_id: string }
-        Returns: boolean
-      }
-      ivfflat_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflat_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflathandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      l2_norm: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: number
-      }
-      l2_normalize: {
-        Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: unknown
-      }
-      log_class_activity: {
-        Args: {
-          p_activity_type: Database["public"]["Enums"]["class_activity_type"]
-          p_class_id: string
-          p_details: Json
-          p_user_id: string
-        }
-        Returns: undefined
-      }
-      sparsevec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      sparsevec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      sparsevec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
-      vector_avg: {
-        Args: { "": number[] }
-        Returns: string
-      }
-      vector_dims: {
-        Args: { "": string } | { "": unknown }
-        Returns: number
-      }
-      vector_norm: {
-        Args: { "": string }
-        Returns: number
-      }
-      vector_out: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      vector_send: {
-        Args: { "": string }
-        Returns: string
-      }
-      vector_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
-    }
-    Enums: {
-      class_activity_type:
-        | "file_uploaded"
-        | "file_deleted"
-        | "member_joined"
-        | "member_left"
-        | "member_pending"
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-}
-
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
-
-export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
-
-export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
-
-export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
-
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
-export const Constants = {
-  public: {
-    Enums: {
-      class_activity_type: [
-        "file_uploaded",
-        "file_deleted",
-        "member_joined",
-        "member_left",
-        "member_pending",
-      ],
-    },
-  },
-} as const
 </file>
 
 <file path="src/vite-env.d.ts">
@@ -9765,6 +8212,160 @@ export const MiniFolderCard: React.FC<MiniFolderCardProps> = ({ folder, onClick 
 );
 </file>
 
+<file path="src/components/oracle/ChatConversation.tsx">
+// src/components/oracle/ChatConversation.tsx
+import React, { useRef, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { SendHorizonal, Check, Bot, User, Loader2 } from 'lucide-react';
+import { ChatMessage, MessageSource } from '@/hooks/useOracleChat';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+const chatFormSchema = z.object({
+  message: z.string().min(1, 'Message cannot be empty.'),
+});
+
+interface ChatConversationProps {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  onSendMessage: (text: string) => void;
+  className?: string;
+}
+
+const AIMessage = ({ text, sources }: { text: string | null, sources?: MessageSource[] }) => (
+    <div className="flex items-start gap-3">
+        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-neutral-700 flex items-center justify-center">
+            <Bot className="h-5 w-5 text-neutral-300" />
+        </div>
+        <div className="flex-grow rounded-lg p-3 bg-neutral-800 border border-neutral-700">
+            <p className="text-sm text-neutral-200 whitespace-pre-wrap">{text || '...'}</p>
+            {sources && sources.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                    {sources.map((source, index) => (
+                        <TooltipProvider key={index} delayDuration={100}>
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <Badge variant="secondary" className="bg-neutral-700/80 text-neutral-300 hover:bg-neutral-600 border border-neutral-600/50">
+                                        <Check className="h-3 w-3 mr-1.5" />
+                                        {source.file_name?.substring(0, 20) || 'Source'}...
+                                    </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{source.file_name}</p>
+                                    {source.page_number && <p className="text-xs text-muted-foreground">Page: {source.page_number}</p>}
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    ))}
+                </div>
+            )}
+        </div>
+    </div>
+);
+
+const UserMessage = ({ text }: { text: string | null }) => (
+    <div className="flex items-start gap-3 justify-end">
+        <div className="flex-grow rounded-lg p-3 bg-blue-950/70 border border-blue-500/30 text-right">
+            <p className="text-sm text-neutral-200 whitespace-pre-wrap">{text}</p>
+        </div>
+        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-neutral-700 flex items-center justify-center">
+            <User className="h-5 w-5 text-neutral-300" />
+        </div>
+    </div>
+);
+
+export const ChatConversation: React.FC<ChatConversationProps> = ({ messages, isLoading, onSendMessage, className }) => {
+  const form = useForm<z.infer<typeof chatFormSchema>>({
+    resolver: zodResolver(chatFormSchema),
+    defaultValues: { message: '' },
+  });
+
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
+  
+  const handleSubmit = (values: z.infer<typeof chatFormSchema>) => {
+    onSendMessage(values.message);
+    form.reset();
+  };
+
+  return (
+    <div className={cn("flex flex-col h-full", className)}>
+        {/* Chat Messages Area */}
+        <div
+            ref={scrollAreaRef}
+            className="flex-grow overflow-y-auto p-4 space-y-6 [mask-image:linear-gradient(to_bottom,transparent_0%,black_10%,black_90%,transparent_100%)]"
+        >
+            {messages.map((msg, index) => (
+                msg.sender === 'ai'
+                    ? <AIMessage key={msg.id || index} text={msg.message_text} sources={msg.sources} />
+                    : <UserMessage key={msg.id || index} text={msg.message_text} />
+            ))}
+            {isLoading && messages.length > 0 && messages[messages.length - 1].sender === 'user' && (
+                 <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-neutral-700 flex items-center justify-center">
+                        <Loader2 className="h-5 w-5 text-neutral-300 animate-spin" />
+                    </div>
+                    <div className="flex-grow rounded-lg p-3 bg-neutral-800 border border-neutral-700">
+                        <p className="text-sm text-neutral-400">Thinking...</p>
+                    </div>
+                </div>
+            )}
+        </div>
+
+        {/* Chat Input Area */}
+        <div className="p-4 border-t border-neutral-700/50">
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleSubmit)} className="relative">
+                    <FormField
+                        control={form.control}
+                        name="message"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormControl>
+                                    <Textarea
+                                        {...field}
+                                        placeholder="Ask a question..."
+                                        className="bg-neutral-900 border-neutral-700 min-h-0 pr-12"
+                                        rows={1}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                form.handleSubmit(handleSubmit)();
+                                            }
+                                        }}
+                                        disabled={isLoading}
+                                    />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
+                    <Button type="submit" size="icon" className="absolute top-1.5 right-1.5 h-7 w-7" disabled={isLoading}>
+                        <SendHorizonal className="h-4 w-4" />
+                    </Button>
+                </form>
+            </Form>
+        </div>
+    </div>
+  );
+};
+</file>
+
 <file path="src/components/oracle/DocumentPreview.tsx">
 // src/components/oracle/DocumentPreview.tsx
 import React, { useState, useRef } from 'react';
@@ -10779,6 +9380,1156 @@ const PlaceholderPage: React.FC<PlaceholderPageProps> = ({ pageName }) => {
 };
 
 export default PlaceholderPage;
+</file>
+
+<file path="src/types/supabase.ts">
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.12 (cd3cf9e)"
+  }
+  public: {
+    Tables: {
+      calendar_events: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          event_end: string | null
+          event_start: string
+          event_type: string | null
+          id: string
+          location: string | null
+          notes: string | null
+          repeat_pattern: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          event_end?: string | null
+          event_start: string
+          event_type?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          repeat_pattern?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          event_end?: string | null
+          event_start?: string
+          event_type?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          repeat_pattern?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          attached_files: Json | null
+          chat_mode: string
+          class_id: string | null
+          content: string
+          conversation_id: string | null
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          attached_files?: Json | null
+          chat_mode: string
+          class_id?: string | null
+          content: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          attached_files?: Json | null
+          chat_mode?: string
+          class_id?: string | null
+          content?: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_user_id_fkey_cascade"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      class_activity: {
+        Row: {
+          activity_type: Database["public"]["Enums"]["class_activity_type"]
+          class_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          activity_type: Database["public"]["Enums"]["class_activity_type"]
+          class_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          activity_type?: Database["public"]["Enums"]["class_activity_type"]
+          class_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_activity_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "class_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      class_members: {
+        Row: {
+          class_id: string
+          created_at: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string | null
+          role?: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_members_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "class_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      classes: {
+        Row: {
+          class_id: string
+          class_name: string
+          color: string | null
+          created_at: string | null
+          invite_code: string | null
+          owner_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          class_id?: string
+          class_name: string
+          color?: string | null
+          created_at?: string | null
+          invite_code?: string | null
+          owner_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          class_id?: string
+          class_name?: string
+          color?: string | null
+          created_at?: string | null
+          invite_code?: string | null
+          owner_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classes_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          chat_mode: string | null
+          chatbot_type: string
+          class_id: string | null
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          chat_mode?: string | null
+          chatbot_type: string
+          class_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          chat_mode?: string | null
+          chatbot_type?: string
+          class_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      files: {
+        Row: {
+          category: string | null
+          class_id: string | null
+          created_at: string
+          document_title: string | null
+          file_id: string
+          folder_id: string | null
+          image_summaries: Json | null
+          last_modified: string
+          name: string
+          page_count: number | null
+          page_previews: Json | null
+          size: number
+          status: string | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          type: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          class_id?: string | null
+          created_at?: string
+          document_title?: string | null
+          file_id?: string
+          folder_id?: string | null
+          image_summaries?: Json | null
+          last_modified?: string
+          name: string
+          page_count?: number | null
+          page_previews?: Json | null
+          size: number
+          status?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          type: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          class_id?: string | null
+          created_at?: string
+          document_title?: string | null
+          file_id?: string
+          folder_id?: string | null
+          image_summaries?: Json | null
+          last_modified?: string
+          name?: string
+          page_count?: number | null
+          page_previews?: Json | null
+          size?: number
+          status?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          type?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "files_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "files_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["folder_id"]
+          },
+          {
+            foreignKeyName: "files_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      "flashcard-decks": {
+        Row: {
+          card_count: number
+          class_id: string | null
+          class_title: string | null
+          color: string
+          created_at: string
+          description: string
+          due_cards: number
+          flashcard_deck_id: string
+          new_cards: number
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          card_count?: number
+          class_id?: string | null
+          class_title?: string | null
+          color: string
+          created_at?: string
+          description: string
+          due_cards?: number
+          flashcard_deck_id?: string
+          new_cards?: number
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          card_count?: number
+          class_id?: string | null
+          class_title?: string | null
+          color?: string
+          created_at?: string
+          description?: string
+          due_cards?: number
+          flashcard_deck_id?: string
+          new_cards?: number
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flashcard-decks_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "flashcard-decks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      flashcards: {
+        Row: {
+          back: string
+          class_id: string | null
+          created_at: string
+          difficulty: string
+          flashcard_deck_id: string
+          flashcard_id: string
+          front: string
+          last_reviewed: string | null
+          next_review: string
+          review_count: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          back: string
+          class_id?: string | null
+          created_at?: string
+          difficulty?: string
+          flashcard_deck_id: string
+          flashcard_id?: string
+          front: string
+          last_reviewed?: string | null
+          next_review?: string
+          review_count?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          back?: string
+          class_id?: string | null
+          created_at?: string
+          difficulty?: string
+          flashcard_deck_id?: string
+          flashcard_id?: string
+          front?: string
+          last_reviewed?: string | null
+          next_review?: string
+          review_count?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flashcards_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "flashcards_flashcard_deck_id_fkey"
+            columns: ["flashcard_deck_id"]
+            isOneToOne: false
+            referencedRelation: "flashcard-decks"
+            referencedColumns: ["flashcard_deck_id"]
+          },
+          {
+            foreignKeyName: "flashcards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      folders: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          folder_id: string
+          name: string | null
+          parent_id: string | null
+          user_id: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          folder_id?: string
+          name?: string | null
+          parent_id?: string | null
+          user_id: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          folder_id?: string
+          name?: string | null
+          parent_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "folders_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["folder_id"]
+          },
+        ]
+      }
+      message_sources: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          file_id: string | null
+          highlight: string | null
+          id: string
+          message_id: string
+          name: string | null
+          page_number: number | null
+          source_number: number
+          url: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          file_id?: string | null
+          highlight?: string | null
+          id?: string
+          message_id: string
+          name?: string | null
+          page_number?: number | null
+          source_number: number
+          url?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          file_id?: string | null
+          highlight?: string | null
+          id?: string
+          message_id?: string
+          name?: string | null
+          page_number?: number | null
+          source_number?: number
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_sources_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "message_sources_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preview_queue: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          file_id: string
+          id: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          file_id: string
+          id?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          file_id?: string
+          id?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_queue_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["file_id"]
+          },
+        ]
+      }
+      processing_queue: {
+        Row: {
+          class_id: string
+          created_at: string
+          error_message: string | null
+          folder_id: string | null
+          id: number
+          mime_type: string
+          original_name: string
+          size: number
+          status: string
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          error_message?: string | null
+          folder_id?: string | null
+          id?: number
+          mime_type: string
+          original_name: string
+          size: number
+          status?: string
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          error_message?: string | null
+          folder_id?: string | null
+          id?: number
+          mime_type?: string
+          original_name?: string
+          size?: number
+          status?: string
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_queue_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "processing_queue_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["folder_id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quiz_questions: {
+        Row: {
+          class_id: string | null
+          correct_answer_index: number
+          created_at: string
+          explanation: string
+          options: string[]
+          question_text: string
+          quiz_id: string
+          quiz_questions_id: string
+          user_id: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          correct_answer_index: number
+          created_at?: string
+          explanation: string
+          options: string[]
+          question_text: string
+          quiz_id: string
+          quiz_questions_id?: string
+          user_id?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          correct_answer_index?: number
+          created_at?: string
+          explanation?: string
+          options?: string[]
+          question_text?: string
+          quiz_id?: string
+          quiz_questions_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["quiz_id"]
+          },
+          {
+            foreignKeyName: "quiz_questions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          class_id: string | null
+          coverage: string
+          created_at: string
+          description: string
+          difficulty: string
+          question_count: number
+          quiz_id: string
+          time_estimate: number
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          coverage: string
+          created_at?: string
+          description: string
+          difficulty?: string
+          question_count?: number
+          quiz_id?: string
+          time_estimate?: number
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          coverage?: string
+          created_at?: string
+          description?: string
+          difficulty?: string
+          question_count?: number
+          quiz_id?: string
+          time_estimate?: number
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quizzes_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["class_id"]
+          },
+        ]
+      }
+      user_storage: {
+        Row: {
+          storage_limit: number
+          storage_used: number
+          user_id: string
+        }
+        Insert: {
+          storage_limit?: number
+          storage_used?: number
+          user_id: string
+        }
+        Update: {
+          storage_limit?: number
+          storage_used?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
+      can_access_class_content: {
+        Args: { p_class_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      get_class_activity: {
+        Args: { p_class_id: string }
+        Returns: {
+          activity_type: Database["public"]["Enums"]["class_activity_type"]
+          actor_avatar_url: string
+          actor_full_name: string
+          class_id: string
+          created_at: string
+          details: Json
+          id: string
+          user_id: string
+        }[]
+      }
+      get_classes_with_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          class_id: string
+          class_name: string
+          color: string
+          created_at: string
+          file_count: number
+          invite_code: string
+          member_count: number
+          owner_id: string
+          total_size: number
+          updated_at: string
+          user_role: string
+        }[]
+      }
+      get_latest_conversation: {
+        Args: { p_class_id?: string; p_user_id: string }
+        Returns: {
+          conversation_id: string
+          created_at: string
+          message_id: string
+          message_text: string
+          sender: string
+          sources: Json
+        }[]
+      }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      is_class_member: {
+        Args: { p_class_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: unknown
+      }
+      log_class_activity: {
+        Args: {
+          p_activity_type: Database["public"]["Enums"]["class_activity_type"]
+          p_class_id: string
+          p_details: Json
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+    }
+    Enums: {
+      class_activity_type:
+        | "file_uploaded"
+        | "file_deleted"
+        | "member_joined"
+        | "member_left"
+        | "member_pending"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      class_activity_type: [
+        "file_uploaded",
+        "file_deleted",
+        "member_joined",
+        "member_left",
+        "member_pending",
+      ],
+    },
+  },
+} as const
 </file>
 
 <file path="src/App.css">
@@ -14446,6 +14197,103 @@ export const FolderCard: React.FC<FolderCardProps> = ({ folderName, files, size,
 };
 </file>
 
+<file path="src/components/dashboard/OracleChatDemo.tsx">
+// src/components/dashboard/OracleChatDemo.tsx
+import React, { useEffect, useRef } from 'react';
+import { useOracle } from '@/hooks/useOracle';
+import { ChatMessage } from '@/components/chat/ChatMessage';
+import { ChatInput } from '@/components/oracle/ChatInput';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2 } from 'lucide-react';
+
+// A small, local loading component for the demo
+const LoadingIndicator = () => (
+  <>
+    <style>{`
+      @keyframes dot-flashing {
+        0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; }
+      }
+      .dot-flashing span {
+        animation: dot-flashing 1.4s infinite both;
+        display: inline-block; width: 4px; height: 4px; margin-left: 2px;
+        background-color: currentColor; border-radius: 50%;
+      }
+      .dot-flashing span:nth-child(2) { animation-delay: 0.2s; }
+      .dot-flashing span:nth-child(3) { animation-delay: 0.4s; }
+    `}</style>
+    <div className="flex items-center justify-center p-4 text-sm text-neutral-400">
+      <span>Thinking</span>
+      <div className="dot-flashing ml-1">
+        <span /> <span /> <span />
+      </div>
+    </div>
+  </>
+);
+
+export const OracleChatDemo = () => {
+  const {
+    input, setInput, isChatLoading, isPageLoading, userProfile, messages,
+    messagesEndRef, fileInputRef, handleSendMessage, handleFileSelect,
+    handlePaste, handleRemoveFile, attachedFiles,
+  } = useOracle();
+
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // This effect ensures the view scrolls to the latest message.
+  useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
+    }
+  }, [messages]);
+
+  if (isPageLoading) {
+    return <div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-neutral-500" /></div>;
+  }
+
+  return (
+    // The root element now has no padding and fills its container.
+    <div className="flex flex-col h-full">
+      {/* The ScrollArea takes up all available space and has the fade effect. */}
+      <ScrollArea 
+        className="flex-1 min-h-0 [mask-image:linear-gradient(to_bottom,transparent_0%,black_10%,black_90%,transparent_100%)]" 
+        ref={scrollAreaRef}
+      >
+        {/* Padding is applied *inside* the scroll area so messages don't touch the edges. */}
+        <div className="space-y-4 p-4">
+          {messages.map((message) => (
+            <ChatMessage
+              key={message.id}
+              isUser={message.role === 'user'}
+              senderName={message.role === 'user' ? (userProfile?.full_name || 'You') : 'Eido AI'}
+              avatarUrl={message.role === 'user' ? userProfile?.avatar_url : undefined}
+              content={message.content}
+              attachedFiles={message.attached_files}
+              isSelected={false}
+            />
+          ))}
+          {isChatLoading && <LoadingIndicator />}
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
+      
+      {/* The ChatInput is placed at the bottom, wrapped in a div to give it horizontal padding. */}
+      <div className="px-4 pb-4">
+        <ChatInput
+            input={input}
+            setInput={setInput}
+            handleSendMessage={handleSendMessage}
+            isChatLoading={isChatLoading}
+            attachedFiles={attachedFiles}
+            handleRemoveFile={handleRemoveFile}
+            fileInputRef={fileInputRef}
+        />
+      </div>
+    </div>
+  );
+};
+</file>
+
 <file path="src/components/layout/AppLayout.tsx">
 // src/components/layout/AppLayout.tsx
 
@@ -16255,51 +16103,6 @@ export const ClassesHeader: React.FC<ClassesHeaderProps> = ({
 };
 </file>
 
-<file path="src/components/dashboard/SharedClassesCard.tsx">
-// src/components/dashboard/SharedClassesCard.tsx
-import React from 'react';
-import ShimmerButton from '@/components/ui/ShimmerButton';
-import { SharedClassesDemo } from './SharedClassesDemo';
-import { ArrowRight } from 'lucide-react';
-
-interface SharedClassesCardProps {
-  onClick: () => void;
-}
-
-export const SharedClassesCard: React.FC<SharedClassesCardProps> = ({ onClick }) => {
-  return (
-    // --- MODIFICATION: Removed flex-grow ---
-    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
-      <div className="flex flex-col gap-y-3">
-        <h2 className="text-2xl font-bold text-neutral-100">
-          Shared Classes
-        </h2>
-        
-        <p className="text-sm text-neutral-400 max-w-md">
-          Invite classmates to build a knowledge base together. Share notes, slides, and study materials in one central place.
-        </p>
-      </div>
-
-      <div className="flex-grow" />
-
-      <div className="mt-6 flex flex-col gap-4">
-        <ShimmerButton 
-          onClick={onClick} 
-          className="w-fit border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
-        >
-          Create or Join Class
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </ShimmerButton>
-
-        <div className="h-56 w-full">
-          <SharedClassesDemo />
-        </div>
-      </div>
-    </section>
-  );
-};
-</file>
-
 <file path="src/components/oracle/ChatInput.tsx">
 // src/components/oracle/ChatInput.tsx
 import React from 'react';
@@ -17278,6 +17081,51 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
         <p className="text-sm text-muted-foreground">No classes found. Click "New Class" or "Join Class" to get started.</p>
       )}
     </div>
+  );
+};
+</file>
+
+<file path="src/components/dashboard/SharedClassesCard.tsx">
+// src/components/dashboard/SharedClassesCard.tsx
+import React from 'react';
+import ShimmerButton from '@/components/ui/ShimmerButton';
+import { SharedClassesDemo } from './SharedClassesDemo';
+import { ArrowRight } from 'lucide-react';
+
+interface SharedClassesCardProps {
+  onClick: () => void;
+}
+
+export const SharedClassesCard: React.FC<SharedClassesCardProps> = ({ onClick }) => {
+  return (
+    // --- MODIFICATION: Removed flex-grow ---
+    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
+      <div className="flex flex-col gap-y-3">
+        <h2 className="text-2xl font-bold text-neutral-100">
+          Shared Classes
+        </h2>
+        
+        <p className="text-sm text-neutral-400 max-w-md">
+          Invite classmates to build a knowledge base together. Share notes, slides, and study materials in one central place.
+        </p>
+      </div>
+
+      <div className="flex-grow" />
+
+      <div className="mt-6 flex flex-col gap-4">
+        <ShimmerButton 
+          onClick={onClick} 
+          className="w-fit border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
+        >
+          Create or Join Class
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </ShimmerButton>
+
+        <div className="h-56 w-full">
+          <SharedClassesDemo />
+        </div>
+      </div>
+    </section>
   );
 };
 </file>
@@ -19696,51 +19544,6 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
 };
 </file>
 
-<file path="src/components/dashboard/OracleCard.tsx">
-// src/components/dashboard/OracleCard.tsx
-import React from 'react';
-import ShimmerButton from '@/components/ui/ShimmerButton';
-import { ArrowRight } from 'lucide-react';
-import { OracleChatDemo } from './OracleChatDemo'; // Import the new demo component
-
-interface OracleCardProps {
-  onClick: () => void;
-}
-
-export const OracleCard: React.FC<OracleCardProps> = ({ onClick }) => {
-  return (
-    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
-      <div className="flex flex-col gap-y-3">
-        <h2 className="text-2xl font-bold text-neutral-100">
-          Oracle
-        </h2>
-        
-        <p className="text-sm text-neutral-400 max-w-md">
-          Get instant, cited answers from your course content. Plus, install the Chrome extension to access Oracle from anywhere.
-        </p>
-      </div>
-
-      <div className="flex-grow" />
-
-      <div className="mt-6 flex flex-col gap-4">
-        <ShimmerButton 
-          onClick={onClick} 
-          className="w-fit border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
-        >
-          Go to Oracle
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </ShimmerButton>
-
-        {/* --- MODIFICATION: Replaced the static image with the live chat demo --- */}
-        <div className="h-56 w-full rounded-md overflow-hidden border border-neutral-700/50 bg-neutral-900/50">
-          <OracleChatDemo />
-        </div>
-      </div>
-    </section>
-  );
-};
-</file>
-
 <file path="src/components/oracle/SourcesPanel.tsx">
 // src/components/oracle/SourcesPanel.tsx
 import React, { useState, useEffect, useRef } from 'react';
@@ -20948,6 +20751,51 @@ serve(async (req: Request) => {
 });
 </file>
 
+<file path="src/components/dashboard/OracleCard.tsx">
+// src/components/dashboard/OracleCard.tsx
+import React from 'react';
+import ShimmerButton from '@/components/ui/ShimmerButton';
+import { ArrowRight } from 'lucide-react';
+import { OracleChatDemo } from './OracleChatDemo'; // Import the new demo component
+
+interface OracleCardProps {
+  onClick: () => void;
+}
+
+export const OracleCard: React.FC<OracleCardProps> = ({ onClick }) => {
+  return (
+    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
+      <div className="flex flex-col gap-y-3">
+        <h2 className="text-2xl font-bold text-neutral-100">
+          Oracle
+        </h2>
+        
+        <p className="text-sm text-neutral-400 max-w-md">
+          Get instant, cited answers from your course content. Plus, install the Chrome extension to access Oracle from anywhere.
+        </p>
+      </div>
+
+      <div className="flex-grow" />
+
+      <div className="mt-6 flex flex-col gap-4">
+        <ShimmerButton 
+          onClick={onClick} 
+          className="w-fit border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
+        >
+          Go to Oracle
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </ShimmerButton>
+
+        {/* --- MODIFICATION: Replaced the static image with the live chat demo --- */}
+        <div className="h-56 w-full rounded-md overflow-hidden border border-neutral-700/50 bg-neutral-900/50">
+          <OracleChatDemo />
+        </div>
+      </div>
+    </section>
+  );
+};
+</file>
+
 <file path="src/components/layout/MainAppLayout.tsx">
 // src/components/layout/MainAppLayout.tsx
 import React from 'react';
@@ -21903,6 +21751,202 @@ verify_jwt = true
 
 [functions.delete-class]
 verify_jwt = true
+</file>
+
+<file path="src/services/classOpenAIConfig.ts">
+// src/services/classOpenAIConfig.ts
+import { supabase } from "@/integrations/supabase/client";
+import type { CustomDatabase } from "@/integrations/supabase/client";
+import { ClassMember } from '@/components/classes/ClassMembersView';
+import { COLOR_PALETTE } from "@/components/calendar/colorUtils";
+
+const COLOR_SWATCHES = COLOR_PALETTE.map(p => p.border);
+
+export interface OpenAIConfig {
+  vectorStoreId?: string | null;
+  assistantId?: string | null;
+}
+
+export interface ClassConfig {
+  class_id: string;
+  class_name: string;
+  owner_id: string | null;
+  invite_code?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  color?: string | null;
+  user_role?: 'owner' | 'member' | 'pending' | null;
+  // Properties from the new RPC
+  member_count?: number;
+  file_count?: number;
+  total_size?: number;
+}
+
+
+type ClassesDBInsertPayload = CustomDatabase['public']['Tables']['classes']['Insert'];
+type ClassesDBRow = CustomDatabase['public']['Tables']['classes']['Row'];
+type ClassesDBUpdatePayload = Partial<ClassesDBRow>;
+
+export const classOpenAIConfigService = {
+  getConfigForClass: async (class_id: string): Promise<OpenAIConfig | undefined> => {
+    console.warn("getConfigForClass: OpenAI config IDs are no longer stored on the 'classes' table. This function will return undefined.");
+    return undefined;
+  },
+
+  saveConfigForClass: async (
+    className: string,
+    class_id_to_update?: string | null
+  ): Promise<ClassesDBRow> => {
+    if (!className || typeof className !== 'string' || className.trim() === "") {
+        throw new Error("Class name is required and cannot be empty.");
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        throw new Error('Authentication required to save class configuration.');
+    }
+
+    let savedClassRecord: ClassesDBRow;
+    if (class_id_to_update) {
+      const updatePayload: ClassesDBUpdatePayload = {
+        class_name: className,
+        updated_at: new Date().toISOString(),
+      };
+      const { data: updateData, error: updateError } = await supabase
+        .from('classes')
+        .update(updatePayload)
+        .eq('class_id', class_id_to_update)
+        .eq('owner_id', user.id) // Security check: ensure user is the owner
+        .select()
+        .single();
+      if (updateError) {
+        console.error('Error updating class in Supabase:', updateError);
+        if (updateError.code === 'PGRST116') {
+             throw new Error(`Class with ID ${class_id_to_update} not found for update, or you do not have permission.`);
+        }
+        throw updateError;
+      }
+      if (!updateData) throw new Error("Failed to update class, no data returned from Supabase.");
+      savedClassRecord = updateData;
+    } else {
+      const { data: existingClassByName, error: fetchError } = await supabase
+        .from('classes')
+        .select('class_id, class_name')
+        .eq('class_name', className)
+        .eq('owner_id', user.id) // Check for classes owned by this user
+        .maybeSingle();
+      if (fetchError) {
+        console.error('Error checking if class exists by name:', fetchError);
+        throw fetchError;
+      }
+
+      if (existingClassByName) {
+        throw new Error(`A class named '${className}' already exists. Please use a different name.`);
+      }
+
+      const { data: userClasses } = await supabase.from('classes').select('class_id').eq('owner_id', user.id);
+      const nextColorIndex = (userClasses?.length || 0) % COLOR_SWATCHES.length;
+
+      const insertPayload: ClassesDBInsertPayload = {
+        class_name: className,
+        owner_id: user.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        color: COLOR_SWATCHES[nextColorIndex],
+      };
+      const { data: insertData, error: insertError } = await supabase
+        .from('classes')
+        .insert(insertPayload)
+        .select()
+        .single();
+      if (insertError) {
+        console.error('Error inserting new class into Supabase:', insertError);
+        throw insertError;
+      }
+      if (!insertData) throw new Error("Failed to insert new class, no data returned from Supabase.");
+      savedClassRecord = insertData;
+    }
+    return savedClassRecord;
+  },
+  
+  getClassMembers: async (class_id: string): Promise<ClassMember[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+      .from('class_members')
+      .select(`
+        user_id,
+        role,
+        profiles (
+          full_name,
+          avatar_url,
+          email
+        )
+      `)
+      .eq('class_id', class_id);
+    
+    if (error) {
+      console.error('Error fetching class members:', error);
+      throw error;
+    }
+    
+    return (data as ClassMember[]).sort((a, b) => {
+        if (a.role === 'owner') return -1;
+        if (b.role === 'owner') return 1;
+        return 0;
+    });
+  },
+
+  getAllClasses: async (): Promise<ClassConfig[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return [];
+    }
+    try {
+      const { data, error } = await supabase.rpc('get_classes_with_stats');
+      if (error) {
+        console.error('Error fetching classes with stats:', error);
+        throw error;
+      }
+      return (data as ClassConfig[]) || [];
+    } catch (error) {
+      console.error('Error calling RPC get_classes_with_stats:', error);
+      throw error;
+    }
+  },
+
+
+  updateClassColor: async (class_id: string, color: string): Promise<ClassesDBRow> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Authentication required.");
+
+    const { data, error } = await supabase
+        .from('classes')
+        .update({ color: color, updated_at: new Date().toISOString() })
+        .eq('class_id', class_id)
+        .eq('owner_id', user.id) // Only owner can change color
+        .select()
+        .single();
+    if (error) {
+        console.error("Error updating class color:", error);
+        throw error;
+    }
+    return data;
+  },
+
+  deleteClass: async (class_id: string): Promise<void> => {
+    // MODIFICATION: This now calls our new, safe Edge Function.
+    const { error } = await supabase.functions.invoke('delete-class', {
+      body: { class_id },
+    });
+
+    if (error) {
+      console.error("Error invoking delete-class function:", error);
+      throw new Error(`Failed to delete class: ${error.message}`);
+    }
+  },
+};
 </file>
 
 <file path="src/App.tsx">
@@ -23039,134 +23083,6 @@ export const Constants = {
 } as const
 </file>
 
-<file path="src/pages/DashboardPage.tsx">
-// src/pages/DashboardPage.tsx
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { User } from '@supabase/supabase-js';
-import { usePageLoader } from '@/context/LoaderContext';
-import { MainAppLayout } from '@/components/layout/MainAppLayout';
-import { OracleCard } from '@/components/dashboard/OracleCard';
-import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
-import { SharedClassesCard } from '@/components/dashboard/SharedClassesCard';
-import { WelcomePopup } from '@/components/dashboard/WelcomePopup';
-import FloatingShapes from '@/components/dashboard/FloatingShapes';
-
-const Footer = () => (
-  <footer className="relative z-10 w-full px-4 py-6 md:px-9 lg:px-10 border-t border-neutral-800 bg-neutral-900 flex-shrink-0">
-    <div className="flex flex-col md:flex-row justify-between items-center text-sm text-neutral-400">
-      <span>© 2025 Eido AI. All rights reserved.</span>
-      <div className="flex gap-x-4 mt-4 md:mt-0">
-        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-200 hover:underline">Privacy Policy</a>
-        <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-200 hover:underline">Terms of Service</a>
-      </div>
-    </div>
-  </footer>
-);
-
-const DashboardPage = () => {
-    const [user, setUser] = useState<User | null>(null);
-    const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
-    const { loadPage, loader } = usePageLoader();
-    const [isWelcomePopupOpen, setIsWelcomePopupOpen] = useState(false);
-
-    useEffect(() => {
-        if (loader) {
-        loader.complete();
-        }
-        
-        const fetchUser = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-        
-        const popupShown = sessionStorage.getItem('eidoWelcomePopupShown');
-
-        if (!user && !popupShown) {
-            setIsWelcomePopupOpen(true);
-            sessionStorage.setItem('eidoWelcomePopupShown', 'true');
-        }
-        };
-        fetchUser();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user ?? null);
-        if (!session?.user) {
-            setProfile(null);
-        }
-        });
-
-        return () => {
-        subscription.unsubscribe();
-        };
-    }, [loader]);
-
-    useEffect(() => {
-        const fetchProfile = async () => {
-        if (user) {
-            const { data, error } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('user_id', user.id)
-            .single();
-
-            if (error) {
-            console.error("Error fetching user profile:", error);
-            } else if (data) {
-            setProfile(data);
-            }
-        }
-        };
-        fetchProfile();
-    }, [user]);
-
-    const handleProtectedLinkClick = (path: string) => {
-        if (user) {
-        loadPage(path);
-        } else {
-        loadPage('/auth');
-        }
-    };
-
-    const handleOpenWelcomePopup = () => setIsWelcomePopupOpen(true);
-
-  return (
-    <MainAppLayout pageTitle="Dashboard | Eido AI">
-      <div className="flex h-full w-full gap-3">
-        <DashboardSidebar onLinkClick={handleProtectedLinkClick} />
-        
-        <main className="relative flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-foreground/20 bg-neutral-900">
-          <FloatingShapes />
-          
-          {/* --- MODIFICATION: The layout logic is simplified and made more explicit --- */}
-          <div className="relative z-10 flex flex-col flex-grow">
-            <div className="flex-grow p-4 md:p-8 flex flex-col">
-                <div className="max-w-4xl mx-auto text-center flex-shrink-0">
-                    <h1 className="text-4xl font-bold text-neutral-100">Welcome{profile?.full_name ? `, ${profile.full_name}` : '!'}</h1>
-                    <p className="mt-2 text-neutral-400">
-                        Eido AI translates your coursework for intelligent tools. Start by going to classes or by exploring the tools below.
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 flex-grow">
-                    <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
-                    <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
-                </div>
-            </div>
-            <Footer />
-          </div>
-        </main>
-      </div>
-      <WelcomePopup
-        isOpen={isWelcomePopupOpen}
-        onClose={() => setIsWelcomePopupOpen(false)}
-      />
-    </MainAppLayout>
-  );
-};
-
-export default DashboardPage;
-</file>
-
 <file path="src/pages/OraclePage.tsx">
 // src/pages/OraclePage.tsx
 import React from 'react';
@@ -23349,200 +23265,132 @@ const OraclePage = () => {
 export default OraclePage;
 </file>
 
-<file path="src/services/classOpenAIConfig.ts">
-// src/services/classOpenAIConfig.ts
-import { supabase } from "@/integrations/supabase/client";
-import type { CustomDatabase } from "@/integrations/supabase/client";
-import { ClassMember } from '@/components/classes/ClassMembersView';
-import { COLOR_PALETTE } from "@/components/calendar/colorUtils";
+<file path="src/pages/DashboardPage.tsx">
+// src/pages/DashboardPage.tsx
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import type { User } from '@supabase/supabase-js';
+import { usePageLoader } from '@/context/LoaderContext';
+import { MainAppLayout } from '@/components/layout/MainAppLayout';
+import { OracleCard } from '@/components/dashboard/OracleCard';
+import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
+import { SharedClassesCard } from '@/components/dashboard/SharedClassesCard';
+import { WelcomePopup } from '@/components/dashboard/WelcomePopup';
+import FloatingShapes from '@/components/dashboard/FloatingShapes';
 
-const COLOR_SWATCHES = COLOR_PALETTE.map(p => p.border);
+const Footer = () => (
+  <footer className="relative z-10 w-full px-4 py-6 md:px-9 lg:px-10 border-t border-neutral-800 bg-neutral-900 flex-shrink-0">
+    <div className="flex flex-col md:flex-row justify-between items-center text-sm text-neutral-400">
+      <span>© 2025 Eido AI. All rights reserved.</span>
+      <div className="flex gap-x-4 mt-4 md:mt-0">
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-200 hover:underline">Privacy Policy</a>
+        <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-200 hover:underline">Terms of Service</a>
+      </div>
+    </div>
+  </footer>
+);
 
-export interface OpenAIConfig {
-  vectorStoreId?: string | null;
-  assistantId?: string | null;
-}
+const DashboardPage = () => {
+    const [user, setUser] = useState<User | null>(null);
+    const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
+    const { loadPage, loader } = usePageLoader();
+    const [isWelcomePopupOpen, setIsWelcomePopupOpen] = useState(false);
 
-export interface ClassConfig {
-  class_id: string;
-  class_name: string;
-  owner_id: string | null;
-  invite_code?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  color?: string | null;
-  user_role?: 'owner' | 'member' | 'pending' | null;
-  // Properties from the new RPC
-  member_count?: number;
-  file_count?: number;
-  total_size?: number;
-}
-
-
-type ClassesDBInsertPayload = CustomDatabase['public']['Tables']['classes']['Insert'];
-type ClassesDBRow = CustomDatabase['public']['Tables']['classes']['Row'];
-type ClassesDBUpdatePayload = Partial<ClassesDBRow>;
-
-export const classOpenAIConfigService = {
-  getConfigForClass: async (class_id: string): Promise<OpenAIConfig | undefined> => {
-    console.warn("getConfigForClass: OpenAI config IDs are no longer stored on the 'classes' table. This function will return undefined.");
-    return undefined;
-  },
-
-  saveConfigForClass: async (
-    className: string,
-    class_id_to_update?: string | null
-  ): Promise<ClassesDBRow> => {
-    if (!className || typeof className !== 'string' || className.trim() === "") {
-        throw new Error("Class name is required and cannot be empty.");
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        throw new Error('Authentication required to save class configuration.');
-    }
-
-    let savedClassRecord: ClassesDBRow;
-    if (class_id_to_update) {
-      const updatePayload: ClassesDBUpdatePayload = {
-        class_name: className,
-        updated_at: new Date().toISOString(),
-      };
-      const { data: updateData, error: updateError } = await supabase
-        .from('classes')
-        .update(updatePayload)
-        .eq('class_id', class_id_to_update)
-        .eq('owner_id', user.id) // Security check: ensure user is the owner
-        .select()
-        .single();
-      if (updateError) {
-        console.error('Error updating class in Supabase:', updateError);
-        if (updateError.code === 'PGRST116') {
-             throw new Error(`Class with ID ${class_id_to_update} not found for update, or you do not have permission.`);
+    useEffect(() => {
+        if (loader) {
+        loader.complete();
         }
-        throw updateError;
-      }
-      if (!updateData) throw new Error("Failed to update class, no data returned from Supabase.");
-      savedClassRecord = updateData;
-    } else {
-      const { data: existingClassByName, error: fetchError } = await supabase
-        .from('classes')
-        .select('class_id, class_name')
-        .eq('class_name', className)
-        .eq('owner_id', user.id) // Check for classes owned by this user
-        .maybeSingle();
-      if (fetchError) {
-        console.error('Error checking if class exists by name:', fetchError);
-        throw fetchError;
-      }
+        
+        const fetchUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+        
+        const popupShown = sessionStorage.getItem('eidoWelcomePopupShown');
 
-      if (existingClassByName) {
-        throw new Error(`A class named '${className}' already exists. Please use a different name.`);
-      }
+        if (!user && !popupShown) {
+            setIsWelcomePopupOpen(true);
+            sessionStorage.setItem('eidoWelcomePopupShown', 'true');
+        }
+        };
+        fetchUser();
 
-      const { data: userClasses } = await supabase.from('classes').select('class_id').eq('owner_id', user.id);
-      const nextColorIndex = (userClasses?.length || 0) % COLOR_SWATCHES.length;
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user ?? null);
+        if (!session?.user) {
+            setProfile(null);
+        }
+        });
 
-      const insertPayload: ClassesDBInsertPayload = {
-        class_name: className,
-        owner_id: user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        color: COLOR_SWATCHES[nextColorIndex],
-      };
-      const { data: insertData, error: insertError } = await supabase
-        .from('classes')
-        .insert(insertPayload)
-        .select()
-        .single();
-      if (insertError) {
-        console.error('Error inserting new class into Supabase:', insertError);
-        throw insertError;
-      }
-      if (!insertData) throw new Error("Failed to insert new class, no data returned from Supabase.");
-      savedClassRecord = insertData;
-    }
-    return savedClassRecord;
-  },
-  
-  getClassMembers: async (class_id: string): Promise<ClassMember[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-    
-    const { data, error } = await supabase
-      .from('class_members')
-      .select(`
-        user_id,
-        role,
-        profiles (
-          full_name,
-          avatar_url,
-          email
-        )
-      `)
-      .eq('class_id', class_id);
-    
-    if (error) {
-      console.error('Error fetching class members:', error);
-      throw error;
-    }
-    
-    return (data as ClassMember[]).sort((a, b) => {
-        if (a.role === 'owner') return -1;
-        if (b.role === 'owner') return 1;
-        return 0;
-    });
-  },
+        return () => {
+        subscription.unsubscribe();
+        };
+    }, [loader]);
 
-  getAllClasses: async (): Promise<ClassConfig[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return [];
-    }
-    try {
-      const { data, error } = await supabase.rpc('get_classes_with_stats');
-      if (error) {
-        console.error('Error fetching classes with stats:', error);
-        throw error;
-      }
-      return (data as ClassConfig[]) || [];
-    } catch (error) {
-      console.error('Error calling RPC get_classes_with_stats:', error);
-      throw error;
-    }
-  },
+    useEffect(() => {
+        const fetchProfile = async () => {
+        if (user) {
+            const { data, error } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('user_id', user.id)
+            .single();
 
+            if (error) {
+            console.error("Error fetching user profile:", error);
+            } else if (data) {
+            setProfile(data);
+            }
+        }
+        };
+        fetchProfile();
+    }, [user]);
 
-  updateClassColor: async (class_id: string, color: string): Promise<ClassesDBRow> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Authentication required.");
+    const handleProtectedLinkClick = (path: string) => {
+        if (user) {
+        loadPage(path);
+        } else {
+        loadPage('/auth');
+        }
+    };
 
-    const { data, error } = await supabase
-        .from('classes')
-        .update({ color: color, updated_at: new Date().toISOString() })
-        .eq('class_id', class_id)
-        .eq('owner_id', user.id) // Only owner can change color
-        .select()
-        .single();
-    if (error) {
-        console.error("Error updating class color:", error);
-        throw error;
-    }
-    return data;
-  },
+    const handleOpenWelcomePopup = () => setIsWelcomePopupOpen(true);
 
-  deleteClass: async (class_id: string): Promise<void> => {
-    // MODIFICATION: This now calls our new, safe Edge Function.
-    const { error } = await supabase.functions.invoke('delete-class', {
-      body: { class_id },
-    });
+  return (
+    <MainAppLayout pageTitle="Dashboard | Eido AI">
+      <div className="flex h-full w-full gap-3">
+        <DashboardSidebar onLinkClick={handleProtectedLinkClick} />
+        
+        <main className="relative flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-foreground/20 bg-neutral-900">
+          <FloatingShapes />
+          
+          {/* --- MODIFICATION: The layout logic is simplified and made more explicit --- */}
+          <div className="relative z-10 flex flex-col flex-grow">
+            <div className="flex-grow p-4 md:p-8 flex flex-col">
+                <div className="max-w-4xl mx-auto text-center flex-shrink-0">
+                    <h1 className="text-4xl font-bold text-neutral-100">Welcome{profile?.full_name ? `, ${profile.full_name}` : '!'}</h1>
+                    <p className="mt-2 text-neutral-400">
+                        Eido AI translates your coursework for intelligent tools. Start by going to classes or by exploring the tools below.
+                    </p>
+                </div>
 
-    if (error) {
-      console.error("Error invoking delete-class function:", error);
-      throw new Error(`Failed to delete class: ${error.message}`);
-    }
-  },
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 flex-grow">
+                    <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
+                    <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
+                </div>
+            </div>
+            <Footer />
+          </div>
+        </main>
+      </div>
+      <WelcomePopup
+        isOpen={isWelcomePopupOpen}
+        onClose={() => setIsWelcomePopupOpen(false)}
+      />
+    </MainAppLayout>
+  );
 };
+
+export default DashboardPage;
 </file>
 
 </files>

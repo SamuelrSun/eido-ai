@@ -35,7 +35,6 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     target.style.setProperty("--x", `${x}px`);
-    target.style.setProperty("--y", `${y}px`);
     target.style.setProperty("--shimmer-color", shimmerColor);
   };
 
@@ -53,14 +52,11 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
         bgColor
       )}
     >
-      {/* --- MODIFICATION: Flex container for the header row --- */}
       <div className="flex justify-between items-start gap-2 w-full">
-        {/* Title (min-w-0 allows truncation within flex) */}
         <h3 className="font-semibold text-sm text-white truncate pr-1 min-w-0" title={className}>
           {className}
         </h3>
         
-        {/* Right-aligned container (flex-shrink-0 prevents it from shrinking) */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {isShared && (
             <Badge variant="secondary" className="text-xs flex items-center bg-black/20 text-white/90 border-transparent pointer-events-none">
@@ -94,7 +90,6 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
         </div>
       </div>
 
-      {/* This pushes the stats to the bottom */}
       <div className="flex-grow" /> 
 
       <div className="mt-auto">
