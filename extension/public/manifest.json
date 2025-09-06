@@ -1,53 +1,25 @@
 {
   "manifest_version": 3,
-  "name": "Eido AI Oracle",
-  "version": "1.0",
-  "description": "Access the Eido AI Oracle chat from any website.",
+  "name": "Eido",
+  "version": "1.1.0",
+  "description": "Eido AI Chrome Extension",
   "permissions": [
     "storage",
-    "activeTab",
+    "scripting",
     "cookies"
   ],
   "host_permissions": [
-    "<all_urls>",
-    "https://uzdtqomtbrccinrkhzme.supabase.co/"
+    "https://dashboard.eido-ai.com/*"
   ],
-  "action": {
-    "default_popup": "extension/popup.html",
-    "default_icon": {
-      "16": "images/icon16.png",
-      "48": "images/icon48.png",
-      "128": "images/icon128.png"
-    }
-  },
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ]
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "type": "module" 
     }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "images/*.png",
-        "extension/popup.html",
-        "assets/*.js"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
-    }
-  ],
-  "icons": {
-    "16": "images/icon16.png",
-    "48": "images/icon48.png",
-    "128": "images/icon128.png"
-  }
+]
 }

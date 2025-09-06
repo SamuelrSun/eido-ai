@@ -1,9 +1,1 @@
-chrome.runtime.onInstalled.addListener(() => {
-    console.log("Eido AI Oracle extension installed/updated.");
-  });
-  
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === "EIDO_AI_ACTION") {
-      console.log("Received action from tab:", sender.tab.url, message);
-    }
-  });
+const r="dashboard.eido-ai.com",a="uzdtqomtbrccinrkhzme",c=async()=>{try{const i=!!await chrome.cookies.get({url:`https://${r}`,name:a});(await chrome.storage.local.get("isAuthenticated")).isAuthenticated!==i&&(console.log("Eido AI: Auth status changed to:",i),await chrome.storage.local.set({isAuthenticated:i}),n(i))}catch(e){console.error("Eido AI: Error checking auth status:",e)}},n=e=>{chrome.tabs.query({},i=>{i.forEach(t=>{t.id&&chrome.tabs.sendMessage(t.id,{type:"AUTH_STATUS_CHANGED",isAuthenticated:e}).catch(o=>{o.message.includes("Receiving end does not exist")||console.error(`Eido AI: Could not send message to tab ${t.id}:`,o)})})})};chrome.runtime.onInstalled.addListener(()=>{console.log("Eido AI Extension installed/updated."),c()});chrome.runtime.onStartup.addListener(()=>{console.log("Eido AI: Browser startup."),c()});chrome.cookies.onChanged.addListener(e=>{e.cookie.domain.includes(r)&&(console.log("Eido AI: Detected cookie change on domain."),c())});chrome.runtime.onMessage.addListener((e,i,t)=>{if(e.type==="REQUEST_AUTH_STATUS")return chrome.storage.local.get("isAuthenticated").then(o=>{t({isAuthenticated:!!o.isAuthenticated})}),!0;if(e.type==="GET_AUTH_TOKEN")return chrome.cookies.get({url:`https://${r}`,name:a}).then(o=>{t(o?{token:o.value}:{token:null})}).catch(o=>{console.error("Eido AI: Error retrieving auth cookie:",o),t({token:null})}),!0});
