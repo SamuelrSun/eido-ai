@@ -39,6 +39,21 @@ async function processSingleQuery(
   
   console.log(`[RAG-STEP] Processing query: "${query}"`);
 
+  // --- MODIFICATION START: Security check to ensure user is a member of the class ---
+  if (class_id) {
+    const { data: member, error: memberError } = await adminSupabaseClient
+      .from('class_members')
+      .select('role')
+      .eq('class_id', class_id)
+      .eq('user_id', user_id)
+      .in('role', ['owner', 'member']) // Only allow active members
+      .maybeSingle();
+
+    if (memberError) throw new Error(`Database error checking membership: ${memberError.message}`);
+    if (!member) throw new Error("Permission denied: You are not a member of this class.");
+  }
+  // --- MODIFICATION END ---
+
   const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY!}` },
@@ -47,28 +62,33 @@ async function processSingleQuery(
   if (!embeddingResponse.ok) throw new Error(`Failed to create embedding for query: "${query}"`);
   const embeddingData = await embeddingResponse.json();
   const queryVector = embeddingData.data[0].embedding;
+  
+  // --- MODIFICATION START: Updated Weaviate 'where' filter ---
+  // The filter now only checks for class_id if provided. The user_id check is removed
+  // because the security check above has already confirmed the user has access to this class.
+  const whereFilter: any = {};
+  if (class_id) {
+    whereFilter.operator = 'Equal';
+    whereFilter.path = ['class_id'];
+    whereFilter.valueText = class_id;
+  }
+  // --- MODIFICATION END ---
 
-  const weaviateResponse = await weaviateClient.graphql
+  const weaviateQuery = weaviateClient.graphql
     .get()
     .withClassName('DocumentChunk')
     .withNearVector({ vector: queryVector })
     .withLimit(10)
-    .withWhere({
-        operator: 'And',
-        operands: [
-            { path: ['user_id'], operator: 'Equal', valueText: user_id },
-            ...(class_id ? [{ path: ['class_id'], operator: 'Equal', valueText: class_id }] : []),
-        ],
-    })
-    .withFields('source_file_id page_number text_chunk source_file_name')
-    .do();
+    .withFields('source_file_id page_number text_chunk source_file_name');
+  
+  // Only add the where clause if a class_id was specified
+  if (class_id) {
+      weaviateQuery.withWhere(whereFilter);
+  }
+
+  const weaviateResponse = await weaviateQuery.do();
   
   const retrievedChunks = weaviateResponse.data.Get.DocumentChunk || [];
-  
-  console.log(`\n--- BEGIN RETRIEVAL VERIFICATION (Query: "${query}") ---\nTotal Chunks Retrieved: ${retrievedChunks.length}\n`);
-  console.log(JSON.stringify(retrievedChunks, null, 2));
-  console.log(`\n--- END RETRIEVAL VERIFICATION ---\n`);
-
 
   if (retrievedChunks.length === 0) {
     return { question: query, answer: "I could not find any information on this topic in the provided documents.", sources: [] };
@@ -163,11 +183,9 @@ serve(async (req: Request) => {
     let nextSourceNumber = 1;
 
     for (const result of results) {
-        // --- FIX START: This logic now correctly renumbers citations without the cascading replacement bug ---
         const localCitations = [...result.answer.matchAll(/\[Source (\d+)]/g)];
         const oldToNewSourceNumberMap = new Map<number, number>();
 
-        // Step 1: Discover all unique sources cited in this specific answer and build the renumbering map.
         for (const match of localCitations) {
             const localNumber = parseInt(match[1]);
             if (oldToNewSourceNumberMap.has(localNumber)) continue; 
@@ -187,14 +205,11 @@ serve(async (req: Request) => {
             }
         }
 
-        // Step 2: Replace all citations in a single pass using the completed map and a replacer function.
-        // This avoids the cascading replacement problem.
         const renumberedAnswer = result.answer.replace(/\[Source (\d+)]/g, (match, oldNumberStr) => {
             const oldNum = parseInt(oldNumberStr, 10);
             const newNum = oldToNewSourceNumberMap.get(oldNum);
             return newNum !== undefined ? `[Source ${newNum}]` : match;
         });
-        // --- FIX END ---
         
         finalResponseText += `${renumberedAnswer}\n\n`;
     }

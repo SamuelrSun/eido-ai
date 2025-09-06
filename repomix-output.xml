@@ -120,18 +120,20 @@ src/
       UploadProgressToast.tsx
     dashboard/
       AssignmentsCard.tsx
+      ClassesCard.tsx
+      ClassesDemo.tsx
       CommandBar.tsx
       DashboardCalendar.tsx
+      DashboardClassCard.tsx
       DashboardSidebar.tsx
       FloatingShapes.tsx
       OracleCard.tsx
       OracleChatDemo.tsx
       OracleDemo.tsx
-      SharedClassesCard.tsx
-      SharedClassesDemo.tsx
       WelcomePopup.tsx
     layout/
       sidebar/
+        ProfileSidebar.tsx
         SidebarAccount.tsx
         SidebarHeader.tsx
         SidebarNavigation.tsx
@@ -342,184 +344,6 @@ This section contains the contents of the repository's files.
 
 <file path="public/placeholder.svg">
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" fill="none"><rect width="1200" height="1200" fill="#EAEAEA" rx="3"/><g opacity=".5"><g opacity=".5"><path fill="#FAFAFA" d="M600.709 736.5c-75.454 0-136.621-61.167-136.621-136.62 0-75.454 61.167-136.621 136.621-136.621 75.453 0 136.62 61.167 136.62 136.621 0 75.453-61.167 136.62-136.62 136.62Z"/><path stroke="#C9C9C9" stroke-width="2.418" d="M600.709 736.5c-75.454 0-136.621-61.167-136.621-136.62 0-75.454 61.167-136.621 136.621-136.621 75.453 0 136.62 61.167 136.62 136.621 0 75.453-61.167 136.62-136.62 136.62Z"/></g><path stroke="url(#a)" stroke-width="2.418" d="M0-1.209h553.581" transform="scale(1 -1) rotate(45 1163.11 91.165)"/><path stroke="url(#b)" stroke-width="2.418" d="M404.846 598.671h391.726"/><path stroke="url(#c)" stroke-width="2.418" d="M599.5 795.742V404.017"/><path stroke="url(#d)" stroke-width="2.418" d="m795.717 796.597-391.441-391.44"/><path fill="#fff" d="M600.709 656.704c-31.384 0-56.825-25.441-56.825-56.824 0-31.384 25.441-56.825 56.825-56.825 31.383 0 56.824 25.441 56.824 56.825 0 31.383-25.441 56.824-56.824 56.824Z"/><g clip-path="url(#e)"><path fill="#666" fill-rule="evenodd" d="M616.426 586.58h-31.434v16.176l3.553-3.554.531-.531h9.068l.074-.074 8.463-8.463h2.565l7.18 7.181V586.58Zm-15.715 14.654 3.698 3.699 1.283 1.282-2.565 2.565-1.282-1.283-5.2-5.199h-6.066l-5.514 5.514-.073.073v2.876a2.418 2.418 0 0 0 2.418 2.418h26.598a2.418 2.418 0 0 0 2.418-2.418v-8.317l-8.463-8.463-7.181 7.181-.071.072Zm-19.347 5.442v4.085a6.045 6.045 0 0 0 6.046 6.045h26.598a6.044 6.044 0 0 0 6.045-6.045v-7.108l1.356-1.355-1.282-1.283-.074-.073v-17.989h-38.689v23.43l-.146.146.146.147Z" clip-rule="evenodd"/></g><path stroke="#C9C9C9" stroke-width="2.418" d="M600.709 656.704c-31.384 0-56.825-25.441-56.825-56.824 0-31.384 25.441-56.825 56.825-56.825 31.383 0 56.824 25.441 56.824 56.825 0 31.383-25.441 56.824-56.824 56.824Z"/></g><defs><linearGradient id="a" x1="554.061" x2="-.48" y1=".083" y2=".087" gradientUnits="userSpaceOnUse"><stop stop-color="#C9C9C9" stop-opacity="0"/><stop offset=".208" stop-color="#C9C9C9"/><stop offset=".792" stop-color="#C9C9C9"/><stop offset="1" stop-color="#C9C9C9" stop-opacity="0"/></linearGradient><linearGradient id="b" x1="796.912" x2="404.507" y1="599.963" y2="599.965" gradientUnits="userSpaceOnUse"><stop stop-color="#C9C9C9" stop-opacity="0"/><stop offset=".208" stop-color="#C9C9C9"/><stop offset=".792" stop-color="#C9C9C9"/><stop offset="1" stop-color="#C9C9C9" stop-opacity="0"/></linearGradient><linearGradient id="c" x1="600.792" x2="600.794" y1="403.677" y2="796.082" gradientUnits="userSpaceOnUse"><stop stop-color="#C9C9C9" stop-opacity="0"/><stop offset=".208" stop-color="#C9C9C9"/><stop offset=".792" stop-color="#C9C9C9"/><stop offset="1" stop-color="#C9C9C9" stop-opacity="0"/></linearGradient><linearGradient id="d" x1="404.85" x2="796.972" y1="403.903" y2="796.02" gradientUnits="userSpaceOnUse"><stop stop-color="#C9C9C9" stop-opacity="0"/><stop offset=".208" stop-color="#C9C9C9"/><stop offset=".792" stop-color="#C9C9C9"/><stop offset="1" stop-color="#C9C9C9" stop-opacity="0"/></linearGradient><clipPath id="e"><path fill="#fff" d="M581.364 580.535h38.689v38.689h-38.689z"/></clipPath></defs></svg>
-</file>
-
-<file path="src/components/auth/PasswordChangeForm.tsx">
-import { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Eye, EyeOff } from "lucide-react";
-
-export function PasswordChangeForm() {
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const { toast } = useToast();
-
-  const toggleShowCurrentPassword = () => {
-    setShowCurrentPassword(!showCurrentPassword);
-  };
-
-  const toggleShowNewPassword = () => {
-    setShowNewPassword(!showNewPassword);
-  };
-
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate passwords
-    if (newPassword.length < 10) {
-      toast({
-        title: "Password Error",
-        description: "New password should be at least 10 characters long.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Password Error",
-        description: "New passwords do not match.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // First authenticate with current password to verify user
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: (await supabase.auth.getUser()).data.user?.email || '',
-        password: currentPassword,
-      });
-
-      if (signInError) {
-        throw new Error("Current password is incorrect");
-      }
-
-      // Then update to new password
-      const { error: updateError } = await supabase.auth.updateUser({ 
-        password: newPassword 
-      });
-
-      if (updateError) throw updateError;
-
-      // Clear form
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      
-      toast({
-        title: "Success",
-        description: "Your password has been updated successfully.",
-      });
-    } catch (error) {
-      console.error('Password change error:', error);
-      toast({
-        title: "Password Change Failed",
-        description: error instanceof Error ? error.message : "Failed to update password. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Change Password</CardTitle>
-        <CardDescription>
-          Update your account password
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handlePasswordChange} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="currentPassword">Current Password</Label>
-            <div className="relative">
-              <Input
-                id="currentPassword"
-                type={showCurrentPassword ? "text" : "password"}
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-                className="pr-10"
-                placeholder="Enter current password"
-              />
-              <Button 
-                type="button" 
-                variant="ghost" 
-                size="icon" 
-                className="absolute right-1 top-1 h-8 w-8 text-muted-foreground"
-                onClick={toggleShowCurrentPassword}
-              >
-                {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="newPassword">New Password</Label>
-            <div className="relative">
-              <Input
-                id="newPassword"
-                type={showNewPassword ? "text" : "password"}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={10}
-                className="pr-10"
-                placeholder="Enter new password"
-              />
-              <Button 
-                type="button" 
-                variant="ghost" 
-                size="icon" 
-                className="absolute right-1 top-1 h-8 w-8 text-muted-foreground"
-                onClick={toggleShowNewPassword}
-              >
-                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Password must be at least 10 characters long
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm New Password</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              placeholder="Confirm new password"
-            />
-          </div>
-
-          <Button 
-            type="submit" 
-            className="w-full"
-            disabled={loading}
-          >
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {loading ? 'Updating...' : 'Update Password'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
 </file>
 
 <file path="src/components/layout/sidebar/SidebarWidgets.tsx">
@@ -5588,6 +5412,185 @@ export const ShortAnswerQuestion: React.FC<ShortAnswerQuestionProps> = ({ questi
 };
 </file>
 
+<file path="src/components/auth/PasswordChangeForm.tsx">
+import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2, Eye, EyeOff } from "lucide-react";
+
+export function PasswordChangeForm() {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const { toast } = useToast();
+
+  const toggleShowCurrentPassword = () => {
+    setShowCurrentPassword(!showCurrentPassword);
+  };
+
+  const toggleShowNewPassword = () => {
+    setShowNewPassword(!showNewPassword);
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate passwords
+    if (newPassword.length < 10) {
+      toast({
+        title: "Password Error",
+        description: "New password should be at least 10 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Password Error",
+        description: "New passwords do not match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // First authenticate with current password to verify user
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: (await supabase.auth.getUser()).data.user?.email || '',
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error("Current password is incorrect");
+      }
+
+      // Then update to new password
+      const { error: updateError } = await supabase.auth.updateUser({ 
+        password: newPassword 
+      });
+
+      if (updateError) throw updateError;
+
+      // Clear form
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      
+      toast({
+        title: "Success",
+        description: "Your password has been updated successfully.",
+      });
+    } catch (error) {
+      console.error('Password change error:', error);
+      toast({
+        title: "Password Change Failed",
+        description: error instanceof Error ? error.message : "Failed to update password. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="bg-neutral-900 border-neutral-800">
+      <CardHeader>
+        <CardTitle>Change Password</CardTitle>
+        <CardDescription>
+          Update your account password
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handlePasswordChange} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="currentPassword">Current Password</Label>
+            <div className="relative">
+              <Input
+                id="currentPassword"
+                type={showCurrentPassword ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                className="pr-10 bg-neutral-800 border-neutral-700"
+                placeholder="Enter current password"
+              />
+              <Button 
+                type="button" 
+                variant="ghost" 
+                size="icon" 
+                className="absolute right-1 top-1 h-8 w-8 text-muted-foreground"
+                onClick={toggleShowCurrentPassword}
+              >
+                {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="newPassword">New Password</Label>
+            <div className="relative">
+              <Input
+                id="newPassword"
+                type={showNewPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={10}
+                className="pr-10 bg-neutral-800 border-neutral-700"
+                placeholder="Enter new password"
+              />
+              <Button 
+                type="button" 
+                variant="ghost" 
+                size="icon" 
+                className="absolute right-1 top-1 h-8 w-8 text-muted-foreground"
+                onClick={toggleShowNewPassword}
+              >
+                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Password must be at least 10 characters long
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              className="bg-neutral-800 border-neutral-700"
+              placeholder="Confirm new password"
+            />
+          </div>
+
+          <Button 
+            type="submit" 
+            className="w-full"
+            disabled={loading}
+          >
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {loading ? 'Updating...' : 'Update Password'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+</file>
+
 <file path="src/components/calendar/AddEventDialog.tsx">
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
@@ -7094,6 +7097,105 @@ export const AssignmentsCard: React.FC<AssignmentsCardProps> = ({ onClick }) => 
 };
 </file>
 
+<file path="src/components/dashboard/ClassesCard.tsx">
+// src/components/dashboard/ClassesCard.tsx
+import React from 'react';
+import ShimmerButton from '@/components/ui/ShimmerButton';
+import { ArrowRight } from 'lucide-react';
+import { ClassesDemo } from './ClassesDemo';
+import { ClassConfig } from '@/services/classOpenAIConfig';
+
+interface ClassesCardProps {
+  onClick: () => void;
+  classes: (ClassConfig & { files: number; size: string; is_owner: boolean; is_shared: boolean; })[];
+  isLoading: boolean;
+  // --- MODIFICATION: Added a new prop for handling clicks on individual class cards ---
+  onClassClick: (classData: ClassConfig) => void;
+}
+
+export const ClassesCard: React.FC<ClassesCardProps> = ({ onClick, classes, isLoading, onClassClick }) => {
+  return (
+    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
+      <div className="flex flex-col gap-y-3">
+        {/* --- MODIFICATION: Renamed title --- */}
+        <h2 className="text-2xl font-bold text-neutral-100">
+          Classes
+        </h2>
+        
+        <p className="text-sm text-neutral-400 max-w-md">
+          Invite classmates to build a knowledge base together. Share notes, slides, and study materials in one central place.
+        </p>
+      </div>
+
+      <div className="flex-grow" />
+
+      <div className="mt-6 flex flex-col gap-4">
+        <ShimmerButton 
+          onClick={onClick} 
+          className="w-fit border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
+        >
+          {/* --- MODIFICATION: Updated button text --- */}
+          Go to Classes
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </ShimmerButton>
+
+        <div className="h-56 w-full">
+           {/* --- MODIFICATION: Pass the new onClassClick handler to the demo --- */}
+           <ClassesDemo classes={classes} isLoading={isLoading} onClassClick={onClassClick} />
+        </div>
+      </div>
+    </section>
+  );
+};
+</file>
+
+<file path="src/components/dashboard/ClassesDemo.tsx">
+// src/components/dashboard/ClassesDemo.tsx
+import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { DashboardClassCard } from './DashboardClassCard';
+import { ClassConfig } from '@/services/classOpenAIConfig';
+import { Loader2 } from 'lucide-react';
+
+interface ClassesDemoProps {
+  classes: (ClassConfig & { files: number; size: string; is_owner: boolean; is_shared: boolean; })[];
+  isLoading: boolean;
+  onClassClick: (classData: ClassConfig) => void;
+}
+
+export const ClassesDemo: React.FC<ClassesDemoProps> = ({ classes, isLoading, onClassClick }) => {
+  return (
+    <Card className="h-full border border-neutral-700/50 bg-neutral-900/50 relative overflow-hidden">
+      <CardContent className="p-3 h-full">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-6 w-6 animate-spin text-neutral-500" />
+          </div>
+        ) : classes.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3 h-full overflow-y-auto">
+            {classes.slice(0, 4).map((classItem) => (
+              <DashboardClassCard
+                key={classItem.class_id}
+                className={classItem.class_name}
+                files={classItem.files}
+                size={classItem.size}
+                isShared={classItem.is_shared}
+                color={classItem.color}
+                onClick={() => onClassClick(classItem)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full text-center text-sm text-neutral-400">
+            <p>No classes yet. Click below to create one!</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+</file>
+
 <file path="src/components/dashboard/CommandBar.tsx">
 // src/components/dashboard/CommandBar.tsx
 import React from 'react';
@@ -7245,6 +7347,79 @@ export const DashboardCalendar: React.FC<DashboardCalendarProps> = ({ onAddEvent
       />
       <div className="flex-1 overflow-auto">
         {renderCalendarView()}
+      </div>
+    </div>
+  );
+};
+</file>
+
+<file path="src/components/dashboard/DashboardClassCard.tsx">
+// src/components/dashboard/DashboardClassCard.tsx
+import React from 'react';
+import { cn } from '@/lib/utils';
+import { Users } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { getHslColorValue, normalizeColorClasses } from '@/components/calendar/colorUtils';
+
+interface DashboardClassCardProps {
+  className: string;
+  files: number;
+  size: string;
+  isShared: boolean;
+  color?: string | null;
+  onClick: () => void;
+}
+
+export const DashboardClassCard: React.FC<DashboardClassCardProps> = ({ className, files, size, isShared, color, onClick }) => {
+  const { borderColor, bgColor } = normalizeColorClasses(color);
+  const shimmerColor = getHslColorValue(color);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { currentTarget: target } = e;
+    const rect = target.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    target.style.setProperty("--x", `${x}px`);
+    target.style.setProperty("--shimmer-color", shimmerColor);
+  };
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseMove={handleMouseMove}
+      className={cn(
+        "group p-2 rounded-lg cursor-pointer transition-all border relative flex flex-col h-28",
+        "shimmer-button transition-transform ease-in-out duration-200 hover:-translate-y-1",
+        borderColor,
+        bgColor
+      )}
+    >
+      <div className="flex justify-between items-start gap-2 w-full">
+        <h3 
+          className="font-semibold text-xs text-white truncate pr-1 min-w-0"
+          title={className}
+        >
+          {className}
+        </h3>
+        
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {isShared && (
+            <Badge variant="secondary" className="text-xs flex items-center bg-black/20 text-white/90 border-transparent pointer-events-none">
+              <Users className="mr-1.5 h-3 w-3" />
+              Shared
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-grow" /> 
+
+      <div className="mt-auto">
+        <div className="text-[10px] text-white/80">
+            <span>{files} Files</span>
+            <span className="mx-2">•</span>
+            <span>{size}</span>
+        </div>
       </div>
     </div>
   );
@@ -7528,55 +7703,6 @@ export const OracleDemo = () => {
 };
 </file>
 
-<file path="src/components/dashboard/SharedClassesDemo.tsx">
-// src/components/dashboard/SharedClassesDemo.tsx
-import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { FileText, Folder, Users } from 'lucide-react';
-
-const ItemPill = ({ icon, label }: { icon: React.ReactNode; label: string }) => (
-  <div className="flex items-center gap-2 p-2 rounded-md bg-neutral-800/80 border border-neutral-700/60 shadow-sm">
-    {icon}
-    <span className="text-xs text-neutral-300">{label}</span>
-  </div>
-);
-
-export const SharedClassesDemo = () => {
-  return (
-    <Card className="h-full border border-white/10 bg-white/5 backdrop-blur-xl shadow-inner relative overflow-hidden">
-      <CardContent className="p-4 flex flex-col items-center justify-center h-full gap-4">
-        {/* Avatars floating around */}
-        <Avatar className="h-10 w-10 absolute top-4 left-4 border-2 border-neutral-600">
-            <AvatarFallback className="bg-neutral-700 text-neutral-300">SA</AvatarFallback>
-        </Avatar>
-        <Avatar className="h-10 w-10 absolute top-12 right-6 border-2 border-neutral-600">
-            <AvatarFallback className="bg-neutral-700 text-neutral-300">MJ</AvatarFallback>
-        </Avatar>
-        <Avatar className="h-10 w-10 absolute bottom-4 left-12 border-2 border-neutral-600">
-            <AvatarFallback className="bg-neutral-700 text-neutral-300">TY</AvatarFallback>
-        </Avatar>
-
-        {/* Central Card */}
-        <div className="relative text-center p-4 border border-neutral-700 bg-neutral-800/50 rounded-lg">
-            <Users className="h-8 w-8 mx-auto text-blue-400 mb-2" />
-            <h3 className="font-semibold text-sm text-neutral-100">BISC 110L</h3>
-            <p className="text-xs text-neutral-400">Shared Class</p>
-        </div>
-
-        {/* Floating Pills */}
-        <div className="absolute bottom-6 right-4">
-            <ItemPill icon={<FileText size={14} className="text-neutral-400" />} label="Lecture_03.pdf" />
-        </div>
-         <div className="absolute top-24 left-10">
-             <ItemPill icon={<Folder size={14} className="text-neutral-400" />} label="Study Guides" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-</file>
-
 <file path="src/components/dashboard/WelcomePopup.tsx">
 // src/components/dashboard/WelcomePopup.tsx
 import React from 'react';
@@ -7628,6 +7754,48 @@ export const WelcomePopup: React.FC<WelcomePopupProps> = ({ isOpen, onClose }) =
         </div>
       </DialogContent>
     </Dialog>
+  );
+};
+</file>
+
+<file path="src/components/layout/sidebar/ProfileSidebar.tsx">
+// src/components/layout/sidebar/ProfileSidebar.tsx
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+
+const NavItem = ({ to, label, soon }: { to: string; label: string, soon?: boolean }) => {
+    const commonClasses = "flex items-center justify-between py-1.5 px-3 rounded-md cursor-pointer transition-colors";
+    const activeClasses = "bg-neutral-700 text-white font-medium";
+    const inactiveClasses = "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200";
+
+    return (
+        <NavLink to={to}>
+            {({ isActive }) => (
+                <span className={cn(commonClasses, isActive ? activeClasses : inactiveClasses)}>
+                    <span className="flex items-center">
+                        {isActive && <div className="mr-3 h-1.5 w-1.5 rounded-full bg-blue-500"></div>}
+                        {label}
+                    </span>
+                    {soon && <Badge variant="secondary" className="text-xs bg-neutral-700 text-neutral-300">Soon</Badge>}
+                </span>
+            )}
+        </NavLink>
+    );
+};
+
+export const ProfileSidebar = () => {
+  return (
+    <div className="flex h-full flex-col justify-between overflow-y-auto bg-neutral-900 rounded-lg border border-neutral-800 md:w-42 w-full lg:w-56 px-2 md:py-4">
+      <nav className="flex w-full flex-col gap-y-6">
+        <div className="flex flex-col gap-y-1">
+          <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Settings</span>
+          <NavItem to="/profile" label="Profile" />
+          <NavItem to="/billing" label="Billing" soon />
+        </div>
+      </nav>
+    </div>
   );
 };
 </file>
@@ -14197,103 +14365,6 @@ export const FolderCard: React.FC<FolderCardProps> = ({ folderName, files, size,
 };
 </file>
 
-<file path="src/components/dashboard/OracleChatDemo.tsx">
-// src/components/dashboard/OracleChatDemo.tsx
-import React, { useEffect, useRef } from 'react';
-import { useOracle } from '@/hooks/useOracle';
-import { ChatMessage } from '@/components/chat/ChatMessage';
-import { ChatInput } from '@/components/oracle/ChatInput';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2 } from 'lucide-react';
-
-// A small, local loading component for the demo
-const LoadingIndicator = () => (
-  <>
-    <style>{`
-      @keyframes dot-flashing {
-        0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; }
-      }
-      .dot-flashing span {
-        animation: dot-flashing 1.4s infinite both;
-        display: inline-block; width: 4px; height: 4px; margin-left: 2px;
-        background-color: currentColor; border-radius: 50%;
-      }
-      .dot-flashing span:nth-child(2) { animation-delay: 0.2s; }
-      .dot-flashing span:nth-child(3) { animation-delay: 0.4s; }
-    `}</style>
-    <div className="flex items-center justify-center p-4 text-sm text-neutral-400">
-      <span>Thinking</span>
-      <div className="dot-flashing ml-1">
-        <span /> <span /> <span />
-      </div>
-    </div>
-  </>
-);
-
-export const OracleChatDemo = () => {
-  const {
-    input, setInput, isChatLoading, isPageLoading, userProfile, messages,
-    messagesEndRef, fileInputRef, handleSendMessage, handleFileSelect,
-    handlePaste, handleRemoveFile, attachedFiles,
-  } = useOracle();
-
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-
-  // This effect ensures the view scrolls to the latest message.
-  useEffect(() => {
-    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-    if (viewport) {
-      viewport.scrollTop = viewport.scrollHeight;
-    }
-  }, [messages]);
-
-  if (isPageLoading) {
-    return <div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-neutral-500" /></div>;
-  }
-
-  return (
-    // The root element now has no padding and fills its container.
-    <div className="flex flex-col h-full">
-      {/* The ScrollArea takes up all available space and has the fade effect. */}
-      <ScrollArea 
-        className="flex-1 min-h-0 [mask-image:linear-gradient(to_bottom,transparent_0%,black_10%,black_90%,transparent_100%)]" 
-        ref={scrollAreaRef}
-      >
-        {/* Padding is applied *inside* the scroll area so messages don't touch the edges. */}
-        <div className="space-y-4 p-4">
-          {messages.map((message) => (
-            <ChatMessage
-              key={message.id}
-              isUser={message.role === 'user'}
-              senderName={message.role === 'user' ? (userProfile?.full_name || 'You') : 'Eido AI'}
-              avatarUrl={message.role === 'user' ? userProfile?.avatar_url : undefined}
-              content={message.content}
-              attachedFiles={message.attached_files}
-              isSelected={false}
-            />
-          ))}
-          {isChatLoading && <LoadingIndicator />}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
-      
-      {/* The ChatInput is placed at the bottom, wrapped in a div to give it horizontal padding. */}
-      <div className="px-4 pb-4">
-        <ChatInput
-            input={input}
-            setInput={setInput}
-            handleSendMessage={handleSendMessage}
-            isChatLoading={isChatLoading}
-            attachedFiles={attachedFiles}
-            handleRemoveFile={handleRemoveFile}
-            fileInputRef={fileInputRef}
-        />
-      </div>
-    </div>
-  );
-};
-</file>
-
 <file path="src/components/layout/AppLayout.tsx">
 // src/components/layout/AppLayout.tsx
 
@@ -15514,202 +15585,6 @@ export default defineConfig({
 });
 </file>
 
-<file path="src/components/auth/UserProfile.tsx">
-// src/components/auth/UserProfile.tsx
-import { useState, useEffect, useCallback } from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Camera } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; 
-import type { User } from "@supabase/supabase-js";
-import { useAuth } from '@/context/AuthContext';
-
-interface ProfileData {
-  user_id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  updated_at?: string;
-}
-
-export function UserProfile() {
-  const { user } = useAuth();
-  
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(true);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const { toast } = useToast();
-
-  const fetchProfileForUser = useCallback(async (authUser: User | null) => {
-    if (!authUser?.id) {
-      setProfile(null);
-      setLoadingProfile(false);
-      return;
-    }
-
-    setLoadingProfile(true);
-    try {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, avatar_url, updated_at')
-        .eq('user_id', authUser.id)
-        .single(); 
-            
-      if (profileError) {
-        if (profileError.code === 'PGRST116') {
-          console.log("UserProfile: No profile found for user_id:", authUser.id);
-          setProfile(null);
-        } else {
-          console.error("UserProfile: Error fetching profile:", profileError);
-          toast({ title: "Error", description: "Could not fetch profile information.", variant: "destructive" });
-          setProfile(null);
-        }
-      } else {
-        setProfile(profileData as ProfileData);
-      }
-    } catch (error) {
-      console.error('UserProfile: Exception in fetchProfileForUser:', error);
-      toast({ title: "Error", description: "An unexpected error occurred while fetching profile.", variant: "destructive" });
-      setProfile(null);
-    } finally {
-      setLoadingProfile(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    fetchProfileForUser(user);
-  }, [user, fetchProfileForUser]);
-
-  const handleProfilePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Profile photo must be less than 5MB", variant: "destructive" });
-      return;
-    }
-    if (!file.type.startsWith('image/')) {
-      toast({ title: "Invalid file type", description: "Please upload an image file", variant: "destructive" });
-      return;
-    }
-    
-    setUploadingPhoto(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('profiles') 
-        .upload(filePath, file, { cacheControl: '3600', upsert: true });
-        
-      if (uploadError) throw uploadError;
-      
-      const { data: publicUrlData } = supabase.storage
-        .from('profiles') 
-        .getPublicUrl(filePath);
-      
-      const publicUrl = publicUrlData.publicUrl;
-      const newUpdatedAt = new Date().toISOString();
-      
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl, updated_at: newUpdatedAt }) 
-        .eq('user_id', user.id); 
-        
-      if (updateError) throw updateError;
-      
-      setProfile(prevProfile => ({
-        ...(prevProfile || { user_id: user.id, full_name: null, avatar_url: null }), 
-        avatar_url: publicUrl,
-        updated_at: newUpdatedAt
-      }));
-      
-      toast({ title: "Profile photo updated", description: "Your new photo is now active." });
-    } catch (error: any) {
-      console.error('UserProfile: Error uploading photo:', error);
-      toast({
-        title: "Upload failed",
-        description: error.message || "Failed to upload profile photo. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingPhoto(false);
-    }
-  };
-
-  if (loadingProfile) {
-    return (
-      <div className="flex justify-center items-center p-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <p className="p-4 text-sm text-muted-foreground">Please sign in to view your profile.</p>; 
-  }
-
-  const userInitials = profile?.full_name 
-    ? profile.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
-    : user.email?.charAt(0).toUpperCase() || "?";
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>User Profile</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-col items-center gap-2">
-          <div className="relative group">
-            <Avatar className="h-24 w-24 border-2 border-white shadow-md">
-              {profile?.avatar_url && (
-                <AvatarImage src={`${profile.avatar_url}?t=${profile.updated_at || Date.now()}`} alt={profile?.full_name || user.email || "User Avatar"} />
-              )}
-              <AvatarFallback className="text-xl">{userInitials}</AvatarFallback>
-            </Avatar>
-            <label 
-              htmlFor="avatar-upload"
-              className="absolute bottom-0 right-0 p-1 bg-primary text-primary-foreground rounded-full cursor-pointer shadow-md hover:bg-primary/90 transition-colors"
-            >
-              <Camera className="h-4 w-4" />
-              <span className="sr-only">Upload profile photo</span>
-            </label>
-            <input 
-              type="file" 
-              id="avatar-upload" 
-              className="hidden" 
-              accept="image/*"
-              onChange={handleProfilePhotoChange}
-              disabled={uploadingPhoto}
-            />
-          </div>
-          {uploadingPhoto && (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>Uploading...</span>
-            </div>
-          )}
-        </div>
-        
-        {profile?.full_name && (
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Name</p>
-            <p>{profile.full_name}</p>
-          </div>
-        )}
-        
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">Email</p>
-          <p>{user.email}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-</file>
-
 <file path="src/components/calendar/CalendarHeader.tsx">
 // src/components/calendar/CalendarHeader.tsx
 import React, { useRef } from 'react';
@@ -16103,89 +15978,97 @@ export const ClassesHeader: React.FC<ClassesHeaderProps> = ({
 };
 </file>
 
-<file path="src/components/oracle/ChatInput.tsx">
-// src/components/oracle/ChatInput.tsx
-import React from 'react';
-import { Textarea } from '@/components/ui/textarea';
+<file path="src/components/dashboard/OracleChatDemo.tsx">
+// src/components/dashboard/OracleChatDemo.tsx
+import React, { useEffect, useRef } from 'react';
+import { useOracle } from '@/hooks/useOracle';
+import { ChatMessage } from '@/components/chat/ChatMessage';
+import { ChatInput } from '@/components/oracle/ChatInput';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { PlusCircle } from 'lucide-react';
-import { AttachedFilePill } from '@/components/chat/AttachedFilePill';
-import type { AttachedFile } from '@/components/chat/AttachedFilePill';
-import ShimmerButton from '../ui/ShimmerButton';
-import { Button } from '../ui/button';
+import { Loader2 } from 'lucide-react';
 
-interface ChatInputProps {
-  input: string;
-  setInput: (value: string) => void;
-  handleSendMessage: () => void;
-  isChatLoading: boolean;
-  attachedFiles: AttachedFile[];
-  handleRemoveFile: (fileId: string) => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-}
+// A small, local loading component for the demo
+const LoadingIndicator = () => (
+  <>
+    <style>{`
+      @keyframes dot-flashing {
+        0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; }
+      }
+      .dot-flashing span {
+        animation: dot-flashing 1.4s infinite both;
+        display: inline-block; width: 4px; height: 4px; margin-left: 2px;
+        background-color: currentColor; border-radius: 50%;
+      }
+      .dot-flashing span:nth-child(2) { animation-delay: 0.2s; }
+      .dot-flashing span:nth-child(3) { animation-delay: 0.4s; }
+    `}</style>
+    <div className="flex items-center justify-center p-4 text-sm text-neutral-400">
+      <span>Thinking</span>
+      <div className="dot-flashing ml-1">
+        <span /> <span /> <span />
+      </div>
+    </div>
+  </>
+);
 
-export const ChatInput: React.FC<ChatInputProps> = ({
-  input, setInput, handleSendMessage, isChatLoading, attachedFiles, handleRemoveFile, fileInputRef
-}) => {
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
+export const OracleChatDemo = () => {
+  const {
+    input, setInput, isChatLoading, isPageLoading, userProfile, messages,
+    messagesEndRef, fileInputRef, handleSendMessage, handleFileSelect,
+    handlePaste, handleRemoveFile, attachedFiles,
+  } = useOracle();
+
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // This effect ensures the view scrolls to the latest message.
+  useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
     }
-  };
+  }, [messages]);
+
+  if (isPageLoading) {
+    return <div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-neutral-500" /></div>;
+  }
 
   return (
-    <div className="pt-4 border-t border-neutral-800 flex-shrink-0">
-      {attachedFiles.length > 0 && (
-        <div className="px-1 pb-2">
-          <ScrollArea className="w-full whitespace-nowrap">
-            <div className="flex items-center gap-2 pb-2">
-              {attachedFiles.map(file => (
-                <AttachedFilePill key={file.id} file={file} onRemove={handleRemoveFile} />
-              ))}
-            </div>
-          </ScrollArea>
+    <div className="flex flex-col h-full border-b border-l border-r border-neutral-700/50 rounded-b-md">
+      <ScrollArea 
+        className="flex-1 min-h-0 [mask-image:linear-gradient(to_bottom,transparent_0%,black_10%,black_90%,transparent_100%)]" 
+        ref={scrollAreaRef}
+      >
+        {/* --- MODIFICATION: Reduced padding for a tighter layout --- */}
+        <div className="space-y-3 p-3">
+          {messages.map((message) => (
+            <ChatMessage
+              key={message.id}
+              isUser={message.role === 'user'}
+              senderName={message.role === 'user' ? (userProfile?.full_name || 'You') : 'Eido AI'}
+              avatarUrl={message.role === 'user' ? userProfile?.avatar_url : undefined}
+              content={message.content}
+              attachedFiles={message.attached_files}
+              isSelected={false}
+            />
+          ))}
+          {isChatLoading && <LoadingIndicator />}
+          <div ref={messagesEndRef} />
         </div>
-      )}
-      {/* --- MODIFICATION START: Using a robust flex layout for alignment --- */}
-      <div className="flex items-center gap-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 flex-shrink-0 text-neutral-400 hover:text-white hover:bg-neutral-800"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <PlusCircle className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent><p>Attach PDF or Image</p></TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <Textarea
-          placeholder="Ask about your documents, or attach a file..."
-          className="h-10 min-h-10 bg-neutral-900 border-neutral-700 text-neutral-200 resize-none flex-1 text-sm py-2 px-3"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={isChatLoading}
-          rows={1}
+      </ScrollArea>
+      
+      {/* --- MODIFICATION: Reduced padding and passed isDemo prop --- */}
+      <div className="px-3 pb-3 pt-2">
+        <ChatInput
+            input={input}
+            setInput={setInput}
+            handleSendMessage={handleSendMessage}
+            isChatLoading={isChatLoading}
+            attachedFiles={attachedFiles}
+            handleRemoveFile={handleRemoveFile}
+            fileInputRef={fileInputRef}
+            isDemo={true}
         />
-        
-        <ShimmerButton
-          size="lg" // Using lg size for h-10
-          className="h-10 border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400 flex-shrink-0"
-          onClick={handleSendMessage}
-          disabled={isChatLoading || (input.trim() === "" && attachedFiles.length === 0)}
-        >
-          Send
-        </ShimmerButton>
       </div>
-      {/* --- MODIFICATION END --- */}
     </div>
   );
 };
@@ -16789,6 +16672,203 @@ Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-trick
 test
 </file>
 
+<file path="src/components/auth/UserProfile.tsx">
+// src/components/auth/UserProfile.tsx
+import { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2, Camera } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; 
+import type { User } from "@supabase/supabase-js";
+import { useAuth } from '@/context/AuthContext';
+
+interface ProfileData {
+  user_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  updated_at?: string;
+}
+
+export function UserProfile() {
+  const { user } = useAuth();
+  
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const { toast } = useToast();
+
+  const fetchProfileForUser = useCallback(async (authUser: User | null) => {
+    if (!authUser?.id) {
+      setProfile(null);
+      setLoadingProfile(false);
+      return;
+    }
+
+    setLoadingProfile(true);
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, avatar_url, updated_at')
+        .eq('user_id', authUser.id)
+        .single(); 
+            
+      if (profileError) {
+        if (profileError.code === 'PGRST116') {
+          console.log("UserProfile: No profile found for user_id:", authUser.id);
+          setProfile(null);
+        } else {
+          console.error("UserProfile: Error fetching profile:", profileError);
+          toast({ title: "Error", description: "Could not fetch profile information.", variant: "destructive" });
+          setProfile(null);
+        }
+      } else {
+        setProfile(profileData as ProfileData);
+      }
+    } catch (error) {
+      console.error('UserProfile: Exception in fetchProfileForUser:', error);
+      toast({ title: "Error", description: "An unexpected error occurred while fetching profile.", variant: "destructive" });
+      setProfile(null);
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchProfileForUser(user);
+  }, [user, fetchProfileForUser]);
+
+  const handleProfilePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Profile photo must be less than 5MB", variant: "destructive" });
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Invalid file type", description: "Please upload an image file", variant: "destructive" });
+      return;
+    }
+    
+    setUploadingPhoto(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('profiles') 
+        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+        
+      if (uploadError) throw uploadError;
+      
+      const { data: publicUrlData } = supabase.storage
+        .from('profiles') 
+        .getPublicUrl(filePath);
+      
+      const publicUrl = publicUrlData.publicUrl;
+      const newUpdatedAt = new Date().toISOString();
+      
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl, updated_at: newUpdatedAt }) 
+        .eq('user_id', user.id); 
+        
+      if (updateError) throw updateError;
+      
+      setProfile(prevProfile => ({
+        ...(prevProfile || { user_id: user.id, full_name: null, avatar_url: null }), 
+        avatar_url: publicUrl,
+        updated_at: newUpdatedAt
+      }));
+      
+      toast({ title: "Profile photo updated", description: "Your new photo is now active." });
+    } catch (error: any) {
+      console.error('UserProfile: Error uploading photo:', error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload profile photo. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  if (loadingProfile) {
+    return (
+      <Card className="bg-neutral-900 border-neutral-800">
+          <CardContent className="flex justify-center items-center p-4 h-48">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </CardContent>
+      </Card>
+    );
+  }
+
+  if (!user) {
+    return <p className="p-4 text-sm text-muted-foreground">Please sign in to view your profile.</p>; 
+  }
+
+  const userInitials = profile?.full_name 
+    ? profile.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+    : user.email?.charAt(0).toUpperCase() || "?";
+
+  return (
+    <Card className="bg-neutral-900 border-neutral-800">
+      <CardHeader>
+        <CardTitle>User Profile</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-col items-center gap-2">
+          <div className="relative group">
+            <Avatar className="h-24 w-24 border-2 border-neutral-700 shadow-md">
+              {profile?.avatar_url && (
+                <AvatarImage src={`${profile.avatar_url}?t=${profile.updated_at || Date.now()}`} alt={profile?.full_name || user.email || "User Avatar"} />
+              )}
+              <AvatarFallback className="text-xl bg-neutral-800 text-neutral-300">{userInitials}</AvatarFallback>
+            </Avatar>
+            <label 
+              htmlFor="avatar-upload"
+              className="absolute bottom-0 right-0 p-1.5 bg-blue-600 text-white rounded-full cursor-pointer shadow-md hover:bg-blue-500 transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <Camera className="h-4 w-4" />
+              <span className="sr-only">Upload profile photo</span>
+            </label>
+            <input 
+              type="file" 
+              id="avatar-upload" 
+              className="hidden" 
+              accept="image/*"
+              onChange={handleProfilePhotoChange}
+              disabled={uploadingPhoto}
+            />
+          </div>
+          {uploadingPhoto && (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Uploading...</span>
+            </div>
+          )}
+        </div>
+        
+        {profile?.full_name && (
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Name</p>
+            <p className="text-neutral-200">{profile.full_name}</p>
+          </div>
+        )}
+        
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">Email</p>
+          <p className="text-neutral-200">{user.email}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+</file>
+
 <file path="src/components/calendar/views/MonthView.tsx">
 // src/components/calendar/views/MonthView.tsx
 import React from 'react';
@@ -17085,51 +17165,6 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
 };
 </file>
 
-<file path="src/components/dashboard/SharedClassesCard.tsx">
-// src/components/dashboard/SharedClassesCard.tsx
-import React from 'react';
-import ShimmerButton from '@/components/ui/ShimmerButton';
-import { SharedClassesDemo } from './SharedClassesDemo';
-import { ArrowRight } from 'lucide-react';
-
-interface SharedClassesCardProps {
-  onClick: () => void;
-}
-
-export const SharedClassesCard: React.FC<SharedClassesCardProps> = ({ onClick }) => {
-  return (
-    // --- MODIFICATION: Removed flex-grow ---
-    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
-      <div className="flex flex-col gap-y-3">
-        <h2 className="text-2xl font-bold text-neutral-100">
-          Shared Classes
-        </h2>
-        
-        <p className="text-sm text-neutral-400 max-w-md">
-          Invite classmates to build a knowledge base together. Share notes, slides, and study materials in one central place.
-        </p>
-      </div>
-
-      <div className="flex-grow" />
-
-      <div className="mt-6 flex flex-col gap-4">
-        <ShimmerButton 
-          onClick={onClick} 
-          className="w-fit border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
-        >
-          Create or Join Class
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </ShimmerButton>
-
-        <div className="h-56 w-full">
-          <SharedClassesDemo />
-        </div>
-      </div>
-    </section>
-  );
-};
-</file>
-
 <file path="src/components/layout/AppSidebar.tsx">
 // src/components/layout/AppSidebar.tsx
 import { Home, CalendarDays, Terminal, Compass } from "lucide-react"; // Using Compass for Oracle
@@ -17200,6 +17235,108 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
     </div>
   );
 }
+</file>
+
+<file path="src/components/oracle/ChatInput.tsx">
+// src/components/oracle/ChatInput.tsx
+import React from 'react';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PlusCircle } from 'lucide-react';
+import { AttachedFilePill } from '@/components/chat/AttachedFilePill';
+import type { AttachedFile } from '@/components/chat/AttachedFilePill';
+import ShimmerButton from '../ui/ShimmerButton';
+import { Button } from '../ui/button';
+import { cn } from '@/lib/utils';
+
+interface ChatInputProps {
+  input: string;
+  setInput: (value: string) => void;
+  handleSendMessage: () => void;
+  isChatLoading: boolean;
+  attachedFiles: AttachedFile[];
+  handleRemoveFile: (fileId: string) => void;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  isDemo?: boolean;
+}
+
+export const ChatInput: React.FC<ChatInputProps> = ({
+  input, setInput, handleSendMessage, isChatLoading, attachedFiles, handleRemoveFile, fileInputRef, isDemo
+}) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  return (
+    <div className={cn(
+      "flex-shrink-0",
+      !isDemo && "pt-4 border-t border-neutral-800"
+    )}>
+      {attachedFiles.length > 0 && (
+        <div className="px-1 pb-2">
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex items-center gap-2 pb-2">
+              {attachedFiles.map(file => (
+                <AttachedFilePill key={file.id} file={file} onRemove={handleRemoveFile} />
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        {/* --- MODIFICATION: Conditionally render the '+' button --- */}
+        {!isDemo && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 flex-shrink-0 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <PlusCircle className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Attach PDF or Image</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        <Textarea
+          placeholder="Ask about your documents, or attach a file..."
+          // --- MODIFICATION: Conditionally adjust height ---
+          className={cn(
+            "bg-neutral-900 border-neutral-700 text-neutral-200 resize-none flex-1 text-sm py-2 px-3",
+            isDemo ? "h-9 min-h-9" : "h-10 min-h-10"
+          )}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={isChatLoading}
+          rows={1}
+        />
+        
+        <ShimmerButton
+          // --- MODIFICATION: Conditionally adjust size and height ---
+          size={isDemo ? "default" : "lg"}
+          className={cn(
+            "border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400 flex-shrink-0",
+            isDemo ? "h-9" : "h-10"
+          )}
+          onClick={handleSendMessage}
+          disabled={isChatLoading || (input.trim() === "" && attachedFiles.length === 0)}
+        >
+          Send
+        </ShimmerButton>
+      </div>
+    </div>
+  );
+};
 </file>
 
 <file path="src/components/oracle/DocumentViewer.tsx">
@@ -17319,514 +17456,6 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
       )}
     </div>
   );
-};
-</file>
-
-<file path="src/hooks/useClassesPage.ts">
-// src/hooks/useClassesPage.ts
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { usePageLoader } from '@/context/LoaderContext';
-import { supabase } from '@/integrations/supabase/client';
-import { User, RealtimeChannel } from '@supabase/supabase-js';
-import { ClassConfig, classOpenAIConfigService } from '@/services/classOpenAIConfig';
-import { fileService } from '@/services/fileService';
-import { FolderType, FileType } from '@/features/files/types';
-import { UploadingFile } from '@/components/classes/UploadProgressToast';
-import { DeletingFile } from '@/components/classes/DeletionProgressToast';
-import { formatFileSize } from '@/lib/utils';
-import { ClassMember } from '@/components/classes/ClassMembersView';
-
-export const useClassesPage = () => {
-    const { loader } = usePageLoader();
-    const { toast } = useToast();
-    const [user, setUser] = useState<User | null>(null);
-    const [classes, setClasses] = useState<ClassConfig[]>([]);
-    const [folders, setFolders] = useState<FolderType[]>([]);
-    const [allUserFolders, setAllUserFolders] = useState<FolderType[]>([]);
-    const [files, setFiles] = useState<FileType[]>([]);
-    const [allClassFiles, setAllClassFiles] = useState<FileType[]>([]);
-    const [allFiles, setAllFiles] = useState<(FileType & { class: string; })[]>([]);
-    const [recentFiles, setRecentFiles] = useState<FileType[]>(() => {
-        try {
-            const item = window.localStorage.getItem('eidoRecentFiles');
-            return item ? JSON.parse(item) as FileType[] : [];
-        } catch (error) {
-            console.error("Error parsing recent files from localStorage", error);
-            return [];
-        }
-    });
-    const [selectedClass, setSelectedClass] = useState<ClassConfig | null>(null);
-    const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-    const [breadcrumbs, setBreadcrumbs] = useState<{ name: string; id: string | null }[]>([{ name: 'Home', id: null }]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [filesToDelete, setFilesToDelete] = useState<FileType[]>([]);
-    const [deletingFiles, setDeletingFiles] = useState<DeletingFile[]>([]);
-    const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
-    const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
-    const [isUploadOpen, setIsUploadOpen] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [previewedFile, setPreviewedFile] = useState<FileType | null>(null);
-    const [isDeleteClassConfirmationOpen, setIsDeleteClassConfirmationOpen] = useState(false);
-    const [classToDelete, setClassToDelete] = useState<ClassConfig | null>(null);
-    const [isDeletingClass, setIsDeletingClass] = useState(false);
-    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
-    const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
-    const fileSubscription = useRef<RealtimeChannel | null>(null);
-    const [isJoinClassOpen, setIsJoinClassOpen] = useState(false);
-    const [classMembers, setClassMembers] = useState<ClassMember[]>([]);
-    const [isLoadingMembers, setIsLoadingMembers] = useState(false);
-
-    useEffect(() => {
-        if (loader) loader.continuousStart();
-        const fetchUserAndInitialData = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            const currentUser = session?.user ?? null;
-            setUser(currentUser);
-            if (currentUser) {
-                const allFolders = await fileService.getAllFoldersForUser();
-                setAllUserFolders(allFolders);
-            }
-        };
-        fetchUserAndInitialData();
-        return () => {
-            if (fileSubscription.current) {
-                supabase.removeChannel(fileSubscription.current);
-            }
-        };
-    }, [loader]);
-
-    useEffect(() => {
-        try {
-            window.localStorage.setItem('eidoRecentFiles', JSON.stringify(recentFiles));
-        } catch (error) {
-            console.error("Failed to save recent files to localStorage", error);
-        }
-    }, [recentFiles]);
-
-    const fetchData = useCallback(async () => {
-        if (!user) return;
-        setIsLoading(true);
-        if (selectedClass) setIsLoadingMembers(true);
-
-        try {
-            if (selectedClass) {
-                const [fetchedFolders, fetchedFiles, fetchedAllClassFiles, fetchedMembers] = await Promise.all([
-                    fileService.getFolders(selectedClass.class_id, currentFolderId),
-                    fileService.getFiles(selectedClass.class_id, currentFolderId),
-                    fileService.getAllFilesForClass(selectedClass.class_id),
-                    classOpenAIConfigService.getClassMembers(selectedClass.class_id),
-                ]);
-                setFolders(fetchedFolders);
-                setFiles(fetchedFiles);
-                setAllClassFiles(fetchedAllClassFiles);
-                setClassMembers(fetchedMembers);
-            } else {
-                const [fetchedClasses, fetchedAllFilesResult] = await Promise.all([
-                    classOpenAIConfigService.getAllClasses(),
-                    fileService.getAllFilesWithClass()
-                ]);
-                setClasses(fetchedClasses);
-                setAllFiles(fetchedAllFilesResult as (FileType & { class: string })[]);
-                setFolders([]);
-                setFiles([]);
-                setClassMembers([]);
-            }
-        } catch (error) {
-            toast({ title: 'Error fetching data', description: (error instanceof Error) ? error.message : "An unknown error occurred.", variant: 'destructive' });
-        } finally {
-            setIsLoading(false);
-            setIsLoadingMembers(false);
-            if (loader) loader.complete();
-        }
-    }, [user, selectedClass, currentFolderId, toast, loader]);
-    
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    const handleJoinClass = async (inviteCode: string) => {
-        if (!inviteCode.trim()) {
-            toast({ title: "Error", description: "Invite code cannot be empty.", variant: "destructive" });
-            return;
-        }
-        setIsSubmitting(true);
-        try {
-            const { error, data } = await supabase.functions.invoke('join-class', {
-                body: { invite_code: inviteCode.trim() },
-            });
-            
-            if (error) throw new Error(error.message);
-            if (data?.error) throw new Error(data.error);
-
-            toast({ title: "Request Sent!", description: data.message });
-        } catch (error) {
-            toast({ title: "Error Joining Class", description: (error as Error).message, variant: "destructive" });
-        } finally {
-            setIsSubmitting(false);
-            setIsJoinClassOpen(false);
-        }
-    };
-    
-    const handleLeaveClass = async (classId: string) => {
-        try {
-            const { error } = await supabase.functions.invoke('leave-class', {
-                body: { class_id: classId }
-            });
-            if (error) throw error;
-            toast({ title: "You have left the class." });
-            handleBreadcrumbClick(0); 
-            await fetchData();
-        } catch(error) {
-            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
-        }
-    };
-
-    const handleRemoveMember = async (classId: string, memberId: string) => {
-        try {
-            const { error } = await supabase.functions.invoke('remove-class-member', {
-                body: { class_id: classId, member_id: memberId }
-            });
-            if (error) throw error;
-            toast({ title: "Member removed." });
-            const members = await classOpenAIConfigService.getClassMembers(classId);
-            setClassMembers(members);
-        } catch(error) {
-            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
-        }
-    };
-
-    const handleApproveMember = async (classId: string, memberId: string) => {
-        try {
-             const { error } = await supabase.functions.invoke('approve-class-member', {
-                body: { class_id: classId, member_id: memberId }
-            });
-            if (error) throw error;
-            toast({ title: "Member Approved" });
-            const members = await classOpenAIConfigService.getClassMembers(classId);
-            setClassMembers(members);
-        } catch(error) {
-             toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
-        }
-    };
-
-    const classesWithStats = useMemo(() => {
-        if (!classes || !user) return [];
-        return classes.map(cls => {
-            return { 
-                ...cls, 
-                files: cls.file_count || 0,
-                size: formatFileSize(cls.total_size || 0),
-                is_owner: cls.owner_id === user.id,
-                is_shared: (cls.member_count || 0) > 1
-            };
-        });
-    }, [classes, user]);
-
-    const handleUploadFiles = async (filesToUpload: File[]) => {
-        if (!user || !selectedClass) {
-            toast({ title: "Upload Failed", description: "A user and class must be selected.", variant: "destructive" });
-            return;
-        }
-
-        setIsSubmitting(true);
-        setIsUploadOpen(false);
-        const newUploads: UploadingFile[] = filesToUpload.map((file, index) => ({
-            id: `temp-upload-${Date.now()}-${index}`,
-            name: file.name,
-            status: 'pending',
-        }));
-        setUploadingFiles(prev => [...prev, ...newUploads]);
-
-        const tempFileEntries: FileType[] = newUploads.map(upload => {
-            const file = filesToUpload.find(f => f.name === upload.name)!;
-            return {
-                file_id: upload.id, name: file.name, size: file.size, type: file.type,
-                status: 'processing', folder_id: currentFolderId, user_id: user.id,
-                class_id: selectedClass.class_id, last_modified: new Date().toISOString(),
-                created_at: new Date().toISOString(), category: null, tags: null
-            };
-        });
-        setFiles(prev => [...prev, ...tempFileEntries]);
-
-        for (const file of filesToUpload) {
-            setUploadingFiles(prev => prev.map(uf => uf.name === file.name ? { ...uf, status: 'uploading' } : uf));
-            try {
-                const storagePath = `${user.id}/${selectedClass.class_id}/${currentFolderId || 'root'}/${Date.now()}-${file.name}`;
-                const { data: storageData, error: uploadError } = await supabase.storage.from('file_storage').upload(storagePath, file);
-                if (uploadError) throw new Error(`Storage Error: ${uploadError.message}`);
-
-                const processingPayload = {
-                    storage_path: storageData.path, original_name: file.name,
-                    mime_type: file.type, size: file.size, class_id: selectedClass.class_id,
-                    folder_id: currentFolderId,
-                };
-
-                const { error: functionError } = await supabase.functions.invoke('upload-file', { body: processingPayload });
-                if (functionError) throw new Error(`Function Error: ${functionError.message}`);
-
-                setUploadingFiles(prev => prev.map(uf => uf.name === file.name ? { ...uf, status: 'processing' } : uf));
-            } catch (error) {
-                setUploadingFiles(prev => prev.map(uf => uf.name === file.name ? { ...uf, status: 'error', errorMessage: (error as Error).message } : uf));
-                toast({ title: `Error starting upload for ${file.name}`, description: (error instanceof Error) ? error.message : "An unknown error occurred.", variant: "destructive" });
-            }
-        }
-        setIsSubmitting(false);
-    };
-
-    useEffect(() => {
-        if (!user || !selectedClass) {
-            if (fileSubscription.current) {
-                supabase.removeChannel(fileSubscription.current);
-                fileSubscription.current = null;
-            }
-            return;
-        }
-
-        const channelId = `files-class-${selectedClass.class_id}`;
-        if (fileSubscription.current?.topic.includes(channelId)) return;
-
-        if (fileSubscription.current) supabase.removeChannel(fileSubscription.current);
-
-        const channel = supabase.channel(channelId).on<FileType>(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'files', filter: `class_id=eq.${selectedClass.class_id}` },
-            (payload) => {
-                const newOrUpdatedFile = payload.new as FileType;
-                if (!newOrUpdatedFile?.file_id) return;
-
-                const updateOrAddFile = (prev: FileType[], file: FileType) => {
-                    const withoutPlaceholder = prev.filter(f => !(f.name === file.name && f.file_id.startsWith('temp-upload-')));
-                    const fileIndex = withoutPlaceholder.findIndex(f => f.file_id === file.file_id);
-                    return fileIndex !== -1 ? withoutPlaceholder.map((f, i) => i === fileIndex ? file : f) : [...withoutPlaceholder, file];
-                };
-
-                setAllClassFiles(prev => updateOrAddFile(prev, newOrUpdatedFile));
-                if (newOrUpdatedFile.folder_id === currentFolderId || (currentFolderId === null && newOrUpdatedFile.folder_id === null)) {
-                    setFiles(prev => updateOrAddFile(prev, newOrUpdatedFile));
-                }
-
-                const recordForToast = (payload.new || payload.old) as FileType;
-                if (recordForToast) {
-                    setUploadingFiles(prev => prev.map(uf => {
-                        if (uf.name === recordForToast.name) {
-                            const newStatus = (recordForToast.status === 'complete' || recordForToast.status === 'processed_text') ? 'complete' : recordForToast.status === 'error' ? 'error' : 'processing';
-                            return { ...uf, status: newStatus };
-                        }
-                        return uf;
-                    }));
-                }
-            }
-        ).subscribe((status, err) => {
-            if (err) console.error(`Realtime subscription failed for ${channelId}:`, err);
-        });
-
-        fileSubscription.current = channel;
-
-        return () => {
-            if (fileSubscription.current) {
-                supabase.removeChannel(fileSubscription.current);
-                fileSubscription.current = null;
-            }
-        };
-    }, [user, selectedClass, currentFolderId]);
-
-    const handleClassClick = (classData: ClassConfig) => {
-        setSelectedClass(classData);
-        setViewMode('grid');
-        setBreadcrumbs([{ name: 'Home', id: null }, { name: classData.class_name, id: classData.class_id }]);
-        sessionStorage.setItem('activeClass', JSON.stringify({ class_id: classData.class_id, class_name: classData.class_name }));
-    };
-
-    const handleFolderClick = (folderData: FolderType) => {
-        setCurrentFolderId(folderData.folder_id);
-        setBreadcrumbs([...breadcrumbs, { name: folderData.name, id: folderData.folder_id }]);
-    };
-
-    const handleBreadcrumbClick = (index: number) => {
-        const newBreadcrumbs = breadcrumbs.slice(0, index + 1);
-        setBreadcrumbs(newBreadcrumbs);
-        const clickedCrumb = newBreadcrumbs[index];
-
-        if (index === 0) {
-            setSelectedClass(null);
-            setCurrentFolderId(null);
-            sessionStorage.removeItem('activeClass');
-        } else {
-            const classCrumb = newBreadcrumbs[1];
-            setSelectedClass(classes.find(c => c.class_id === classCrumb.id) || null);
-            setCurrentFolderId(clickedCrumb.id === classCrumb.id ? null : clickedCrumb.id);
-        }
-    };
-
-    const getFolderPath = useCallback((file: FileType): string => {
-        if (!file.folder_id) return '/';
-        let path = '';
-        let currentId: string | null = file.folder_id;
-        while (currentId) {
-            const folder = allUserFolders.find(f => f.folder_id === currentId && f.class_id === file.class_id);
-            if (folder) { path = `/${folder.name}${path}`; currentId = folder.parent_id; }
-            else break;
-        }
-        return path || '/';
-    }, [allUserFolders]);
-
-    const handleFileRowClick = (file: FileType) => {
-        setPreviewedFile(file);
-        setRecentFiles(prev => [file, ...prev.filter(f => f.file_id !== file.file_id)].slice(0, 10));
-    };
-
-    const confirmDelete = async () => {
-        if (filesToDelete.length === 0) return;
-        setIsDeleting(true);
-        const itemsToProcess: DeletingFile[] = filesToDelete.map(file => ({ id: file.file_id, name: file.name, status: 'pending' }));
-        setDeletingFiles(itemsToProcess);
-
-        for (const file of filesToDelete) {
-            try {
-                setDeletingFiles(prev => prev.map(f => f.id === file.file_id ? { ...f, status: 'deleting' } : f));
-                await fileService.deleteFile(file);
-                setDeletingFiles(prev => prev.map(f => f.id === file.file_id ? { ...f, status: 'complete' } : f));
-            } catch (error) {
-                setDeletingFiles(prev => prev.map(f => f.id === file.file_id ? { ...f, status: 'error', errorMessage: (error as Error).message } : f));
-                toast({ title: "Deletion Failed", description: (error as Error).message, variant: "destructive" });
-            }
-        }
-
-        toast({ title: "Deletion process finished" });
-        const deletedFileIds = new Set(filesToDelete.map(f => f.file_id));
-        setRecentFiles(prev => prev.filter(file => !deletedFileIds.has(file.file_id)));
-        if (filesToDelete.some(f => f.file_id === previewedFile?.file_id)) setPreviewedFile(null);
-        fetchData();
-        setFilesToDelete([]);
-        setIsDeleting(false);
-    };
-
-    const handleCreateClass = async (className: string) => {
-        setIsSubmitting(true);
-        try {
-            await classOpenAIConfigService.saveConfigForClass(className);
-            toast({ title: "Class Created", description: `"${className}" created.` });
-            fetchData();
-        } catch (error) {
-            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
-        } finally {
-            setIsSubmitting(false);
-            setIsCreateClassOpen(false);
-        }
-    };
-
-    const handleDeleteClassClick = (classData: ClassConfig) => {
-        setClassToDelete(classData);
-        setIsDeleteClassConfirmationOpen(true);
-    };
-
-    const confirmDeleteClass = async () => {
-        if (!classToDelete) return;
-    
-        const classIdToDelete = classToDelete.class_id;
-        const classNameToDelete = classToDelete.class_name;
-    
-        setIsDeletingClass(true);
-        setIsDeleteClassConfirmationOpen(false);
-    
-        try {
-            await classOpenAIConfigService.deleteClass(classIdToDelete);
-    
-            setClasses(prev => prev.filter(c => c.class_id !== classIdToDelete));
-            setRecentFiles(prev => prev.filter(file => file.class_id !== classIdToDelete));
-            
-            if (selectedClass?.class_id === classIdToDelete) {
-                setSelectedClass(null);
-                setCurrentFolderId(null);
-                setBreadcrumbs([{ name: 'Home', id: null }]);
-                sessionStorage.removeItem('activeClass');
-            }
-    
-            if (previewedFile?.class_id === classIdToDelete) {
-                setPreviewedFile(null);
-            }
-            
-            toast({
-                title: "Class Deleted",
-                description: `"${classNameToDelete}" and all associated data have been permanently removed.`
-            });
-    
-        } catch (error) {
-            toast({
-                title: "Deletion Failed",
-                description: (error as Error).message,
-                variant: "destructive"
-            });
-            fetchData();
-        } finally {
-            setIsDeletingClass(false);
-            setClassToDelete(null);
-        }
-    };
-
-    const handleCreateFolder = async (folderName: string) => {
-        if (!selectedClass) return;
-        setIsSubmitting(true);
-        try {
-            await fileService.createFolder(folderName, selectedClass.class_id, currentFolderId);
-            toast({ title: "Folder Created", description: `"${folderName}" created.` });
-            fetchData();
-        } catch (error) {
-            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
-        } finally {
-            setIsSubmitting(false);
-            setIsNewFolderOpen(false);
-        }
-    };
-
-    const foldersWithStats = useMemo(() => {
-        if (!folders.length) return [];
-        const fileMapByFolder = new Map<string, FileType[]>();
-        allClassFiles.forEach(file => {
-            const folderId = file.folder_id || 'root';
-            if (!fileMapByFolder.has(folderId)) fileMapByFolder.set(folderId, []);
-            fileMapByFolder.get(folderId)?.push(file);
-        });
-        const statsCache = new Map<string, { count: number; size: number }>();
-        const getFolderStats = (folderId: string): { count: number; size: number } => {
-            if (statsCache.has(folderId)) return statsCache.get(folderId)!;
-            let count = fileMapByFolder.get(folderId)?.length || 0;
-            let size = (fileMapByFolder.get(folderId) || []).reduce((acc, file) => acc + (file.size || 0), 0);
-            allUserFolders.filter(f => f.parent_id === folderId).forEach(subFolder => {
-                const subStats = getFolderStats(subFolder.folder_id);
-                count += subStats.count;
-                size += subStats.size;
-            });
-            statsCache.set(folderId, { count, size });
-            return { count, size };
-        };
-        return folders.map(folder => {
-            const stats = getFolderStats(folder.folder_id);
-            return { ...folder, files: stats.count, size: formatFileSize(stats.size), folderName: folder.name };
-        });
-    }, [folders, allClassFiles, allUserFolders]);
-    
-
-    return {
-        user, classes, folders, files, allClassFiles, allFiles, recentFiles,
-        selectedClass, currentFolderId, breadcrumbs, isLoading, isDeleting,
-        filesToDelete, deletingFiles, isCreateClassOpen, isNewFolderOpen,
-        isUploadOpen, isSubmitting, previewedFile, isDeleteClassConfirmationOpen,
-        classToDelete, isDeletingClass, viewMode, uploadingFiles,
-        isJoinClassOpen, setIsJoinClassOpen, handleJoinClass,
-        classMembers, isLoadingMembers, handleLeaveClass, handleRemoveMember, handleApproveMember,
-        setRecentFiles, setSelectedClass, setCurrentFolderId, setBreadcrumbs,
-        setIsLoading, setIsDeleting, setFilesToDelete, setDeletingFiles,
-        setIsCreateClassOpen, setIsNewFolderOpen, setIsUploadOpen, setIsSubmitting,
-        setPreviewedFile, setIsDeleteClassConfirmationOpen, setClassToDelete,
-        setIsDeletingClass, setViewMode, setUploadingFiles,
-        fetchData, handleUploadFiles, handleClassClick, handleFolderClick,
-        handleBreadcrumbClick, getFolderPath, handleFileRowClick, confirmDelete,
-        handleCreateClass, handleDeleteClassClick, confirmDeleteClass, handleCreateFolder,
-        classesWithStats, foldersWithStats
-    };
 };
 </file>
 
@@ -18553,68 +18182,6 @@ export const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(({
 });
 </file>
 
-<file path="src/components/dashboard/DashboardSidebar.tsx">
-// src/components/dashboard/DashboardSidebar.tsx
-import React from 'react';
-import { useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-
-interface DashboardSidebarProps {
-  onLinkClick: (path: string) => void;
-}
-
-interface NavLinkProps {
-  to: string;
-  label: string;
-  onLinkClick: (path: string) => void;
-  isActive: boolean;
-}
-
-const NavItem: React.FC<NavLinkProps> = ({ to, label, onLinkClick, isActive }) => (
-  <span
-    onClick={() => onLinkClick(to)}
-    className={cn(
-      "flex items-center py-1.5 px-3 rounded-md cursor-pointer transition-colors",
-      isActive
-        ? "bg-neutral-700 text-white font-medium"
-        : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
-    )}
-  >
-    {isActive && <div className="mr-3 h-1.5 w-1.5 rounded-full bg-blue-500"></div>}
-    <span>{label}</span>
-  </span>
-);
-
-export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onLinkClick }) => {
-  const location = useLocation();
-  const currentPath = location.pathname;
-
-  return (
-    <div className="hidden h-full md:flex">
-      {/* --- MODIFICATION: Changed border-neutral-800 to border-foreground/20 --- */}
-      <div className="flex h-full flex-col justify-between overflow-y-auto bg-neutral-900 md:rounded-lg md:border border-foreground/20 md:w-42 w-full lg:w-56 px-2 md:py-4">
-        <nav className="flex w-full flex-col gap-y-6">
-          <div className="flex flex-col gap-y-1">
-            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Platform</span>
-            <NavItem to="/" label="Dashboard" onLinkClick={onLinkClick} isActive={currentPath === '/'} />
-            <NavItem to="/classes" label="Classes" onLinkClick={onLinkClick} isActive={currentPath === '/classes'} />
-            <NavItem to="/calendar" label="Calendar" onLinkClick={onLinkClick} isActive={currentPath === '/calendar'} />
-          </div>
-          <div className="flex flex-col gap-y-1">
-            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Tools</span>
-            <NavItem to="/oracle" label="Oracle" onLinkClick={onLinkClick} isActive={currentPath === '/oracle'} />
-          </div>
-          <div className="flex flex-col gap-y-1">
-            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Settings</span>
-            <NavItem to="/profile" label="Profile" onLinkClick={onLinkClick} isActive={currentPath === '/profile'} />
-          </div>
-        </nav>
-      </div>
-    </div>
-  );
-};
-</file>
-
 <file path="src/components/oracle/HistorySidebar.tsx">
 // src/components/oracle/HistorySidebar.tsx
 import React, { useState, useEffect, useRef } from 'react';
@@ -18743,6 +18310,534 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversations, s
             </ScrollArea>
         </div>
     );
+};
+</file>
+
+<file path="src/hooks/useClassesPage.ts">
+// src/hooks/useClassesPage.ts
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { usePageLoader } from '@/context/LoaderContext';
+import { supabase } from '@/integrations/supabase/client';
+import { User, RealtimeChannel } from '@supabase/supabase-js';
+import { ClassConfig, classOpenAIConfigService } from '@/services/classOpenAIConfig';
+import { fileService } from '@/services/fileService';
+import { FolderType, FileType } from '@/features/files/types';
+import { UploadingFile } from '@/components/classes/UploadProgressToast';
+import { DeletingFile } from '@/components/classes/DeletionProgressToast';
+import { formatFileSize } from '@/lib/utils';
+import { ClassMember } from '@/components/classes/ClassMembersView';
+import { useLocation, useNavigate } from 'react-router-dom'; // --- MODIFICATION: Import hooks
+
+export const useClassesPage = () => {
+    const { loader } = usePageLoader();
+    const { toast } = useToast();
+    const location = useLocation(); // --- MODIFICATION: Add location
+    const navigate = useNavigate(); // --- MODIFICATION: Add navigate
+    const [user, setUser] = useState<User | null>(null);
+    const [classes, setClasses] = useState<ClassConfig[]>([]);
+    const [folders, setFolders] = useState<FolderType[]>([]);
+    const [allUserFolders, setAllUserFolders] = useState<FolderType[]>([]);
+    const [files, setFiles] = useState<FileType[]>([]);
+    const [allClassFiles, setAllClassFiles] = useState<FileType[]>([]);
+    const [allFiles, setAllFiles] = useState<(FileType & { class: string; })[]>([]);
+    const [recentFiles, setRecentFiles] = useState<FileType[]>(() => {
+        try {
+            const item = window.localStorage.getItem('eidoRecentFiles');
+            return item ? JSON.parse(item) as FileType[] : [];
+        } catch (error) {
+            console.error("Error parsing recent files from localStorage", error);
+            return [];
+        }
+    });
+    const [selectedClass, setSelectedClass] = useState<ClassConfig | null>(null);
+    const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+    const [breadcrumbs, setBreadcrumbs] = useState<{ name: string; id: string | null }[]>([{ name: 'Home', id: null }]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [filesToDelete, setFilesToDelete] = useState<FileType[]>([]);
+    const [deletingFiles, setDeletingFiles] = useState<DeletingFile[]>([]);
+    const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
+    const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
+    const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [previewedFile, setPreviewedFile] = useState<FileType | null>(null);
+    const [isDeleteClassConfirmationOpen, setIsDeleteClassConfirmationOpen] = useState(false);
+    const [classToDelete, setClassToDelete] = useState<ClassConfig | null>(null);
+    const [isDeletingClass, setIsDeletingClass] = useState(false);
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+    const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+    const fileSubscription = useRef<RealtimeChannel | null>(null);
+    const [isJoinClassOpen, setIsJoinClassOpen] = useState(false);
+    const [classMembers, setClassMembers] = useState<ClassMember[]>([]);
+    const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+    const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
+    const handleClassClick = useCallback((classData: ClassConfig) => {
+        setSelectedClass(classData);
+        setViewMode('grid');
+        setBreadcrumbs([{ name: 'Home', id: null }, { name: classData.class_name, id: classData.class_id }]);
+        sessionStorage.setItem('activeClass', JSON.stringify({ class_id: classData.class_id, class_name: classData.class_name }));
+    }, []);
+
+    useEffect(() => {
+        if (loader) loader.continuousStart();
+        const fetchUserAndInitialData = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
+            if (currentUser) {
+                const allFolders = await fileService.getAllFoldersForUser();
+                setAllUserFolders(allFolders);
+            }
+            setInitialLoadComplete(true);
+        };
+        fetchUserAndInitialData();
+        return () => {
+            if (fileSubscription.current) {
+                supabase.removeChannel(fileSubscription.current);
+            }
+        };
+    }, [loader]);
+    
+    // --- MODIFICATION: This new effect handles navigation from the dashboard ---
+    useEffect(() => {
+        if (initialLoadComplete && classes.length > 0) {
+            const classFromState = location.state?.selectedClass as ClassConfig | undefined;
+            if (classFromState) {
+                const fullClassData = classes.find(c => c.class_id === classFromState.class_id);
+                if (fullClassData) {
+                    handleClassClick(fullClassData);
+                    // Clear state from location history to prevent re-triggering on refresh
+                    navigate(location.pathname, { replace: true, state: {} });
+                }
+            }
+        }
+    }, [initialLoadComplete, classes, location.state, handleClassClick, navigate]);
+
+    useEffect(() => {
+        try {
+            window.localStorage.setItem('eidoRecentFiles', JSON.stringify(recentFiles));
+        } catch (error) {
+            console.error("Failed to save recent files to localStorage", error);
+        }
+    }, [recentFiles]);
+
+    const fetchData = useCallback(async () => {
+        if (!user) return;
+        setIsLoading(true);
+        if (selectedClass) setIsLoadingMembers(true);
+
+        try {
+            if (selectedClass) {
+                const [fetchedFolders, fetchedFiles, fetchedAllClassFiles, fetchedMembers] = await Promise.all([
+                    fileService.getFolders(selectedClass.class_id, currentFolderId),
+                    fileService.getFiles(selectedClass.class_id, currentFolderId),
+                    fileService.getAllFilesForClass(selectedClass.class_id),
+                    classOpenAIConfigService.getClassMembers(selectedClass.class_id),
+                ]);
+                setFolders(fetchedFolders);
+                setFiles(fetchedFiles);
+                setAllClassFiles(fetchedAllClassFiles);
+                setClassMembers(fetchedMembers);
+            } else {
+                const [fetchedClasses, fetchedAllFilesResult] = await Promise.all([
+                    classOpenAIConfigService.getAllClasses(),
+                    fileService.getAllFilesWithClass()
+                ]);
+                setClasses(fetchedClasses);
+                setAllFiles(fetchedAllFilesResult as (FileType & { class: string })[]);
+                setFolders([]);
+                setFiles([]);
+                setClassMembers([]);
+            }
+        } catch (error) {
+            toast({ title: 'Error fetching data', description: (error instanceof Error) ? error.message : "An unknown error occurred.", variant: 'destructive' });
+        } finally {
+            setIsLoading(false);
+            setIsLoadingMembers(false);
+            if (loader) loader.complete();
+        }
+    }, [user, selectedClass, currentFolderId, toast, loader]);
+    
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const handleJoinClass = async (inviteCode: string) => {
+        if (!inviteCode.trim()) {
+            toast({ title: "Error", description: "Invite code cannot be empty.", variant: "destructive" });
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const { error, data } = await supabase.functions.invoke('join-class', {
+                body: { invite_code: inviteCode.trim() },
+            });
+            
+            if (error) throw new Error(error.message);
+            if (data?.error) throw new Error(data.error);
+
+            toast({ title: "Request Sent!", description: data.message });
+        } catch (error) {
+            toast({ title: "Error Joining Class", description: (error as Error).message, variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+            setIsJoinClassOpen(false);
+        }
+    };
+    
+    const handleLeaveClass = async (classId: string) => {
+        try {
+            const { error } = await supabase.functions.invoke('leave-class', {
+                body: { class_id: classId }
+            });
+            if (error) throw error;
+            toast({ title: "You have left the class." });
+            handleBreadcrumbClick(0); 
+            await fetchData();
+        } catch(error) {
+            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+        }
+    };
+
+    const handleRemoveMember = async (classId: string, memberId: string) => {
+        try {
+            const { error } = await supabase.functions.invoke('remove-class-member', {
+                body: { class_id: classId, member_id: memberId }
+            });
+            if (error) throw error;
+            toast({ title: "Member removed." });
+            const members = await classOpenAIConfigService.getClassMembers(classId);
+            setClassMembers(members);
+        } catch(error) {
+            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+        }
+    };
+
+    const handleApproveMember = async (classId: string, memberId: string) => {
+        try {
+             const { error } = await supabase.functions.invoke('approve-class-member', {
+                body: { class_id: classId, member_id: memberId }
+            });
+            if (error) throw error;
+            toast({ title: "Member Approved" });
+            const members = await classOpenAIConfigService.getClassMembers(classId);
+            setClassMembers(members);
+        } catch(error) {
+             toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+        }
+    };
+
+    const classesWithStats = useMemo(() => {
+        if (!classes || !user) return [];
+        return classes.map(cls => {
+            return { 
+                ...cls, 
+                files: cls.file_count || 0,
+                size: formatFileSize(cls.total_size || 0),
+                is_owner: cls.owner_id === user.id,
+                is_shared: (cls.member_count || 0) > 1
+            };
+        });
+    }, [classes, user]);
+
+    const handleUploadFiles = async (filesToUpload: File[]) => {
+        if (!user || !selectedClass) {
+            toast({ title: "Upload Failed", description: "A user and class must be selected.", variant: "destructive" });
+            return;
+        }
+
+        setIsSubmitting(true);
+        setIsUploadOpen(false);
+        const newUploads: UploadingFile[] = filesToUpload.map((file, index) => ({
+            id: `temp-upload-${Date.now()}-${index}`,
+            name: file.name,
+            status: 'pending',
+        }));
+        setUploadingFiles(prev => [...prev, ...newUploads]);
+
+        const tempFileEntries: FileType[] = newUploads.map(upload => {
+            const file = filesToUpload.find(f => f.name === upload.name)!;
+            return {
+                file_id: upload.id, name: file.name, size: file.size, type: file.type,
+                status: 'processing', folder_id: currentFolderId, user_id: user.id,
+                class_id: selectedClass.class_id, last_modified: new Date().toISOString(),
+                created_at: new Date().toISOString(), category: null, tags: null
+            };
+        });
+        setFiles(prev => [...prev, ...tempFileEntries]);
+
+        for (const file of filesToUpload) {
+            setUploadingFiles(prev => prev.map(uf => uf.name === file.name ? { ...uf, status: 'uploading' } : uf));
+            try {
+                const storagePath = `${user.id}/${selectedClass.class_id}/${currentFolderId || 'root'}/${Date.now()}-${file.name}`;
+                const { data: storageData, error: uploadError } = await supabase.storage.from('file_storage').upload(storagePath, file);
+                if (uploadError) throw new Error(`Storage Error: ${uploadError.message}`);
+
+                const processingPayload = {
+                    storage_path: storageData.path, original_name: file.name,
+                    mime_type: file.type, size: file.size, class_id: selectedClass.class_id,
+                    folder_id: currentFolderId,
+                };
+
+                const { error: functionError } = await supabase.functions.invoke('upload-file', { body: processingPayload });
+                if (functionError) throw new Error(`Function Error: ${functionError.message}`);
+
+                setUploadingFiles(prev => prev.map(uf => uf.name === file.name ? { ...uf, status: 'processing' } : uf));
+            } catch (error) {
+                setUploadingFiles(prev => prev.map(uf => uf.name === file.name ? { ...uf, status: 'error', errorMessage: (error as Error).message } : uf));
+                toast({ title: `Error starting upload for ${file.name}`, description: (error instanceof Error) ? error.message : "An unknown error occurred.", variant: "destructive" });
+            }
+        }
+        setIsSubmitting(false);
+    };
+
+    const handleFolderClick = (folderData: FolderType) => {
+        setCurrentFolderId(folderData.folder_id);
+        setBreadcrumbs([...breadcrumbs, { name: folderData.name, id: folderData.folder_id }]);
+    };
+
+    useEffect(() => {
+        if (!user || !selectedClass) {
+            if (fileSubscription.current) {
+                supabase.removeChannel(fileSubscription.current);
+                fileSubscription.current = null;
+            }
+            return;
+        }
+
+        const channelId = `files-class-${selectedClass.class_id}`;
+        if (fileSubscription.current?.topic.includes(channelId)) return;
+
+        if (fileSubscription.current) supabase.removeChannel(fileSubscription.current);
+
+        const channel = supabase.channel(channelId).on<FileType>(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'files', filter: `class_id=eq.${selectedClass.class_id}` },
+            (payload) => {
+                const newOrUpdatedFile = payload.new as FileType;
+                if (!newOrUpdatedFile?.file_id) return;
+
+                const updateOrAddFile = (prev: FileType[], file: FileType) => {
+                    const withoutPlaceholder = prev.filter(f => !(f.name === file.name && f.file_id.startsWith('temp-upload-')));
+                    const fileIndex = withoutPlaceholder.findIndex(f => f.file_id === file.file_id);
+                    return fileIndex !== -1 ? withoutPlaceholder.map((f, i) => i === fileIndex ? file : f) : [...withoutPlaceholder, file];
+                };
+
+                setAllClassFiles(prev => updateOrAddFile(prev, newOrUpdatedFile));
+                if (newOrUpdatedFile.folder_id === currentFolderId || (currentFolderId === null && newOrUpdatedFile.folder_id === null)) {
+                    setFiles(prev => updateOrAddFile(prev, newOrUpdatedFile));
+                }
+
+                const recordForToast = (payload.new || payload.old) as FileType;
+                if (recordForToast) {
+                    setUploadingFiles(prev => prev.map(uf => {
+                        if (uf.name === recordForToast.name) {
+                            const newStatus = (recordForToast.status === 'complete' || recordForToast.status === 'processed_text') ? 'complete' : recordForToast.status === 'error' ? 'error' : 'processing';
+                            return { ...uf, status: newStatus };
+                        }
+                        return uf;
+                    }));
+                }
+            }
+        ).subscribe((status, err) => {
+            if (err) console.error(`Realtime subscription failed for ${channelId}:`, err);
+        });
+
+        fileSubscription.current = channel;
+
+        return () => {
+            if (fileSubscription.current) {
+                supabase.removeChannel(fileSubscription.current);
+                fileSubscription.current = null;
+            }
+        };
+    }, [user, selectedClass, currentFolderId]);
+
+    const handleBreadcrumbClick = (index: number) => {
+        const newBreadcrumbs = breadcrumbs.slice(0, index + 1);
+        setBreadcrumbs(newBreadcrumbs);
+        const clickedCrumb = newBreadcrumbs[index];
+
+        if (index === 0) {
+            setSelectedClass(null);
+            setCurrentFolderId(null);
+            sessionStorage.removeItem('activeClass');
+        } else {
+            const classCrumb = newBreadcrumbs[1];
+            setSelectedClass(classes.find(c => c.class_id === classCrumb.id) || null);
+            setCurrentFolderId(clickedCrumb.id === classCrumb.id ? null : clickedCrumb.id);
+        }
+    };
+
+    const getFolderPath = useCallback((file: FileType): string => {
+        if (!file.folder_id) return '/';
+        let path = '';
+        let currentId: string | null = file.folder_id;
+        while (currentId) {
+            const folder = allUserFolders.find(f => f.folder_id === currentId && f.class_id === file.class_id);
+            if (folder) { path = `/${folder.name}${path}`; currentId = folder.parent_id; }
+            else break;
+        }
+        return path || '/';
+    }, [allUserFolders]);
+
+    const handleFileRowClick = (file: FileType) => {
+        setPreviewedFile(file);
+        setRecentFiles(prev => [file, ...prev.filter(f => f.file_id !== file.file_id)].slice(0, 10));
+    };
+
+    const confirmDelete = async () => {
+        if (filesToDelete.length === 0) return;
+        setIsDeleting(true);
+        const itemsToProcess: DeletingFile[] = filesToDelete.map(file => ({ id: file.file_id, name: file.name, status: 'pending' }));
+        setDeletingFiles(itemsToProcess);
+
+        for (const file of filesToDelete) {
+            try {
+                setDeletingFiles(prev => prev.map(f => f.id === file.file_id ? { ...f, status: 'deleting' } : f));
+                await fileService.deleteFile(file);
+                setDeletingFiles(prev => prev.map(f => f.id === file.file_id ? { ...f, status: 'complete' } : f));
+            } catch (error) {
+                setDeletingFiles(prev => prev.map(f => f.id === file.file_id ? { ...f, status: 'error', errorMessage: (error as Error).message } : f));
+                toast({ title: "Deletion Failed", description: (error as Error).message, variant: "destructive" });
+            }
+        }
+
+        toast({ title: "Deletion process finished" });
+        const deletedFileIds = new Set(filesToDelete.map(f => f.file_id));
+        setRecentFiles(prev => prev.filter(file => !deletedFileIds.has(file.file_id)));
+        if (filesToDelete.some(f => f.file_id === previewedFile?.file_id)) setPreviewedFile(null);
+        fetchData();
+        setFilesToDelete([]);
+        setIsDeleting(false);
+    };
+
+    const handleCreateClass = async (className: string) => {
+        setIsSubmitting(true);
+        try {
+            await classOpenAIConfigService.saveConfigForClass(className);
+            toast({ title: "Class Created", description: `"${className}" created.` });
+            fetchData();
+        } catch (error) {
+            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+            setIsCreateClassOpen(false);
+        }
+    };
+
+    const handleDeleteClassClick = (classData: ClassConfig) => {
+        setClassToDelete(classData);
+        setIsDeleteClassConfirmationOpen(true);
+    };
+
+    const confirmDeleteClass = async () => {
+        if (!classToDelete) return;
+    
+        const classIdToDelete = classToDelete.class_id;
+        const classNameToDelete = classToDelete.class_name;
+    
+        setIsDeletingClass(true);
+        setIsDeleteClassConfirmationOpen(false);
+    
+        try {
+            await classOpenAIConfigService.deleteClass(classIdToDelete);
+    
+            setClasses(prev => prev.filter(c => c.class_id !== classIdToDelete));
+            setRecentFiles(prev => prev.filter(file => file.class_id !== classIdToDelete));
+            
+            if (selectedClass?.class_id === classIdToDelete) {
+                setSelectedClass(null);
+                setCurrentFolderId(null);
+                setBreadcrumbs([{ name: 'Home', id: null }]);
+                sessionStorage.removeItem('activeClass');
+            }
+    
+            if (previewedFile?.class_id === classIdToDelete) {
+                setPreviewedFile(null);
+            }
+            
+            toast({
+                title: "Class Deleted",
+                description: `"${classNameToDelete}" and all associated data have been permanently removed.`
+            });
+    
+        } catch (error) {
+            toast({
+                title: "Deletion Failed",
+                description: (error as Error).message,
+                variant: "destructive"
+            });
+            fetchData();
+        } finally {
+            setIsDeletingClass(false);
+            setClassToDelete(null);
+        }
+    };
+
+    const handleCreateFolder = async (folderName: string) => {
+        if (!selectedClass) return;
+        setIsSubmitting(true);
+        try {
+            await fileService.createFolder(folderName, selectedClass.class_id, currentFolderId);
+            toast({ title: "Folder Created", description: `"${folderName}" created.` });
+            fetchData();
+        } catch (error) {
+            toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+            setIsNewFolderOpen(false);
+        }
+    };
+
+    const foldersWithStats = useMemo(() => {
+        if (!folders.length) return [];
+        const fileMapByFolder = new Map<string, FileType[]>();
+        allClassFiles.forEach(file => {
+            const folderId = file.folder_id || 'root';
+            if (!fileMapByFolder.has(folderId)) fileMapByFolder.set(folderId, []);
+            fileMapByFolder.get(folderId)?.push(file);
+        });
+        const statsCache = new Map<string, { count: number; size: number }>();
+        const getFolderStats = (folderId: string): { count: number; size: number } => {
+            if (statsCache.has(folderId)) return statsCache.get(folderId)!;
+            let count = fileMapByFolder.get(folderId)?.length || 0;
+            let size = (fileMapByFolder.get(folderId) || []).reduce((acc, file) => acc + (file.size || 0), 0);
+            allUserFolders.filter(f => f.parent_id === folderId).forEach(subFolder => {
+                const subStats = getFolderStats(subFolder.folder_id);
+                count += subStats.count;
+                size += subStats.size;
+            });
+            statsCache.set(folderId, { count, size });
+            return { count, size };
+        };
+        return folders.map(folder => {
+            const stats = getFolderStats(folder.folder_id);
+            return { ...folder, files: stats.count, size: formatFileSize(stats.size), folderName: folder.name };
+        });
+    }, [folders, allClassFiles, allUserFolders]);
+    
+
+    return {
+        user, classes, folders, files, allClassFiles, allFiles, recentFiles,
+        selectedClass, currentFolderId, breadcrumbs, isLoading, isDeleting,
+        filesToDelete, deletingFiles, isCreateClassOpen, isNewFolderOpen,
+        isUploadOpen, isSubmitting, previewedFile, isDeleteClassConfirmationOpen,
+        classToDelete, isDeletingClass, viewMode, uploadingFiles,
+        isJoinClassOpen, setIsJoinClassOpen, handleJoinClass,
+        classMembers, isLoadingMembers, handleLeaveClass, handleRemoveMember, handleApproveMember,
+        setRecentFiles, setSelectedClass, setCurrentFolderId, setBreadcrumbs,
+        setIsLoading, setIsDeleting, setFilesToDelete, setDeletingFiles,
+        setIsCreateClassOpen, setIsNewFolderOpen, setIsUploadOpen, setIsSubmitting,
+        setPreviewedFile, setIsDeleteClassConfirmationOpen, setClassToDelete,
+        setIsDeletingClass, setViewMode, setUploadingFiles,
+        fetchData, handleUploadFiles, handleClassClick, handleFolderClick,
+        handleBreadcrumbClick, getFolderPath, handleFileRowClick, confirmDelete,
+        handleCreateClass, handleDeleteClassClick, confirmDeleteClass, handleCreateFolder,
+        classesWithStats, foldersWithStats
+    };
 };
 </file>
 
@@ -19069,214 +19164,6 @@ export const useOracle = (): OracleState => {
 };
 </file>
 
-<file path="src/pages/ProfilePage.tsx">
-// src/pages/ProfilePage.tsx
-import React, { useState } from 'react';
-import { Helmet } from 'react-helmet-async';
-import { Link } from 'react-router-dom';
-import { UserProfile } from "@/components/auth/UserProfile";
-import { PasswordChangeForm } from "@/components/auth/PasswordChangeForm";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash2 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { MainAppLayout } from '@/components/layout/MainAppLayout';
-
-const ProfilePage = () => {
-  const [isSignOutLoading, setIsSignOutLoading] = useState(false);
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const { toast } = useToast();
-
-  const handleSignOut = async () => {
-    setIsSignOutLoading(true);
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      localStorage.removeItem('eidoRecentFiles');
-      sessionStorage.removeItem('activeClass');
-      toast({
-        title: "Signed out successfully",
-        description: "You've been signed out of your account",
-      });
-    } catch (error: unknown) {
-      console.error("Error signing out:", error);
-      toast({
-        title: "Sign out failed",
-        description: (error instanceof Error) ? error.message : "There was a problem signing you out. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSignOutLoading(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    setIsDeletingAccount(true);
-    try {
-      const { error: functionError } = await supabase.functions.invoke(
-        'delete-user-account',
-        { body: {} }
-      );
-
-      if (functionError) {
-        // Log the error but proceed to sign out, as the user might already be deleted.
-        console.warn("delete-user-account function returned an error (this is often expected if the user's token was invalidated mid-request):", functionError.message);
-      }
-
-      toast({
-        title: "Account Deletion Initiated",
-        description: "Your account and all associated data will be removed.",
-      });
-
-    } catch (error: unknown) {
-      console.error('Error during account deletion process:', error);
-      toast({
-        title: "Account Deletion Failed",
-        description: (error instanceof Error) ? error.message : "An unexpected error occurred.",
-        variant: "destructive",
-      });
-    } finally {
-      // --- FIX: This block now runs regardless of success or failure of the try block. ---
-      // This ensures the client session is always cleared, preventing inconsistent states.
-      await supabase.auth.signOut();
-      localStorage.removeItem('eidoRecentFiles');
-      sessionStorage.removeItem('activeClass');
-      setIsDeletingAccount(false);
-    }
-  };
-
-  return (
-    <>
-      <Helmet>
-        <title>Profile | Eido AI</title>
-      </Helmet>
-      
-      <MainAppLayout pageTitle="Profile | Eido AI">
-        <div className="h-full w-full bg-mushroom-100">
-          <div className="mx-auto flex h-screen w-screen max-w-page flex-1 flex-col overflow-y-auto md:overflow-y-visible">
-            
-            <div className="flex w-full flex-grow justify-self-center pb-3 md:gap-x-3 main-content">
-              <div className="ml-3 hidden md:flex">
-                <div className="flex flex-col justify-between overflow-auto border-marble-400 bg-marble-100 md:rounded-lg md:border md:w-42 w-full lg:w-56 px-4 md:py-6">
-                   <nav className="hidden w-full flex-col gap-y-8 md:flex">
-                    <div className="flex flex-col gap-y-1">
-                      <span className="text-overline uppercase font-code font-bold text-dark-blue">Platform</span>
-                      <Link to="/"><span className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900"><span>Dashboard</span></span></Link>
-                      <Link to="/classes"><span className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900"><span>Classes</span></span></Link>
-                    </div>
-                    <div className="flex flex-col gap-y-1">
-                      <span className="text-overline uppercase font-code font-bold text-dark-blue">Tools</span>
-                      <Link to="/oracle"><span className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900"><span>Oracle</span></span></Link>
-                    </div>
-                     <div className="flex flex-col gap-y-1">
-                      <span className="text-overline uppercase font-code font-bold text-dark-blue">Settings</span>
-                      <Link to="/billing"><span className="text-p font-body flex items-center py-0.5 text-volcanic-800 hover:text-volcanic-900"><span>Billing</span></span></Link>
-                      <Link to="/profile"><span className="text-p font-body flex items-center py-0.5 text-volcanic-900"><div className="mr-3 h-2 w-2 rounded-full bg-coral-500"></div><span className="font-medium">Profile</span></span></Link>
-                     </div>
-                  </nav>
-                </div>
-              </div>
-              <main className="mx-3 flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-marble-400 bg-marble-100 md:ml-0">
-                  <div className="flex flex-col gap-y-8 p-4 md:p-9 lg:p-10">
-                    <div>
-                      <h1 className="text-h5-m lg:text-h4 font-variable font-[420] text-volcanic-900">
-                        Profile & Settings
-                      </h1>
-                      <p className="text-p font-body text-volcanic-800 mt-2">
-                        Manage your profile, password, and account settings.
-                      </p>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      <div className="lg:col-span-1">
-                        <UserProfile />
-                      </div>
-                      <div className="lg:col-span-2 space-y-8">
-                        <PasswordChangeForm />
-                        
-                        <Card className="border-red-500/30">
-                          <CardHeader>
-                            <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                            <CardDescription>
-                              These actions are permanent and cannot be undone.
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between p-4 bg-red-500/5 rounded-lg">
-                              <div>
-                                  <h3 className="font-medium text-volcanic-900">Delete Account</h3>
-                                  <p className="text-sm text-volcanic-800">Permanently delete your account and all of your data.</p>
-                              </div>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="destructive"
-                                    disabled={isDeletingAccount}
-                                    className="w-full sm:w-auto flex-shrink-0"
-                                  >
-                                    {isDeletingAccount ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                                    Delete Account
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      This will permanently delete your account and remove all associated data from our servers. This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel disabled={isDeletingAccount}>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={handleDeleteAccount}
-                                      disabled={isDeletingAccount}
-                                      className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                    >
-                                      {isDeletingAccount ? "Deleting..." : "Yes, delete my account"}
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-                    <div className="pt-6 border-t mt-4">
-                          <Button
-                            variant="outline"
-                            onClick={handleSignOut}
-                            disabled={isSignOutLoading || isDeletingAccount}
-                          >
-                            {isSignOutLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Sign Out
-                          </Button>
-                    </div>
-                  </div>
-              </main>
-            </div>
-          </div>
-        </div>
-      </MainAppLayout>
-    </>
-  );
-};
-
-export default ProfilePage;
-</file>
-
 <file path="src/services/conversationService.ts">
 // src/services/conversationService.ts
 import { supabase } from "@/integrations/supabase/client";
@@ -19432,112 +19319,68 @@ export const conversationService = {
 };
 </file>
 
-<file path="src/components/classes/ClassCard.tsx">
-// src/components/classes/ClassCard.tsx
+<file path="src/components/dashboard/DashboardSidebar.tsx">
+// src/components/dashboard/DashboardSidebar.tsx
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Trash2, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getHslColorValue, normalizeColorClasses } from '@/components/calendar/colorUtils';
 
-interface ClassCardProps {
-  id: string;
-  className: string;
-  files: number;
-  size: string;
-  isSelected: boolean;
-  isOwner: boolean;
-  isShared: boolean;
-  color?: string | null;
-  onClick: () => void;
-  onDelete: (id: string, className: string) => void;
+interface DashboardSidebarProps {
+  onLinkClick: (path: string) => void;
 }
 
-export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size, isSelected, isOwner, isShared, color, onClick, onDelete }) => {
-  const { borderColor, bgColor } = normalizeColorClasses(color);
-  const shimmerColor = getHslColorValue(color);
+interface NavLinkProps {
+  to: string;
+  label: string;
+  onLinkClick: (path: string) => void;
+  isActive: boolean;
+  soon?: boolean;
+}
 
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete(id, className);
-  };
+const NavItem: React.FC<NavLinkProps> = ({ to, label, onLinkClick, isActive, soon }) => (
+  <span
+    onClick={() => onLinkClick(to)}
+    className={cn(
+      "flex items-center justify-between py-1.5 px-3 rounded-md cursor-pointer transition-colors",
+      isActive
+        ? "bg-neutral-700 text-white font-medium"
+        : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+    )}
+  >
+    <span className="flex items-center">
+        {isActive && <div className="mr-3 h-1.5 w-1.5 rounded-full bg-blue-500"></div>}
+        <span>{label}</span>
+    </span>
+    {soon && <Badge variant="secondary" className="text-xs bg-neutral-700 text-neutral-300">Soon</Badge>}
+  </span>
+);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const { currentTarget: target } = e;
-    const rect = target.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    target.style.setProperty("--x", `${x}px`);
-    target.style.setProperty("--y", `${y}px`);
-    target.style.setProperty("--shimmer-color", shimmerColor);
-  };
+export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onLinkClick }) => {
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   return (
-    <div
-      onClick={onClick}
-      onMouseMove={handleMouseMove}
-      className={cn(
-        "group p-3 rounded-lg cursor-pointer transition-all border relative flex flex-col h-36",
-        "shimmer-button transition-transform ease-in-out duration-200 hover:-translate-y-1",
-        isSelected
-          ? 'ring-2 ring-offset-2 ring-offset-neutral-900 ring-blue-500'
-          : '',
-        borderColor,
-        bgColor
-      )}
-    >
-      {/* --- MODIFICATION: Flex container for the header row --- */}
-      <div className="flex justify-between items-start gap-2 w-full">
-        {/* Title (min-w-0 allows truncation within flex) */}
-        <h3 className="font-semibold text-sm text-white truncate pr-1 min-w-0" title={className}>
-          {className}
-        </h3>
-        
-        {/* Right-aligned container (flex-shrink-0 prevents it from shrinking) */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {isShared && (
-            <Badge variant="secondary" className="text-xs flex items-center bg-black/20 text-white/90 border-transparent pointer-events-none">
-              <Users className="mr-1.5 h-3 w-3" />
-              Shared
-            </Badge>
-          )}
-          {isOwner && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-neutral-400 hover:text-white hover:bg-white/10"
-                >
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">Class Options</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                    onClick={handleDeleteClick}
-                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Class
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
-
-      {/* This pushes the stats to the bottom */}
-      <div className="flex-grow" /> 
-
-      <div className="mt-auto">
-        <div className="text-xs text-white/80">
-            <span>{files} Files</span>
-            <span className="mx-2">•</span>
-            <span>{size}</span>
-        </div>
+    <div className="hidden h-full md:flex">
+      {/* --- MODIFICATION: Updated border color to match header --- */}
+      <div className="flex h-full flex-col justify-between overflow-y-auto bg-neutral-900 md:rounded-lg md:border border-foreground/20 md:w-42 w-full lg:w-56 px-2 md:py-4">
+        <nav className="flex w-full flex-col gap-y-6">
+          <div className="flex flex-col gap-y-1">
+            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Platform</span>
+            <NavItem to="/" label="Dashboard" onLinkClick={onLinkClick} isActive={currentPath === '/'} />
+            <NavItem to="/classes" label="Classes" onLinkClick={onLinkClick} isActive={currentPath === '/classes'} />
+            <NavItem to="/calendar" label="Calendar" onLinkClick={onLinkClick} isActive={currentPath === '/calendar'} />
+            <NavItem to="/assignments" label="Assignments" onLinkClick={onLinkClick} isActive={currentPath === '/assignments'} />
+          </div>
+          <div className="flex flex-col gap-y-1">
+            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Tools</span>
+            <NavItem to="/oracle" label="Oracle" onLinkClick={onLinkClick} isActive={currentPath === '/oracle'} />
+          </div>
+          <div className="flex flex-col gap-y-1">
+            <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Settings</span>
+            <NavItem to="/profile" label="Profile" onLinkClick={onLinkClick} isActive={currentPath === '/profile'} />
+          </div>
+        </nav>
       </div>
     </div>
   );
@@ -20192,6 +20035,166 @@ const ClassesPage = () => {
 export default ClassesPage;
 </file>
 
+<file path="src/pages/ProfilePage.tsx">
+// src/pages/ProfilePage.tsx
+import React, { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
+import { useNavigate } from 'react-router-dom';
+import { UserProfile } from "@/components/auth/UserProfile";
+import { PasswordChangeForm } from "@/components/auth/PasswordChangeForm";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { MainAppLayout } from '@/components/layout/MainAppLayout';
+import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
+import { usePageLoader } from '@/context/LoaderContext';
+
+const ProfilePage = () => {
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const { toast } = useToast();
+  const { loadPage } = usePageLoader();
+  const navigate = useNavigate();
+
+  const handleProtectedLinkClick = (path: string) => {
+    if (path.startsWith('http')) {
+      window.open(path, '_blank');
+    } else {
+      loadPage(path);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      const { error: functionError } = await supabase.functions.invoke(
+        'delete-user-account',
+        { body: {} }
+      );
+
+      if (functionError) {
+        console.warn("delete-user-account function returned an error:", functionError.message);
+      }
+
+      toast({
+        title: "Account Deletion Initiated",
+        description: "Your account and all associated data will be removed.",
+      });
+
+    } catch (error: unknown) {
+      console.error('Error during account deletion process:', error);
+      toast({
+        title: "Account Deletion Failed",
+        description: (error instanceof Error) ? error.message : "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      await supabase.auth.signOut();
+      localStorage.removeItem('eidoRecentFiles');
+      sessionStorage.removeItem('activeClass');
+      setIsDeletingAccount(false);
+      navigate('/');
+    }
+  };
+
+  return (
+    <>
+      <Helmet>
+        <title>Profile | Eido AI</title>
+      </Helmet>
+      
+      <MainAppLayout pageTitle="Profile | Eido AI">
+        <div className="flex h-full w-full gap-3">
+          <DashboardSidebar onLinkClick={handleProtectedLinkClick} />
+          <main className="flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900">
+              <div className="flex flex-col gap-y-8 p-4 md:p-8 lg:p-10">
+                <div>
+                  <h1 className="text-3xl font-bold text-neutral-100">
+                    Profile & Settings
+                  </h1>
+                  <p className="text-sm text-neutral-400 mt-2">
+                    Manage your profile, password, and account settings.
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                  <div className="lg:col-span-1">
+                    <UserProfile />
+                  </div>
+                  <div className="lg:col-span-2 space-y-8">
+                    <PasswordChangeForm />
+                    
+                    <Card className="bg-neutral-900 border-red-500/50">
+                      <CardHeader>
+                        <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                        <CardDescription>
+                          These actions are permanent and cannot be undone.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between p-4 bg-red-500/10 rounded-lg">
+                          <div>
+                              <h3 className="font-medium text-neutral-100">Delete Account</h3>
+                              <p className="text-sm text-neutral-400">Permanently delete your account and all of your data.</p>
+                          </div>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="destructive"
+                                disabled={isDeletingAccount}
+                                className="w-full sm:w-auto flex-shrink-0"
+                              >
+                                {isDeletingAccount ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                Delete Account
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete your account and remove all associated data from our servers. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel disabled={isDeletingAccount}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={handleDeleteAccount}
+                                  disabled={isDeletingAccount}
+                                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                >
+                                  {isDeletingAccount ? "Deleting..." : "Yes, delete my account"}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </div>
+          </main>
+        </div>
+      </MainAppLayout>
+    </>
+  );
+};
+
+export default ProfilePage;
+</file>
+
 <file path="src/services/chatMessageService.ts">
 // src/services/chatMessageService.ts
 import { supabase } from "@/integrations/supabase/client";
@@ -20751,47 +20754,109 @@ serve(async (req: Request) => {
 });
 </file>
 
-<file path="src/components/dashboard/OracleCard.tsx">
-// src/components/dashboard/OracleCard.tsx
+<file path="src/components/classes/ClassCard.tsx">
+// src/components/classes/ClassCard.tsx
 import React from 'react';
-import ShimmerButton from '@/components/ui/ShimmerButton';
-import { ArrowRight } from 'lucide-react';
-import { OracleChatDemo } from './OracleChatDemo'; // Import the new demo component
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MoreHorizontal, Trash2, Users } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { getHslColorValue, normalizeColorClasses } from '@/components/calendar/colorUtils';
 
-interface OracleCardProps {
+interface ClassCardProps {
+  id: string;
+  className: string;
+  files: number;
+  size: string;
+  isSelected: boolean;
+  isOwner: boolean;
+  isShared: boolean;
+  color?: string | null;
   onClick: () => void;
+  onDelete: (id: string, className: string) => void;
 }
 
-export const OracleCard: React.FC<OracleCardProps> = ({ onClick }) => {
+export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size, isSelected, isOwner, isShared, color, onClick, onDelete }) => {
+  const { borderColor, bgColor } = normalizeColorClasses(color);
+  const shimmerColor = getHslColorValue(color);
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(id, className);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { currentTarget: target } = e;
+    const rect = target.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    target.style.setProperty("--x", `${x}px`);
+    target.style.setProperty("--shimmer-color", shimmerColor);
+  };
+
   return (
-    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
-      <div className="flex flex-col gap-y-3">
-        <h2 className="text-2xl font-bold text-neutral-100">
-          Oracle
-        </h2>
+    <div
+      onClick={onClick}
+      onMouseMove={handleMouseMove}
+      className={cn(
+        "group p-3 rounded-lg cursor-pointer transition-all border relative flex flex-col h-36",
+        "shimmer-button transition-transform ease-in-out duration-200 hover:-translate-y-1",
+        isSelected
+          ? 'ring-2 ring-offset-2 ring-offset-neutral-900 ring-blue-500'
+          : '',
+        borderColor,
+        bgColor
+      )}
+    >
+      <div className="flex justify-between items-start gap-2 w-full">
+        <h3 className="font-semibold text-sm text-white truncate pr-1 min-w-0" title={className}>
+          {className}
+        </h3>
         
-        <p className="text-sm text-neutral-400 max-w-md">
-          Get instant, cited answers from your course content. Plus, install the Chrome extension to access Oracle from anywhere.
-        </p>
-      </div>
-
-      <div className="flex-grow" />
-
-      <div className="mt-6 flex flex-col gap-4">
-        <ShimmerButton 
-          onClick={onClick} 
-          className="w-fit border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
-        >
-          Go to Oracle
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </ShimmerButton>
-
-        {/* --- MODIFICATION: Replaced the static image with the live chat demo --- */}
-        <div className="h-56 w-full rounded-md overflow-hidden border border-neutral-700/50 bg-neutral-900/50">
-          <OracleChatDemo />
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {isShared && (
+            <Badge variant="secondary" className="text-xs flex items-center bg-black/20 text-white/90 border-transparent pointer-events-none">
+              <Users className="mr-1.5 h-3 w-3" />
+              Shared
+            </Badge>
+          )}
+          {isOwner && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-neutral-400 hover:text-white hover:bg-white/10"
+                >
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Class Options</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                    onClick={handleDeleteClick}
+                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Class
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
-    </section>
+
+      <div className="flex-grow" /> 
+
+      <div className="mt-auto">
+        <div className="text-xs text-white/80">
+            <span>{files} Files</span>
+            <span className="mx-2">•</span>
+            <span>{size}</span>
+        </div>
+      </div>
+    </div>
   );
 };
 </file>
@@ -21158,6 +21223,51 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     />
   );
 }
+</file>
+
+<file path="src/components/dashboard/OracleCard.tsx">
+// src/components/dashboard/OracleCard.tsx
+import React from 'react';
+import ShimmerButton from '@/components/ui/ShimmerButton';
+import { ArrowRight } from 'lucide-react';
+import { OracleChatDemo } from './OracleChatDemo'; // Import the new demo component
+
+interface OracleCardProps {
+  onClick: () => void;
+}
+
+export const OracleCard: React.FC<OracleCardProps> = ({ onClick }) => {
+  return (
+    <section className="relative flex flex-col rounded-lg p-6 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
+      <div className="flex flex-col gap-y-3">
+        <h2 className="text-2xl font-bold text-neutral-100">
+          Oracle
+        </h2>
+        
+        <p className="text-sm text-neutral-400 max-w-md">
+          Get instant, cited answers from your course content. Plus, install the Chrome extension to access Oracle from anywhere.
+        </p>
+      </div>
+
+      <div className="flex-grow" />
+
+      <div className="mt-6 flex flex-col gap-4">
+        <ShimmerButton 
+          onClick={onClick} 
+          className="w-fit border border-blue-500 bg-blue-950/80 text-neutral-100 hover:border-blue-400"
+        >
+          Go to Oracle
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </ShimmerButton>
+
+        {/* --- MODIFICATION: Removed the hard border from this container --- */}
+        <div className="h-56 w-full overflow-hidden bg-neutral-900/50 rounded-md">
+          <OracleChatDemo />
+        </div>
+      </div>
+    </section>
+  );
+};
 </file>
 
 <file path="src/features/files/types.ts">
@@ -21561,6 +21671,95 @@ export const Header = () => {
 };
 </file>
 
+<file path="supabase/config.toml">
+# supabase/config.toml
+project_id = "uzdtqomtbrccinrkhzme"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://localhost" # This is for local dev, ensure it's correct for your setup
+
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:8080"
+
+[storage]
+enabled = true
+
+[analytics]
+enabled = true
+port = 54327
+
+# Functions configuration
+
+# Removed: [functions.generate-flashcards]
+# Removed: verify_jwt = true
+
+# Removed: [functions.generate-quiz]
+# Removed: verify_jwt = true
+
+[functions.upload-to-vector-store]
+verify_jwt = true 
+
+[functions.check-env-vars]
+verify_jwt = true
+
+[functions.generate-title]
+verify_jwt = true
+
+[functions.generate-previews]
+verify_jwt = true
+
+[functions.request-previews]
+verify_jwt = true
+
+[functions.oracle-chat]
+verify_jwt = true
+
+[functions.debug-weaviate-chunks]
+verify_jwt = true
+
+[functions.serve-file]
+verify_jwt = true
+
+[functions.semantic-search]
+verify_jwt = true
+
+[functions.delete-from-cloudinary]
+verify_jwt = true
+
+[functions.delete-user-account]
+verify_jwt = true
+
+[functions.delete-weaviate-chunks-by-file]
+verify_jwt = true
+
+[functions.parse-syllabus]
+verify_jwt = true
+
+[functions.create-recurring-event]
+verify_jwt = true
+
+[functions.delete-recurring-event]
+verify_jwt = true
+
+[functions.delete-class]
+verify_jwt = true
+</file>
+
 <file path="package.json">
 {
   "name": "vite_react_shadcn_ts",
@@ -21662,95 +21861,6 @@ export const Header = () => {
     "vite": "^5.4.1"
   }
 }
-</file>
-
-<file path="supabase/config.toml">
-# supabase/config.toml
-project_id = "uzdtqomtbrccinrkhzme"
-
-[api]
-enabled = true
-port = 54321
-schemas = ["public", "storage", "graphql_public"]
-
-[db]
-port = 54322
-
-[studio]
-enabled = true
-port = 54323
-api_url = "http://localhost" # This is for local dev, ensure it's correct for your setup
-
-[inbucket]
-enabled = true
-port = 54324
-
-[auth]
-enabled = true
-site_url = "http://localhost:8080"
-
-[storage]
-enabled = true
-
-[analytics]
-enabled = true
-port = 54327
-
-# Functions configuration
-
-# Removed: [functions.generate-flashcards]
-# Removed: verify_jwt = true
-
-# Removed: [functions.generate-quiz]
-# Removed: verify_jwt = true
-
-[functions.upload-to-vector-store]
-verify_jwt = true 
-
-[functions.check-env-vars]
-verify_jwt = true
-
-[functions.generate-title]
-verify_jwt = true
-
-[functions.generate-previews]
-verify_jwt = true
-
-[functions.request-previews]
-verify_jwt = true
-
-[functions.oracle-chat]
-verify_jwt = true
-
-[functions.debug-weaviate-chunks]
-verify_jwt = true
-
-[functions.serve-file]
-verify_jwt = true
-
-[functions.semantic-search]
-verify_jwt = true
-
-[functions.delete-from-cloudinary]
-verify_jwt = true
-
-[functions.delete-user-account]
-verify_jwt = true
-
-[functions.delete-weaviate-chunks-by-file]
-verify_jwt = true
-
-[functions.parse-syllabus]
-verify_jwt = true
-
-[functions.create-recurring-event]
-verify_jwt = true
-
-[functions.delete-recurring-event]
-verify_jwt = true
-
-[functions.delete-class]
-verify_jwt = true
 </file>
 
 <file path="src/services/classOpenAIConfig.ts">
@@ -23267,16 +23377,19 @@ export default OraclePage;
 
 <file path="src/pages/DashboardPage.tsx">
 // src/pages/DashboardPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { usePageLoader } from '@/context/LoaderContext';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { OracleCard } from '@/components/dashboard/OracleCard';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
-import { SharedClassesCard } from '@/components/dashboard/SharedClassesCard';
+import { ClassesCard } from '@/components/dashboard/ClassesCard';
 import { WelcomePopup } from '@/components/dashboard/WelcomePopup';
 import FloatingShapes from '@/components/dashboard/FloatingShapes';
+import { classOpenAIConfigService, ClassConfig } from '@/services/classOpenAIConfig';
+import { formatFileSize } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom'; // --- MODIFICATION: Import useNavigate
 
 const Footer = () => (
   <footer className="relative z-10 w-full px-4 py-6 md:px-9 lg:px-10 border-t border-neutral-800 bg-neutral-900 flex-shrink-0">
@@ -23294,7 +23407,11 @@ const DashboardPage = () => {
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
     const { loadPage, loader } = usePageLoader();
+    const navigate = useNavigate(); // --- MODIFICATION: Initialize navigate
     const [isWelcomePopupOpen, setIsWelcomePopupOpen] = useState(false);
+    
+    const [classes, setClasses] = useState<ClassConfig[]>([]);
+    const [isLoadingClasses, setIsLoadingClasses] = useState(true);
 
     useEffect(() => {
         if (loader) {
@@ -23327,8 +23444,9 @@ const DashboardPage = () => {
     }, [loader]);
 
     useEffect(() => {
-        const fetchProfile = async () => {
+        const fetchProfileAndClasses = async () => {
         if (user) {
+            setIsLoadingClasses(true);
             const { data, error } = await supabase
             .from('profiles')
             .select('full_name')
@@ -23340,10 +23458,43 @@ const DashboardPage = () => {
             } else if (data) {
             setProfile(data);
             }
+            
+            try {
+                const fetchedClasses = await classOpenAIConfigService.getAllClasses();
+                setClasses(fetchedClasses);
+            } catch (classError) {
+                console.error("Error fetching classes:", classError);
+            } finally {
+                setIsLoadingClasses(false);
+            }
+
+        } else {
+            setClasses([]);
+            setIsLoadingClasses(false);
         }
         };
-        fetchProfile();
+        fetchProfileAndClasses();
     }, [user]);
+
+    const classesWithStats = useMemo(() => {
+        if (!classes || !user) return [];
+        return classes.map(cls => ({ 
+            ...cls, 
+            files: cls.file_count || 0,
+            size: formatFileSize(cls.total_size || 0),
+            is_owner: cls.owner_id === user.id,
+            is_shared: (cls.member_count || 0) > 1
+        }));
+    }, [classes, user]);
+
+    // --- MODIFICATION: New handler for class card clicks ---
+    const handleClassCardClick = (classData: ClassConfig) => {
+        if (user) {
+            navigate('/classes', { state: { selectedClass: classData } });
+        } else {
+            navigate('/auth');
+        }
+    };
 
     const handleProtectedLinkClick = (path: string) => {
         if (user) {
@@ -23363,7 +23514,6 @@ const DashboardPage = () => {
         <main className="relative flex h-full w-full flex-grow flex-col overflow-y-auto rounded-lg border border-foreground/20 bg-neutral-900">
           <FloatingShapes />
           
-          {/* --- MODIFICATION: The layout logic is simplified and made more explicit --- */}
           <div className="relative z-10 flex flex-col flex-grow">
             <div className="flex-grow p-4 md:p-8 flex flex-col">
                 <div className="max-w-4xl mx-auto text-center flex-shrink-0">
@@ -23375,7 +23525,13 @@ const DashboardPage = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 flex-grow">
                     <OracleCard onClick={() => handleProtectedLinkClick('/oracle')} />
-                    <SharedClassesCard onClick={() => handleProtectedLinkClick('/classes')} />
+                    <ClassesCard 
+                        onClick={() => handleProtectedLinkClick('/classes')} 
+                        classes={classesWithStats}
+                        isLoading={isLoadingClasses}
+                        // --- MODIFICATION: Pass the new handler ---
+                        onClassClick={handleClassCardClick}
+                    />
                 </div>
             </div>
             <Footer />

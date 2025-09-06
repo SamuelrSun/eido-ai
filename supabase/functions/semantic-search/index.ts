@@ -29,7 +29,6 @@ serve(async (req: Request) => {
   }
 
   try {
-    // 1. Authenticate the user and get the search query from the request body
     const { query, class_id } = await req.json();
     if (!query) throw new Error("A 'query' parameter is required.");
 
@@ -41,7 +40,6 @@ serve(async (req: Request) => {
     const { data: { user } } = await userSupabaseClient.auth.getUser();
     if (!user) throw new Error('Authentication failed.');
 
-    // Initialize Weaviate and Admin Supabase clients
     const weaviateClient: WeaviateClient = weaviate.client({
       scheme: 'https',
       host: WEAVIATE_URL!,
@@ -49,14 +47,28 @@ serve(async (req: Request) => {
     });
     const adminSupabaseClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-    // 2. Create a vector embedding for the user's search query using OpenAI
+    // --- MODIFICATION START: Security check to ensure user is a member of the class ---
+    if (class_id) {
+        const { data: member, error: memberError } = await adminSupabaseClient
+          .from('class_members')
+          .select('role')
+          .eq('class_id', class_id)
+          .eq('user_id', user.id)
+          .in('role', ['owner', 'member'])
+          .maybeSingle();
+
+        if (memberError) throw new Error(`Database error checking membership: ${memberError.message}`);
+        if (!member) throw new Error("Permission denied: You are not a member of this class.");
+    }
+    // --- MODIFICATION END ---
+
     console.log(`[SEARCH] Creating embedding for query: "${query}"`);
     const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY!}` },
       body: JSON.stringify({
         input: query,
-        model: "text-embedding-3-small", // A powerful and cost-effective model for embeddings
+        model: "text-embedding-3-small",
       }),
     });
     if (!embeddingResponse.ok) {
@@ -67,43 +79,45 @@ serve(async (req: Request) => {
     const queryVector = embeddingData.data[0].embedding;
     console.log(`[SEARCH] Embedding created successfully.`);
 
-    // 3. Perform the semantic search in Weaviate using the query vector
     console.log(`[SEARCH] Performing nearVector search in Weaviate...`);
     
-    // Construct the 'where' filter to scope the search
-    const whereOperands = [
-        { path: ['user_id'], operator: 'Equal', valueText: user.id },
-    ];
+    // --- MODIFICATION START: Construct the 'where' filter ---
+    // Now it only filters by class_id. If class_id is not provided, it searches
+    // all documents for the user (though the UI currently requires a class for Oracle).
+    const whereFilter: any = {};
     if (class_id) {
-        whereOperands.push({ path: ['class_id'], operator: 'Equal', valueText: class_id });
+        whereFilter.operator = 'Equal';
+        whereFilter.path = ['class_id'];
+        whereFilter.valueText = class_id;
+    } else {
+        // Fallback to user's own documents if no class is specified.
+        whereFilter.operator = 'Equal';
+        whereFilter.path = ['user_id'];
+        whereFilter.valueText = user.id;
     }
-
+    // --- MODIFICATION END ---
+    
     const weaviateResponse = await weaviateClient.graphql
       .get()
       .withClassName('DocumentChunk')
-      .withNearVector({ vector: queryVector }) // Use the vector to find similar chunks
-      .withLimit(10) // Return the top 10 most relevant results
-      .withWhere({
-          operator: 'And',
-          operands: whereOperands,
-      })
+      .withNearVector({ vector: queryVector })
+      .withLimit(10)
+      .withWhere(whereFilter)
       .withFields('source_file_id source_file_name folder_id page_number text_chunk class_id')
       .do();
 
     const retrievedChunks = weaviateResponse.data.Get.DocumentChunk;
     console.log(`[SEARCH] Found ${retrievedChunks?.length || 0} relevant chunks.`);
 
-    // 4. Format the results for the frontend
     const searchResults: SearchResult[] = (retrievedChunks || []).map((chunk: any) => ({
       file_id: chunk.source_file_id,
       file_name: chunk.source_file_name,
       folder_id: chunk.folder_id,
       page_number: chunk.page_number,
-      snippet: chunk.text_chunk, // This is the actual text content that matched the search
+      snippet: chunk.text_chunk,
       class_id: chunk.class_id,
     }));
 
-    // 5. Return the results
     return new Response(JSON.stringify(searchResults), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,

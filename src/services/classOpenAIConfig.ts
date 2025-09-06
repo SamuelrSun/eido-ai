@@ -20,7 +20,6 @@ export interface ClassConfig {
   updated_at?: string | null;
   color?: string | null;
   user_role?: 'owner' | 'member' | 'pending' | null;
-  // Properties from the new RPC
   member_count?: number;
   file_count?: number;
   total_size?: number;
@@ -37,6 +36,7 @@ export const classOpenAIConfigService = {
     return undefined;
   },
 
+  // MODIFICATION: This function now handles both creating and renaming.
   saveConfigForClass: async (
     className: string,
     class_id_to_update?: string | null
@@ -180,7 +180,6 @@ export const classOpenAIConfigService = {
   },
 
   deleteClass: async (class_id: string): Promise<void> => {
-    // MODIFICATION: This now calls our new, safe Edge Function.
     const { error } = await supabase.functions.invoke('delete-class', {
       body: { class_id },
     });

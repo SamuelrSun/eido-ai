@@ -11,13 +11,13 @@ import { UploadingFile } from '@/components/classes/UploadProgressToast';
 import { DeletingFile } from '@/components/classes/DeletionProgressToast';
 import { formatFileSize } from '@/lib/utils';
 import { ClassMember } from '@/components/classes/ClassMembersView';
-import { useLocation, useNavigate } from 'react-router-dom'; // --- MODIFICATION: Import hooks
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export const useClassesPage = () => {
     const { loader } = usePageLoader();
     const { toast } = useToast();
-    const location = useLocation(); // --- MODIFICATION: Add location
-    const navigate = useNavigate(); // --- MODIFICATION: Add navigate
+    const location = useLocation();
+    const navigate = useNavigate();
     const [user, setUser] = useState<User | null>(null);
     const [classes, setClasses] = useState<ClassConfig[]>([]);
     const [folders, setFolders] = useState<FolderType[]>([]);
@@ -63,7 +63,26 @@ export const useClassesPage = () => {
         setBreadcrumbs([{ name: 'Home', id: null }, { name: classData.class_name, id: classData.class_id }]);
         sessionStorage.setItem('activeClass', JSON.stringify({ class_id: classData.class_id, class_name: classData.class_name }));
     }, []);
-
+    
+    // MODIFICATION: Add handleRenameClass function
+    const handleRenameClass = async (classId: string, newName: string) => {
+        try {
+            const updatedClass = await classOpenAIConfigService.saveConfigForClass(newName, classId);
+            setClasses(prev => prev.map(c => c.class_id === classId ? { ...c, ...updatedClass } : c));
+            if (selectedClass?.class_id === classId) {
+                setSelectedClass(prev => prev ? { ...prev, class_name: newName } : null);
+                setBreadcrumbs(prev => prev.map(b => b.id === classId ? { ...b, name: newName } : b));
+                sessionStorage.setItem('activeClass', JSON.stringify({ class_id: classId, class_name: newName }));
+            }
+        } catch(error) {
+            console.error("Failed to rename class:", error);
+            throw error;
+        }
+    };
+    
+    // (Rest of the hook remains the same)
+    // ... all other functions from the original hook ...
+    
     useEffect(() => {
         if (loader) loader.continuousStart();
         const fetchUserAndInitialData = async () => {
@@ -84,7 +103,6 @@ export const useClassesPage = () => {
         };
     }, [loader]);
     
-    // --- MODIFICATION: This new effect handles navigation from the dashboard ---
     useEffect(() => {
         if (initialLoadComplete && classes.length > 0) {
             const classFromState = location.state?.selectedClass as ClassConfig | undefined;
@@ -92,7 +110,6 @@ export const useClassesPage = () => {
                 const fullClassData = classes.find(c => c.class_id === classFromState.class_id);
                 if (fullClassData) {
                     handleClassClick(fullClassData);
-                    // Clear state from location history to prevent re-triggering on refresh
                     navigate(location.pathname, { replace: true, state: {} });
                 }
             }
@@ -503,7 +520,6 @@ export const useClassesPage = () => {
         });
     }, [folders, allClassFiles, allUserFolders]);
     
-
     return {
         user, classes, folders, files, allClassFiles, allFiles, recentFiles,
         selectedClass, currentFolderId, breadcrumbs, isLoading, isDeleting,
@@ -520,6 +536,7 @@ export const useClassesPage = () => {
         fetchData, handleUploadFiles, handleClassClick, handleFolderClick,
         handleBreadcrumbClick, getFolderPath, handleFileRowClick, confirmDelete,
         handleCreateClass, handleDeleteClassClick, confirmDeleteClass, handleCreateFolder,
+        handleRenameClass, // Expose the new function
         classesWithStats, foldersWithStats
     };
 };

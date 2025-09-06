@@ -1,9 +1,7 @@
 // src/components/classes/ClassCard.tsx
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Trash2, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getHslColorValue, normalizeColorClasses } from '@/components/calendar/colorUtils';
 
@@ -17,17 +15,12 @@ interface ClassCardProps {
   isShared: boolean;
   color?: string | null;
   onClick: () => void;
-  onDelete: (id: string, className: string) => void;
+  // The onDelete prop is no longer needed here
 }
 
-export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size, isSelected, isOwner, isShared, color, onClick, onDelete }) => {
+export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size, isSelected, isOwner, isShared, color, onClick }) => {
   const { borderColor, bgColor } = normalizeColorClasses(color);
   const shimmerColor = getHslColorValue(color);
-
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete(id, className);
-  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const { currentTarget: target } = e;
@@ -64,29 +57,7 @@ export const ClassCard: React.FC<ClassCardProps> = ({ id, className, files, size
               Shared
             </Badge>
           )}
-          {isOwner && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-neutral-400 hover:text-white hover:bg-white/10"
-                >
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">Class Options</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                    onClick={handleDeleteClick}
-                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Class
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          {/* The DropdownMenu for deletion has been removed from this component */}
         </div>
       </div>
 

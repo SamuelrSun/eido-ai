@@ -16,6 +16,11 @@ const ClassesPage = () => {
     const hook = useClassesPage();
     const [activeTab, setActiveTab] = useState('files');
 
+    // Reset to files tab when the selected class changes
+    React.useEffect(() => {
+        setActiveTab('files');
+    }, [hook.selectedClass]);
+
     return (
         <MainAppLayout pageTitle="Classes | Eido AI">
             <div className="flex flex-row gap-3 h-full">
@@ -44,7 +49,8 @@ const ClassesPage = () => {
                                     className="border border-neutral-800 rounded-md p-0 w-min"
                                 >
                                     <ToggleGroupItem value="files" className={cn("text-neutral-400 h-8 px-4 text-sm hover:bg-neutral-800 rounded-none rounded-l-md border-none data-[state=on]:bg-neutral-800 data-[state=on]:text-white")}>Files</ToggleGroupItem>
-                                    <ToggleGroupItem value="members" className={cn("text-neutral-400 h-8 px-4 text-sm hover:bg-neutral-800 rounded-none border-l border-neutral-800 data-[state=on]:bg-neutral-800 data-[state=on]:text-white")}>Members</ToggleGroupItem>
+                                    {/* MODIFICATION: Renamed "Members" tab to "Settings" */}
+                                    <ToggleGroupItem value="settings" className={cn("text-neutral-400 h-8 px-4 text-sm hover:bg-neutral-800 rounded-none border-l border-neutral-800 data-[state=on]:bg-neutral-800 data-[state=on]:text-white")}>Settings</ToggleGroupItem>
                                 </ToggleGroup>
                                 
                                 <div className="mt-6">
@@ -64,7 +70,8 @@ const ClassesPage = () => {
                                             recentFiles={hook.recentFiles}
                                         />
                                     )}
-                                    {activeTab === 'members' && (
+                                    {/* MODIFICATION: This now renders the combined settings view */}
+                                    {activeTab === 'settings' && (
                                         <ClassMembersView
                                             selectedClass={hook.selectedClass}
                                             isOwner={hook.classesWithStats.find(c => c.class_id === hook.selectedClass?.class_id)?.is_owner ?? false}
@@ -72,6 +79,8 @@ const ClassesPage = () => {
                                             onRemoveMember={hook.handleRemoveMember}
                                             onLeaveClass={hook.handleLeaveClass}
                                             onApproveMember={hook.handleApproveMember}
+                                            onRenameClass={hook.handleRenameClass}
+                                            onDeleteClass={() => hook.handleDeleteClassClick(hook.selectedClass!)}
                                         />
                                     )}
                                 </div>
@@ -82,7 +91,7 @@ const ClassesPage = () => {
                                     isLoading={hook.isLoading}
                                     classesWithStats={hook.classesWithStats}
                                     onClassClick={hook.handleClassClick}
-                                    onDeleteClassClick={hook.handleDeleteClassClick}
+                                    onDeleteClassClick={() => { /* This is now handled in the settings tab */ }}
                                 />
                                 <FilesView
                                     isLoading={hook.isLoading}
