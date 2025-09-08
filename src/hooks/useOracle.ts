@@ -80,16 +80,14 @@ export const useOracle = (): OracleState => {
       finally { setIsLoadingMessages(false); }
   }, [selectedConversationId, toast, handleMessageSelect]);
 
+  // --- MODIFICATION START ---
+  // This function no longer reads/writes to sessionStorage, making the
+  // class selection on this page independent.
   const handleClassChange = useCallback((newClassId: string | null) => {
     setSelectedClassId(newClassId);
     selectConversation(null);
-    if (newClassId) {
-        const selectedClass = classes.find(c => c.class_id === newClassId);
-        if (selectedClass) sessionStorage.setItem('activeClass', JSON.stringify(selectedClass));
-    } else {
-        sessionStorage.removeItem('activeClass');
-    }
-  }, [classes, selectConversation]);
+  }, [selectConversation]);
+  // --- MODIFICATION END ---
 
   const handleRenameConversation = useCallback(async (id: string, newName: string) => {
     if (!user) return;
@@ -210,7 +208,6 @@ export const useOracle = (): OracleState => {
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => processFiles(e.target.files), [processFiles]);
   
-  // MODIFICATION: Added preventDefault() when files are present
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
       if (e.clipboardData.files.length > 0) {
           e.preventDefault();
@@ -218,7 +215,6 @@ export const useOracle = (): OracleState => {
       }
   }, [processFiles]);
   
-  // MODIFICATION: Added new handleDrop function
   const handleDrop = useCallback((e: React.DragEvent) => {
       e.preventDefault();
       processFiles(e.dataTransfer.files);
@@ -240,13 +236,10 @@ export const useOracle = (): OracleState => {
                 setUserProfile(profileData);
                 const fetchedClasses = await classOpenAIConfigService.getAllClasses();
                 setClasses(fetchedClasses);
-                const activeClassDataString = sessionStorage.getItem('activeClass');
-                if (activeClassDataString) {
-                    const parsedClass = JSON.parse(activeClassDataString);
-                    if (fetchedClasses.some(c => c.class_id === parsedClass.class_id)) {
-                        setSelectedClassId(parsedClass.class_id);
-                    }
-                }
+                // --- MODIFICATION START ---
+                // The logic that read 'activeClass' from sessionStorage has been removed.
+                // selectedClassId will remain null by default, which corresponds to "All Classes".
+                // --- MODIFICATION END ---
             }
         } catch (error) { toast({ title: "Error", description: "Could not load initial page data.", variant: "destructive" }); }
         finally { setPageLoading(false); }
