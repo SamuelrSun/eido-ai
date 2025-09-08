@@ -5,6 +5,12 @@ import weaviate, { WeaviateClient, ApiKey } from 'npm:weaviate-ts-client@2.0.0';
 import * as pdfjs from 'npm:pdfjs-dist@4.4.168/legacy/build/pdf.mjs';
 import { corsHeaders } from '../_shared/cors.ts';
 
+// --- MODIFICATION START: Configure pdfjs worker and assets ---
+// This is the critical fix. It tells pdfjs where to fetch required font and worker files from a CDN.
+pdfjs.GlobalWorkerOptions.workerSrc = `https://npmcdn.com/pdfjs-dist@4.4.168/legacy/build/pdf.worker.mjs`;
+// --- MODIFICATION END ---
+
+
 // --- CONFIGURATION ---
 const PAGES_PER_BATCH = 3; // Reduced batch size due to more intensive processing per page.
 
