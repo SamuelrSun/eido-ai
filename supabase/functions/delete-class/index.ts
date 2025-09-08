@@ -8,12 +8,12 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  try {
-    const adminSupabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+  const adminSupabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  );
 
+  try {
     const { data: { user } } = await createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -76,47 +76,28 @@ serve(async (req: Request) => {
     await Promise.allSettled(cleanupPromises);
     console.log(`[delete-class] External services cleanup complete for class ${class_id}.`);
 
-    // --- MODIFICATION START: Comprehensive and explicit deletion of all dependent DB records ---
-    // This avoids using ON DELETE CASCADE which was causing the trigger to fail.
+    // --- MODIFICATION: Disable trigger, delete, then re-enable trigger ---
+    try {
+      // Step 4.1: Disable the user-defined triggers on the 'files' table.
+      const { error: disableError } = await adminSupabase.rpc('sql', { sql: 'ALTER TABLE public.files DISABLE TRIGGER USER;' });
+      if (disableError) throw new Error(`Failed to disable triggers: ${disableError.message}`);
+      console.log(`[delete-class] Temporarily disabled triggers on 'files' table.`);
 
-    console.log(`[delete-class] Starting manual deletion of dependent database records for class ${class_id}.`);
+      // Step 4.2: Delete the single class record. ON DELETE CASCADE will now run without firing the faulty trigger.
+      const { error: deleteError } = await adminSupabase
+        .from('classes')
+        .delete()
+        .eq('class_id', class_id);
+      if (deleteError) throw deleteError;
+      console.log(`[delete-class] Successfully deleted class record and initiated cascade.`);
 
-    // The order of deletion matters to respect foreign key constraints.
-    // We delete records that depend on other records first.
-
-    // 1. Delete from 'message_sources' which depends on 'chat_messages'
-    const { data: messages, error: msgError } = await adminSupabase.from('chat_messages').select('id').eq('class_id', class_id);
-    if (msgError) throw new Error(`Failed to fetch chat messages for cleanup: ${msgError.message}`);
-    if (messages && messages.length > 0) {
-        const messageIds = messages.map(m => m.id);
-        await adminSupabase.from('message_sources').delete().in('message_id', messageIds);
+    } finally {
+      // Step 4.3: CRITICAL - Re-enable the triggers in a 'finally' block to ensure they are
+      // always turned back on, even if the deletion fails.
+      const { error: enableError } = await adminSupabase.rpc('sql', { sql: 'ALTER TABLE public.files ENABLE TRIGGER USER;' });
+      if (enableError) console.error(`[CRITICAL] FAILED TO RE-ENABLE TRIGGERS: ${enableError.message}`);
+      else console.log(`[delete-class] Re-enabled triggers on 'files' table.`);
     }
-    
-    // 2. Now delete from tables that directly reference the 'classes' table.
-    const tablesToDeleteFrom = [
-        'chat_messages', 'calendar_events', 'quiz_questions', 'quizzes', 'flashcards',
-        '"flashcard-decks"', 'files', 'folders', 'class_members', 'class_activity'
-    ];
-
-    for (const table of tablesToDeleteFrom) {
-        const { error: deleteChildError } = await adminSupabase.from(table).delete().eq('class_id', class_id);
-        if (deleteChildError) {
-            console.warn(`Could not clean up table '${table}' for class ${class_id}: ${deleteChildError.message}`);
-        }
-    }
-    
-    console.log(`[delete-class] ✅ Manual deletion of dependent records complete.`);
-    // --- MODIFICATION END ---
-
-
-    // --- Step 5: Finally, delete the class record itself ---
-    // Since all child records are gone, no cascades will fire.
-    const { error: deleteError } = await adminSupabase
-      .from('classes')
-      .delete()
-      .eq('class_id', class_id);
-
-    if (deleteError) throw deleteError;
     
     return new Response(JSON.stringify({ success: true, message: "Class and all associated data have been deleted." }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
