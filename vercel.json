@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://uzdtqomtbrccinrkhzme.supabase.co/functions/v1/:path*"
+    },
+    {
       "source": "/((?!api/|assets/|robots.txt|favicon.ico|eido-icon.png|eido-icon.ico|placeholder.svg|_next/static/|_next/image/|sitemap.xml|manifest.json|sw.js|workbox-.*.js).*)",
       "destination": "/index.html"
     }

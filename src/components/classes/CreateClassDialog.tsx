@@ -1,4 +1,4 @@
-// src/components/datasets/CreateClassDialog.tsx
+// src/components/classes/CreateClassDialog.tsx
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import {
@@ -10,8 +10,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Loader2 } from 'lucide-react';
+import ShimmerButton from '../ui/ShimmerButton';
 
 interface CreateClassDialogProps {
   isOpen: boolean;
@@ -32,39 +32,32 @@ export const CreateClassDialog: React.FC<CreateClassDialogProps> = ({ isOpen, on
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      {/* 1. Increased the max-width to allow description to fit on two lines. */}
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent className="sm:max-w-[425px] bg-neutral-900 border-neutral-800">
         <form onSubmit={handleSubmit}>
-          {/* 2. Applied text-center directly to Title and Description for better alignment control. */}
-          <DialogHeader>
-            <DialogTitle className="text-center">Create New Class</DialogTitle>
-            <DialogDescription className="text-center pt-2">
+          <DialogHeader className="text-center sm:text-center">
+            <DialogTitle className="text-white">Create New Class</DialogTitle>
+            <DialogDescription className="pt-2 text-neutral-400">
               Classes are the top-level containers for your course materials. Give your new class a name to get started.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="flex items-center justify-center gap-4">
-              <Label htmlFor="name">
-                Name
-              </Label>
-              <Input
-                id="name"
-                value={className}
-                onChange={(e) => setClassName(e.target.value)}
-                className="w-64"
-                placeholder="e.g., ITP-216: Applied Python"
-                disabled={isLoading}
-                // 3. Added autoComplete="off" to prevent browser suggestions.
-                autoComplete="off"
-              />
-            </div>
+          <div className="py-8">
+            <Input
+              id="name"
+              value={className}
+              onChange={(e) => setClassName(e.target.value)}
+              className="w-full bg-transparent border-0 border-b-2 border-neutral-700 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-blue-500 h-10 text-base text-white"
+              placeholder="Name your class here..."
+              disabled={isLoading}
+              autoComplete="off"
+              autoFocus
+            />
           </div>
-          <DialogFooter className="sm:justify-center">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>Cancel</Button>
-            <Button type="submit" disabled={isLoading || !className.trim()}>
+          <DialogFooter className="sm:justify-center gap-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading} className="bg-transparent border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white">Cancel</Button>
+            <ShimmerButton type="submit" disabled={isLoading || !className.trim()}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {isLoading ? 'Creating...' : 'Create Class'}
-            </Button>
+            </ShimmerButton>
           </DialogFooter>
         </form>
       </DialogContent>

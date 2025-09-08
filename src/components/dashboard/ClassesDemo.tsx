@@ -21,7 +21,7 @@ export const ClassesDemo: React.FC<ClassesDemoProps> = ({ classes, isLoading, on
           </div>
         ) : classes.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 h-full overflow-y-auto">
-            {classes.slice(0, 4).map((classItem) => (
+            {classes.map((classItem) => (
               <DashboardClassCard
                 key={classItem.class_id}
                 className={classItem.class_name}

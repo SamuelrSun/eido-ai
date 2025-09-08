@@ -7,11 +7,10 @@ import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { OracleCard } from '@/components/dashboard/OracleCard';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { ClassesCard } from '@/components/dashboard/ClassesCard';
-import { WelcomePopup } from '@/components/dashboard/WelcomePopup';
 import FloatingShapes from '@/components/dashboard/FloatingShapes';
 import { classOpenAIConfigService, ClassConfig } from '@/services/classOpenAIConfig';
 import { formatFileSize } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom'; // --- MODIFICATION: Import useNavigate
+import { useNavigate } from 'react-router-dom';
 
 const Footer = () => (
   <footer className="relative z-10 w-full px-4 py-6 md:px-9 lg:px-10 border-t border-neutral-800 bg-neutral-900 flex-shrink-0">
@@ -29,8 +28,7 @@ const DashboardPage = () => {
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
     const { loadPage, loader } = usePageLoader();
-    const navigate = useNavigate(); // --- MODIFICATION: Initialize navigate
-    const [isWelcomePopupOpen, setIsWelcomePopupOpen] = useState(false);
+    const navigate = useNavigate();
     
     const [classes, setClasses] = useState<ClassConfig[]>([]);
     const [isLoadingClasses, setIsLoadingClasses] = useState(true);
@@ -43,13 +41,6 @@ const DashboardPage = () => {
         const fetchUser = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         setUser(user);
-        
-        const popupShown = sessionStorage.getItem('eidoWelcomePopupShown');
-
-        if (!user && !popupShown) {
-            setIsWelcomePopupOpen(true);
-            sessionStorage.setItem('eidoWelcomePopupShown', 'true');
-        }
         };
         fetchUser();
 
@@ -109,7 +100,6 @@ const DashboardPage = () => {
         }));
     }, [classes, user]);
 
-    // --- MODIFICATION: New handler for class card clicks ---
     const handleClassCardClick = (classData: ClassConfig) => {
         if (user) {
             navigate('/classes', { state: { selectedClass: classData } });
@@ -125,8 +115,6 @@ const DashboardPage = () => {
         loadPage('/auth');
         }
     };
-
-    const handleOpenWelcomePopup = () => setIsWelcomePopupOpen(true);
 
   return (
     <MainAppLayout pageTitle="Dashboard | Eido AI">
@@ -151,7 +139,6 @@ const DashboardPage = () => {
                         onClick={() => handleProtectedLinkClick('/classes')} 
                         classes={classesWithStats}
                         isLoading={isLoadingClasses}
-                        // --- MODIFICATION: Pass the new handler ---
                         onClassClick={handleClassCardClick}
                     />
                 </div>
@@ -160,10 +147,6 @@ const DashboardPage = () => {
           </div>
         </main>
       </div>
-      <WelcomePopup
-        isOpen={isWelcomePopupOpen}
-        onClose={() => setIsWelcomePopupOpen(false)}
-      />
     </MainAppLayout>
   );
 };
