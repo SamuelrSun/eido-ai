@@ -1,4 +1,4 @@
-// src/components/datasets/UploadDialog.tsx
+// src/components/classes/UploadDialog.tsx
 import React, { useState, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { UploadCloud, File, X, Loader2 } from 'lucide-react';
+import { File, X, Loader2 } from 'lucide-react';
+import ShimmerButton from '../ui/ShimmerButton';
 
 interface UploadDialogProps {
   isOpen: boolean;
@@ -53,12 +54,10 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent className="bg-neutral-900 border-neutral-800">
         <DialogHeader>
-          {/* 1. Centered the DialogTitle */}
-          <DialogTitle className="text-center">Upload Files</DialogTitle>
-          {/* 2. Centered the DialogDescription and added padding */}
-          <DialogDescription className="text-center pt-2">
+          <DialogTitle className="text-center text-white">Upload Files</DialogTitle>
+          <DialogDescription className="text-center pt-2 text-neutral-400">
             Add files to the current directory. PDF, DOCX, and TXT are supported for indexing.
           </DialogDescription>
         </DialogHeader>
@@ -66,12 +65,11 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
         <div 
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          className="mt-4 border-2 border-dashed border-stone-300 rounded-lg p-8 text-center"
+          className="mt-4 border-2 border-solid border-neutral-700 rounded-lg p-8 text-center"
         >
-          <UploadCloud className="mx-auto h-12 w-12 text-stone-400" />
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm text-neutral-400">
             Drag & drop files here, or{' '}
-            <label htmlFor="file-upload" className="text-primary font-semibold cursor-pointer hover:underline">
+            <label htmlFor="file-upload" className="text-blue-400 font-semibold cursor-pointer hover:underline">
               browse
             </label>
           </p>
@@ -79,15 +77,15 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
         </div>
 
         {files.length > 0 && (
-          <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
-            <h4 className="text-sm font-medium">Files to upload:</h4>
+          <div className="mt-4 space-y-2 max-h-48 overflow-y-auto pr-2">
+            <h4 className="text-sm font-medium text-neutral-300">Files to upload:</h4>
             {files.map((file, i) => (
-              <div key={i} className="flex items-center justify-between bg-stone-100 p-2 rounded-md">
+              <div key={i} className="flex items-center justify-between bg-neutral-800 p-2 rounded-md">
                 <div className="flex items-center gap-2 overflow-hidden">
-                    <File className="h-4 w-4 flex-shrink-0"/>
-                    <span className="text-sm truncate">{file.name}</span>
+                    <File className="h-4 w-4 flex-shrink-0 text-neutral-400"/>
+                    <span className="text-sm truncate text-neutral-200">{file.name}</span>
                 </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFile(i)}>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-neutral-400 hover:text-white" onClick={() => removeFile(i)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -95,12 +93,12 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
           </div>
         )}
         
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={isUploading}>Cancel</Button>
-          <Button onClick={handleUploadClick} disabled={files.length === 0 || isUploading}>
+        <DialogFooter className="sm:justify-center gap-2">
+          <Button variant="outline" onClick={onClose} disabled={isUploading} className="bg-transparent border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white">Cancel</Button>
+          <ShimmerButton onClick={handleUploadClick} disabled={files.length === 0 || isUploading}>
             {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isUploading ? "Uploading..." : `Upload ${files.length} File(s)`}
-          </Button>
+          </ShimmerButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>
