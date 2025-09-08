@@ -45,20 +45,38 @@ serve(async (req: Request) => {
       });
     }
     
-    // --- Step 2: Fetch Files for External Cleanup ---
+    // --- Step 2: Fetch All Files for the Class ---
     const { data: filesToDelete, error: filesError } = await adminSupabase
         .from('files')
-        .select('file_id, url, thumbnail_url')
+        .select('file_id, url, thumbnail_url, name') // also fetch name for logging
         .eq('class_id', class_id);
 
     if (filesError) {
         throw new Error(`Failed to fetch files for cleanup: ${filesError.message}`);
     }
 
+    // --- MODIFICATION START: Explicitly log and delete each file ---
+    // This avoids the faulty database trigger by logging activity with the correct user ID.
+    if (filesToDelete && filesToDelete.length > 0) {
+      console.log(`[delete-class] Found ${filesToDelete.length} files to manually delete and log.`);
+      for (const file of filesToDelete) {
+        // 1. Log the deletion activity with the authenticated user's ID.
+        await adminSupabase.rpc('log_class_activity', {
+            p_class_id: class_id,
+            p_user_id: user.id,
+            p_activity_type: 'file_deleted',
+            p_details: { file_name: file.name }
+        });
+        // 2. Delete the file record from the database.
+        await adminSupabase.from('files').delete().eq('file_id', file.file_id);
+      }
+      console.log(`[delete-class] ✅ Successfully logged and deleted ${filesToDelete.length} file records.`);
+    }
+    // --- MODIFICATION END ---
+
     // --- Step 3: Perform Cleanup on External Services (in parallel) ---
     const cleanupPromises: Promise<any>[] = [];
 
-    // Storage, Cloudinary, and Weaviate Cleanup
     if (filesToDelete && filesToDelete.length > 0) {
         const storagePaths = filesToDelete
             .map(file => file.url ? new URL(file.url).pathname.split('/public/file_storage/')[1] : null)
@@ -79,7 +97,8 @@ serve(async (req: Request) => {
     await Promise.allSettled(cleanupPromises);
 
     // --- Step 4: Delete the single class record ---
-    // The ON DELETE CASCADE rules in your database will now handle deleting all related records.
+    // All files are already gone, so the faulty trigger won't be fired by the cascade.
+    // The cascade will still safely remove other related items like folders, members, etc.
     const { error: deleteError } = await adminSupabase
       .from('classes')
       .delete()
