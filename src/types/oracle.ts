@@ -42,7 +42,6 @@ export interface OracleState {
   
   // Handlers
   setInput: React.Dispatch<React.SetStateAction<string>>;
-  // Replaced direct setter with a new function to handle session storage
   selectConversation: (id: string | null) => void;
   handleClassChange: (id: string | null) => void;
   setAttachedFiles: React.Dispatch<React.SetStateAction<AttachedFile[]>>;
@@ -58,6 +57,8 @@ export interface OracleState {
   handleFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   handlePaste: (event: React.ClipboardEvent) => void;
   handleRemoveFile: (fileId: string) => void;
+  // MODIFICATION: Added the handleDrop function signature
+  handleDrop: (event: React.DragEvent) => void;
   confirmDelete: () => Promise<void>;
   
   // Dialog state

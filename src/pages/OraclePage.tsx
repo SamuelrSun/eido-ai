@@ -63,7 +63,7 @@ const OraclePage = () => {
     handleSendMessage, handleNewChat, handleRenameConversation,
     handleDeleteConversation, handleMessageSelect, handleCitationClick,
     handleSourceSelect, handleClearSourceSelection,
-    handleFileSelect, handlePaste, handleRemoveFile,
+    handleFileSelect, handlePaste, handleRemoveFile, handleDrop,
     confirmDelete, conversationToDelete, setConversationToDelete, isDeleting
   } = useOracle();
 
@@ -75,7 +75,13 @@ const OraclePage = () => {
       <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/png, image/jpeg, application/pdf" />
       <MainAppLayout pageTitle="Oracle | Eido AI">
         <TooltipProvider delayDuration={100}>
-          <div className="flex flex-row gap-3 h-full" onPaste={handlePaste}>
+          {/* MODIFICATION: Added onDragOver and onDrop handlers */}
+          <div 
+            className="flex flex-row gap-3 h-full" 
+            onPaste={handlePaste}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(e); }}
+          >
               <div className="w-[60%] flex flex-row h-full rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
                 <div className={cn(
                   "h-full bg-neutral-950 overflow-hidden transition-all duration-300 ease-in-out border-r border-neutral-800",
@@ -127,9 +133,7 @@ const OraclePage = () => {
                                 content={message.content}
                                 isSelected={selectedMessageId === message.id}
                                 onClick={() => handleMessageSelect(message)}
-                                // --- MODIFICATION START ---
                                 onCitationClick={(sourceNumber) => handleCitationClick(message, sourceNumber)}
-                                // --- MODIFICATION END ---
                                 attachedFiles={message.attached_files}
                                 sources={message.sources}
                                 selectedSourceNumber={selectedMessageId === message.id ? selectedSourceNumber : null}

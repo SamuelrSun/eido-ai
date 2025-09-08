@@ -1,8 +1,8 @@
 // supabase/functions/upload-to-vector-store/index.ts
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import weaviate, { WeaviateClient, ApiKey } from 'npm:weaviate-ts-client@2.0.0';
-import * as pdfjs from 'npm:pdfjs-dist@4.4.168/legacy/build/pdf.mjs';
+import { serve } from 'std/http/server.ts';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import weaviate, { WeaviateClient, ApiKey } from 'weaviate-ts-client';
+import * as pdfjs from 'pdfjs-dist';
 import { corsHeaders } from '../_shared/cors.ts';
 
 // --- CONFIGURATION ---

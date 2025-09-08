@@ -62,14 +62,10 @@ export const useOracle = (): OracleState => {
     }
   }, []);
   
-  // --- MODIFICATION START ---
   const handleCitationClick = useCallback((message: ChatMessageApp, sourceNumber: number) => {
-    // First, ensure the parent message is selected
     handleMessageSelect(message);
-    // Then, select the specific source number
     setSelectedSourceNumber(sourceNumber);
   }, [handleMessageSelect]);
-  // --- MODIFICATION END ---
   
   const fetchMessages = useCallback(async () => {
       if (!selectedConversationId) {
@@ -199,7 +195,7 @@ export const useOracle = (): OracleState => {
   }, [conversationToDelete, user, selectedConversationId, selectConversation, toast]);
 
   const processFiles = useCallback((files: FileList | null) => {
-      if (!files) return;
+      if (!files || files.length === 0) return;
       Array.from(files).forEach(file => {
           const reader = new FileReader();
           reader.onload = (e) => {
@@ -213,7 +209,21 @@ export const useOracle = (): OracleState => {
   }, []);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => processFiles(e.target.files), [processFiles]);
-  const handlePaste = useCallback((e: React.ClipboardEvent) => processFiles(e.clipboardData.files), [processFiles]);
+  
+  // MODIFICATION: Added preventDefault() when files are present
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+      if (e.clipboardData.files.length > 0) {
+          e.preventDefault();
+          processFiles(e.clipboardData.files);
+      }
+  }, [processFiles]);
+  
+  // MODIFICATION: Added new handleDrop function
+  const handleDrop = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      processFiles(e.dataTransfer.files);
+  }, [processFiles]);
+
   const handleRemoveFile = (fileId: string) => setAttachedFiles(prev => prev.filter(f => f.id !== fileId));
   const handleSourceSelect = (sourceNumber: number) => setSelectedSourceNumber(prev => (prev === sourceNumber ? null : sourceNumber));
   const handleClearSourceSelection = () => setSelectedSourceNumber(null);
@@ -314,7 +324,7 @@ export const useOracle = (): OracleState => {
     handleSendMessage, handleNewChat, handleRenameConversation,
     handleDeleteConversation, handleMessageSelect, handleCitationClick,
     handleSourceSelect, handleClearSourceSelection,
-    handleFileSelect, handlePaste, handleRemoveFile,
+    handleFileSelect, handlePaste, handleRemoveFile, handleDrop,
     confirmDelete, conversationToDelete, setConversationToDelete, isDeleting
   };
 };

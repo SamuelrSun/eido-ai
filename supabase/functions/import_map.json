@@ -1,9 +1,9 @@
 {
   "imports": {
     "std/": "https://deno.land/std@0.177.0/",
-    "npm:@supabase/supabase-js@2": "https://esm.sh/@supabase/supabase-js@2",
-    "npm:weaviate-ts-client@2.0.0": "https://esm.sh/weaviate-ts-client@2.0.0",
-    "npm:mammoth@1.7.0": "https://esm.sh/mammoth@1.7.0",
-    "npm:pdfjs-dist@4.4.168": "https://esm.sh/pdfjs-dist@4.4.168"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+    "weaviate-ts-client": "https://esm.sh/weaviate-ts-client@2.0.0",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@4.4.168/legacy/build/pdf.mjs",
+    "date-fns": "https://esm.sh/date-fns@3.6.0"
   }
 }
