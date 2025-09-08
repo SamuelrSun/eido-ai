@@ -3,7 +3,6 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
-// This interface matches what the frontend will send for each file.
 interface FilePayload {
   storage_path: string;
   original_name: string;
@@ -14,15 +13,12 @@ interface FilePayload {
 }
 
 serve(async (req: Request) => {
-  console.log(`[START] 'upload-file' invoked with method: ${req.method}`);
-  
+  console.log(`[QUEUE-JOB] 'upload-file' invoked.`);
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // 1. Authenticate the user
-    console.log(`[AUTH] Checking user authentication...`);
     const userSupabaseClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -30,22 +26,19 @@ serve(async (req: Request) => {
     );
     const { data: { user } } = await userSupabaseClient.auth.getUser();
     if (!user) throw new Error('Authentication error: User not found.');
-    console.log(`[AUTH] ✅ User authenticated: ${user.id}`);
 
-    // 2. Get the file payload from the request
     const filePayload: FilePayload = await req.json();
     if (!filePayload || !filePayload.storage_path || !filePayload.class_id) {
-      throw new Error('Invalid request body. Missing required file payload information.');
+      throw new Error('Invalid request body.');
     }
 
-    // 3. Create an admin client to insert into the queue
     const adminSupabaseClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
     
-    // 4. Insert a new job into the processing_queue table
-    console.log(`[QUEUE] Adding job for file: ${filePayload.original_name}`);
+    // MODIFICATION: This function now ONLY adds the job to the queue.
+    // The 'upload-to-vector-store' function (triggered by this insert) will handle creating the file record.
     const { error } = await adminSupabaseClient
       .from('processing_queue')
       .insert({
@@ -56,20 +49,19 @@ serve(async (req: Request) => {
         original_name: filePayload.original_name,
         mime_type: filePayload.mime_type,
         size: filePayload.size,
-        status: 'pending' // Initial status
+        status: 'pending'
       });
 
     if (error) {
-      console.error(`[QUEUE] ❌ Failed to insert job into queue:`, error);
+      console.error(`[QUEUE-JOB] ❌ Failed to insert job into queue:`, error);
       throw new Error(`Database error: ${error.message}`);
     }
 
-    console.log(`[QUEUE] ✅ Job successfully added to queue for file: ${filePayload.original_name}`);
+    console.log(`[QUEUE-JOB] ✅ Job successfully added for: ${filePayload.original_name}`);
     
-    // 5. Return immediate success to the user
-    return new Response(JSON.stringify({ success: true, message: "File upload acknowledged. Processing has started." }), {
+    return new Response(JSON.stringify({ success: true, message: "File upload acknowledged and queued for processing." }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 202, // 202 Accepted: The request has been accepted for processing, but the processing has not been completed.
+      status: 202,
     });
 
   } catch (error) {

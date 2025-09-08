@@ -28,22 +28,30 @@ export const fileService = {
     return data;
   },
 
+  // MODIFICATION: This function is updated to reflect the new, simpler serverless function flow.
   uploadFiles: async (files: File[], classId: string, folderId: string | null) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated.");
+
     const uploadPromises = files.map(async (file) => {
+        // Step 1: Upload file to Supabase Storage
         const filePath = `${user.id}/${classId}/${folderId || 'root'}/${Date.now()}-${file.name}`;
         const { data: storageData, error: uploadError } = await supabase.storage.from('file_storage').upload(filePath, file);
         if (uploadError) throw new Error(`Storage upload failed for ${file.name}: ${uploadError.message}`);
         
+        // Step 2: Invoke the 'upload-file' function to queue the job for processing.
         const processingPayload = {
-            storage_path: storageData.path, original_name: file.name,
-            mime_type: file.type, size: file.size, class_id: classId,
+            storage_path: storageData.path,
+            original_name: file.name,
+            mime_type: file.type,
+            size: file.size,
+            class_id: classId,
             folder_id: folderId,
         };
         const { error: functionError } = await supabase.functions.invoke('upload-file', { body: processingPayload });
-        if (functionError) throw new Error(`Function Error: ${functionError.message}`);
+        if (functionError) throw new Error(`Failed to queue file for processing: ${functionError.message}`);
     });
+
     await Promise.all(uploadPromises);
   },
 
@@ -123,7 +131,6 @@ export const fileService = {
     
     await supabase.functions.invoke('delete-weaviate-chunks-by-file', { body: { file_id: file.file_id } });
 
-    // --- MODIFICATION START: Explicitly log the deletion activity before deleting the record ---
     if (file.class_id) {
         const { error: logError } = await supabase.rpc('log_class_activity', {
             p_class_id: file.class_id,
@@ -133,10 +140,8 @@ export const fileService = {
         });
         if (logError) {
             console.warn("Failed to log file deletion activity:", logError.message);
-            // We proceed with deletion even if logging fails.
         }
     }
-    // --- MODIFICATION END ---
 
     const { error: dbError } = await supabase.from('files').delete().eq('file_id', file.file_id);
     if (dbError) { console.error("Error deleting file from database:", dbError); throw dbError; }
