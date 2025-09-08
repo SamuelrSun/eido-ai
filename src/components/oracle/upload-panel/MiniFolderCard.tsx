@@ -1,6 +1,5 @@
 // src/components/oracle/upload-panel/MiniFolderCard.tsx
 import React from 'react';
-import { Card } from '@/components/ui/card';
 import { Folder as FolderIcon } from 'lucide-react';
 import { FolderType } from '@/features/files/types';
 import { cn } from '@/lib/utils';
