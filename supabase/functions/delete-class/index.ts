@@ -45,38 +45,18 @@ serve(async (req: Request) => {
       });
     }
     
-    // --- Step 2: Fetch All Files for the Class ---
+    // --- Step 2: Fetch All Files for External Cleanup ---
     const { data: filesToDelete, error: filesError } = await adminSupabase
         .from('files')
-        .select('file_id, url, thumbnail_url, name') // also fetch name for logging
+        .select('file_id, url, thumbnail_url')
         .eq('class_id', class_id);
 
     if (filesError) {
         throw new Error(`Failed to fetch files for cleanup: ${filesError.message}`);
     }
 
-    // --- MODIFICATION START: Explicitly log and delete each file ---
-    // This avoids the faulty database trigger by logging activity with the correct user ID.
-    if (filesToDelete && filesToDelete.length > 0) {
-      console.log(`[delete-class] Found ${filesToDelete.length} files to manually delete and log.`);
-      for (const file of filesToDelete) {
-        // 1. Log the deletion activity with the authenticated user's ID.
-        await adminSupabase.rpc('log_class_activity', {
-            p_class_id: class_id,
-            p_user_id: user.id,
-            p_activity_type: 'file_deleted',
-            p_details: { file_name: file.name }
-        });
-        // 2. Delete the file record from the database.
-        await adminSupabase.from('files').delete().eq('file_id', file.file_id);
-      }
-      console.log(`[delete-class] ✅ Successfully logged and deleted ${filesToDelete.length} file records.`);
-    }
-    // --- MODIFICATION END ---
-
-    // --- Step 3: Perform Cleanup on External Services (in parallel) ---
+    // --- Step 3: Perform Cleanup on External Services (Weaviate, Cloudinary, Storage) ---
     const cleanupPromises: Promise<any>[] = [];
-
     if (filesToDelete && filesToDelete.length > 0) {
         const storagePaths = filesToDelete
             .map(file => file.url ? new URL(file.url).pathname.split('/public/file_storage/')[1] : null)
@@ -85,7 +65,6 @@ serve(async (req: Request) => {
         if (storagePaths.length > 0) {
             cleanupPromises.push(adminSupabase.storage.from('file_storage').remove(storagePaths));
         }
-
         for (const file of filesToDelete) {
             if (file.thumbnail_url) {
                 cleanupPromises.push(adminSupabase.functions.invoke('delete-from-cloudinary', { body: { file_id: file.file_id } }));
@@ -95,10 +74,43 @@ serve(async (req: Request) => {
     cleanupPromises.push(adminSupabase.functions.invoke('delete-weaviate-chunks-by-class', { body: { class_id_to_delete: class_id } }));
     
     await Promise.allSettled(cleanupPromises);
+    console.log(`[delete-class] External services cleanup complete for class ${class_id}.`);
 
-    // --- Step 4: Delete the single class record ---
-    // All files are already gone, so the faulty trigger won't be fired by the cascade.
-    // The cascade will still safely remove other related items like folders, members, etc.
+    // --- MODIFICATION START: Comprehensive and explicit deletion of all dependent DB records ---
+    // This avoids using ON DELETE CASCADE which was causing the trigger to fail.
+
+    console.log(`[delete-class] Starting manual deletion of dependent database records for class ${class_id}.`);
+
+    // The order of deletion matters to respect foreign key constraints.
+    // We delete records that depend on other records first.
+
+    // 1. Delete from 'message_sources' which depends on 'chat_messages'
+    const { data: messages, error: msgError } = await adminSupabase.from('chat_messages').select('id').eq('class_id', class_id);
+    if (msgError) throw new Error(`Failed to fetch chat messages for cleanup: ${msgError.message}`);
+    if (messages && messages.length > 0) {
+        const messageIds = messages.map(m => m.id);
+        await adminSupabase.from('message_sources').delete().in('message_id', messageIds);
+    }
+    
+    // 2. Now delete from tables that directly reference the 'classes' table.
+    const tablesToDeleteFrom = [
+        'chat_messages', 'calendar_events', 'quiz_questions', 'quizzes', 'flashcards',
+        '"flashcard-decks"', 'files', 'folders', 'class_members', 'class_activity'
+    ];
+
+    for (const table of tablesToDeleteFrom) {
+        const { error: deleteChildError } = await adminSupabase.from(table).delete().eq('class_id', class_id);
+        if (deleteChildError) {
+            console.warn(`Could not clean up table '${table}' for class ${class_id}: ${deleteChildError.message}`);
+        }
+    }
+    
+    console.log(`[delete-class] ✅ Manual deletion of dependent records complete.`);
+    // --- MODIFICATION END ---
+
+
+    // --- Step 5: Finally, delete the class record itself ---
+    // Since all child records are gone, no cascades will fire.
     const { error: deleteError } = await adminSupabase
       .from('classes')
       .delete()
