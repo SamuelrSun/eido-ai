@@ -5,10 +5,8 @@ import weaviate, { WeaviateClient, ApiKey } from 'npm:weaviate-ts-client@2.0.0';
 import * as pdfjs from 'npm:pdfjs-dist@4.4.168/legacy/build/pdf.mjs';
 import { corsHeaders } from '../_shared/cors.ts';
 
-// --- CONFIGURATION ---
 const PAGES_PER_BATCH = 3; 
 
-// --- TYPE DEFINITIONS ---
 interface QueueRecord {
   id: number; user_id: string; class_id: string; folder_id: string | null;
   storage_path: string; original_name: string; mime_type: string; size: number;
@@ -18,7 +16,6 @@ interface ChainedInvocationPayload {
   original_name: string; current_page: number; total_pages: number;
 }
 
-// --- HELPER FUNCTIONS ---
 async function getTextFromPdfPage(page: any): Promise<string> {
   const textContent = await page.getTextContent();
   return textContent.items.map((item: any) => item.str).join(' ');
@@ -41,15 +38,18 @@ async function processImagesOnPage(page: any, pageNumber: number): Promise<strin
             const img = await page.objs.get(imageName);
             if (!img || !img.data) continue;
 
+            // --- MODIFICATION START: Bulletproof Base64 conversion ---
+            // The previous methods using apply() and the spread operator (...) failed on large images.
+            // This new method processes the Uint8Array byte-by-byte into a binary string,
+            // which is guaranteed to avoid call stack limits, albeit more slowly.
             let binary = '';
             const bytes = new Uint8Array(img.data);
             const len = bytes.byteLength;
-            const chunkSize = 8192; 
-            for (let i = 0; i < len; i += chunkSize) {
-                const chunk = bytes.subarray(i, i + chunkSize);
-                binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
             }
             const imageBase64 = `data:image/jpeg;base64,${btoa(binary)}`;
+            // --- MODIFICATION END ---
 
             const gpt4oResponse = await fetch("https://api.openai.com/v1/chat/completions", {
                 method: 'POST',
@@ -109,7 +109,6 @@ async function processPdfBatch(supabaseAdminClient: SupabaseClient, weaviateClie
   if (downloadError) throw downloadError;
   const fileBuffer = await fileData.arrayBuffer();
 
-  // --- MODIFICATION START: Added flags to disable worker and browser-specific features ---
   const pdfDoc = await pdfjs.getDocument({
       data: fileBuffer,
       standardFontDataUrl: `https://npmcdn.com/pdfjs-dist@4.4.168/standard_fonts/`,
@@ -117,7 +116,6 @@ async function processPdfBatch(supabaseAdminClient: SupabaseClient, weaviateClie
       isEvalSupported: false,
       disableFontFace: true
   }).promise;
-  // --- MODIFICATION END ---
 
   const allTextChunks: { page_number: number; text_chunk: string }[] = [];
   
@@ -191,7 +189,6 @@ serve(async (req: Request) => {
       const fileBuffer = await fileData.arrayBuffer();
 
       if (mime_type === 'application/pdf') {
-        // --- MODIFICATION START: Added flags to disable worker and browser-specific features ---
         const pdfDoc = await pdfjs.getDocument({
             data: fileBuffer,
             standardFontDataUrl: `https://npmcdn.com/pdfjs-dist@4.4.168/standard_fonts/`,
@@ -199,7 +196,6 @@ serve(async (req: Request) => {
             isEvalSupported: false,
             disableFontFace: true
         }).promise;
-        // --- MODIFICATION END ---
         
         const totalPages = pdfDoc.numPages;
         if (totalPages > 0) {
