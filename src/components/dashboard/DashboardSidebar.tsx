@@ -48,7 +48,6 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ onLinkClick 
             <NavItem to="/" label="Dashboard" onLinkClick={onLinkClick} isActive={currentPath === '/'} />
             <NavItem to="/classes" label="Classes" onLinkClick={onLinkClick} isActive={currentPath === '/classes'} />
             <NavItem to="/calendar" label="Calendar" onLinkClick={onLinkClick} isActive={currentPath === '/calendar'} />
-            <NavItem to="/assignments" label="Assignments" onLinkClick={onLinkClick} isActive={currentPath === '/assignments'} />
           </div>
           <div className="flex flex-col gap-y-1">
             <span className="px-3 text-xs font-semibold uppercase text-neutral-500">Tools</span>

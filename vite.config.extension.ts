@@ -17,8 +17,9 @@ export default defineConfig({
     outDir: 'dist-extension',
     rollupOptions: {
   input: {
-    background: resolve(__dirname, 'extension/background.js'),
-    content: resolve(__dirname, 'extension/content.tsx'),
+    content: resolve(__dirname, 'extension', 'content.tsx'),
+        background: resolve(__dirname, 'extension', 'background.js'),
+        'content-loader': resolve(__dirname, 'extension', 'content-loader.js'),
   },
       output: {
         entryFileNames: '[name].js',
