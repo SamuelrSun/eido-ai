@@ -35,27 +35,20 @@ export const fileService = {
         const filePath = `${user.id}/${classId}/${folderId || 'root'}/${Date.now()}-${file.name}`;
         const { data: storageData, error: uploadError } = await supabase.storage.from('file_storage').upload(filePath, file);
         if (uploadError) throw new Error(`Storage upload failed for ${file.name}: ${uploadError.message}`);
-        const { data: urlData } = supabase.storage.from('file_storage').getPublicUrl(storageData.path);
-        const { data: dbFile, error: dbError } = await supabase.from('files').insert({
-                name: file.name, size: file.size, type: file.type, url: urlData.publicUrl,
-                user_id: user.id, class_id: classId, folder_id: folderId,
-            }).select().single();
-        if (dbError) throw new Error(`Database insert failed for ${file.name}: ${dbError.message}`);
-        if (dbFile) {
-            await supabase.functions.invoke('upload-to-vector-store', {
-                body: JSON.stringify({ files: [{...dbFile, file_id: dbFile.file_id}], class_id: classId }),
-            });
-        }
+        
+        const processingPayload = {
+            storage_path: storageData.path, original_name: file.name,
+            mime_type: file.type, size: file.size, class_id: classId,
+            folder_id: folderId,
+        };
+        const { error: functionError } = await supabase.functions.invoke('upload-file', { body: processingPayload });
+        if (functionError) throw new Error(`Function Error: ${functionError.message}`);
     });
     await Promise.all(uploadPromises);
   },
 
   // --- Read Operations ---
   getFolders: async (classId: string, parentFolderId: string | null): Promise<FolderType[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("User not authenticated.");
-    
-    // FIX: Removed the incorrect .eq('user_id', user.id) filter. RLS handles security now.
     let query = supabase.from('folders').select('*').eq('class_id', classId);
     
     if (parentFolderId) {
@@ -69,10 +62,6 @@ export const fileService = {
   },
 
   getFiles: async (classId: string, parentFolderId: string | null): Promise<FileType[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("User not authenticated.");
-
-    // FIX: Removed the incorrect .eq('user_id', user.id) filter. RLS handles security now.
     let query = supabase.from('files').select('*').eq('class_id', classId);
     
     if (parentFolderId) {
@@ -97,9 +86,6 @@ export const fileService = {
   },
   
   getAllFilesForClass: async (classId: string): Promise<FileType[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-    // This query is also now governed by RLS, so it's safe.
     const { data, error } = await supabase
       .from('files')
       .select('*')
@@ -120,26 +106,37 @@ export const fileService = {
   },
 
   deleteFile: async (file: FileType): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated for deletion.");
     if (!file || !file.file_id || !file.url) {
         throw new Error("Invalid file object provided for deletion.");
     }
 
     if (file.thumbnail_url) {
         try {
-            await supabase.functions.invoke('delete-from-cloudinary', {
-                body: JSON.stringify({ file_id: file.file_id })
-            });
-        } catch (cloudinaryError) {
-            console.error(`Failed to delete Cloudinary thumbnail for file ${file.file_id}:`, cloudinaryError);
-        }
+            await supabase.functions.invoke('delete-from-cloudinary', { body: { file_id: file.file_id } });
+        } catch (cloudinaryError) { console.warn(`Could not delete Cloudinary thumbnail for file ${file.file_id}:`, cloudinaryError); }
     }
 
     const filePathInStorage = new URL(file.url).pathname.split('/public/file_storage/')[1];
     await supabase.storage.from('file_storage').remove([filePathInStorage]);
     
-    await supabase.functions.invoke('delete-weaviate-chunks-by-file', {
-        body: JSON.stringify({ file_id: file.file_id })
-    });
+    await supabase.functions.invoke('delete-weaviate-chunks-by-file', { body: { file_id: file.file_id } });
+
+    // --- MODIFICATION START: Explicitly log the deletion activity before deleting the record ---
+    if (file.class_id) {
+        const { error: logError } = await supabase.rpc('log_class_activity', {
+            p_class_id: file.class_id,
+            p_user_id: user.id,
+            p_activity_type: 'file_deleted',
+            p_details: { file_name: file.name }
+        });
+        if (logError) {
+            console.warn("Failed to log file deletion activity:", logError.message);
+            // We proceed with deletion even if logging fails.
+        }
+    }
+    // --- MODIFICATION END ---
 
     const { error: dbError } = await supabase.from('files').delete().eq('file_id', file.file_id);
     if (dbError) { console.error("Error deleting file from database:", dbError); throw dbError; }
@@ -147,38 +144,20 @@ export const fileService = {
 
   deleteFolder: async (folderId: string): Promise<void> => {
     const { data: files, error: filesError } = await supabase
-        .from('files')
-        .select('*')
-        .eq('folder_id', folderId);
-    if (filesError) {
-        console.error(`Error fetching files for folder ${folderId}:`, filesError);
-        throw filesError;
-    }
-
+        .from('files').select('*').eq('folder_id', folderId);
+    if (filesError) throw filesError;
     if (files && files.length > 0) {
         await Promise.all(files.map(file => fileService.deleteFile(file as FileType)));
     }
 
     const { data: subfolders, error: subfoldersError } = await supabase
-        .from('folders')
-        .select('folder_id')
-        .eq('parent_id', folderId);
-    if (subfoldersError) {
-        console.error(`Error fetching subfolders for folder ${folderId}:`, subfoldersError);
-        throw subfoldersError;
-    }
-
+        .from('folders').select('folder_id').eq('parent_id', folderId);
+    if (subfoldersError) throw subfoldersError;
     if (subfolders && subfolders.length > 0) {
         await Promise.all(subfolders.map(subfolder => fileService.deleteFolder(subfolder.folder_id)));
     }
 
-    const { error: deleteFolderError } = await supabase
-        .from('folders')
-        .delete()
-        .eq('folder_id', folderId);
-    if (deleteFolderError) {
-        console.error(`Error deleting folder ${folderId}:`, deleteFolderError);
-        throw deleteFolderError;
-    }
+    const { error: deleteFolderError } = await supabase.from('folders').delete().eq('folder_id', folderId);
+    if (deleteFolderError) throw deleteFolderError;
   },
 };
