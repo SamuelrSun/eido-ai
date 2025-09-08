@@ -1,6 +1,7 @@
 // src/integrations/supabase/client.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from './types'; // This is the auto-generated types
+// --- FIX: Updated the import to use the correct, centralized type definition file ---
+import type { Database } from '@/types/supabase';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -28,11 +29,9 @@ export interface CustomDatabase extends Database {
       quiz_questions: Database['public']['Tables']['quiz_questions'];
       quizzes: Database['public']['Tables']['quizzes'];
       user_storage: Database['public']['Tables']['user_storage'];
-      embeddings: Database['public']['Tables']['embeddings'];
       chat_messages: Database['public']['Tables']['chat_messages'];
-      calendar_events: Database['public']['Tables']['calendar_events']; // Add the new table here
+      calendar_events: Database['public']['Tables']['calendar_events']; 
     };
-    // Views and Functions can also be extended here if needed
     Views: Database['public']['Views'];
     Functions: Database['public']['Functions'];
   };

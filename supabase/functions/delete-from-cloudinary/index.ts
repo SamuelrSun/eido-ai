@@ -54,6 +54,40 @@ serve(async (req: Request) => {
             throw new Error("Missing 'file_id' in the request body.");
         }
 
+        // --- FIX: ADD OWNERSHIP VERIFICATION ---
+        const supabaseAdmin = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        );
+
+        const userClient = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_ANON_KEY')!,
+          { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+        );
+        const { data: { user } } = await userClient.auth.getUser();
+        if (!user) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+        }
+
+        const { data: file, error: fileError } = await supabaseAdmin
+          .from('files')
+          .select('user_id')
+          .eq('file_id', file_id)
+          .single();
+
+        if (fileError || !file) {
+          throw new Error('File not found.');
+        }
+
+        if (file.user_id !== user.id) {
+          return new Response(JSON.stringify({ error: 'Permission denied: You do not own this file.' }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        // --- END FIX ---
+
         const publicId = `thumbnails/${file_id}`;
         console.log(`[CLOUDINARY-DELETE] Attempting to delete public_id: ${publicId}`);
 

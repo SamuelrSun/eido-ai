@@ -27,7 +27,7 @@ serve(async (req: Request) => {
     
     const { data: classData, error: classError } = await adminSupabaseClient
       .from('classes')
-      .select('class_id, owner_id') // Also select owner_id
+      .select('class_id, owner_id')
       .eq('invite_code', invite_code)
       .single();
 
@@ -38,7 +38,6 @@ serve(async (req: Request) => {
       });
     }
 
-    // Prevent the owner from "joining" their own class
     if (classData.owner_id === user.id) {
         return new Response(JSON.stringify({ error: "You are the owner of this class." }), {
             status: 409,
@@ -48,7 +47,7 @@ serve(async (req: Request) => {
 
     const { data: existingMembership, error: membershipError } = await adminSupabaseClient
         .from('class_members')
-        .select('role') // Just need to check for existence and role
+        .select('role')
         .eq('class_id', classData.class_id)
         .eq('user_id', user.id)
         .maybeSingle();
@@ -56,28 +55,26 @@ serve(async (req: Request) => {
     if (membershipError) throw membershipError;
 
     if (existingMembership) {
-        const message = existingMembership.role === 'pending'
-            ? "You have already requested to join this class. The owner has been notified."
-            : "You are already a member of this class.";
+        const message = "You are already a member of this class.";
         return new Response(JSON.stringify({ error: message }), {
             status: 409, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
     }
 
-    // --- MODIFICATION: Insert with 'pending' role ---
+    // --- FIX 1: Change role from 'pending' to 'member' ---
     const { error: insertError } = await adminSupabaseClient
       .from('class_members')
       .insert({
         class_id: classData.class_id,
         user_id: user.id,
-        role: 'pending', 
+        role: 'member', 
       });
 
     if (insertError) throw insertError;
 
-    // --- MODIFICATION: Update success message ---
-    return new Response(JSON.stringify({ message: "Your request to join has been sent to the class owner for approval." }), {
+    // --- FIX 2: Update success message to reflect immediate access ---
+    return new Response(JSON.stringify({ message: "Successfully joined the class!" }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });

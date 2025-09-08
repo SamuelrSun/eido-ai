@@ -30,6 +30,23 @@ type ClassesDBInsertPayload = CustomDatabase['public']['Tables']['classes']['Ins
 type ClassesDBRow = CustomDatabase['public']['Tables']['classes']['Row'];
 type ClassesDBUpdatePayload = Partial<ClassesDBRow>;
 
+// --- 1. ADD this helper function ---
+/**
+ * Generates a short, random, and easy-to-read invite code.
+ * @param {number} length - The desired length of the code.
+ * @returns {string} The generated invite code.
+ */
+const generateShortInviteCode = (length: number): string => {
+  // Excludes ambiguous characters like O, 0, I, 1, l
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
+
 export const classOpenAIConfigService = {
   getConfigForClass: async (class_id: string): Promise<OpenAIConfig | undefined> => {
     console.warn("getConfigForClass: OpenAI config IDs are no longer stored on the 'classes' table. This function will return undefined.");
@@ -97,6 +114,8 @@ export const classOpenAIConfigService = {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         color: COLOR_SWATCHES[nextColorIndex],
+        // --- 2. ADD the generated invite_code to the insert payload ---
+        invite_code: generateShortInviteCode(6),
       };
       const { data: insertData, error: insertError } = await supabase
         .from('classes')

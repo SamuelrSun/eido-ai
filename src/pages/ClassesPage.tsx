@@ -16,7 +16,6 @@ const ClassesPage = () => {
     const hook = useClassesPage();
     const [activeTab, setActiveTab] = useState('files');
 
-    // Reset to files tab when the selected class changes
     React.useEffect(() => {
         setActiveTab('files');
     }, [hook.selectedClass]);
@@ -49,7 +48,6 @@ const ClassesPage = () => {
                                     className="border border-neutral-800 rounded-md p-0 w-min"
                                 >
                                     <ToggleGroupItem value="files" className={cn("text-neutral-400 h-8 px-4 text-sm hover:bg-neutral-800 rounded-none rounded-l-md border-none data-[state=on]:bg-neutral-800 data-[state=on]:text-white")}>Files</ToggleGroupItem>
-                                    {/* MODIFICATION: Renamed "Members" tab to "Settings" */}
                                     <ToggleGroupItem value="settings" className={cn("text-neutral-400 h-8 px-4 text-sm hover:bg-neutral-800 rounded-none border-l border-neutral-800 data-[state=on]:bg-neutral-800 data-[state=on]:text-white")}>Settings</ToggleGroupItem>
                                 </ToggleGroup>
                                 
@@ -70,8 +68,8 @@ const ClassesPage = () => {
                                             recentFiles={hook.recentFiles}
                                         />
                                     )}
-                                    {/* MODIFICATION: This now renders the combined settings view */}
                                     {activeTab === 'settings' && (
+                                        // --- 6. PASS the new props down ---
                                         <ClassMembersView
                                             selectedClass={hook.selectedClass}
                                             isOwner={hook.classesWithStats.find(c => c.class_id === hook.selectedClass?.class_id)?.is_owner ?? false}
@@ -81,6 +79,8 @@ const ClassesPage = () => {
                                             onApproveMember={hook.handleApproveMember}
                                             onRenameClass={hook.handleRenameClass}
                                             onDeleteClass={() => hook.handleDeleteClassClick(hook.selectedClass!)}
+                                            activityLog={hook.activityLog}
+                                            isLoadingActivity={hook.isLoadingActivity}
                                         />
                                     )}
                                 </div>

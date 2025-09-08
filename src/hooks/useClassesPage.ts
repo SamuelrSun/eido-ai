@@ -12,6 +12,8 @@ import { DeletingFile } from '@/components/classes/DeletionProgressToast';
 import { formatFileSize } from '@/lib/utils';
 import { ClassMember } from '@/components/classes/ClassMembersView';
 import { useLocation, useNavigate } from 'react-router-dom';
+// --- 1. IMPORT activity service and types ---
+import { activityService, ClassActivity } from '@/services/activityService';
 
 export const useClassesPage = () => {
     const { loader } = usePageLoader();
@@ -25,6 +27,9 @@ export const useClassesPage = () => {
     const [files, setFiles] = useState<FileType[]>([]);
     const [allClassFiles, setAllClassFiles] = useState<FileType[]>([]);
     const [allFiles, setAllFiles] = useState<(FileType & { class: string; })[]>([]);
+    // --- 2. ADD state for the activity log ---
+    const [activityLog, setActivityLog] = useState<ClassActivity[]>([]);
+    const [isLoadingActivity, setIsLoadingActivity] = useState(false);
     const [recentFiles, setRecentFiles] = useState<FileType[]>(() => {
         try {
             const item = window.localStorage.getItem('eidoRecentFiles');
@@ -64,7 +69,6 @@ export const useClassesPage = () => {
         sessionStorage.setItem('activeClass', JSON.stringify({ class_id: classData.class_id, class_name: classData.class_name }));
     }, []);
     
-    // MODIFICATION: Add handleRenameClass function
     const handleRenameClass = async (classId: string, newName: string) => {
         try {
             const updatedClass = await classOpenAIConfigService.saveConfigForClass(newName, classId);
@@ -79,9 +83,6 @@ export const useClassesPage = () => {
             throw error;
         }
     };
-    
-    // (Rest of the hook remains the same)
-    // ... all other functions from the original hook ...
     
     useEffect(() => {
         if (loader) loader.continuousStart();
@@ -127,20 +128,27 @@ export const useClassesPage = () => {
     const fetchData = useCallback(async () => {
         if (!user) return;
         setIsLoading(true);
-        if (selectedClass) setIsLoadingMembers(true);
+        if (selectedClass) {
+            setIsLoadingMembers(true);
+            setIsLoadingActivity(true);
+        }
 
         try {
             if (selectedClass) {
-                const [fetchedFolders, fetchedFiles, fetchedAllClassFiles, fetchedMembers] = await Promise.all([
+                const [fetchedFolders, fetchedFiles, fetchedAllClassFiles, fetchedMembers, fetchedActivity] = await Promise.all([
                     fileService.getFolders(selectedClass.class_id, currentFolderId),
                     fileService.getFiles(selectedClass.class_id, currentFolderId),
                     fileService.getAllFilesForClass(selectedClass.class_id),
                     classOpenAIConfigService.getClassMembers(selectedClass.class_id),
+                    // --- 3. FETCH activity log data ---
+                    activityService.getActivityForClass(selectedClass.class_id),
                 ]);
                 setFolders(fetchedFolders);
                 setFiles(fetchedFiles);
                 setAllClassFiles(fetchedAllClassFiles);
                 setClassMembers(fetchedMembers);
+                // --- 4. SET activity log state ---
+                setActivityLog(fetchedActivity);
             } else {
                 const [fetchedClasses, fetchedAllFilesResult] = await Promise.all([
                     classOpenAIConfigService.getAllClasses(),
@@ -151,12 +159,15 @@ export const useClassesPage = () => {
                 setFolders([]);
                 setFiles([]);
                 setClassMembers([]);
+                // --- 4. CLEAR activity log state when no class is selected ---
+                setActivityLog([]);
             }
         } catch (error) {
             toast({ title: 'Error fetching data', description: (error instanceof Error) ? error.message : "An unknown error occurred.", variant: 'destructive' });
         } finally {
             setIsLoading(false);
             setIsLoadingMembers(false);
+            setIsLoadingActivity(false);
             if (loader) loader.complete();
         }
     }, [user, selectedClass, currentFolderId, toast, loader]);
@@ -179,7 +190,7 @@ export const useClassesPage = () => {
             if (error) throw new Error(error.message);
             if (data?.error) throw new Error(data.error);
 
-            toast({ title: "Request Sent!", description: data.message });
+            toast({ title: "Success!", description: data.message });
         } catch (error) {
             toast({ title: "Error Joining Class", description: (error as Error).message, variant: "destructive" });
         } finally {
@@ -521,7 +532,8 @@ export const useClassesPage = () => {
     }, [folders, allClassFiles, allUserFolders]);
     
     return {
-        user, classes, folders, files, allClassFiles, allFiles, recentFiles,
+        // --- 5. EXPORT the new state ---
+        user, classes, folders, files, allClassFiles, allFiles, recentFiles, activityLog, isLoadingActivity,
         selectedClass, currentFolderId, breadcrumbs, isLoading, isDeleting,
         filesToDelete, deletingFiles, isCreateClassOpen, isNewFolderOpen,
         isUploadOpen, isSubmitting, previewedFile, isDeleteClassConfirmationOpen,
@@ -536,7 +548,7 @@ export const useClassesPage = () => {
         fetchData, handleUploadFiles, handleClassClick, handleFolderClick,
         handleBreadcrumbClick, getFolderPath, handleFileRowClick, confirmDelete,
         handleCreateClass, handleDeleteClassClick, confirmDeleteClass, handleCreateFolder,
-        handleRenameClass, // Expose the new function
+        handleRenameClass,
         classesWithStats, foldersWithStats
     };
 };
