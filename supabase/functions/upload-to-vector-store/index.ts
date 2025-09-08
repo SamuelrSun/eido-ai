@@ -5,12 +5,10 @@ import weaviate, { WeaviateClient, ApiKey } from 'npm:weaviate-ts-client@2.0.0';
 import * as pdfjs from 'npm:pdfjs-dist@4.4.168/legacy/build/pdf.mjs';
 import { corsHeaders } from '../_shared/cors.ts';
 
-// --- MODIFICATION: The problematic global workerSrc configuration has been removed. ---
+pdfjs.GlobalWorkerOptions.workerSrc = `https://npmcdn.com/pdfjs-dist@4.4.168/legacy/build/pdf.worker.mjs`;
 
-// --- CONFIGURATION ---
 const PAGES_PER_BATCH = 3; 
 
-// --- TYPE DEFINITIONS ---
 interface QueueRecord {
   id: number; user_id: string; class_id: string; folder_id: string | null;
   storage_path: string; original_name: string; mime_type: string; size: number;
@@ -20,7 +18,6 @@ interface ChainedInvocationPayload {
   original_name: string; current_page: number; total_pages: number;
 }
 
-// --- HELPER FUNCTIONS ---
 async function getTextFromPdfPage(page: any): Promise<string> {
   const textContent = await page.getTextContent();
   return textContent.items.map((item: any) => item.str).join(' ');
@@ -41,12 +38,21 @@ async function processImagesOnPage(page: any, pageNumber: number): Promise<strin
         for (const opIndex of imageOps) {
             const imageName = opList.argsArray[opIndex][0];
             const img = await page.objs.get(imageName);
-            const canvas = {
-                width: img.width, height: img.height,
-                getContext: () => ({ drawImage: () => {}, getImageData: () => ({ data: new Uint8ClampedArray(img.data) }), }),
-                toDataURL: () => `data:image/jpeg;base64,${btoa(String.fromCharCode(...img.data))}`,
-            };
-            const imageBase64 = canvas.toDataURL();
+            if (!img || !img.data) continue;
+
+            // --- MODIFICATION START: Robust Base64 conversion ---
+            // The previous method using the spread operator (...) failed on large images.
+            // This new method processes the image data in chunks to avoid call stack limits.
+            let binary = '';
+            const bytes = new Uint8Array(img.data);
+            const len = bytes.byteLength;
+            const chunkSize = 8192; 
+            for (let i = 0; i < len; i += chunkSize) {
+                const chunk = bytes.subarray(i, i + chunkSize);
+                binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+            }
+            const imageBase64 = `data:image/jpeg;base64,${btoa(binary)}`;
+            // --- MODIFICATION END ---
 
             const gpt4oResponse = await fetch("https://api.openai.com/v1/chat/completions", {
                 method: 'POST',
@@ -56,7 +62,7 @@ async function processImagesOnPage(page: any, pageNumber: number): Promise<strin
                     messages: [{
                         role: "user",
                         content: [
-                            { type: "text", text: `This is an image from page ${pageNumber}. Describe it in detail for semantic search. If it's a diagram, explain its parts. If text is present, transcribe it. Prefix with "[Image Description]:".` },
+                            { type: "text", text: `This is an image from page ${pageNumber} of a document. Describe it in detail as if you were creating alt-text for a screen reader. If it's a diagram, explain its parts and relationships. If it contains text, transcribe it. Prefix the entire description with "[Image Description]:".` },
                             { type: "image_url", image_url: { url: imageBase64, detail: "low" } }
                         ]
                     }],
@@ -106,7 +112,6 @@ async function processPdfBatch(supabaseAdminClient: SupabaseClient, weaviateClie
   if (downloadError) throw downloadError;
   const fileBuffer = await fileData.arrayBuffer();
 
-  // --- MODIFICATION: Pass configuration directly to getDocument ---
   const pdfDoc = await pdfjs.getDocument({
       data: fileBuffer,
       standardFontDataUrl: `https://npmcdn.com/pdfjs-dist@4.4.168/standard_fonts/`
@@ -184,7 +189,6 @@ serve(async (req: Request) => {
       const fileBuffer = await fileData.arrayBuffer();
 
       if (mime_type === 'application/pdf') {
-        // --- MODIFICATION: Pass configuration directly to getDocument ---
         const pdfDoc = await pdfjs.getDocument({
             data: fileBuffer,
             standardFontDataUrl: `https://npmcdn.com/pdfjs-dist@4.4.168/standard_fonts/`
