@@ -139,7 +139,7 @@ const DashboardPage = () => {
           <div className="relative z-10 flex flex-col flex-grow">
             <div className="flex-grow p-4 md:p-8 flex flex-col">
                 <div className="max-w-4xl mx-auto text-center flex-shrink-0">
-                    <h1 className="text-4xl font-bold text-neutral-100">Welcome{profile?.full_name ? `, ${profile.full_name}` : '!'}</h1>
+                    <h1 className="text-4xl font-bold text-neutral-100">Hello{profile?.full_name ? `, ${profile.full_name}` : '!'}</h1>
                     <p className="mt-2 text-neutral-400">
                         Eido AI translates your coursework for intelligent tools. Start by going to classes or by exploring the tools below.
                     </p>
