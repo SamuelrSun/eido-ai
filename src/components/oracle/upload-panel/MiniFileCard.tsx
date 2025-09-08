@@ -1,20 +1,26 @@
-// src/components/oracle/upload-panel/MiniFileCard.tsx
+// src/components/oracle/upload-panel/MiniFolderCard.tsx
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { FileText as FileIcon } from 'lucide-react';
-import { FileType } from '@/features/files/types';
-import { formatFileSize } from '@/lib/utils';
+import { Folder as FolderIcon } from 'lucide-react';
+import { FolderType } from '@/features/files/types';
+import { cn } from '@/lib/utils';
 
-interface MiniFileCardProps {
-  file: FileType;
+interface MiniFolderCardProps {
+  folder: FolderType;
+  onClick: () => void;
 }
 
-export const MiniFileCard: React.FC<MiniFileCardProps> = ({ file }) => (
-    <Card className="p-2">
+export const MiniFolderCard: React.FC<MiniFolderCardProps> = ({ folder, onClick }) => (
+    <div
+        onClick={onClick}
+        className={cn(
+            "p-3 rounded-lg cursor-pointer border relative",
+            'bg-neutral-900 border-neutral-800 hover:border-blue-500'
+        )}
+    >
         <div className="flex items-center gap-2">
-            <FileIcon className="h-4 w-4 text-blue-500 flex-shrink-0" />
-            <p className="text-xs font-medium truncate">{file.name}</p>
+            <FolderIcon className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+            <p className="text-xs font-medium text-neutral-200 truncate">{folder.name}</p>
         </div>
-        <p className="text-[10px] text-muted-foreground mt-1 pl-6">{formatFileSize(file.size)}</p>
-    </Card>
+    </div>
 );

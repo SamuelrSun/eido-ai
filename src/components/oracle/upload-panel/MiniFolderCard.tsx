@@ -3,6 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Folder as FolderIcon } from 'lucide-react';
 import { FolderType } from '@/features/files/types';
+import { cn } from '@/lib/utils';
 
 interface MiniFolderCardProps {
   folder: FolderType;
@@ -10,10 +11,16 @@ interface MiniFolderCardProps {
 }
 
 export const MiniFolderCard: React.FC<MiniFolderCardProps> = ({ folder, onClick }) => (
-    <Card onClick={onClick} className="p-2 cursor-pointer hover:bg-stone-50 transition-colors">
+    <div
+        onClick={onClick}
+        className={cn(
+            "p-3 rounded-lg cursor-pointer border relative",
+            'bg-neutral-900 border-neutral-800 hover:border-blue-500'
+        )}
+    >
         <div className="flex items-center gap-2">
             <FolderIcon className="h-4 w-4 text-yellow-500 flex-shrink-0" />
-            <p className="text-xs font-medium truncate">{folder.name}</p>
+            <p className="text-xs font-medium text-neutral-200 truncate">{folder.name}</p>
         </div>
-    </Card>
+    </div>
 );

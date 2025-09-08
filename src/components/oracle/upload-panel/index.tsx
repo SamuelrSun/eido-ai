@@ -31,6 +31,7 @@ import { User } from '@supabase/supabase-js';
 import { MiniClassCard } from './MiniClassCard';
 import { MiniFolderCard } from './MiniFolderCard';
 import { MiniFileCard } from './MiniFileCard';
+import { cn } from '@/lib/utils';
 
 interface SourcesUploadPanelProps {
   user: User | null;
@@ -63,7 +64,6 @@ export const SourcesUploadPanel: React.FC<SourcesUploadPanelProps> = ({ user }) 
     setIsLoading(true);
     try {
       if (selectedClassId) {
-        // Fetch content for a specific class
         const [folderData, fileData] = await Promise.all([
           fileService.getFolders(selectedClassId, currentFolderId),
           fileService.getFiles(selectedClassId, currentFolderId)
@@ -71,7 +71,6 @@ export const SourcesUploadPanel: React.FC<SourcesUploadPanelProps> = ({ user }) 
         setFolders(folderData);
         setFiles(fileData);
       } else {
-        // Fetch all classes for the home view
         const [fetchedClasses, fetchedAllFiles] = await Promise.all([
             classOpenAIConfigService.getAllClasses(),
             fileService.getAllFilesWithClass()
@@ -106,10 +105,10 @@ export const SourcesUploadPanel: React.FC<SourcesUploadPanelProps> = ({ user }) 
   const handleBreadcrumbClick = (index: number) => {
     const clickedCrumb = breadcrumbs[index];
     setBreadcrumbs(breadcrumbs.slice(0, index + 1));
-    if (index === 0) { // Clicked on Home
+    if (index === 0) {
       setSelectedClassId(null);
       setCurrentFolderId(null);
-    } else { // Clicked on a class or folder
+    } else {
       const classCrumb = breadcrumbs[1];
       setSelectedClassId(classCrumb.id);
       setCurrentFolderId(clickedCrumb.id === classCrumb.id ? null : clickedCrumb.id);
@@ -144,13 +143,9 @@ export const SourcesUploadPanel: React.FC<SourcesUploadPanelProps> = ({ user }) 
     setIsUploading(true);
     toast({ title: `Uploading ${filesToUpload.length} file(s)...` });
     try {
-      const uploadPromises = filesToUpload.map(file => {
-        const filePath = `${user.id}/${selectedClassId}/${currentFolderId || 'root'}/${Date.now()}-${file.name}`;
-        return supabase.storage.from('file_storage').upload(filePath, file);
-      });
-      await Promise.all(uploadPromises);
+      await fileService.uploadFiles(filesToUpload, selectedClassId, currentFolderId);
       
-      toast({ title: "Upload complete", description: `${filesToUpload.length} file(s) processed.` });
+      toast({ title: "Upload complete", description: `${filesToUpload.length} file(s) queued for processing.` });
       setFilesToUpload([]);
       fetchData();
     } catch (error) {
@@ -164,9 +159,15 @@ export const SourcesUploadPanel: React.FC<SourcesUploadPanelProps> = ({ user }) 
     return allClasses.map(cls => {
         const filesForClass = allFiles.filter(file => file.class_id === cls.class_id);
         const totalSize = filesForClass.reduce((acc, file) => acc + (file.size || 0), 0);
-        return { ...cls, files: filesForClass.length, size: formatFileSize(totalSize) };
+        return { 
+            ...cls, 
+            files: filesForClass.length, 
+            size: formatFileSize(totalSize),
+            is_owner: cls.owner_id === user?.id,
+            is_shared: (cls.member_count || 0) > 1,
+        };
     });
-  }, [allClasses, allFiles]);
+  }, [allClasses, allFiles, user]);
 
   const renderContent = () => {
     if (isLoading) {
@@ -176,12 +177,12 @@ export const SourcesUploadPanel: React.FC<SourcesUploadPanelProps> = ({ user }) 
     if (!selectedClassId) {
       return (
         <>
-          <h3 className="text-xs font-semibold text-muted-foreground px-2 mb-2">CLASSES</h3>
-          <div className="grid grid-cols-2 gap-2">
+          <h3 className="text-xs font-semibold text-neutral-400 px-2 mb-2 uppercase">Classes</h3>
+          <div className="grid grid-cols-2 gap-3">
             {classesWithStats.length > 0 ? (
               classesWithStats.map(c => <MiniClassCard key={c.class_id} classItem={c} onClick={() => handleClassClick(c)} />)
             ) : (
-              <p className="text-xs text-muted-foreground col-span-2 text-center p-4">No classes found.</p>
+              <p className="text-xs text-neutral-500 col-span-2 text-center p-4">No classes found.</p>
             )}
           </div>
         </>
@@ -192,18 +193,18 @@ export const SourcesUploadPanel: React.FC<SourcesUploadPanelProps> = ({ user }) 
       <>
         {folders.length > 0 && (
           <>
-            <h3 className="text-xs font-semibold text-muted-foreground px-2 mb-2">FOLDERS</h3>
-            <div className="grid grid-cols-2 gap-2 mb-4">
+            <h3 className="text-xs font-semibold text-neutral-400 px-2 mb-2 uppercase">Folders</h3>
+            <div className="grid grid-cols-2 gap-3 mb-4">
               {folders.map(folder => <MiniFolderCard key={folder.folder_id} folder={folder} onClick={() => handleFolderClick(folder)} />)}
             </div>
           </>
         )}
-        <h3 className="text-xs font-semibold text-muted-foreground px-2 mb-2">FILES</h3>
-        <div className="grid grid-cols-2 gap-2">
+        <h3 className="text-xs font-semibold text-neutral-400 px-2 mb-2 uppercase">Files</h3>
+        <div className="grid grid-cols-2 gap-3">
           {files.length > 0 ? (
             files.map(file => <MiniFileCard key={file.file_id} file={file} />)
           ) : (
-            <p className="text-xs text-muted-foreground col-span-2 text-center p-4">No files in this location.</p>
+            <p className="text-xs text-neutral-500 col-span-2 text-center p-4">No files in this location.</p>
           )}
         </div>
       </>
@@ -222,12 +223,12 @@ export const SourcesUploadPanel: React.FC<SourcesUploadPanelProps> = ({ user }) 
                     <BreadcrumbLink 
                       href="#" 
                       onClick={(e) => { e.preventDefault(); handleBreadcrumbClick(index); }}
-                      className="text-sm font-normal text-muted-foreground hover:text-foreground"
+                      className="text-sm font-normal text-neutral-400 hover:text-white"
                     >
                       {crumb.name}
                     </BreadcrumbLink>
                   ) : (
-                    <BreadcrumbPage className="text-sm font-semibold text-foreground">
+                    <BreadcrumbPage className="text-sm font-semibold text-white">
                       {crumb.name}
                     </BreadcrumbPage>
                   )}
@@ -238,7 +239,7 @@ export const SourcesUploadPanel: React.FC<SourcesUploadPanelProps> = ({ user }) 
           </BreadcrumbList>
         </Breadcrumb>
         {selectedClassId && (
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsNewFolderOpen(true)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-neutral-400 hover:text-white" onClick={() => setIsNewFolderOpen(true)}>
             <FolderPlus className="h-4 w-4" />
           </Button>
         )}
@@ -246,31 +247,36 @@ export const SourcesUploadPanel: React.FC<SourcesUploadPanelProps> = ({ user }) 
       <ScrollArea className="flex-1 px-2 py-2">
         {renderContent()}
       </ScrollArea>
-      <div className="p-2 border-t mt-auto">
-        <div 
-          className="border-2 border-dashed rounded-md p-3 text-center cursor-pointer hover:border-primary"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <input type="file" ref={fileInputRef} className="hidden" multiple onChange={handleFileChange} />
-          <p className="text-xs text-muted-foreground">
-            {filesToUpload.length > 0 ? `${filesToUpload.length} file(s) selected` : "Attach, drag & drop, or paste files"}
-          </p>
+
+      {/* MODIFICATION: Conditional rendering for the upload section */}
+      {selectedClassId && (
+        <div className="p-2 border-t border-neutral-800 mt-auto">
+          <div 
+            className="border-2 border-dashed border-neutral-700 rounded-md p-3 text-center cursor-pointer hover:border-blue-500 hover:bg-neutral-900"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input type="file" ref={fileInputRef} className="hidden" multiple onChange={handleFileChange} />
+            <p className="text-xs text-neutral-500">
+              {filesToUpload.length > 0 ? `${filesToUpload.length} file(s) selected` : "Attach, drag & drop, or paste files"}
+            </p>
+          </div>
+          {filesToUpload.length > 0 && (
+            <Button className="w-full mt-2" size="sm" onClick={handleUpload} disabled={isUploading || !selectedClassId}>
+              {isUploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+              Upload to {breadcrumbs[breadcrumbs.length - 1].name}
+            </Button>
+          )}
         </div>
-        {filesToUpload.length > 0 && (
-          <Button className="w-full mt-2" size="sm" onClick={handleUpload} disabled={isUploading || !selectedClassId}>
-            {isUploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-            Upload to {breadcrumbs.length > 1 ? breadcrumbs[1].name : '...'}
-          </Button>
-        )}
-      </div>
+      )}
+
       <Dialog open={isNewFolderOpen} onOpenChange={setIsNewFolderOpen}>
-        <DialogContent>
+        <DialogContent className="bg-neutral-900 border-neutral-800">
           <DialogHeader>
-            <DialogTitle>Create New Folder</DialogTitle>
-            <DialogDescription>Enter a name for your new folder in {breadcrumbs[breadcrumbs.length - 1].name}.</DialogDescription>
+            <DialogTitle className="text-white">Create New Folder</DialogTitle>
+            <DialogDescription className="text-neutral-400">Enter a name for your new folder in {breadcrumbs[breadcrumbs.length - 1].name}.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateFolder}>
-            <Input autoFocus value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="e.g., Lecture Notes" />
+            <Input autoFocus value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="e.g., Lecture Notes" className="bg-neutral-800 border-neutral-700 text-white" />
             <DialogFooter className="mt-4">
               <Button type="button" variant="ghost" onClick={() => setIsNewFolderOpen(false)}>Cancel</Button>
               <Button type="submit">Create</Button>
