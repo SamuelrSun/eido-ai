@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffe
 import { Helmet } from 'react-helmet-async';
 import { MainAppLayout } from '@/components/layout/MainAppLayout';
 import { startOfDay, subDays, subMonths, subWeeks, addMonths, addWeeks, format, addDays as addDaysHelper, addMinutes } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 import { useCalendarData } from '@/hooks/useCalendarData';
 import { CalendarHeader } from '@/components/calendar/CalendarHeader';

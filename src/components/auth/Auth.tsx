@@ -1,7 +1,7 @@
 // src/components/auth/Auth.tsx
 import { useState } from 'react';
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useNavigate, Link } from 'react-router-dom';
