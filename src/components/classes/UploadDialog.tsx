@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { File, X, Loader2 } from 'lucide-react';
 import ShimmerButton from '../ui/ShimmerButton';
+import { useToast } from '@/hooks/use-toast';
 
 interface UploadDialogProps {
   isOpen: boolean;
@@ -21,10 +22,31 @@ interface UploadDialogProps {
 
 export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onUpload, isUploading }) => {
   const [files, setFiles] = useState<File[]>([]);
+  const { toast } = useToast();
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFiles(prev => [...prev, ...acceptedFiles]);
-  }, []);
+    const validFiles: File[] = [];
+    const invalidFiles: File[] = [];
+    for (const file of acceptedFiles) {
+      if (file.size > MAX_FILE_SIZE) {
+        invalidFiles.push(file);
+      } else {
+        validFiles.push(file);
+      }
+    }
+    if (validFiles.length > 0) {
+      setFiles(prev => [...prev, ...validFiles]);
+    }
+    if (invalidFiles.length > 0) {
+      toast({
+        title: "File Size Limit Exceeded",
+        description: "Due to budget constraints, files above 5 MB are currently not supported. Sorry for the inconvenience!",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -43,13 +65,13 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
   const handleUploadClick = () => {
     onUpload(files);
   };
-  
+
   // Reset state when dialog is closed
   const handleOpenChange = (open: boolean) => {
-      if (!open) {
-          setFiles([]);
-          onClose();
-      }
+    if (!open) {
+      setFiles([]);
+      onClose();
+    }
   };
 
   return (
@@ -61,11 +83,10 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
             Add files to the current directory. PDF, DOCX, and TXT are supported for indexing.
           </DialogDescription>
         </DialogHeader>
-        
         <div 
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          className="mt-4 border-2 border-solid border-neutral-700 rounded-lg p-8 text-center"
+          className="mt-4 border-2 border-dashed border-neutral-700 rounded-lg p-8 text-center"
         >
           <p className="mt-2 text-sm text-neutral-400">
             Drag & drop files here, or{' '}
@@ -92,7 +113,7 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
             ))}
           </div>
         )}
-        
+
         <DialogFooter className="sm:justify-center gap-2">
           <Button variant="outline" onClick={onClose} disabled={isUploading} className="bg-transparent border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white">Cancel</Button>
           <ShimmerButton onClick={handleUploadClick} disabled={files.length === 0 || isUploading}>
