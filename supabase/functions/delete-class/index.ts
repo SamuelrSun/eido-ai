@@ -8,12 +8,12 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  const adminSupabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  );
-
   try {
+    const adminSupabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
     const { data: { user } } = await createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -75,29 +75,15 @@ serve(async (req: Request) => {
     
     await Promise.allSettled(cleanupPromises);
     console.log(`[delete-class] External services cleanup complete for class ${class_id}.`);
+    
+    // --- Step 4: Delete the single class record ---
+    // With the corrected database trigger, we can now safely rely on ON DELETE CASCADE.
+    const { error: deleteError } = await adminSupabase
+      .from('classes')
+      .delete()
+      .eq('class_id', class_id);
 
-    // --- MODIFICATION: Disable trigger, delete, then re-enable trigger ---
-    try {
-      // Step 4.1: Disable the user-defined triggers on the 'files' table.
-      const { error: disableError } = await adminSupabase.rpc('sql', { sql: 'ALTER TABLE public.files DISABLE TRIGGER USER;' });
-      if (disableError) throw new Error(`Failed to disable triggers: ${disableError.message}`);
-      console.log(`[delete-class] Temporarily disabled triggers on 'files' table.`);
-
-      // Step 4.2: Delete the single class record. ON DELETE CASCADE will now run without firing the faulty trigger.
-      const { error: deleteError } = await adminSupabase
-        .from('classes')
-        .delete()
-        .eq('class_id', class_id);
-      if (deleteError) throw deleteError;
-      console.log(`[delete-class] Successfully deleted class record and initiated cascade.`);
-
-    } finally {
-      // Step 4.3: CRITICAL - Re-enable the triggers in a 'finally' block to ensure they are
-      // always turned back on, even if the deletion fails.
-      const { error: enableError } = await adminSupabase.rpc('sql', { sql: 'ALTER TABLE public.files ENABLE TRIGGER USER;' });
-      if (enableError) console.error(`[CRITICAL] FAILED TO RE-ENABLE TRIGGERS: ${enableError.message}`);
-      else console.log(`[delete-class] Re-enabled triggers on 'files' table.`);
-    }
+    if (deleteError) throw deleteError;
     
     return new Response(JSON.stringify({ success: true, message: "Class and all associated data have been deleted." }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
