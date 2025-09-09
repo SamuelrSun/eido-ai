@@ -143,9 +143,19 @@ async function processSingleQuery(
     .withNearVector({ vector: queryVector }).withLimit(10)
     .withFields('source_file_id page_number text_chunk source_file_name');
   
-  if (class_id) {
-      weaviateQuery.withWhere({ operator: 'Equal', path: ['class_id'], valueText: class_id });
-  }
+  const whereFilter: any = {};
+    if (class_id) {
+        // If a class is specified, filter by that class_id
+        whereFilter.operator = 'Equal';
+        whereFilter.path = ['class_id'];
+        whereFilter.valueText = class_id;
+    } else {
+        // If no class is specified ("All Classes"), filter by the user's own ID
+        whereFilter.operator = 'Equal';
+        whereFilter.path = ['user_id'];
+        whereFilter.valueText = user_id;
+    }
+    weaviateQuery.withWhere(whereFilter); // Always apply the filter
 
   const weaviateResponse = await weaviateQuery.do();
   const retrievedChunks = weaviateResponse.data.Get.DocumentChunk || [];

@@ -66,18 +66,19 @@ serve(async (req: Request) => {
             cleanupPromises.push(adminSupabase.storage.from('file_storage').remove(storagePaths));
         }
         for (const file of filesToDelete) {
+            // NOTE: This assumes you have a `delete-from-cloudinary` function that accepts a file_id. The current one takes a public_id.
             if (file.thumbnail_url) {
                 cleanupPromises.push(adminSupabase.functions.invoke('delete-from-cloudinary', { body: { file_id: file.file_id } }));
             }
         }
     }
+    // Assuming you create a function 'delete-weaviate-chunks-by-class'
     cleanupPromises.push(adminSupabase.functions.invoke('delete-weaviate-chunks-by-class', { body: { class_id_to_delete: class_id } }));
     
     await Promise.allSettled(cleanupPromises);
     console.log(`[delete-class] External services cleanup complete for class ${class_id}.`);
     
-    // --- Step 4: Delete the single class record ---
-    // With the corrected database trigger, we can now safely rely on ON DELETE CASCADE.
+    // --- Step 4: Delete the single class record (relying on CASCADE for related tables) ---
     const { error: deleteError } = await adminSupabase
       .from('classes')
       .delete()
