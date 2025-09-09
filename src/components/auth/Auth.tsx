@@ -1,12 +1,12 @@
 // src/components/auth/Auth.tsx
 import { useState } from 'react';
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { Label } from "../ui/label";
+import { useToast } from "../ui/use-toast";
+import { supabase } from "../../integrations/supabase/client";
 import { Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useNavigate, Link } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import ShimmerButton from '@/components/ui/ShimmerButton';
+import { cn } from '../../lib/utils';
+import ShimmerButton from '../ui/ShimmerButton';
 
 const GoogleIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="mr-2">
