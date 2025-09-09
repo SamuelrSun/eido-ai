@@ -134,7 +134,6 @@ src/
         SidebarHeader.tsx
         SidebarNavigation.tsx
         SidebarWidgets.tsx
-      AppLayout.tsx
       AppSidebar.tsx
       Header.tsx
       MainAppLayout.tsx
@@ -267,8 +266,6 @@ supabase/
   functions/
     _shared/
       cors.ts
-    approve-class-member/
-      index.ts
     check-env-vars/
       index.ts
     create-recurring-event/
@@ -282,6 +279,8 @@ supabase/
     delete-recurring-event/
       index.ts
     delete-user-account/
+      index.ts
+    delete-weaviate-chunks-by-class/
       index.ts
     delete-weaviate-chunks-by-file/
       index.ts
@@ -10654,75 +10653,6 @@ postgresql://postgres.uzdtqomtbrccinrkhzme:[YOUR-PASSWORD]@aws-0-us-west-1.poole
 uzdtqomtbrccinrkhzme
 </file>
 
-<file path="supabase/functions/approve-class-member/index.ts">
-// supabase/functions/approve-class-member/index.ts
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
-
-serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-
-  try {
-    const userSupabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
-    const { data: { user: requestingUser } } = await userSupabaseClient.auth.getUser();
-    if (!requestingUser) throw new Error('User not authenticated.');
-
-    const { class_id, member_id } = await req.json();
-    if (!class_id || !member_id) {
-      throw new Error('class_id and member_id are required.');
-    }
-    
-    const adminSupabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-    
-    // Verify that the requesting user is the owner of the class
-    const { data: classData, error: classError } = await adminSupabaseClient
-        .from('classes')
-        .select('owner_id')
-        .eq('class_id', class_id)
-        .single();
-
-    if (classError) throw new Error("Could not find the specified class.");
-    if (classData.owner_id !== requestingUser.id) {
-        return new Response(JSON.stringify({ error: "Only the class owner can approve members." }), {
-            status: 403, // Forbidden
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-    }
-
-    // Update the member's role from 'pending' to 'member'
-    const { error: updateError } = await adminSupabaseClient
-      .from('class_members')
-      .update({ role: 'member' })
-      .eq('class_id', class_id)
-      .eq('user_id', member_id)
-      .eq('role', 'pending'); // Ensure we only approve pending members
-
-    if (updateError) throw updateError;
-
-    return new Response(JSON.stringify({ message: "Member approved successfully." }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    });
-
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
-  }
-});
-</file>
-
 <file path="supabase/functions/check-env-vars/index.ts">
 // supabase/functions/check-env-vars/index.ts
 
@@ -11036,6 +10966,102 @@ serve(async (req) => {
 
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
+  }
+});
+</file>
+
+<file path="supabase/functions/delete-weaviate-chunks-by-class/index.ts">
+// supabase/functions/delete-weaviate-chunks-by-class/index.ts
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import weaviate, { WeaviateClient, ApiKey } from 'npm:weaviate-ts-client@2.0.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
+
+serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    // --- 1. Initialize Clients ---
+    const adminSupabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    const weaviateClient: WeaviateClient = weaviate.client({
+      scheme: 'https',
+      host: Deno.env.get('WEAVIATE_URL')!,
+      apiKey: new ApiKey(Deno.env.get('WEAVIATE_API_KEY')!),
+    });
+
+    // --- 2. Authenticate the User ---
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    );
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) {
+      throw new Error('User not authenticated.');
+    }
+
+    // --- 3. Validate Input ---
+    const { class_id_to_delete } = await req.json();
+    if (!class_id_to_delete) {
+      throw new Error("Missing 'class_id_to_delete' in request body.");
+    }
+    
+    // --- 4. CRITICAL: Verify Ownership ---
+    // Ensure the user calling this function is the owner of the class.
+    const { data: classData, error: ownerError } = await adminSupabase
+      .from('classes')
+      .select('owner_id')
+      .eq('class_id', class_id_to_delete)
+      .single();
+
+    if (ownerError || !classData) {
+      throw new Error('Class not found.');
+    }
+
+    if (classData.owner_id !== user.id) {
+      return new Response(JSON.stringify({ error: 'Permission denied: You are not the owner of this class.' }), {
+        status: 403, // Forbidden
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // --- 5. Perform Deletion from Weaviate ---
+    console.log(`[WEAVIATE-DELETE] Deleting all chunks for class_id: ${class_id_to_delete}`);
+    const result = await weaviateClient.batch.objectsBatchDeleter()
+      .withClassName('DocumentChunk')
+      .withWhere({
+        operator: 'Equal',
+        path: ['class_id'],
+        valueText: class_id_to_delete,
+      })
+      .do();
+    
+    const errors = result.results?.objects?.filter(obj => obj.errors) ?? [];
+    if (errors.length > 0) {
+        console.error('Weaviate deletion encountered errors:', JSON.stringify(errors, null, 2));
+        // Proceeding, but logging the error. The class deletion should continue.
+    }
+
+    const deletedCount = result.results?.matches || 0;
+    console.log(`[WEAVIATE-DELETE] Successfully deleted ${deletedCount} chunks.`);
+
+    return new Response(JSON.stringify({ success: true, deletedCount }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (err) {
+    console.error('[DELETE-WEAVIATE-CHUNKS-BY-CLASS ERROR]:', err);
+    return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });
@@ -13336,110 +13362,6 @@ export const ClassesDemo: React.FC<ClassesDemoProps> = ({ classes, isLoading, on
     </Card>
   );
 };
-</file>
-
-<file path="src/components/layout/AppLayout.tsx">
-// src/components/layout/AppLayout.tsx
-
-import { useState, useEffect } from "react";
-import { Outlet, useLocation } from "react-router-dom";
-import { AppSidebar } from "./AppSidebar";
-import { Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Toaster } from "@/components/ui/toaster";
-import { Header } from "./Header"; // Import the centralized Header component
-
-export function AppLayout() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  // Store activeClass with its 'class_name' and 'class_id'
-  const [activeClass, setActiveClass] = useState<{ class_id: string; class_name: string; } | null>(null);
-  const location = useLocation();
-
-  // Load active class from session storage and handle homepage clearing
-  useEffect(() => {
-    if (location.pathname === '/') {
-      // Clear active class when on homepage
-      setActiveClass(null);
-      sessionStorage.removeItem('activeClass');
-    } else {
-      // Get active class from session storage on other pages
-      const storedActiveClass = sessionStorage.getItem('activeClass');
-      if (storedActiveClass) {
-        try {
-          // Parse the stored class data, expecting 'class_name' now
-          const parsedClass: { class_id: string; class_name: string; } = JSON.parse(storedActiveClass);
-          setActiveClass(parsedClass);
-        } catch (e: unknown) { // Catch as unknown
-          console.error("Error parsing stored active class", e);
-        }
-      }
-    }
-  }, [location.pathname]);
-
-  return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Mobile sidebar */}
-      <div className="md:hidden">
-        {isSidebarOpen && (
-          <div
-            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-        )}
-
-        <div className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
-          <AppSidebar onClose={() => setIsSidebarOpen(false)} />
-        </div>
-      </div>
-
-      {/* Desktop sidebar */}
-      <div className="hidden md:block">
-        <AppSidebar onClose={() => {}} />
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Unified Header for both mobile (when sidebar closed) and desktop */}
-        {/* This header will be consistent across all pages using AppLayout */}
-        <header className="flex-shrink-0">
-          {/* Mobile menu button and Eido logo will still be here for mobile if sidebar is closed */}
-          <div className="flex items-center px-4 py-2 border-b md:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsSidebarOpen(true)}
-            >
-              <Menu className="h-6 w-6" />
-            </Button>
-            <div className="flex items-center mx-auto">
-              <div className="w-8 h-8 rounded-md flex items-center justify-center mr-2">
-                <img
-                  src="/eido-icon.png"
-                  alt="Eido AI Logo"
-                  className="h-8 w-8 object-contain"
-                />
-              </div>
-              <h1 className="text-lg font-semibold">Eido</h1>
-            </div>
-            <div className="w-9"></div> {/* Empty div for centering */}
-          </div>
-          {/* The main Header component, always visible on desktop */}
-          <div className="hidden md:block">
-            <Header />
-          </div>
-        </header>
-
-        {/* Content area */}
-        <main className="flex-1 overflow-auto p-4 md:p-8">
-          <Outlet />
-          <Toaster />
-        </main>
-      </div>
-    </div>
-  );
-}
 </file>
 
 <file path="src/components/layout/OracleLayout.tsx">
@@ -16027,136 +15949,6 @@ export const FolderCard: React.FC<FolderCardProps> = ({ folderName, files, size,
 };
 </file>
 
-<file path="src/components/classes/UploadDialog.tsx">
-// src/components/classes/UploadDialog.tsx
-import React, { useState, useCallback } from 'react';
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { File, X, Loader2 } from 'lucide-react';
-import ShimmerButton from '../ui/ShimmerButton';
-import { useToast } from '@/hooks/use-toast';
-
-interface UploadDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onUpload: (files: File[]) => void;
-  isUploading: boolean;
-}
-
-export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onUpload, isUploading }) => {
-  const [files, setFiles] = useState<File[]>([]);
-  const { toast } = useToast();
-
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
-
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const validFiles: File[] = [];
-    const invalidFiles: File[] = [];
-    for (const file of acceptedFiles) {
-      if (file.size > MAX_FILE_SIZE) {
-        invalidFiles.push(file);
-      } else {
-        validFiles.push(file);
-      }
-    }
-    if (validFiles.length > 0) {
-      setFiles(prev => [...prev, ...validFiles]);
-    }
-    if (invalidFiles.length > 0) {
-      toast({
-        title: "File Size Limit Exceeded",
-        description: "Due to budget constraints, files above 5 MB are currently not supported. Sorry for the inconvenience!",
-        variant: "destructive",
-      });
-    }
-  }, [toast]);
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    onDrop(Array.from(e.dataTransfer.files));
-  };
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      onDrop(Array.from(e.target.files));
-    }
-  };
-  const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleUploadClick = () => {
-    onUpload(files);
-  };
-
-  // Reset state when dialog is closed
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      setFiles([]);
-      onClose();
-    }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="bg-neutral-900 border-neutral-800">
-        <DialogHeader>
-          <DialogTitle className="text-center text-white">Upload Files</DialogTitle>
-          <DialogDescription className="text-center pt-2 text-neutral-400">
-            Add files to the current directory. PDF, DOCX, and TXT are supported for indexing.
-          </DialogDescription>
-        </DialogHeader>
-        <div 
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          className="mt-4 border-2 border-dashed border-neutral-700 rounded-lg p-8 text-center"
-        >
-          <p className="mt-2 text-sm text-neutral-400">
-            Drag & drop files here, or{' '}
-            <label htmlFor="file-upload" className="text-blue-400 font-semibold cursor-pointer hover:underline">
-              browse
-            </label>
-          </p>
-          <input id="file-upload" type="file" className="hidden" multiple onChange={handleFileChange} />
-        </div>
-
-        {files.length > 0 && (
-          <div className="mt-4 space-y-2 max-h-48 overflow-y-auto pr-2">
-            <h4 className="text-sm font-medium text-neutral-300">Files to upload:</h4>
-            {files.map((file, i) => (
-              <div key={i} className="flex items-center justify-between bg-neutral-800 p-2 rounded-md">
-                <div className="flex items-center gap-2 overflow-hidden">
-                    <File className="h-4 w-4 flex-shrink-0 text-neutral-400"/>
-                    <span className="text-sm truncate text-neutral-200">{file.name}</span>
-                </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-neutral-400 hover:text-white" onClick={() => removeFile(i)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <DialogFooter className="sm:justify-center gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isUploading} className="bg-transparent border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white">Cancel</Button>
-          <ShimmerButton onClick={handleUploadClick} disabled={files.length === 0 || isUploading}>
-            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isUploading ? "Uploading..." : `Upload ${files.length} File(s)`}
-          </ShimmerButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-</file>
-
 <file path="src/components/dashboard/OracleChatDemo.tsx">
 // src/components/dashboard/OracleChatDemo.tsx
 import React, { useEffect, useRef } from 'react';
@@ -16565,6 +16357,53 @@ export const useCalendarData = () => {
 
     return { classes, setClasses, isLoadingClasses, events, isLoadingEvents, createEvent, updateEvent, deleteEvent, updateClassColor };
 };
+</file>
+
+<file path="src/integrations/supabase/client.ts">
+// src/integrations/supabase/client.ts
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+// --- FIX: Updated the import to use the correct, centralized type definition file ---
+import type { Database } from '@/types/supabase';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL) {
+  console.error('Error: SUPABASE_URL is not defined. Please check your .env file.');
+  throw new Error('SUPABASE_URL is not defined.');
+}
+if (!SUPABASE_PUBLISHABLE_KEY) {
+  console.error('Error: SUPABASE_PUBLISHABLE_KEY is not defined. Please check your .env file.');
+  throw new Error('SUPABASE_PUBLISHABLE_KEY is not defined.');
+}
+
+// Define the CustomDatabase interface which extends the auto-generated Database type.
+export interface CustomDatabase extends Database {
+  public: Database['public'] & {
+    Tables: Database['public']['Tables'] & {
+      // Ensure all your existing tables are listed here, referencing Database['public']['Tables']
+      profiles: Database['public']['Tables']['profiles'];
+      classes: Database['public']['Tables']['classes'];
+      folders: Database['public']['Tables']['folders']; 
+      files: Database['public']['Tables']['files']; 
+      "flashcard-decks": Database['public']['Tables']['flashcard-decks'];
+      flashcards: Database['public']['Tables']['flashcards'];
+      quiz_questions: Database['public']['Tables']['quiz_questions'];
+      quizzes: Database['public']['Tables']['quizzes'];
+      user_storage: Database['public']['Tables']['user_storage'];
+      chat_messages: Database['public']['Tables']['chat_messages'];
+      calendar_events: Database['public']['Tables']['calendar_events']; 
+    };
+    Views: Database['public']['Views'];
+    Functions: Database['public']['Functions'];
+  };
+}
+
+export const supabase: SupabaseClient<CustomDatabase> = createClient<CustomDatabase>(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
+  { auth: { persistSession: true, autoRefreshToken: true } }
+);
 </file>
 
 <file path="src/index.css">
@@ -17305,6 +17144,136 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
 };
 </file>
 
+<file path="src/components/classes/UploadDialog.tsx">
+// src/components/classes/UploadDialog.tsx
+import React, { useState, useCallback } from 'react';
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { File, X, Loader2 } from 'lucide-react';
+import ShimmerButton from '../ui/ShimmerButton';
+import { useToast } from '@/hooks/use-toast';
+
+interface UploadDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onUpload: (files: File[]) => void;
+  isUploading: boolean;
+}
+
+export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onUpload, isUploading }) => {
+  const [files, setFiles] = useState<File[]>([]);
+  const { toast } = useToast();
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const validFiles: File[] = [];
+    const invalidFiles: File[] = [];
+    for (const file of acceptedFiles) {
+      if (file.size > MAX_FILE_SIZE) {
+        invalidFiles.push(file);
+      } else {
+        validFiles.push(file);
+      }
+    }
+    if (validFiles.length > 0) {
+      setFiles(prev => [...prev, ...validFiles]);
+    }
+    if (invalidFiles.length > 0) {
+    toast({
+      title: "File Size Limit Exceeded",
+      description: "Due to budget constraints, files above 5 MB are currently not supported. Sorry for the inconvenience!",
+      variant: "destructive",
+    });
+  }
+}, [toast]);
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    onDrop(Array.from(e.dataTransfer.files));
+  };
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      onDrop(Array.from(e.target.files));
+    }
+  };
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUploadClick = () => {
+    onUpload(files);
+  };
+
+  // Reset state when dialog is closed
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      setFiles([]);
+      onClose();
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="bg-neutral-900 border-neutral-800">
+        <DialogHeader>
+          <DialogTitle className="text-center text-white">Upload Files</DialogTitle>
+          <DialogDescription className="text-center pt-2 text-neutral-400">
+            Add files to the current directory. PDF, DOCX, and TXT are supported for indexing.
+          </DialogDescription>
+        </DialogHeader>
+        <div 
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          className="mt-4 border-2 border-dashed border-neutral-700 rounded-lg p-8 text-center"
+        >
+          <p className="mt-2 text-sm text-neutral-400">
+            Drag & drop files here, or{' '}
+            <label htmlFor="file-upload" className="text-blue-400 font-semibold cursor-pointer hover:underline">
+              browse
+            </label>
+          </p>
+          <input id="file-upload" type="file" className="hidden" multiple onChange={handleFileChange} />
+        </div>
+
+        {files.length > 0 && (
+          <div className="mt-4 space-y-2 max-h-48 overflow-y-auto pr-2">
+            <h4 className="text-sm font-medium text-neutral-300">Files to upload:</h4>
+            {files.map((file, i) => (
+              <div key={i} className="flex items-center justify-between bg-neutral-800 p-2 rounded-md">
+                <div className="flex items-center gap-2 overflow-hidden">
+                    <File className="h-4 w-4 flex-shrink-0 text-neutral-400"/>
+                    <span className="text-sm truncate text-neutral-200">{file.name}</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-neutral-400 hover:text-white" onClick={() => removeFile(i)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <DialogFooter className="sm:justify-center gap-2">
+          <Button variant="outline" onClick={onClose} disabled={isUploading} className="bg-transparent border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white">Cancel</Button>
+          <ShimmerButton onClick={handleUploadClick} disabled={files.length === 0 || isUploading}>
+            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isUploading ? "Uploading..." : `Upload ${files.length} File(s)`}
+          </ShimmerButton>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+</file>
+
 <file path="src/components/layout/AppSidebar.tsx">
 // src/components/layout/AppSidebar.tsx
 import { Home, CalendarDays, Terminal, Compass } from "lucide-react"; // Using Compass for Oracle
@@ -17597,53 +17566,6 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ file, initialPag
     </div>
   );
 };
-</file>
-
-<file path="src/integrations/supabase/client.ts">
-// src/integrations/supabase/client.ts
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-// --- FIX: Updated the import to use the correct, centralized type definition file ---
-import type { Database } from '@/types/supabase';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!SUPABASE_URL) {
-  console.error('Error: SUPABASE_URL is not defined. Please check your .env file.');
-  throw new Error('SUPABASE_URL is not defined.');
-}
-if (!SUPABASE_PUBLISHABLE_KEY) {
-  console.error('Error: SUPABASE_PUBLISHABLE_KEY is not defined. Please check your .env file.');
-  throw new Error('SUPABASE_PUBLISHABLE_KEY is not defined.');
-}
-
-// Define the CustomDatabase interface which extends the auto-generated Database type.
-export interface CustomDatabase extends Database {
-  public: Database['public'] & {
-    Tables: Database['public']['Tables'] & {
-      // Ensure all your existing tables are listed here, referencing Database['public']['Tables']
-      profiles: Database['public']['Tables']['profiles'];
-      classes: Database['public']['Tables']['classes'];
-      folders: Database['public']['Tables']['folders']; 
-      files: Database['public']['Tables']['files']; 
-      "flashcard-decks": Database['public']['Tables']['flashcard-decks'];
-      flashcards: Database['public']['Tables']['flashcards'];
-      quiz_questions: Database['public']['Tables']['quiz_questions'];
-      quizzes: Database['public']['Tables']['quizzes'];
-      user_storage: Database['public']['Tables']['user_storage'];
-      chat_messages: Database['public']['Tables']['chat_messages'];
-      calendar_events: Database['public']['Tables']['calendar_events']; 
-    };
-    Views: Database['public']['Views'];
-    Functions: Database['public']['Functions'];
-  };
-}
-
-export const supabase: SupabaseClient<CustomDatabase> = createClient<CustomDatabase>(
-  SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY,
-  { auth: { persistSession: true, autoRefreshToken: true } }
-);
 </file>
 
 <file path="src/pages/PrivacyPolicyPage.tsx">
@@ -18315,6 +18237,172 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversations, s
 };
 </file>
 
+<file path="src/services/chatMessageService.ts">
+// src/services/chatMessageService.ts
+import { supabase } from "@/integrations/supabase/client";
+import type { CustomDatabase } from "@/integrations/supabase/client";
+import { FileType } from "@/features/files/types";
+
+// --- TYPE DEFINITIONS (DEFINED AND EXPORTED HERE) ---
+
+export type ChatMessageDBInsert = CustomDatabase['public']['Tables']['chat_messages']['Insert'];
+
+/**
+ * The rich source object used by the frontend. It's generated by the AI function
+ * and reconstructed from the database when fetching message history.
+ */
+export interface ActiveSource {
+  number: number;
+  file: FileType;
+  pageNumber: number | null;  
+  content: string;
+  file_id: string; // The foreign key used for saving
+}
+
+/**
+ * The main chat message object used by the application UI.
+ */
+export interface ChatMessageApp {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: Date;
+  conversation_id: string;
+  sources?: ActiveSource[];
+  attached_files?: { name: string, type: string }[];
+}
+
+// --- MAIN SERVICE LOGIC ---
+
+export const chatMessageService = {
+  /**
+   * Saves a message and its associated sources to the database.
+   * This version ensures that if saving sources fails, the entire operation is rolled back.
+   */
+  saveMessage: async (
+    messagePayload: Omit<ChatMessageDBInsert, 'user_id' | 'id' | 'created_at'> & { conversation_id: string; sources?: ActiveSource[] }
+  ): Promise<ChatMessageApp> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("User must be authenticated to save messages.");
+    }
+
+    // First, separate the sources from the core message data
+    const { sources, ...coreMessageData } = messagePayload;
+    const messageToSave: ChatMessageDBInsert = { ...coreMessageData, user_id: user.id };
+    
+    // Step 1: Save the core message text
+    const { data: savedMessage, error: messageError } = await supabase
+      .from('chat_messages')
+      .insert(messageToSave)
+      .select()
+      .single();
+
+    if (messageError) {
+      console.error("Error saving core message:", messageError);
+      throw messageError;
+    }
+
+    // Step 2: If there are sources, attempt to save them.
+    let finalSourcesForApp: ActiveSource[] = [];
+    if (sources && sources.length > 0) {
+      const sourcesToInsert = sources.map(source => ({
+        message_id: savedMessage.id,
+        file_id: source.file_id,
+        source_number: source.number,
+        name: source.file.name,
+        url: source.file.url,
+        page_number: source.pageNumber,
+        content: source.content,
+      }));
+
+      // Attempt to insert the sources
+      const { error: sourcesError } = await supabase
+        .from('message_sources')
+        .insert(sourcesToInsert);
+
+      // THIS IS THE CRITICAL FIX: If the insert fails, we must handle it.
+      if (sourcesError) {
+        console.error("Error saving sources, rolling back message:", sourcesError);
+        
+        // As a cleanup, attempt to delete the message we just created to avoid orphaned data.
+        await supabase.from('chat_messages').delete().eq('id', savedMessage.id);
+        
+        // Most importantly, THROW the error so the UI knows the entire operation failed.
+        throw sourcesError;
+      }
+      
+      // Only assign the sources if the database insert was successful.
+      finalSourcesForApp = sources;
+    }
+
+    // Step 3: Return the complete, successfully saved message object.
+    return {
+      id: savedMessage.id,
+      role: savedMessage.role as 'user' | 'assistant' | 'system',
+      content: savedMessage.content,
+      createdAt: new Date(savedMessage.created_at),
+      conversation_id: savedMessage.conversation_id!,
+      attached_files: (savedMessage.attached_files as any) || [],
+      sources: finalSourcesForApp,
+    };
+  },
+
+
+  fetchMessagesByConversation: async (conversationId: string): Promise<ChatMessageApp[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !conversationId) return [];
+
+    // Step 1: Fetch messages and perform a nested join to get their sources AND the full file data for each source.
+    const { data: dbData, error } = await supabase
+      .from('chat_messages')
+      .select(`
+        *,
+        message_sources (
+          *,
+          files (*)
+        )
+      `)
+      .eq('user_id', user.id)
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error("Error fetching messages with sources:", error);
+      throw error;
+    }
+    
+    // Step 2: Map the raw database result to the 'ChatMessageApp' type our frontend expects.
+    return (dbData || []).map((dbRow): ChatMessageApp => {
+      const message: ChatMessageApp = {
+        id: dbRow.id,
+        role: dbRow.role as 'user' | 'assistant' | 'system',
+        content: dbRow.content,
+        createdAt: new Date(dbRow.created_at),
+        conversation_id: dbRow.conversation_id!,
+        attached_files: (dbRow.attached_files as any) || [],
+        sources: [],
+      };
+
+      // Step 3: If sources were returned from the join, reconstruct the 'sources' array.
+      if (Array.isArray(dbRow.message_sources) && dbRow.message_sources.length > 0) {
+        message.sources = dbRow.message_sources
+          .filter(source => source.files) // Safety check: only include sources where the linked file exists.
+          .map((source): ActiveSource => ({
+            number: source.source_number,
+            pageNumber: source.page_number,
+            content: source.content,
+            file_id: source.file_id,
+            file: source.files as FileType, // The 'files(*)' join gives us the full FileType object.
+        })).sort((a, b) => a.number - b.number); // Ensure sources are in the correct order.
+      }
+      
+      return message;
+    });
+  },
+};
+</file>
+
 <file path="src/services/conversationService.ts">
 // src/services/conversationService.ts
 import { supabase } from "@/integrations/supabase/client";
@@ -18468,6 +18556,178 @@ export const conversationService = {
     return mapToAppConversation(data);
   }
 };
+</file>
+
+<file path="supabase/functions/delete-user-account/index.ts">
+// supabase/functions/delete-user-account/index.ts
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
+import weaviate, { WeaviateClient, ApiKey } from 'npm:weaviate-ts-client@2.0.0';
+import { corsHeaders } from "../_shared/cors.ts";
+
+console.log("[delete-user-account] Function cold start.");
+
+/**
+ * Deletes all data associated with a user across Supabase DB, Storage, Auth,
+ * Weaviate, and Cloudinary.
+ */
+serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    // --- 1. Initialize Admin Clients ---
+    const supabaseAdminClient: SupabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } }
+    );
+
+    const weaviateClient: WeaviateClient = weaviate.client({
+        scheme: 'https',
+        host: Deno.env.get("WEAVIATE_URL")!,
+        apiKey: new ApiKey(Deno.env.get("WEAVIATE_API_KEY")!),
+    });
+    console.log("[INIT] Admin clients for Supabase and Weaviate initialized.");
+
+    // --- 2. Authenticate the User and Get User ID ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Authentication required: No token provided.");
+    
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: userError } = await supabaseAdminClient.auth.getUser(token);
+
+    if (userError || !user) {
+      throw new Error(userError?.message || "Authentication failed: Invalid token.");
+    }
+    const userIdToDelete = user.id;
+    console.log(`[AUTH] Authenticated user for deletion: ${userIdToDelete}`);
+
+    // --- 3. Fetch All User-Owned Resources ---
+    console.log(`[FETCH] Fetching all files for user ${userIdToDelete}...`);
+    const { data: userFiles, error: filesError } = await supabaseAdminClient
+      .from('files')
+      .select('file_id, url, thumbnail_url')
+      .eq('user_id', userIdToDelete);
+
+    if (filesError) throw new Error(`Failed to fetch user files: ${filesError.message}`);
+    console.log(`[FETCH] Found ${userFiles.length} files to process for deletion.`);
+
+    // --- 4. Perform Deletion Across All Services (in parallel where possible) ---
+    const deletionPromises = [];
+
+    // 4a. Delete from Supabase Storage
+    if (userFiles.length > 0) {
+      const storagePaths = userFiles
+        .map(file => file.url ? new URL(file.url).pathname.split('/public/file_storage/')[1] : null)
+        .filter((path): path is string => path !== null);
+      
+      if (storagePaths.length > 0) {
+        console.log(`[STORAGE] Queuing deletion of ${storagePaths.length} files from Supabase Storage.`);
+        deletionPromises.push(
+          supabaseAdminClient.storage.from('file_storage').remove(storagePaths)
+        );
+      }
+    }
+
+    // 4b. Delete from Cloudinary
+    if (userFiles.length > 0) {
+        const cloudinaryPublicIds = userFiles
+            .map(file => file.thumbnail_url ? `thumbnails/${file.file_id}` : null)
+            .filter((id): id is string => id !== null);
+
+        if (cloudinaryPublicIds.length > 0) {
+            console.log(`[CLOUDINARY] Queuing deletion of ${cloudinaryPublicIds.length} thumbnails.`);
+            // Note: Cloudinary's API might not support bulk deletion by public_id in the same way.
+            // Invoking the function for each is a safe approach.
+            for (const publicId of cloudinaryPublicIds) {
+                deletionPromises.push(
+                    supabaseAdminClient.functions.invoke('delete-from-cloudinary', {
+                        body: JSON.stringify({ public_id: publicId })
+                    })
+                );
+            }
+        }
+    }
+
+// 4c. Delete from Weaviate
+console.log(`[WEAVIATE] Queuing deletion of all document chunks for user ${userIdToDelete}.`);
+
+// FIX: Define the where filter as 'any' to bypass the strict type checking
+const whereFilter: any = {
+  operator: 'Equal',
+  path: ['user_id'],
+  valueText: userIdToDelete,
+};
+
+deletionPromises.push(
+  weaviateClient.batch.objectsBatchDeleter({
+    className: 'DocumentChunk',
+    where: whereFilter,
+  })
+);
+
+    // --- Execute all parallel deletions and wait for them to complete ---
+    const results = await Promise.allSettled(deletionPromises);
+    results.forEach((result, i) => {
+        if (result.status === 'rejected') {
+            console.warn(`[CLEANUP-WARN] A non-critical deletion task (task #${i}) failed:`, result.reason);
+        }
+    });
+    console.log("[CLEANUP] External services cleanup complete.");
+
+    // --- 5. Delete from Supabase Database ---
+    // Deleting the user from the 'profiles' table. If you have set up 'ON DELETE CASCADE'
+    // for foreign keys in other tables (like classes, folders, files), this will automatically
+    // clean them up. This is the recommended approach.
+    console.log(`[DB] Deleting user record from 'profiles' table for user ${userIdToDelete}.`);
+    const { error: dbError } = await supabaseAdminClient
+      .from('profiles')
+      .delete()
+      .eq('user_id', userIdToDelete);
+
+    if (dbError) {
+      // If this fails, we stop before deleting the auth user to allow for investigation.
+      throw new Error(`Failed to delete user data from database: ${dbError.message}`);
+    }
+    console.log("[DB] ✅ Database records deleted successfully.");
+
+    // --- 6. Final Step: Delete the Auth User ---
+    // This is the last and most critical step.
+    console.log(`[AUTH] Deleting user ${userIdToDelete} from Supabase Auth service.`);
+    const { error: deleteError } = await supabaseAdminClient.auth.admin.deleteUser(userIdToDelete);
+
+    if (deleteError) {
+      // This is a critical failure. The user's data might be gone but their login remains.
+      // This requires manual intervention.
+      console.error(`[AUTH] CRITICAL FAILURE: Could not delete user from Auth. Manual cleanup required.`, deleteError);
+      throw new Error(`Failed to delete user from authentication service: ${deleteError.message}`);
+    }
+    console.log(`[SUCCESS] ✅ Successfully deleted user ${userIdToDelete} from all systems.`);
+
+    // --- 7. Return Success Response ---
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "User account and all associated data have been successfully deleted.",
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+    );
+
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    console.error('[CRITICAL-ERROR] in delete-user-account function:', errorMessage, error);
+    return new Response(
+      JSON.stringify({ success: false, error: errorMessage }),
+      { 
+        status: (error instanceof Error && error.message.includes("Authentication")) ? 401 : 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
+  }
+});
 </file>
 
 <file path="src/components/oracle/SourcesPanel.tsx">
@@ -19166,172 +19426,6 @@ const ProfilePage = () => {
 export default ProfilePage;
 </file>
 
-<file path="src/services/chatMessageService.ts">
-// src/services/chatMessageService.ts
-import { supabase } from "@/integrations/supabase/client";
-import type { CustomDatabase } from "@/integrations/supabase/client";
-import { FileType } from "@/features/files/types";
-
-// --- TYPE DEFINITIONS (DEFINED AND EXPORTED HERE) ---
-
-export type ChatMessageDBInsert = CustomDatabase['public']['Tables']['chat_messages']['Insert'];
-
-/**
- * The rich source object used by the frontend. It's generated by the AI function
- * and reconstructed from the database when fetching message history.
- */
-export interface ActiveSource {
-  number: number;
-  file: FileType;
-  pageNumber: number | null;  
-  content: string;
-  file_id: string; // The foreign key used for saving
-}
-
-/**
- * The main chat message object used by the application UI.
- */
-export interface ChatMessageApp {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  createdAt: Date;
-  conversation_id: string;
-  sources?: ActiveSource[];
-  attached_files?: { name: string, type: string }[];
-}
-
-// --- MAIN SERVICE LOGIC ---
-
-export const chatMessageService = {
-  /**
-   * Saves a message and its associated sources to the database.
-   * This version ensures that if saving sources fails, the entire operation is rolled back.
-   */
-  saveMessage: async (
-    messagePayload: Omit<ChatMessageDBInsert, 'user_id' | 'id' | 'created_at'> & { conversation_id: string; sources?: ActiveSource[] }
-  ): Promise<ChatMessageApp> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("User must be authenticated to save messages.");
-    }
-
-    // First, separate the sources from the core message data
-    const { sources, ...coreMessageData } = messagePayload;
-    const messageToSave: ChatMessageDBInsert = { ...coreMessageData, user_id: user.id };
-    
-    // Step 1: Save the core message text
-    const { data: savedMessage, error: messageError } = await supabase
-      .from('chat_messages')
-      .insert(messageToSave)
-      .select()
-      .single();
-
-    if (messageError) {
-      console.error("Error saving core message:", messageError);
-      throw messageError;
-    }
-
-    // Step 2: If there are sources, attempt to save them.
-    let finalSourcesForApp: ActiveSource[] = [];
-    if (sources && sources.length > 0) {
-      const sourcesToInsert = sources.map(source => ({
-        message_id: savedMessage.id,
-        file_id: source.file_id,
-        source_number: source.number,
-        name: source.file.name,
-        url: source.file.url,
-        page_number: source.pageNumber,
-        content: source.content,
-      }));
-
-      // Attempt to insert the sources
-      const { error: sourcesError } = await supabase
-        .from('message_sources')
-        .insert(sourcesToInsert);
-
-      // THIS IS THE CRITICAL FIX: If the insert fails, we must handle it.
-      if (sourcesError) {
-        console.error("Error saving sources, rolling back message:", sourcesError);
-        
-        // As a cleanup, attempt to delete the message we just created to avoid orphaned data.
-        await supabase.from('chat_messages').delete().eq('id', savedMessage.id);
-        
-        // Most importantly, THROW the error so the UI knows the entire operation failed.
-        throw sourcesError;
-      }
-      
-      // Only assign the sources if the database insert was successful.
-      finalSourcesForApp = sources;
-    }
-
-    // Step 3: Return the complete, successfully saved message object.
-    return {
-      id: savedMessage.id,
-      role: savedMessage.role as 'user' | 'assistant' | 'system',
-      content: savedMessage.content,
-      createdAt: new Date(savedMessage.created_at),
-      conversation_id: savedMessage.conversation_id!,
-      attached_files: (savedMessage.attached_files as any) || [],
-      sources: finalSourcesForApp,
-    };
-  },
-
-
-  fetchMessagesByConversation: async (conversationId: string): Promise<ChatMessageApp[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !conversationId) return [];
-
-    // Step 1: Fetch messages and perform a nested join to get their sources AND the full file data for each source.
-    const { data: dbData, error } = await supabase
-      .from('chat_messages')
-      .select(`
-        *,
-        message_sources (
-          *,
-          files (*)
-        )
-      `)
-      .eq('user_id', user.id)
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      console.error("Error fetching messages with sources:", error);
-      throw error;
-    }
-    
-    // Step 2: Map the raw database result to the 'ChatMessageApp' type our frontend expects.
-    return (dbData || []).map((dbRow): ChatMessageApp => {
-      const message: ChatMessageApp = {
-        id: dbRow.id,
-        role: dbRow.role as 'user' | 'assistant' | 'system',
-        content: dbRow.content,
-        createdAt: new Date(dbRow.created_at),
-        conversation_id: dbRow.conversation_id!,
-        attached_files: (dbRow.attached_files as any) || [],
-        sources: [],
-      };
-
-      // Step 3: If sources were returned from the join, reconstruct the 'sources' array.
-      if (Array.isArray(dbRow.message_sources) && dbRow.message_sources.length > 0) {
-        message.sources = dbRow.message_sources
-          .filter(source => source.files) // Safety check: only include sources where the linked file exists.
-          .map((source): ActiveSource => ({
-            number: source.source_number,
-            pageNumber: source.page_number,
-            content: source.content,
-            file_id: source.file_id,
-            file: source.files as FileType, // The 'files(*)' join gives us the full FileType object.
-        })).sort((a, b) => a.number - b.number); // Ensure sources are in the correct order.
-      }
-      
-      return message;
-    });
-  },
-};
-</file>
-
 <file path="src/services/fileService.ts">
 // src/services/fileService.ts
 import { supabase } from "@/integrations/supabase/client";
@@ -19501,280 +19595,6 @@ export const fileService = {
     if (deleteFolderError) throw deleteFolderError;
   },
 };
-</file>
-
-<file path="supabase/functions/delete-class/index.ts">
-// supabase/functions/delete-class/index.ts
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
-
-serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-
-  try {
-    const adminSupabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-
-    const { data: { user } } = await createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    ).auth.getUser();
-
-    if (!user) {
-      throw new Error('User not authenticated.');
-    }
-
-    const { class_id } = await req.json();
-    if (!class_id) {
-      throw new Error("'class_id' is required in the request body.");
-    }
-
-    // --- Step 1: Verify Ownership ---
-    const { data: classData, error: ownerError } = await adminSupabase
-      .from('classes')
-      .select('owner_id')
-      .eq('class_id', class_id)
-      .single();
-
-    if (ownerError || !classData) {
-      throw new Error('Class not found or you do not have permission to delete it.');
-    }
-    if (classData.owner_id !== user.id) {
-      return new Response(JSON.stringify({ error: "Only the class owner can delete the class." }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    
-    // --- Step 2: Fetch All Files for External Cleanup ---
-    const { data: filesToDelete, error: filesError } = await adminSupabase
-        .from('files')
-        .select('file_id, url, thumbnail_url')
-        .eq('class_id', class_id);
-
-    if (filesError) {
-        throw new Error(`Failed to fetch files for cleanup: ${filesError.message}`);
-    }
-
-    // --- Step 3: Perform Cleanup on External Services (Weaviate, Cloudinary, Storage) ---
-    const cleanupPromises: Promise<any>[] = [];
-    if (filesToDelete && filesToDelete.length > 0) {
-        const storagePaths = filesToDelete
-            .map(file => file.url ? new URL(file.url).pathname.split('/public/file_storage/')[1] : null)
-            .filter((path): path is string => path !== null);
-
-        if (storagePaths.length > 0) {
-            cleanupPromises.push(adminSupabase.storage.from('file_storage').remove(storagePaths));
-        }
-        for (const file of filesToDelete) {
-            if (file.thumbnail_url) {
-                cleanupPromises.push(adminSupabase.functions.invoke('delete-from-cloudinary', { body: { file_id: file.file_id } }));
-            }
-        }
-    }
-    cleanupPromises.push(adminSupabase.functions.invoke('delete-weaviate-chunks-by-class', { body: { class_id_to_delete: class_id } }));
-    
-    await Promise.allSettled(cleanupPromises);
-    console.log(`[delete-class] External services cleanup complete for class ${class_id}.`);
-    
-    // --- Step 4: Delete the single class record ---
-    // With the corrected database trigger, we can now safely rely on ON DELETE CASCADE.
-    const { error: deleteError } = await adminSupabase
-      .from('classes')
-      .delete()
-      .eq('class_id', class_id);
-
-    if (deleteError) throw deleteError;
-    
-    return new Response(JSON.stringify({ success: true, message: "Class and all associated data have been deleted." }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    console.error(`[delete-class function error]: ${error.message}`);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-});
-</file>
-
-<file path="supabase/functions/delete-user-account/index.ts">
-// supabase/functions/delete-user-account/index.ts
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
-import weaviate, { WeaviateClient, ApiKey } from 'npm:weaviate-ts-client@2.0.0';
-import { corsHeaders } from "../_shared/cors.ts";
-
-console.log("[delete-user-account] Function cold start.");
-
-/**
- * Deletes all data associated with a user across Supabase DB, Storage, Auth,
- * Weaviate, and Cloudinary.
- */
-serve(async (req: Request) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-
-  try {
-    // --- 1. Initialize Admin Clients ---
-    const supabaseAdminClient: SupabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { persistSession: false } }
-    );
-
-    const weaviateClient: WeaviateClient = weaviate.client({
-        scheme: 'https',
-        host: Deno.env.get("WEAVIATE_URL")!,
-        apiKey: new ApiKey(Deno.env.get("WEAVIATE_API_KEY")!),
-    });
-    console.log("[INIT] Admin clients for Supabase and Weaviate initialized.");
-
-    // --- 2. Authenticate the User and Get User ID ---
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Authentication required: No token provided.");
-    
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabaseAdminClient.auth.getUser(token);
-
-    if (userError || !user) {
-      throw new Error(userError?.message || "Authentication failed: Invalid token.");
-    }
-    const userIdToDelete = user.id;
-    console.log(`[AUTH] Authenticated user for deletion: ${userIdToDelete}`);
-
-    // --- 3. Fetch All User-Owned Resources ---
-    console.log(`[FETCH] Fetching all files for user ${userIdToDelete}...`);
-    const { data: userFiles, error: filesError } = await supabaseAdminClient
-      .from('files')
-      .select('file_id, url, thumbnail_url')
-      .eq('user_id', userIdToDelete);
-
-    if (filesError) throw new Error(`Failed to fetch user files: ${filesError.message}`);
-    console.log(`[FETCH] Found ${userFiles.length} files to process for deletion.`);
-
-    // --- 4. Perform Deletion Across All Services (in parallel where possible) ---
-    const deletionPromises = [];
-
-    // 4a. Delete from Supabase Storage
-    if (userFiles.length > 0) {
-      const storagePaths = userFiles
-        .map(file => file.url ? new URL(file.url).pathname.split('/public/file_storage/')[1] : null)
-        .filter((path): path is string => path !== null);
-      
-      if (storagePaths.length > 0) {
-        console.log(`[STORAGE] Queuing deletion of ${storagePaths.length} files from Supabase Storage.`);
-        deletionPromises.push(
-          supabaseAdminClient.storage.from('file_storage').remove(storagePaths)
-        );
-      }
-    }
-
-    // 4b. Delete from Cloudinary
-    if (userFiles.length > 0) {
-        const cloudinaryPublicIds = userFiles
-            .map(file => file.thumbnail_url ? `thumbnails/${file.file_id}` : null)
-            .filter((id): id is string => id !== null);
-
-        if (cloudinaryPublicIds.length > 0) {
-            console.log(`[CLOUDINARY] Queuing deletion of ${cloudinaryPublicIds.length} thumbnails.`);
-            // Note: Cloudinary's API might not support bulk deletion by public_id in the same way.
-            // Invoking the function for each is a safe approach.
-            for (const publicId of cloudinaryPublicIds) {
-                deletionPromises.push(
-                    supabaseAdminClient.functions.invoke('delete-from-cloudinary', {
-                        body: JSON.stringify({ public_id: publicId })
-                    })
-                );
-            }
-        }
-    }
-
-// 4c. Delete from Weaviate
-console.log(`[WEAVIATE] Queuing deletion of all document chunks for user ${userIdToDelete}.`);
-
-// FIX: Define the where filter as 'any' to bypass the strict type checking
-const whereFilter: any = {
-  operator: 'Equal',
-  path: ['user_id'],
-  valueText: userIdToDelete,
-};
-
-deletionPromises.push(
-  weaviateClient.batch.objectsBatchDeleter({
-    className: 'DocumentChunk',
-    where: whereFilter,
-  })
-);
-
-    // --- Execute all parallel deletions and wait for them to complete ---
-    const results = await Promise.allSettled(deletionPromises);
-    results.forEach((result, i) => {
-        if (result.status === 'rejected') {
-            console.warn(`[CLEANUP-WARN] A non-critical deletion task (task #${i}) failed:`, result.reason);
-        }
-    });
-    console.log("[CLEANUP] External services cleanup complete.");
-
-    // --- 5. Delete from Supabase Database ---
-    // Deleting the user from the 'profiles' table. If you have set up 'ON DELETE CASCADE'
-    // for foreign keys in other tables (like classes, folders, files), this will automatically
-    // clean them up. This is the recommended approach.
-    console.log(`[DB] Deleting user record from 'profiles' table for user ${userIdToDelete}.`);
-    const { error: dbError } = await supabaseAdminClient
-      .from('profiles')
-      .delete()
-      .eq('user_id', userIdToDelete);
-
-    if (dbError) {
-      // If this fails, we stop before deleting the auth user to allow for investigation.
-      throw new Error(`Failed to delete user data from database: ${dbError.message}`);
-    }
-    console.log("[DB] ✅ Database records deleted successfully.");
-
-    // --- 6. Final Step: Delete the Auth User ---
-    // This is the last and most critical step.
-    console.log(`[AUTH] Deleting user ${userIdToDelete} from Supabase Auth service.`);
-    const { error: deleteError } = await supabaseAdminClient.auth.admin.deleteUser(userIdToDelete);
-
-    if (deleteError) {
-      // This is a critical failure. The user's data might be gone but their login remains.
-      // This requires manual intervention.
-      console.error(`[AUTH] CRITICAL FAILURE: Could not delete user from Auth. Manual cleanup required.`, deleteError);
-      throw new Error(`Failed to delete user from authentication service: ${deleteError.message}`);
-    }
-    console.log(`[SUCCESS] ✅ Successfully deleted user ${userIdToDelete} from all systems.`);
-
-    // --- 7. Return Success Response ---
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: "User account and all associated data have been successfully deleted.",
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-    );
-
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-    console.error('[CRITICAL-ERROR] in delete-user-account function:', errorMessage, error);
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      { 
-        status: (error instanceof Error && error.message.includes("Authentication")) ? 401 : 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      }
-    );
-  }
-});
 </file>
 
 <file path="src/components/chat/MarkdownRenderer.tsx">
@@ -20858,6 +20678,109 @@ export const useOracle = (): OracleState => {
 };
 </file>
 
+<file path="supabase/functions/delete-class/index.ts">
+// supabase/functions/delete-class/index.ts
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
+
+serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const adminSupabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    const { data: { user } } = await createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    ).auth.getUser();
+
+    if (!user) {
+      throw new Error('User not authenticated.');
+    }
+
+    const { class_id } = await req.json();
+    if (!class_id) {
+      throw new Error("'class_id' is required in the request body.");
+    }
+
+    // --- Step 1: Verify Ownership ---
+    const { data: classData, error: ownerError } = await adminSupabase
+      .from('classes')
+      .select('owner_id')
+      .eq('class_id', class_id)
+      .single();
+
+    if (ownerError || !classData) {
+      throw new Error('Class not found or you do not have permission to delete it.');
+    }
+    if (classData.owner_id !== user.id) {
+      return new Response(JSON.stringify({ error: "Only the class owner can delete the class." }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // --- Step 2: Fetch All Files for External Cleanup ---
+    const { data: filesToDelete, error: filesError } = await adminSupabase
+        .from('files')
+        .select('file_id, url, thumbnail_url')
+        .eq('class_id', class_id);
+
+    if (filesError) {
+        throw new Error(`Failed to fetch files for cleanup: ${filesError.message}`);
+    }
+
+    // --- Step 3: Perform Cleanup on External Services (Weaviate, Cloudinary, Storage) ---
+    const cleanupPromises: Promise<any>[] = [];
+    if (filesToDelete && filesToDelete.length > 0) {
+        const storagePaths = filesToDelete
+            .map(file => file.url ? new URL(file.url).pathname.split('/public/file_storage/')[1] : null)
+            .filter((path): path is string => path !== null);
+
+        if (storagePaths.length > 0) {
+            cleanupPromises.push(adminSupabase.storage.from('file_storage').remove(storagePaths));
+        }
+        for (const file of filesToDelete) {
+            // NOTE: This assumes you have a `delete-from-cloudinary` function that accepts a file_id. The current one takes a public_id.
+            if (file.thumbnail_url) {
+                cleanupPromises.push(adminSupabase.functions.invoke('delete-from-cloudinary', { body: { file_id: file.file_id } }));
+            }
+        }
+    }
+    // Assuming you create a function 'delete-weaviate-chunks-by-class'
+    cleanupPromises.push(adminSupabase.functions.invoke('delete-weaviate-chunks-by-class', { body: { class_id_to_delete: class_id } }));
+    
+    await Promise.allSettled(cleanupPromises);
+    console.log(`[delete-class] External services cleanup complete for class ${class_id}.`);
+    
+    // --- Step 4: Delete the single class record (relying on CASCADE for related tables) ---
+    const { error: deleteError } = await adminSupabase
+      .from('classes')
+      .delete()
+      .eq('class_id', class_id);
+
+    if (deleteError) throw deleteError;
+    
+    return new Response(JSON.stringify({ success: true, message: "Class and all associated data have been deleted." }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error(`[delete-class function error]: ${error.message}`);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
+</file>
+
 <file path="src/components/auth/Auth.tsx">
 // src/components/auth/Auth.tsx
 import { useState } from 'react';
@@ -21419,6 +21342,179 @@ export default ClassesPage;
 v2.39.2
 </file>
 
+<file path="supabase/config.toml">
+# supabase/config.toml
+project_id = "uzdtqomtbrccinrkhzme"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://localhost" # This is for local dev, ensure it's correct for your setup
+
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:8080"
+
+[storage]
+enabled = true
+
+[analytics]
+enabled = true
+port = 54327
+
+# Functions configuration
+
+# Removed: [functions.generate-flashcards]
+# Removed: verify_jwt = true
+
+# Removed: [functions.generate-quiz]
+# Removed: verify_jwt = true
+
+[functions.upload-to-vector-store]
+verify_jwt = true 
+
+[functions.check-env-vars]
+verify_jwt = true
+
+[functions.generate-title]
+verify_jwt = true
+
+[functions.generate-previews]
+verify_jwt = true
+
+[functions.request-previews]
+verify_jwt = true
+
+[functions.oracle-chat]
+verify_jwt = true
+
+[functions.debug-weaviate-chunks]
+verify_jwt = true
+
+[functions.serve-file]
+verify_jwt = false
+
+[functions.semantic-search]
+verify_jwt = true
+
+[functions.delete-from-cloudinary]
+verify_jwt = true
+
+[functions.delete-user-account]
+verify_jwt = true
+
+[functions.delete-weaviate-chunks-by-file]
+verify_jwt = true
+
+[functions.parse-syllabus]
+verify_jwt = true
+
+[functions.create-recurring-event]
+verify_jwt = true
+
+[functions.delete-recurring-event]
+verify_jwt = true
+
+[functions.delete-class]
+verify_jwt = true
+</file>
+
+<file path="src/components/layout/Header.tsx">
+// src/components/layout/Header.tsx
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Menu } from "lucide-react";
+
+export const Header = () => {
+  const location = useLocation();
+  const navLinks = [
+    { to: "/", label: "Dashboard" },
+    { to: "/classes", label: "Classes", state: { reset: true } },
+    { to: "/calendar", label: "Calendar", state: { reset: true } },
+  ];
+
+  return (
+    <div className="p-3 font-roboto">
+      {/* --- MODIFICATION: Replaced background classes to match the sidebar --- */}
+      <nav className="z-navigation flex w-full items-center justify-between rounded-lg border border-foreground/20 bg-neutral-900 px-4 py-2">
+        {/* Application Logo */}
+        <Link to="/" className="flex items-center gap-3">
+            <img src="/eido-icon.png" alt="Eido AI Logo" className="h-8 w-8 rounded-md" />
+            <span className="text-[18px] font-semibold tracking-tight text-foreground">Eido AI</span>
+        </Link>
+
+        {/* --- Desktop Navigation Links --- */}
+        <div className="hidden md:flex flex-row items-center gap-x-4 gap-y-0 lg:gap-x-8 justify-between">
+          {navLinks.map((link) => {
+            const isActive = location.pathname === link.to;
+            return (
+              <Link key={link.to} to={link.to} state={link.state}>
+                <p className={cn(
+                  "text-sm uppercase font-bold tracking-widest transition-colors",
+                  isActive 
+                  ? "text-foreground" 
+                  : "text-muted-foreground hover:text-foreground"
+                )}>
+                  {link.label}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* --- Mobile Navigation Dropdown --- */}
+        <div className="md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-6 w-6" />
+                <span className="sr-only">Open navigation menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {navLinks.map((link) => (
+                <DropdownMenuItem key={link.to} asChild>
+                  <Link
+                    to={link.to}
+                    state={link.state}
+                    className={cn(
+                      "w-full",
+                      location.pathname === link.to && "font-bold"
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </nav>
+    </div>
+  );
+};
+</file>
+
 <file path="supabase/functions/oracle-chat/index.ts">
 // supabase/functions/oracle-chat/index.ts
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
@@ -21565,9 +21661,19 @@ async function processSingleQuery(
     .withNearVector({ vector: queryVector }).withLimit(10)
     .withFields('source_file_id page_number text_chunk source_file_name');
   
-  if (class_id) {
-      weaviateQuery.withWhere({ operator: 'Equal', path: ['class_id'], valueText: class_id });
-  }
+  const whereFilter: any = {};
+    if (class_id) {
+        // If a class is specified, filter by that class_id
+        whereFilter.operator = 'Equal';
+        whereFilter.path = ['class_id'];
+        whereFilter.valueText = class_id;
+    } else {
+        // If no class is specified ("All Classes"), filter by the user's own ID
+        whereFilter.operator = 'Equal';
+        whereFilter.path = ['user_id'];
+        whereFilter.valueText = user_id;
+    }
+    weaviateQuery.withWhere(whereFilter); // Always apply the filter
 
   const weaviateResponse = await weaviateQuery.do();
   const retrievedChunks = weaviateResponse.data.Get.DocumentChunk || [];
@@ -21721,179 +21827,6 @@ serve(async (req: Request) => {
     });
   }
 });
-</file>
-
-<file path="src/components/layout/Header.tsx">
-// src/components/layout/Header.tsx
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
-
-export const Header = () => {
-  const location = useLocation();
-  const navLinks = [
-    { to: "/", label: "Dashboard" },
-    { to: "/classes", label: "Classes", state: { reset: true } },
-    { to: "/calendar", label: "Calendar", state: { reset: true } },
-  ];
-
-  return (
-    <div className="p-3 font-roboto">
-      {/* --- MODIFICATION: Replaced background classes to match the sidebar --- */}
-      <nav className="z-navigation flex w-full items-center justify-between rounded-lg border border-foreground/20 bg-neutral-900 px-4 py-2">
-        {/* Application Logo */}
-        <Link to="/" className="flex items-center gap-3">
-            <img src="/eido-icon.png" alt="Eido AI Logo" className="h-8 w-8 rounded-md" />
-            <span className="text-[18px] font-semibold tracking-tight text-foreground">Eido AI</span>
-        </Link>
-
-        {/* --- Desktop Navigation Links --- */}
-        <div className="hidden md:flex flex-row items-center gap-x-4 gap-y-0 lg:gap-x-8 justify-between">
-          {navLinks.map((link) => {
-            const isActive = location.pathname === link.to;
-            return (
-              <Link key={link.to} to={link.to} state={link.state}>
-                <p className={cn(
-                  "text-sm uppercase font-bold tracking-widest transition-colors",
-                  isActive 
-                  ? "text-foreground" 
-                  : "text-muted-foreground hover:text-foreground"
-                )}>
-                  {link.label}
-                </p>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* --- Mobile Navigation Dropdown --- */}
-        <div className="md:hidden">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="h-6 w-6" />
-                <span className="sr-only">Open navigation menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {navLinks.map((link) => (
-                <DropdownMenuItem key={link.to} asChild>
-                  <Link
-                    to={link.to}
-                    state={link.state}
-                    className={cn(
-                      "w-full",
-                      location.pathname === link.to && "font-bold"
-                    )}
-                  >
-                    {link.label}
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </nav>
-    </div>
-  );
-};
-</file>
-
-<file path="supabase/config.toml">
-# supabase/config.toml
-project_id = "uzdtqomtbrccinrkhzme"
-
-[api]
-enabled = true
-port = 54321
-schemas = ["public", "storage", "graphql_public"]
-
-[db]
-port = 54322
-
-[studio]
-enabled = true
-port = 54323
-api_url = "http://localhost" # This is for local dev, ensure it's correct for your setup
-
-[inbucket]
-enabled = true
-port = 54324
-
-[auth]
-enabled = true
-site_url = "http://localhost:8080"
-
-[storage]
-enabled = true
-
-[analytics]
-enabled = true
-port = 54327
-
-# Functions configuration
-
-# Removed: [functions.generate-flashcards]
-# Removed: verify_jwt = true
-
-# Removed: [functions.generate-quiz]
-# Removed: verify_jwt = true
-
-[functions.upload-to-vector-store]
-verify_jwt = true 
-
-[functions.check-env-vars]
-verify_jwt = true
-
-[functions.generate-title]
-verify_jwt = true
-
-[functions.generate-previews]
-verify_jwt = true
-
-[functions.request-previews]
-verify_jwt = true
-
-[functions.oracle-chat]
-verify_jwt = true
-
-[functions.debug-weaviate-chunks]
-verify_jwt = true
-
-[functions.serve-file]
-verify_jwt = false
-
-[functions.semantic-search]
-verify_jwt = true
-
-[functions.delete-from-cloudinary]
-verify_jwt = true
-
-[functions.delete-user-account]
-verify_jwt = true
-
-[functions.delete-weaviate-chunks-by-file]
-verify_jwt = true
-
-[functions.parse-syllabus]
-verify_jwt = true
-
-[functions.create-recurring-event]
-verify_jwt = true
-
-[functions.delete-recurring-event]
-verify_jwt = true
-
-[functions.delete-class]
-verify_jwt = true
 </file>
 
 <file path="src/App.tsx">

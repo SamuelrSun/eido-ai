@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { File, X, Loader2 } from 'lucide-react';
 import ShimmerButton from '../ui/ShimmerButton';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast'; // FIX: Correct import path
 
 interface UploadDialogProps {
   isOpen: boolean;
@@ -40,13 +40,13 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
       setFiles(prev => [...prev, ...validFiles]);
     }
     if (invalidFiles.length > 0) {
-    toast({
-      title: "File Size Limit Exceeded",
-      description: "Due to budget constraints, files above 5 MB are currently not supported. Sorry for the inconvenience!",
-      variant: "destructive",
-    });
-  }
-}, [toast]);
+      toast({
+        title: "File Size Limit Exceeded",
+        description: "Due to budget constraints, files above 5 MB are currently not supported. Sorry for the inconvenience!",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
