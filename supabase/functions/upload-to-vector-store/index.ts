@@ -38,6 +38,10 @@ async function processImagesOnPage(page: any, pageNumber: number): Promise<strin
             const img = await page.objs.get(imageName);
             if (!img || !img.data) continue;
 
+            // --- MODIFICATION START: Bulletproof Base64 conversion ---
+            // The previous methods using apply() and the spread operator (...) failed on large images.
+            // This new method processes the Uint8Array byte-by-byte into a binary string,
+            // which is guaranteed to avoid call stack limits, albeit more slowly.
             let binary = '';
             const bytes = new Uint8Array(img.data);
             const len = bytes.byteLength;
@@ -45,6 +49,7 @@ async function processImagesOnPage(page: any, pageNumber: number): Promise<strin
                 binary += String.fromCharCode(bytes[i]);
             }
             const imageBase64 = `data:image/jpeg;base64,${btoa(binary)}`;
+            // --- MODIFICATION END ---
 
             const gpt4oResponse = await fetch("https://api.openai.com/v1/chat/completions", {
                 method: 'POST',
@@ -157,15 +162,9 @@ async function processPdfBatch(supabaseAdminClient: SupabaseClient, weaviateClie
 serve(async (req: Request) => {
   console.log(`[TEXT-ENGINE START] 'upload-to-vector-store' invoked.`);
   const adminSupabaseClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-  
-  // --- FIX START: Added missing OpenAI API key to Weaviate client headers ---
   const weaviateClient: WeaviateClient = weaviate.client({
-    scheme: 'https', 
-    host: Deno.env.get('WEAVIATE_URL')!, 
-    apiKey: new ApiKey(Deno.env.get('WEAVIATE_API_KEY')!),
-    headers: { 'X-OpenAI-Api-Key': Deno.env.get('OPENAI_API_KEY')! },
+    scheme: 'https', host: Deno.env.get('WEAVIATE_URL')!, apiKey: new ApiKey(Deno.env.get('WEAVIATE_API_KEY')!),
   });
-  // --- FIX END ---
   
   const payload = await req.json();
 
