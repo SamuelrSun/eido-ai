@@ -1,3 +1,4 @@
+// src/components/ui/use-toast.ts
 import * as React from "react"
 
 import type {
@@ -25,7 +26,8 @@ const actionTypes = {
 let count = 0
 
 function genId() {
-  count = (count + 1) % Number.MAX_VALUE
+  // FIX: Using MAX_SAFE_INTEGER is slightly better practice here.
+  count = (count + 1) % Number.MAX_SAFE_INTEGER
   return count.toString()
 }
 

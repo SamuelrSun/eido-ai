@@ -1,6 +1,6 @@
 // src/hooks/useCalendarData.ts
 import { useState, useEffect, useCallback } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "@/components/ui/use-toast";
 import { classOpenAIConfigService, ClassConfig } from '@/services/classOpenAIConfig';
 import { calendarEventService, CalendarEvent, NewCalendarEvent } from '@/services/calendarEventService';
 import { ClassConfigWithColor } from '@/components/calendar/types';

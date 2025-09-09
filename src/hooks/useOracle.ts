@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "@/components/ui/use-toast";
 import { AppConversation, conversationService } from '@/services/conversationService';
 import { chatMessageService, ChatMessageApp, ActiveSource } from '@/services/chatMessageService';
 import { ClassConfig, classOpenAIConfigService } from '@/services/classOpenAIConfig';

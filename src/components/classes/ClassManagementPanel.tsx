@@ -1,6 +1,6 @@
 // src/components/classes/ClassManagementPanel.tsx
 import React, { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "@/components/ui/use-toast";
 import { ClassConfig } from '@/services/classOpenAIConfig';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

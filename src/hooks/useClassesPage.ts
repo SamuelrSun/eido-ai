@@ -1,6 +1,6 @@
 // src/hooks/useClassesPage.ts
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "@/components/ui/use-toast";
 import { usePageLoader } from '@/context/LoaderContext';
 import { supabase } from '@/integrations/supabase/client';
 import { User, RealtimeChannel } from '@supabase/supabase-js';
