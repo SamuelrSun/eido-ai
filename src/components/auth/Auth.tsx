@@ -23,7 +23,6 @@ export function Auth() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  // MODIFICATION: Default auth mode is now 'signup'
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
   const [showPassword, setShowPassword] = useState(false);
   
@@ -97,6 +96,38 @@ export function Auth() {
   };
 
   const handleGoogleSignIn = async () => {
+    const ua = navigator.userAgent;
+
+    // --- START: In-App Browser Detection & Redirect ---
+    // User agents for various in-app browsers are checked here.
+    const isLinkedIn = /linkedin|linkedinapp/i.test(ua);
+    const isFacebook = /(facebook|fbav|fban|fbfor|fbdav|fb_iab)/i.test(ua);
+    const isInstagram = /instagram/i.test(ua);
+    const isAndroidWebView = /wv\)/.test(ua); // Generic Android WebView
+
+    const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    // iOS in-app browsers often don't include 'Safari' in their user agent.
+    const isIOSWebView = isIOS && !/safari/i.test(ua);
+
+    const isInAppBrowser = isLinkedIn || isFacebook || isInstagram || isAndroidWebView || isIOSWebView;
+
+    if (isInAppBrowser) {
+        // If an in-app browser is detected, this logic attempts to automatically
+        // relaunch the current page in the phone's default browser. This provides a
+        // more reliable and secure authentication environment.
+        
+        // The most robust cross-platform method is to force a top-level navigation.
+        // Many in-app browsers will intercept this and offer to open the link
+        // in the system's default browser, achieving the desired result.
+        window.top.location.href = window.location.href;
+        
+        // Stop the function here. The user will click "Sign in with Google" again,
+        // but this time from their main browser where the process will succeed.
+        return; 
+    }
+    // --- END: In-App Browser Detection & Redirect ---
+
+    // This is the original Google Sign-In logic that runs in a standard browser.
     setGoogleLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -135,7 +166,6 @@ export function Auth() {
   return (
     <div className="w-full">
       <div className="text-center mb-8">
-        {/* MODIFICATION: Changed font from font-serif to font-sans */}
         <h1 className="text-3xl font-bold text-neutral-100 font-sans">
           {authMode === 'signin' ? 'Log in' : 'Sign Up'}
         </h1>
@@ -169,7 +199,6 @@ export function Auth() {
 
         <form className="space-y-6" onSubmit={handleEmailAuth} noValidate>
           <div className="space-y-4">
-            {/* MODIFICATION: Removed the conditional red border for untouched fields */}
             <div className={cn(
                "relative rounded-md border px-3 py-2 transition-all bg-neutral-900 border-neutral-700",
                 "focus-within:border-blue-500"
@@ -195,7 +224,6 @@ export function Auth() {
             </div>
 
             <div>
-              {/* MODIFICATION: Removed the conditional red border for untouched fields */}
               <div className={cn(
                   "relative rounded-md border px-3 py-2 transition-all bg-neutral-900 border-neutral-700",
                   "focus-within:border-blue-500"
