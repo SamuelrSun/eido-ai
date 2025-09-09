@@ -1,12 +1,12 @@
 // src/components/auth/Auth.tsx
 import { useState } from 'react';
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { Label } from "../ui/label";
+import { useToast } from "../ui/use-toast";
+import { supabase } from "../../integrations/supabase/client";
 import { Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useNavigate, Link } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import ShimmerButton from '@/components/ui/ShimmerButton';
+import { cn } from '../../lib/utils';
+import ShimmerButton from '../ui/ShimmerButton';
 
 const GoogleIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="mr-2">
@@ -23,7 +23,6 @@ export function Auth() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  // MODIFICATION: Default auth mode is now 'signup'
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
   const [showPassword, setShowPassword] = useState(false);
   
@@ -97,6 +96,33 @@ export function Auth() {
   };
 
   const handleGoogleSignIn = async () => {
+    const ua = navigator.userAgent;
+
+    // Detect if the user is in an in-app browser
+    const isLinkedIn = /linkedin|linkedinapp/i.test(ua);
+    const isFacebook = /(facebook|fbav|fban|fbfor|fbdav|fb_iab)/i.test(ua);
+    const isInstagram = /instagram/i.test(ua);
+    const isAndroidWebView = /wv\)/i.test(ua);
+    
+    const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    // A simple check for iOS in-app browsers is to look for an iOS user agent
+    // that lacks the "Safari" token.
+    const isIOSWebView = isIOS && !/safari/i.test(ua);
+
+    const isInAppBrowser = isLinkedIn || isFacebook || isInstagram || isAndroidWebView || isIOSWebView;
+
+    if (isInAppBrowser) {
+      // Get the current URL and encode it for a redirect
+      const currentUrl = window.location.href;
+      
+      // We will redirect to a special page that handles the deep link.
+      // The logic for handling the deep link and showing a fallback UI
+      // will live in the OpenInBrowser component.
+      window.location.replace(`/open-in-browser?redirect=${encodeURIComponent(currentUrl)}`);
+      return;
+    }
+
+    // Standard Google Sign-In flow for supported browsers
     setGoogleLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -135,7 +161,6 @@ export function Auth() {
   return (
     <div className="w-full">
       <div className="text-center mb-8">
-        {/* MODIFICATION: Changed font from font-serif to font-sans */}
         <h1 className="text-3xl font-bold text-neutral-100 font-sans">
           {authMode === 'signin' ? 'Log in' : 'Sign Up'}
         </h1>
@@ -169,7 +194,6 @@ export function Auth() {
 
         <form className="space-y-6" onSubmit={handleEmailAuth} noValidate>
           <div className="space-y-4">
-            {/* MODIFICATION: Removed the conditional red border for untouched fields */}
             <div className={cn(
                "relative rounded-md border px-3 py-2 transition-all bg-neutral-900 border-neutral-700",
                 "focus-within:border-blue-500"
@@ -195,7 +219,6 @@ export function Auth() {
             </div>
 
             <div>
-              {/* MODIFICATION: Removed the conditional red border for untouched fields */}
               <div className={cn(
                   "relative rounded-md border px-3 py-2 transition-all bg-neutral-900 border-neutral-700",
                   "focus-within:border-blue-500"
