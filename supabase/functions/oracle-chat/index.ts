@@ -122,7 +122,6 @@ async function processSingleQuery(
   
   console.log(`[RAG-STEP] Processing query: "${query}"`);
 
-  // Security check: ensure user is a member of the class if a class_id is provided
   if (class_id) {
     const { data: member, error: memberError } = await adminSupabaseClient
       .from('class_members').select('role').eq('class_id', class_id).eq('user_id', user_id).in('role', ['owner', 'member']).maybeSingle();
@@ -130,7 +129,6 @@ async function processSingleQuery(
     if (!member) throw new Error("Permission denied: You are not a member of this class.");
   }
   
-  // Perform semantic search on the permanent vector store
   const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY!}` },
     body: JSON.stringify({ input: query, model: "text-embedding-3-small" }),
@@ -143,24 +141,28 @@ async function processSingleQuery(
     .withNearVector({ vector: queryVector }).withLimit(10)
     .withFields('source_file_id page_number text_chunk source_file_name');
   
-  const whereFilter: any = {};
-    if (class_id) {
-        // If a class is specified, filter by that class_id
-        whereFilter.operator = 'Equal';
-        whereFilter.path = ['class_id'];
-        whereFilter.valueText = class_id;
-    } else {
-        // If no class is specified ("All Classes"), filter by the user's own ID
-        whereFilter.operator = 'Equal';
-        whereFilter.path = ['user_id'];
-        whereFilter.valueText = user_id;
-    }
-    weaviateQuery.withWhere(whereFilter); // Always apply the filter
+  let whereFilter: any;
+  if (class_id) {
+      // When a class is selected, search for ALL documents within that class.
+      // The security check above already confirmed the user is a member.
+      whereFilter = {
+          operator: 'Equal',
+          path: ['class_id'],
+          valueText: class_id
+      };
+  } else {
+      // When "All Classes" is selected, search for all the user's documents across all their classes.
+      whereFilter = {
+          operator: 'Equal',
+          path: ['user_id'],
+          valueText: user_id
+      };
+  }
+  weaviateQuery.withWhere(whereFilter); // Always apply the filter
 
   const weaviateResponse = await weaviateQuery.do();
   const retrievedChunks = weaviateResponse.data.Get.DocumentChunk || [];
   
-  // Reconstruct sources from Weaviate results
   let sourcesForLLM: ActiveSource[] = [];
   let weaviateContext = "";
   if (retrievedChunks.length > 0) {
@@ -181,7 +183,6 @@ async function processSingleQuery(
       }).filter(Boolean).join('\n\n---\n\n');
   }
 
-  // Define the system prompt for the AI
   const systemPrompt = `You are an academic assistant. Your primary goal is to answer the user's question using ONLY the information from the provided context. The context may come from two places: temporarily "Attached Content" and permanently stored "Sources".
 - Synthesize a detailed answer based on all provided text.
 - When you use information from a numbered "Source", you MUST cite it with the corresponding source number, like [Source X].
@@ -189,7 +190,6 @@ async function processSingleQuery(
 - If the combined context is insufficient, state that you cannot answer based on the information provided.
 - Do not make up information. Your entire answer must be derived from the provided context.`;
   
-  // Combine all context for the final prompt
   const finalContext = `${temporaryFileContext}\n\n${weaviateContext}`.trim();
 
   if (finalContext === "") {
@@ -233,16 +233,13 @@ serve(async (req: Request) => {
     ).auth.getUser();
     if (!user) throw new Error('Authentication error.');
 
-    // MODIFICATION: Destructure 'files' from the request body
     const { message, class_id, files } = await req.json();
     if (!message && (!files || files.length === 0)) {
         throw new Error("Missing 'message' or 'files' in request body.");
     }
 
-    // Process temporary files first to get their context
     const temporaryFileContext = await extractTextFromTemporaryFiles(files || []);
     
-    // Split the text query into multiple questions if needed
     const questions = message ? message.trim().split('\n').map((q: string) => q.trim().replace(/^[•\\*\\-]\s*/, '')).filter((q: string) => q.length > 5) : [""];
     if (questions.length === 0 && message) questions.push(message.trim());
     if (questions.length === 0 && files.length > 0) questions.push("Summarize the attached file(s).")
@@ -250,11 +247,9 @@ serve(async (req: Request) => {
 
     console.log(`[MAIN] Detected ${questions.length} distinct question(s). Processing...`);
     
-    // Process each question
     const processingPromises = questions.map((q: string) => processSingleQuery(q, temporaryFileContext, weaviateClient, adminSupabaseClient, user.id, class_id));
     const results = await Promise.all(processingPromises);
 
-    // Consolidate results
     let finalResponseText = "";
     const finalSources: ActiveSource[] = [];
     const sourceMap = new Map<string, number>();
@@ -309,3 +304,4 @@ serve(async (req: Request) => {
     });
   }
 });
+
