@@ -231,6 +231,7 @@ src/
     ClassesPage.tsx
     DashboardPage.tsx
     NotFound.tsx
+    OpenInBrowser.tsx
     OraclePage.tsx
     PlaceholderPage.tsx
     PrivacyPolicyPage.tsx
@@ -4596,6 +4597,10 @@ interface ImportMeta {
 }
 </file>
 
+<file path="supabase/.branches/_current_branch">
+main
+</file>
+
 <file path="supabase/functions/_shared/cors.ts">
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8943,6 +8948,77 @@ export function useSidebarState() {
 }
 </file>
 
+<file path="src/pages/OpenInBrowser.tsx">
+// src/pages/OpenInBrowser.tsx
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Chrome, Globe } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
+import { MainAppLayout } from '@/components/layout/MainAppLayout';
+
+const OpenInBrowser = () => {
+  const { search } = useLocation();
+  const queryParams = new URLSearchParams(search);
+  const redirectUrl = queryParams.get('redirect');
+
+  useEffect(() => {
+    // This immediately attempts to redirect to the original URL.
+    // On iOS and some Android in-app browsers, this will trigger a native
+    // prompt asking the user to open the page in their default browser.
+    if (redirectUrl) {
+      window.location.replace(redirectUrl);
+    }
+  }, [redirectUrl]);
+
+  // Fallback handler for the manual button
+  const handleManualOpen = () => {
+    if (redirectUrl) {
+      window.location.href = redirectUrl;
+    }
+  };
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+
+  return (
+    <>
+      <Helmet>
+        <title>Open in Browser | Eido AI</title>
+      </Helmet>
+      <MainAppLayout pageTitle="Open in Browser | Eido AI">
+        <div className="min-h-screen w-full bg-neutral-950 flex items-center justify-center p-4">
+          <div className="text-center bg-neutral-900 border border-neutral-800 text-neutral-100 p-8 md:p-12 rounded-2xl shadow-lg max-w-lg mx-auto">
+            <div className="flex justify-center mb-6 space-x-4">
+              {isIOS ? (
+                <Globe className="w-16 h-16 text-blue-500" />
+              ) : (
+                <Chrome className="w-16 h-16 text-red-500" />
+              )}
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold mb-4">
+              Switching to a real browser
+            </h1>
+            <p className="text-sm md:text-base text-neutral-400 mb-6">
+              You are currently in an in-app browser. For a secure and seamless sign-in experience, we need to redirect you to your device's default browser.
+            </p>
+            <p className="text-sm md:text-base text-neutral-400 mb-6">
+              Please click "Open" or "Continue" in the pop-up notification. If a pop-up doesn't appear, you can try manually.
+            </p>
+            {redirectUrl && (
+              <Button onClick={handleManualOpen}>
+                {isIOS ? 'Open in Default Browser' : 'Open in Chrome'}
+              </Button>
+            )}
+          </div>
+        </div>
+      </MainAppLayout>
+    </>
+  );
+};
+
+export default OpenInBrowser;
+</file>
+
 <file path="src/services/activityService.ts">
 // src/services/activityService.ts
 import { supabase } from "@/integrations/supabase/client";
@@ -10195,10 +10271,6 @@ export const Constants = {
 }
 </file>
 
-<file path="supabase/.branches/_current_branch">
-main
-</file>
-
 <file path="supabase/.temp/pooler-url">
 postgresql://postgres.uzdtqomtbrccinrkhzme:[YOUR-PASSWORD]@aws-0-us-west-1.pooler.supabase.com:6543/postgres
 </file>
@@ -10753,6 +10825,68 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
   }
 });
+</file>
+
+<file path="supabase/functions/generate-title/index.ts">
+// supabase/functions/generate-title/index.ts
+
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'npm:@supabase/supabase-js@2'
+import { OpenAI } from "https://deno.land/x/openai/mod.ts";
+import { corsHeaders } from '../_shared/cors.ts'
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    // Authenticate the user
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    )
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) throw new Error("User not authenticated");
+
+    // Correctly parse the JSON body
+    const { query } = await req.json();
+    if (!query) {
+      throw new Error("Missing 'query' in request body.");
+    }
+
+    const openai = new OpenAI(Deno.env.get("OPENAI_API_KEY")!);
+
+    const chatCompletion = await openai.chat.completions.create({
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are an expert at creating short, concise, 3-4 word titles for chat conversations based on the user\'s first message. Do not use quotes in the title. Be direct and relevant.' 
+        },
+        { 
+          role: 'user', 
+          content: `Generate a title for a conversation starting with: "${query}"` 
+        },
+      ],
+      model: 'gpt-3.5-turbo',
+      max_tokens: 20,
+      temperature: 0.3,
+    });
+
+    const title = chatCompletion.choices[0].message.content?.trim().replace(/"/g, '') || "New Chat";
+
+    return new Response(JSON.stringify({ title }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+})
 </file>
 
 <file path="supabase/functions/hard-reset-weaviate-schema/index.ts">
@@ -13950,33 +14084,6 @@ export const calendarEventService = {
 };
 </file>
 
-<file path="src/main.tsx">
-// src/main.tsx
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './index.css';
-import { HelmetProvider } from 'react-helmet-async';
-import { pdfjs } from 'react-pdf';
-
-// --- MODIFICATION START ---
-// This new method creates a direct, version-locked URL to the worker file
-// within your project's installed packages. It is the recommended approach for Vite.
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
-// --- MODIFICATION END ---
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <HelmetProvider>
-      <App />
-    </HelmetProvider>
-  </React.StrictMode>
-);
-</file>
-
 <file path="supabase/.temp/gotrue-version">
 v2.179.0
 </file>
@@ -14103,68 +14210,6 @@ serve(async (req: Request) => {
         });
     }
 });
-</file>
-
-<file path="supabase/functions/generate-title/index.ts">
-// supabase/functions/generate-title/index.ts
-
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'npm:@supabase/supabase-js@2'
-import { OpenAI } from "https://deno.land/x/openai/mod.ts";
-import { corsHeaders } from '../_shared/cors.ts'
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-
-  try {
-    // Authenticate the user
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    )
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) throw new Error("User not authenticated");
-
-    // Correctly parse the JSON body
-    const { query } = await req.json();
-    if (!query) {
-      throw new Error("Missing 'query' in request body.");
-    }
-
-    const openai = new OpenAI(Deno.env.get("OPENAI_API_KEY")!);
-
-    const chatCompletion = await openai.chat.completions.create({
-      messages: [
-        { 
-          role: 'system', 
-          content: 'You are an expert at creating short, concise, 3-4 word titles for chat conversations based on the user\'s first message. Do not use quotes in the title. Be direct and relevant.' 
-        },
-        { 
-          role: 'user', 
-          content: `Generate a title for a conversation starting with: "${query}"` 
-        },
-      ],
-      model: 'gpt-3.5-turbo',
-      max_tokens: 20,
-      temperature: 0.3,
-    });
-
-    const title = chatCompletion.choices[0].message.content?.trim().replace(/"/g, '') || "New Chat";
-
-    return new Response(JSON.stringify({ title }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-})
 </file>
 
 <file path="supabase/functions/join-class/index.ts">
@@ -16666,6 +16711,30 @@ export const chatMessageService = {
 }
 </file>
 
+<file path="src/main.tsx">
+// src/main.tsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+import { HelmetProvider } from 'react-helmet-async';
+import { pdfjs } from 'react-pdf';
+
+// --- MODIFICATION START ---
+// This new method creates a direct, version-locked URL to the worker file
+// within your project's installed packages. It is the recommended approach for Vite.
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <HelmetProvider>
+      <App />
+    </HelmetProvider>
+  </React.StrictMode>
+);
+</file>
+
 <file path="README.md">
 # Welcome to your Lovable project
 
@@ -18899,6 +18968,10 @@ export const fileService = {
 };
 </file>
 
+<file path="supabase/.temp/cli-latest">
+v2.39.2
+</file>
+
 <file path="src/components/chat/MarkdownRenderer.tsx">
 // src/components/chat/MarkdownRenderer.tsx
 import React from 'react';
@@ -19600,10 +19673,6 @@ const ProfilePage = () => {
 };
 
 export default ProfilePage;
-</file>
-
-<file path="supabase/.temp/cli-latest">
-v2.39.2
 </file>
 
 <file path="supabase/functions/delete-class/index.ts">
@@ -21039,78 +21108,6 @@ export const Header = () => {
 };
 </file>
 
-<file path="src/App.tsx">
-// src/App.tsx
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthGuard } from "./components/auth/AuthGuard";
-import { HelmetProvider } from 'react-helmet-async';
-import { LoaderProvider } from './context/LoaderContext'; 
-import { AuthProvider } from './context/AuthContext';
-import { Analytics } from "@vercel/analytics/react"; // <-- 1. ADD THIS IMPORT
-
-// Import all active page components
-import AuthPage from "./pages/AuthPage";
-import NotFound from "./pages/NotFound";
-import OraclePage from "./pages/OraclePage";
-import ClassesPage from "./pages/ClassesPage.tsx";
-import ProfilePage from "./pages/ProfilePage";
-import DashboardPage from "./pages/DashboardPage";
-import PlaceholderPage from "./pages/PlaceholderPage";
-import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
-import TermsOfServicePage from "./pages/TermsOfServicePage";
-import CalendarPage from "./pages/CalendarPage";
-import AssignmentsPage from "./pages/AssignmentsPage";
-
-const queryClient = new QueryClient();
-const App = () => (
-  <HelmetProvider>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <AuthProvider>
-          <BrowserRouter>
-            <LoaderProvider>
-              <Routes>
-                {/* Public routes */}
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/auth" element={<AuthPage />} />
-                <Route path="/privacy" element={<PrivacyPolicyPage />} />
-                <Route path="/terms" element={<TermsOfServicePage />} />
-
-                {/* Protected routes */}
-                <Route element={<AuthGuard />}>
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/oracle" element={<OraclePage />} />
-                  <Route path="/classes" element={<ClassesPage/>} />
-                  <Route path="/calendar" element={<CalendarPage />} />
-                  <Route path="/assignments" element={<AssignmentsPage />} />
-                  
-                  {/* Placeholder routes */}
-                  <Route path="/command" element={<PlaceholderPage pageName="Command" />} />
-                  <Route path="/billing" element={<PlaceholderPage pageName="Billing" />} />
-                  <Route path="/chrono" element={<PlaceholderPage pageName="Chrono" />} />
-                  <Route path="/codex" element={<PlaceholderPage pageName="Codex" />} />
-                </Route>
-
-                {/* Catch-all 404 route */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </LoaderProvider>
-          </BrowserRouter>
-          <Analytics /> {/* <-- 2. ADD THIS COMPONENT */}
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </HelmetProvider>
-);
-export default App;
-</file>
-
 <file path="supabase/functions/oracle-chat/index.ts">
 // supabase/functions/oracle-chat/index.ts
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
@@ -21423,6 +21420,80 @@ serve(async (req: Request) => {
     });
   }
 });
+</file>
+
+<file path="src/App.tsx">
+// src/App.tsx
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthGuard } from "./components/auth/AuthGuard";
+import { HelmetProvider } from 'react-helmet-async';
+import { LoaderProvider } from './context/LoaderContext'; 
+import { AuthProvider } from './context/AuthContext';
+import { Analytics } from "@vercel/analytics/react"; // <-- 1. ADD THIS IMPORT
+
+// Import all active page components
+import AuthPage from "./pages/AuthPage";
+import NotFound from "./pages/NotFound";
+import OraclePage from "./pages/OraclePage";
+import ClassesPage from "./pages/ClassesPage.tsx";
+import ProfilePage from "./pages/ProfilePage";
+import DashboardPage from "./pages/DashboardPage";
+import PlaceholderPage from "./pages/PlaceholderPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsOfServicePage from "./pages/TermsOfServicePage";
+import CalendarPage from "./pages/CalendarPage";
+import AssignmentsPage from "./pages/AssignmentsPage";
+import OpenInBrowser from './pages/OpenInBrowser';
+
+const queryClient = new QueryClient();
+const App = () => (
+  <HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <BrowserRouter>
+            <LoaderProvider>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/auth" element={<AuthPage />} />
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms" element={<TermsOfServicePage />} />
+                <Route path="/open-in-browser" element={<OpenInBrowser />} />
+
+                {/* Protected routes */}
+                <Route element={<AuthGuard />}>
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/oracle" element={<OraclePage />} />
+                  <Route path="/classes" element={<ClassesPage/>} />
+                  <Route path="/calendar" element={<CalendarPage />} />
+                  <Route path="/assignments" element={<AssignmentsPage />} />
+                  
+                  {/* Placeholder routes */}
+                  <Route path="/command" element={<PlaceholderPage pageName="Command" />} />
+                  <Route path="/billing" element={<PlaceholderPage pageName="Billing" />} />
+                  <Route path="/chrono" element={<PlaceholderPage pageName="Chrono" />} />
+                  <Route path="/codex" element={<PlaceholderPage pageName="Codex" />} />
+                </Route>
+
+                {/* Catch-all 404 route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </LoaderProvider>
+          </BrowserRouter>
+          <Analytics /> {/* <-- 2. ADD THIS COMPONENT */}
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </HelmetProvider>
+);
+export default App;
 </file>
 
 <file path="package.json">
@@ -21846,32 +21917,31 @@ export function Auth() {
   const handleGoogleSignIn = async () => {
     const ua = navigator.userAgent;
 
+    // Detect if the user is in an in-app browser
     const isLinkedIn = /linkedin|linkedinapp/i.test(ua);
     const isFacebook = /(facebook|fbav|fban|fbfor|fbdav|fb_iab)/i.test(ua);
     const isInstagram = /instagram/i.test(ua);
     const isAndroidWebView = /wv\)/i.test(ua);
-
+    
     const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    // A simple check for iOS in-app browsers is to look for an iOS user agent
+    // that lacks the "Safari" token.
     const isIOSWebView = isIOS && !/safari/i.test(ua);
 
     const isInAppBrowser = isLinkedIn || isFacebook || isInstagram || isAndroidWebView || isIOSWebView;
 
     if (isInAppBrowser) {
+      // Get the current URL and encode it for a redirect
       const currentUrl = window.location.href;
-
-      if (isIOS) {
-        // iOS: trigger Safari sheet
-        window.location.replace(`https://${window.location.host}/open-in-browser?redirect=${encodeURIComponent(currentUrl)}`);
-      } else {
-        // Android: use intent scheme to force Chrome
-        const pkg = "com.android.chrome";
-        const intentUrl = `intent://${window.location.host}/open-in-browser?redirect=${encodeURIComponent(currentUrl)}#Intent;scheme=https;package=${pkg};end`;
-        window.location.href = intentUrl;
-      }
+      
+      // We will redirect to a special page that handles the deep link.
+      // The logic for handling the deep link and showing a fallback UI
+      // will live in the OpenInBrowser component.
+      window.location.replace(`/open-in-browser?redirect=${encodeURIComponent(currentUrl)}`);
       return;
     }
 
-    // Standard Google Sign-In
+    // Standard Google Sign-In flow for supported browsers
     setGoogleLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
