@@ -98,36 +98,32 @@ export function Auth() {
   const handleGoogleSignIn = async () => {
     const ua = navigator.userAgent;
 
-    // --- START: In-App Browser Detection & Redirect ---
-    // User agents for various in-app browsers are checked here.
     const isLinkedIn = /linkedin|linkedinapp/i.test(ua);
     const isFacebook = /(facebook|fbav|fban|fbfor|fbdav|fb_iab)/i.test(ua);
     const isInstagram = /instagram/i.test(ua);
-    const isAndroidWebView = /wv\)/.test(ua); // Generic Android WebView
+    const isAndroidWebView = /wv\)/i.test(ua);
 
     const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
-    // iOS in-app browsers often don't include 'Safari' in their user agent.
     const isIOSWebView = isIOS && !/safari/i.test(ua);
 
     const isInAppBrowser = isLinkedIn || isFacebook || isInstagram || isAndroidWebView || isIOSWebView;
 
     if (isInAppBrowser) {
-        // If an in-app browser is detected, this logic attempts to automatically
-        // relaunch the current page in the phone's default browser. This provides a
-        // more reliable and secure authentication environment.
-        
-        // The most robust cross-platform method is to force a top-level navigation.
-        // Many in-app browsers will intercept this and offer to open the link
-        // in the system's default browser, achieving the desired result.
-        window.top.location.href = window.location.href;
-        
-        // Stop the function here. The user will click "Sign in with Google" again,
-        // but this time from their main browser where the process will succeed.
-        return; 
-    }
-    // --- END: In-App Browser Detection & Redirect ---
+      const currentUrl = window.location.href;
 
-    // This is the original Google Sign-In logic that runs in a standard browser.
+      if (isIOS) {
+        // iOS: trigger Safari sheet
+        window.location.replace(`https://${window.location.host}/open-in-browser?redirect=${encodeURIComponent(currentUrl)}`);
+      } else {
+        // Android: use intent scheme to force Chrome
+        const pkg = "com.android.chrome";
+        const intentUrl = `intent://${window.location.host}/open-in-browser?redirect=${encodeURIComponent(currentUrl)}#Intent;scheme=https;package=${pkg};end`;
+        window.location.href = intentUrl;
+      }
+      return;
+    }
+
+    // Standard Google Sign-In
     setGoogleLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
