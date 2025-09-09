@@ -98,32 +98,31 @@ export function Auth() {
   const handleGoogleSignIn = async () => {
     const ua = navigator.userAgent;
 
+    // Detect if the user is in an in-app browser
     const isLinkedIn = /linkedin|linkedinapp/i.test(ua);
     const isFacebook = /(facebook|fbav|fban|fbfor|fbdav|fb_iab)/i.test(ua);
     const isInstagram = /instagram/i.test(ua);
     const isAndroidWebView = /wv\)/i.test(ua);
-
+    
     const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    // A simple check for iOS in-app browsers is to look for an iOS user agent
+    // that lacks the "Safari" token.
     const isIOSWebView = isIOS && !/safari/i.test(ua);
 
     const isInAppBrowser = isLinkedIn || isFacebook || isInstagram || isAndroidWebView || isIOSWebView;
 
     if (isInAppBrowser) {
+      // Get the current URL and encode it for a redirect
       const currentUrl = window.location.href;
-
-      if (isIOS) {
-        // iOS: trigger Safari sheet
-        window.location.replace(`https://${window.location.host}/open-in-browser?redirect=${encodeURIComponent(currentUrl)}`);
-      } else {
-        // Android: use intent scheme to force Chrome
-        const pkg = "com.android.chrome";
-        const intentUrl = `intent://${window.location.host}/open-in-browser?redirect=${encodeURIComponent(currentUrl)}#Intent;scheme=https;package=${pkg};end`;
-        window.location.href = intentUrl;
-      }
+      
+      // We will redirect to a special page that handles the deep link.
+      // The logic for handling the deep link and showing a fallback UI
+      // will live in the OpenInBrowser component.
+      window.location.replace(`/open-in-browser?redirect=${encodeURIComponent(currentUrl)}`);
       return;
     }
 
-    // Standard Google Sign-In
+    // Standard Google Sign-In flow for supported browsers
     setGoogleLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({

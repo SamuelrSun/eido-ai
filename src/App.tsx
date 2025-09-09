@@ -22,6 +22,7 @@ import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import CalendarPage from "./pages/CalendarPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
+import OpenInBrowser from './pages/OpenInBrowser';
 
 const queryClient = new QueryClient();
 const App = () => (
@@ -39,6 +40,7 @@ const App = () => (
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/terms" element={<TermsOfServicePage />} />
+                <Route path="/open-in-browser" element={<OpenInBrowser />} />
 
                 {/* Protected routes */}
                 <Route element={<AuthGuard />}>
